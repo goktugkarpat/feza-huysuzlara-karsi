@@ -1,0 +1,1933 @@
+/* ── Feza: kahraman modeli + canlı animasyon, ekipman modelleri (ışın kılıcı / şapka / pelerin), eşya tanımları, küçük resimler ──
+   FEZA.create() → H · FEZA.portrait(H) → dataURL · ITEMS (bkz. src/SPEC.md "FEZA + ITEMS").
+   Every weapon is a lightsaber (Feza's request): ITEMS.bladeColor(item), H.ignite(), H.bladeOn; the blade retracts while
+   he sleeps and re-ignites when he wakes. Extra: H.retract(), ITEMS.nameOf(item) (current name, for old saves).
+   Body = one skeleton + three SkinnedMeshes (skin, clothes, shoes) with rigid + blended weights, so knees, elbows, waist and
+   neck bend smoothly; hair sits on the head bone. Eyes, lashes, brows, mouth and blush are drawn by the skin shader from a
+   per-vertex (yaw, pitch) head coordinate: crisp at any zoom, animated by uniforms, no extra draw call.
+   Extras beyond the SPEC: FEZA.warm() / ITEMS.prebake(n) (shader warm-up + thumbnail/portrait pre-rendering, also driven
+   automatically from the first hero's update), FEZA.portrait(H, hatItem?), ITEMS.thumb(item, lazy?). */
+'use strict';
+
+const { FEZA, ITEMS } = (function () {
+  // ── Helpers ──
+  const sq = x => x * x;
+  const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const easeOut = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+  const easeIO = t => { t = clamp(t, 0, 1); return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+  const wrapPI = a => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+  const keep = o => { o.userData.keep = true; return o; };   // shared: disposeTree() leaves it alone
+  const v3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+  const V2 = (x, y = x) => new THREE.Vector2(x, y);
+  const canvasEl = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  function tex(n) {
+    if (typeof TEX === 'undefined') return null;
+    if (!TEX.ready && !TEX[n] && TEX.init) { try { TEX.init(); } catch (e) { return null; } }
+    return TEX[n] && TEX[n].map ? TEX[n] : null;
+  }
+  // Every Feza/equipment material writes stencil 1 where it is visible; the x-ray pass only draws where it is not.
+  function stencil(m) {
+    m.stencilWrite = true; m.stencilRef = 1; m.stencilFunc = THREE.AlwaysStencilFunc;
+    m.stencilZPass = THREE.ReplaceStencilOp; m.stencilFail = THREE.KeepStencilOp; m.stencilZFail = THREE.KeepStencilOp;
+    return m;
+  }
+  const RARITY = [{ ad: 'Sıradan', color: '#f4f4f4' }, { ad: 'Sihirli', color: '#5aa8ff' }, { ad: 'Nadir', color: '#ffd23f' }, { ad: 'Efsane', color: '#ff8a1c' }];
+  const rarCol = r => (RARITY[r] || RARITY[0]).color;
+  const baseId = it => (it && it.base && it.base.id) ? it.base.id : (it ? it.base : null);
+  const itemKey = it => it.slot + ':' + baseId(it) + ':' + (it.rarity | 0);
+
+  // ── Geometry builders ──
+  // Grid surface fn(u, v, out) for u, v in [0,1]; normals by central differences, oriented away from `ctr`.
+  function paramGeo(fn, nu, nv, ctr, wrapU) {
+    const n1 = nu + 1, nV = n1 * (nv + 1);
+    const pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), uv = new Float32Array(nV * 2);
+    const p = v3(), a = v3(), b = v3(), c = v3(), d = v3(), n = v3(), e = 1e-3;
+    for (let j = 0, k = 0; j <= nv; j++) for (let i = 0; i <= nu; i++, k++) {
+      const u = i / nu, v = j / nv;
+      fn(u, v, p);
+      fn(wrapU ? u + e : Math.min(1, u + e), v, a); fn(wrapU ? u - e : Math.max(0, u - e), v, b); a.sub(b);
+      fn(u, Math.min(1, v + e), c); fn(u, Math.max(0, v - e), d); c.sub(d);
+      n.crossVectors(a, c);
+      if (n.lengthSq() < 1e-14) n.copy(p).sub(ctr);
+      n.normalize();
+      if (n.dot(d.copy(p).sub(ctr)) < 0) n.negate();
+      pos[k * 3] = p.x; pos[k * 3 + 1] = p.y; pos[k * 3 + 2] = p.z;
+      nor[k * 3] = n.x; nor[k * 3 + 1] = n.y; nor[k * 3 + 2] = n.z;
+      uv[k * 2] = u; uv[k * 2 + 1] = v;
+    }
+    const idx = [];
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) { const q = j * n1 + i; idx.push(q, q + 1, q + n1 + 1, q, q + n1 + 1, q + n1); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    fixWinding(g);
+    return g;
+  }
+  // Make triangle winding agree with the vertex normals (front faces outward).
+  function fixWinding(g) {
+    const I = g.index.array, P = g.attributes.position, N = g.attributes.normal, a = v3(), b = v3(), c = v3(), n = v3();
+    let s = 0;
+    for (let t = 0; t < I.length; t += 3 * Math.max(1, (I.length / 3 / 60) | 0)) {
+      a.fromBufferAttribute(P, I[t]); b.fromBufferAttribute(P, I[t + 1]).sub(a); c.fromBufferAttribute(P, I[t + 2]).sub(a);
+      n.crossVectors(b, c); if (n.lengthSq() < 1e-16) continue;
+      a.fromBufferAttribute(N, I[t]); s += n.dot(a) > 0 ? 1 : -1;
+    }
+    if (s < 0) for (let t = 0; t < I.length; t += 3) { const x = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = x; }
+  }
+  // Lathe (profile bottom → top as [r, y]) with the seam at the back, elliptic (sx, sz), UVs in texture tiles if `tile`.
+  function lathe(prof, seg, cx, cz, sx, sz, tile) {
+    const pts = prof.map(p => V2(p[0], p[1]));
+    const g = new THREE.LatheGeometry(pts, seg, Math.PI, TAU);
+    g.applyMatrix4(new THREE.Matrix4().makeScale(sx, 1, sz));
+    g.translate(cx, 0, cz);
+    if (tile) {
+      const uv = g.attributes.uv, n = pts.length, L = [0];
+      let rMax = 0;
+      for (let j = 0; j < n; j++) { rMax = Math.max(rMax, pts[j].x); if (j) L[j] = L[j - 1] + pts[j].distanceTo(pts[j - 1]); }
+      const C = TAU * rMax * (sx + sz) / 2;
+      for (let i = 0; i <= seg; i++) for (let j = 0; j < n; j++) uv.setXY(i * n + j, i / seg * C / tile, L[j] / tile);
+    }
+    return g;
+  }
+  // Sweep an elliptic cross-section along points P[i] with up vectors U[i]. wf/tf(t) half width/thickness,
+  // flat squashes the underside, colf(t, color), flexf(t). Returns indexed geometry with color + aFlex.
+  function sweep(P, U, wf, tf, M, flat, colf, flexf) {
+    const N = P.length - 1, nv = (N + 1) * (M + 1);
+    const pos = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), col = new Float32Array(nv * 3), fl = new Float32Array(nv);
+    const T = v3(), Nn = v3(), B = v3(), q = v3(), c = new THREE.Color();
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      T.subVectors(P[Math.min(N, i + 1)], P[Math.max(0, i - 1)]).normalize();
+      Nn.copy(U[i]).addScaledVector(T, -U[i].dot(T)).normalize();
+      B.crossVectors(T, Nn).normalize();
+      const w = wf(t), th = tf(t), f = flexf ? flexf(t) : 0;
+      colf(t, c);
+      for (let k = 0; k <= M; k++) {
+        const a = k / M * TAU, ca = Math.cos(a), sa = Math.sin(a), o = i * (M + 1) + k;
+        q.copy(P[i]).addScaledVector(B, ca * w).addScaledVector(Nn, sa < 0 ? sa * th * flat : sa * th);
+        pos[o * 3] = q.x; pos[o * 3 + 1] = q.y; pos[o * 3 + 2] = q.z;
+        uv[o * 2] = k / M; uv[o * 2 + 1] = t;
+        col[o * 3] = c.r; col[o * 3 + 1] = c.g; col[o * 3 + 2] = c.b;
+        fl[o] = f;
+      }
+    }
+    const idx = [];
+    for (let i = 0; i < N; i++) for (let k = 0; k < M; k++) { const a = i * (M + 1) + k, b = a + M + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('aFlex', new THREE.BufferAttribute(fl, 1));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    // outward check: the top of the ring (k = M/4) must face +up
+    const k4 = Math.round(M / 4), mid = Math.floor(N / 2) * (M + 1), nA = g.attributes.normal;
+    T.subVectors(P[Math.min(N, Math.floor(N / 2) + 1)], P[Math.max(0, Math.floor(N / 2) - 1)]).normalize();
+    Nn.copy(U[Math.floor(N / 2)]).addScaledVector(T, -U[Math.floor(N / 2)].dot(T)).normalize();
+    if (q.fromBufferAttribute(nA, mid + k4).dot(Nn) < 0) {
+      const I = g.index.array; for (let t = 0; t < I.length; t += 3) { const x = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = x; }
+      g.computeVertexNormals();
+    }
+    return g;
+  }
+  // Catmull-Rom through 3D points, returns N+1 samples.
+  const curvePts = (pts, N) => new THREE.CatmullRomCurve3(pts, false, 'centripetal').getPoints(N);
+  // Concatenate geometries that share the same attribute set.
+  function concat(geos) {
+    const names = Object.keys(geos[0].attributes);
+    let nv = 0, ni = 0;
+    for (const g of geos) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+    const out = new THREE.BufferGeometry(), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    for (const n of names) {
+      const s = geos[0].attributes[n].itemSize, arr = new Float32Array(nv * s);
+      let vo = 0;
+      for (const g of geos) { const a = g.attributes[n]; for (let i = 0; i < a.count * s; i++) arr[vo * s + i] = a.array[i]; vo += g.attributes.position.count; }
+      out.setAttribute(n, new THREE.BufferAttribute(arr, s));
+    }
+    let vo = 0, io = 0;
+    for (const g of geos) {
+      const c = g.attributes.position.count;
+      if (g.index) { const I = g.index.array; for (let i = 0; i < I.length; i++) idx[io + i] = I[i] + vo; io += I.length; }
+      else { for (let i = 0; i < c; i++) idx[io + i] = vo + i; io += c; }
+      vo += c;
+    }
+    out.setIndex(new THREE.BufferAttribute(idx, 1));
+    out.computeBoundingSphere();
+    return out;
+  }
+  // Kit-like merge with skin weights. part: {geo, bone} or {geo, w(x,y,z) → [bone0, bone1, weight1]}, color hex|fn, face?
+  function mergeSkinned(parts, withFace) {
+    let nv = 0, ni = 0;
+    for (const p of parts) { nv += p.geo.attributes.position.count; ni += p.geo.index ? p.geo.index.count : p.geo.attributes.position.count; }
+    const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), col = new Float32Array(nv * 3);
+    const si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4), face = withFace ? new Float32Array(nv * 2).fill(-10) : null;
+    const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    let vo = 0, io = 0;
+    const cc = new THREE.Color();
+    for (const p of parts) {
+      const g = p.geo, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv, F = g.attributes.aFace, C = g.attributes.color;
+      const cfn = typeof p.color === 'function' ? p.color : null, cfix = cfn ? null : new THREE.Color(p.color ?? 0xffffff);
+      for (let i = 0; i < P.count; i++) {
+        const o = vo + i, x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        pos[o * 3] = x; pos[o * 3 + 1] = y; pos[o * 3 + 2] = z;
+        nor[o * 3] = N.getX(i); nor[o * 3 + 1] = N.getY(i); nor[o * 3 + 2] = N.getZ(i);
+        if (U) { uv[o * 2] = U.getX(i); uv[o * 2 + 1] = U.getY(i); }
+        const c = cfn ? cfn(x, y, z) : C ? cc.setRGB(C.getX(i), C.getY(i), C.getZ(i)).multiply(cfix) : cfix;
+        col[o * 3] = c.r; col[o * 3 + 1] = c.g; col[o * 3 + 2] = c.b;
+        if (p.w) { const w = p.w(x, y, z); si[o * 4] = w[0]; si[o * 4 + 1] = w[1]; sw[o * 4] = 1 - w[2]; sw[o * 4 + 1] = w[2]; }
+        else { si[o * 4] = p.bone; sw[o * 4] = 1; }
+        if (face && F) { face[o * 2] = F.getX(i); face[o * 2 + 1] = F.getY(i); }
+      }
+      if (g.index) { const I = g.index.array; for (let i = 0; i < I.length; i++) idx[io + i] = I[i] + vo; io += I.length; }
+      else { for (let i = 0; i < P.count; i++) idx[io + i] = vo + i; io += P.count; }
+      vo += P.count;
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    out.setAttribute('skinIndex', new THREE.BufferAttribute(si, 4));
+    out.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+    if (face) out.setAttribute('aFace', new THREE.BufferAttribute(face, 2));
+    out.setIndex(new THREE.BufferAttribute(idx, 1));
+    out.computeBoundingSphere();
+    return keep(out);
+  }
+  const kitGeo = f => { const k = new Kit(); f(k); return k.build(); };
+
+  // ── Head shape (head-bone space; bone sits at the neck base, world y = HB in bind pose) ──
+  const HB = 0.84, HC = v3(0, 0.24, 0.012);
+  function headSurf(th, ph, o) {
+    const cp = Math.cos(ph), dx = Math.sin(th) * cp, dy = Math.sin(ph), dz = Math.cos(th) * cp;
+    let x = dx * 0.272, y = dy * lerp(0.198, 0.262, sstep(-0.35, 0.35, dy)), z = dz * lerp(0.27, 0.258, sstep(-0.35, 0.35, dz));
+    const jaw = sstep(0.3, 1.25, -ph);                                                     // narrower jaw, short soft chin
+    x *= 1 - 0.22 * jaw; z *= 1 - 0.16 * jaw;
+    const at = Math.abs(th), front = sstep(-0.1, 0.4, dz);
+    let b = 0.022 * Math.exp(-sq((at - 0.5) / 0.33) - sq((ph + 0.35) / 0.27)) * front;      // round cheeks
+    b += 0.013 * Math.exp(-sq(th / 0.08) - sq((ph + 0.262) / 0.065));                      // button nose
+    b += 0.006 * Math.exp(-sq(th / 0.3) - sq((ph + 0.92) / 0.2));                          // chin
+    o.set(HC.x + x + dx * b, HC.y + y + dy * b, HC.z + z + dz * b);
+    return o;
+  }
+  const _ha = v3(), _hb = v3(), _hc = v3(), _hd = v3();
+  function headNormal(th, ph, o) {
+    const e = 1e-3;
+    headSurf(th + e, ph, _ha); headSurf(th - e, ph, _hb); _ha.sub(_hb);
+    headSurf(th, Math.min(ph + e, 1.5707), _hc); headSurf(th, Math.max(ph - e, -1.5707), _hd); _hc.sub(_hd);
+    o.crossVectors(_ha, _hc);
+    if (o.lengthSq() < 1e-12) { headSurf(th, ph, o); o.sub(HC); }
+    return o.normalize();
+  }
+  // Non-uniform head grid: dense over the face, sparse at the back and top (under the hair) → a third of the triangles.
+  const headTh = u => { const s = 2 * u - 1; return Math.PI * s * (0.38 + 0.62 * s * s); };
+  const PH_CDF = (() => {
+    const N = 256, d = ph => 1 + 1.4 * Math.exp(-sq((ph + 0.3) / 0.6)), c = [0];
+    for (let i = 1; i <= N; i++) c.push(c[i - 1] + d(-Math.PI / 2 + (i - 0.5) / N * Math.PI));
+    return c.map(x => x / c[N]);
+  })();
+  function headPh(v) {
+    v = clamp(v, 0, 1);
+    let lo = 0, hi = PH_CDF.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (PH_CDF[m] <= v) lo = m; else hi = m; }
+    const f = (v - PH_CDF[lo]) / Math.max(1e-9, PH_CDF[hi] - PH_CDF[lo]);
+    return -Math.PI / 2 + (lo + f) / (PH_CDF.length - 1) * Math.PI;
+  }
+  function headGeo() {
+    const NU = 64, NV = 40, ctr = v3(0, HB + HC.y, HC.z);
+    const g = paramGeo((u, v, o) => { headSurf(headTh(u), headPh(v), o); o.y += HB; }, NU, NV, ctr, true);
+    const f = new Float32Array((NU + 1) * (NV + 1) * 2);
+    for (let j = 0, k = 0; j <= NV; j++) for (let i = 0; i <= NU; i++, k++) { f[k * 2] = headTh(i / NU); f[k * 2 + 1] = headPh(j / NV); }
+    g.setAttribute('aFace', new THREE.BufferAttribute(f, 2));
+    return g;
+  }
+  // Ears (half covered by the side hair, like in the photo): a thin plate with a rolled rim, tilted back a little.
+  const EAR = { th: 1.6, ph: -0.19 };
+  function earGeo(s) {
+    const th = s * EAR.th, p = headSurf(th, EAR.ph, v3()), n = headNormal(th, EAR.ph, v3());
+    const X = n.clone(), Y = v3(0, 1, 0).addScaledVector(X, -X.y).normalize().applyAxisAngle(X, -0.22 * s), Z = v3().crossVectors(X, Y);
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+    const c = p.clone().addScaledVector(n, 0.004); c.y += HB;
+    const o = c.clone().addScaledVector(X, 0.008), inner = new THREE.Color(0xe9a390), outer = new THREE.Color(0xf6cdb8), tmp = new THREE.Color(), w = v3();
+    const col = (x, y, z) => { w.set(x, y, z).sub(o); return tmp.copy(inner).lerp(outer, sstep(0.008, 0.022, Math.hypot(w.dot(Y), w.dot(Z) * 1.3))); };
+    return kitGeo(k => {
+      k.add(G.sphere(12, 8), col, [c.x, c.y, c.z], q, [0.009, 0.034, 0.024]);
+      k.push([o.x, o.y, o.z], q).add(G.torus(TAU, 0.34, 18), 0xf6cdb8, [0, 0.002, 0], [0, Math.PI / 2, 0], [0.018, 0.026, 0.02]).pop();
+    });
+  }
+
+  // ── Hair: a shell over the scalp plus ~75 short, tousled locks (a boy's shaggy cut: nape at the top of the neck,
+  // ears half covered, fringe swept diagonally so one corner of the forehead shows) and a few cowlicks ──
+  const HAIR_D = new THREE.Color(0x2c180c), HAIR_L = new THREE.Color(0x4a2b16), HAIR_H = new THREE.Color(0x6b4424);
+  function hairline(th) {
+    const a = Math.abs(th), saw = th * 2.3 + 0.35 - Math.floor(th * 2.3 + 0.35);
+    const front = 0.46 + 0.06 * th + 0.06 * Math.pow(saw, 1.7);                              // the locks make the fringe edge
+    let h = lerp(front, -0.3, sstep(0.6, 1.25, a));                                          // temples → sideburns
+    h = lerp(h, -0.28, sstep(1.75, 2.2, a));                                                 // behind the ears
+    h = lerp(h, -0.34, sstep(2.4, 2.9, a));                                                  // nape (the idle head tilt lowers it)
+    h = lerp(h, -0.04, sstep(1.28, 1.46, a) * (1 - sstep(1.76, 1.96, a)));                   // around the ear
+    return h + 0.03 * Math.sin(th * 11 + 0.7) * sstep(0.5, 1.2, a);
+  }
+  function hairThick(th, ph) {
+    const a = Math.abs(th);
+    return 0.016 + 0.034 * sstep(-0.1, 1.1, ph) + 0.006 * sstep(1.9, 2.8, a) * sstep(-0.6, 0.3, ph);
+  }
+  const capLift = (th, ph) => { const hl = hairline(th); return hairThick(th, ph) * sstep(hl - 0.1, hl + 0.06, ph); };
+  const dirOf = (th, ph) => v3(Math.sin(th) * Math.cos(ph), Math.sin(ph), Math.cos(th) * Math.cos(ph));
+  function hairCapGeo() {
+    const NU = 128, NV = 16, n = v3(), ctr = HC.clone();
+    const g = paramGeo((u, v, o) => {
+      const th = -Math.PI + u * TAU, hl = hairline(th), s = Math.pow(v, 0.85), ph = lerp(hl, Math.PI / 2 - 1e-3, s);
+      headSurf(th, ph, o); headNormal(th, ph, n);
+      o.addScaledVector(n, hairThick(th, ph) * (0.18 + 0.82 * sstep(0, 0.16, v)));
+    }, NU, NV, ctr, true);
+    const cnt = g.attributes.position.count, col = new Float32Array(cnt * 3), fl = new Float32Array(cnt), uv = g.attributes.uv, c = new THREE.Color();
+    for (let i = 0; i < cnt; i++) {
+      const u = uv.getX(i), v = uv.getY(i), th = -Math.PI + u * TAU;
+      const streak = 0.5 + 0.5 * Math.sin(th * 23 + Math.sin(th * 7) * 2) * Math.sin(th * 9 + 1);
+      c.copy(HAIR_D).lerp(HAIR_L, 0.3 + 0.25 * streak * sstep(0.1, 0.8, v)).multiplyScalar(0.8 + 0.2 * sstep(0, 0.3, v));
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      uv.setXY(i, u * 10, v * 2.2);
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setAttribute('aFlex', new THREE.BufferAttribute(fl, 1));
+    return g;
+  }
+  function hairLocks() {
+    const R = mulberry32(20190612), r = (a, b) => a + R() * (b - a), L = [];
+    const add = (pts, w, t, tone, flex, tuft) => L.push({ pts, w, t, tone, flex, tuft: !!tuft });
+    const P = (th, ph, lift) => [dirOf(th, ph), lift];
+    const lock4 = (th0, ph0, th1, ph1, lifts, w, t, tone, flex, bulge = 0) => add([P(th0, ph0, lifts[0]), P(lerp(th0, th1, 0.4) + bulge, lerp(ph0, ph1, 0.42), lifts[1]),
+      P(lerp(th0, th1, 0.78), lerp(ph0, ph1, 0.8), lifts[2]), P(th1, ph1, lifts[3])], w, t, tone, flex);
+    // fringe: swept diagonally to Feza's right (th < 0) — short on his left so that corner of the forehead shows,
+    // down to the right brow; some tips flick up
+    for (let i = 0; i < 12; i++) {
+      const f = i / 11, th0 = 0.8 - i * 0.125 + r(-0.03, 0.03), ph0 = 0.8 + r(-0.04, 0.05);
+      const th1 = th0 - 0.3 - r(0, 0.14), ph1 = lerp(0.37, 0.15, f) + r(-0.03, 0.03) - Math.max(0, -th1 - 0.5) * 0.2;
+      lock4(th0, ph0, th1, ph1, [0, 0.017, 0.013, 0.011 + 0.012 * R()], r(0.05, 0.064), r(0.018, 0.022), r(0.05, 0.75), 0.8, 0.02);
+    }
+    for (let i = 0; i < 5; i++) {   // shorter top layer so the fringe root is not a flat line
+      const th0 = 0.62 - i * 0.3 + r(-0.05, 0.05), ph0 = 1.0 + r(0, 0.08);
+      lock4(th0, ph0, th0 - 0.3 - r(0, 0.1), 0.5 + r(0, 0.08), [0, 0.018, 0.017, 0.014], r(0.055, 0.07), 0.02, r(0.4, 1), 0.7, 0.03);
+    }
+    lock4(0.1, 0.74, 0.36, 0.44, [0, 0.015, 0.017, 0.022], 0.044, 0.017, 0.85, 0.8);          // one rebel the other way
+    // sides: shaggy, ear-lobe length in front of and behind the ear, short over it; tips flick outward
+    for (const s of [1, -1]) {
+      for (let i = 0; i < 3; i++) {   // temples / sideburns
+        const th0 = s * (0.8 + i * 0.16 + r(-0.03, 0.03)), ph0 = 0.5 + r(-0.03, 0.06);
+        lock4(th0, ph0, th0 + s * (0.14 + r(0, 0.08)), -0.13 - r(0, 0.06), [0, 0.019, 0.026, 0.048], r(0.056, 0.068), 0.022, r(0.1, 0.9), 1, s * 0.04);
+      }
+      for (let i = 0; i < 3; i++) {   // over the ear: covers its top half
+        const th0 = s * (1.36 + i * 0.17 + r(-0.03, 0.03)), ph0 = 0.56 + r(-0.03, 0.06);
+        lock4(th0, ph0, th0 + s * r(0.04, 0.14), -0.03 - r(0, 0.05), [0, 0.022, 0.032, 0.052], r(0.06, 0.072), 0.023, r(0, 1), 1);
+      }
+      for (let i = 0; i < 3; i++) {   // behind the ear
+        const th0 = s * (1.95 + i * 0.2 + r(-0.04, 0.04)), ph0 = 0.62 + r(-0.03, 0.08);
+        lock4(th0, ph0, th0 + s * r(0.04, 0.16), -0.16 - r(0, 0.08), [0, 0.022, 0.03, 0.05], r(0.064, 0.076), 0.024, r(0, 1), 1);
+      }
+      for (let i = 0; i < 4; i++) {   // short upper-side layer (volume seen from above)
+        const th0 = s * (0.8 + i * 0.42 + r(-0.05, 0.05)), ph0 = 1.02 + r(0, 0.1);
+        lock4(th0, ph0, th0 + s * r(0.04, 0.16), 0.26 + r(-0.08, 0.08), [0, 0.021, 0.026, 0.028], r(0.068, 0.082), 0.024, r(0.3, 1), 0.8);
+      }
+    }
+    // nape: uneven tips at the top of the neck, flicking out
+    for (let i = 0; i < 9; i++) {
+      const th0 = Math.PI + (i - 4) * 0.22 + r(-0.04, 0.04), ph0 = 0.72 + r(0, 0.1), th1 = th0 + r(-0.16, 0.16), ph1 = -0.06 - r(0, 0.18) + (i & 1) * 0.06;
+      lock4(th0, ph0, th1, ph1, [0, 0.022, 0.032, 0.045 + r(0, 0.035)], r(0.068, 0.082), 0.025, r(0, 0.9), 1);
+    }
+    // shorter layer over the back of the head, so the back reads layered and tousled, not as one straight curtain
+    for (let i = 0; i < 7; i++) {
+      const th0 = Math.PI + (i - 3) * 0.3 + r(-0.06, 0.06), ph0 = 0.95 + r(0, 0.1);
+      lock4(th0, ph0, th0 + r(-0.2, 0.2), 0.3 + r(-0.08, 0.1), [0, 0.024, 0.028, 0.034 + r(0, 0.012)], r(0.07, 0.085), 0.024, r(0.3, 1), 0.8);
+    }
+    // crown: short tousled clumps swirling out of a whorl a little behind the top (very visible from the game camera)
+    const Cw = dirOf(Math.PI * 0.92, 1.18), e1 = v3().crossVectors(Cw, v3(1, 0, 0)).normalize(), e2 = v3().crossVectors(Cw, e1);
+    const at = (a, d) => Cw.clone().multiplyScalar(Math.cos(d)).addScaledVector(e1, Math.cos(a) * Math.sin(d)).addScaledVector(e2, Math.sin(a) * Math.sin(d)).normalize();
+    const clump = (a, tw, d0, d1, l0, l1, l2, l3, w, t, tone, flex) => add([[at(a, d0), l0], [at(a + tw * 0.4, lerp(d0, d1, 0.4)), l1], [at(a + tw * 0.8, lerp(d0, d1, 0.78)), l2], [at(a + tw, d1), l3]], w, t, tone, flex);
+    for (let i = 0; i < 8; i++) clump(i / 8 * TAU + r(-0.2, 0.2), 0.35 + r(-0.1, 0.15), 0.03, r(0.3, 0.4), 0.004, 0.02, 0.022, 0.02 + r(0, 0.012), r(0.068, 0.082), r(0.018, 0.022), r(0.3, 1), 0.5);
+    for (let i = 0; i < 12; i++) { const d0 = r(0.26, 0.34); clump(i / 12 * TAU + r(-0.15, 0.15), r(-0.45, 0.45), d0, d0 + r(0.32, 0.44), 0.006, 0.022, 0.02, 0.017 + r(0, 0.016), r(0.07, 0.086), r(0.018, 0.023), r(0.2, 1), 0.6); }
+    // cowlicks (collapsed under hats)
+    const cw = [[0.5, 0.11, 0.06], [-0.3, 0.13, 0.08], [0.15, 0.08, 0.05], [1.4, 0.07, 0.035]];
+    for (const [a, h, len] of cw) {
+      const b = dirOf(Math.PI * 0.9 + a * 0.25, 1.22), m = dirOf(Math.PI * 0.9 + a * 0.4, 1.05 + len), e = dirOf(Math.PI * 0.95 + a * 0.6, 0.9 + len);
+      add([[b, 0.01], [m, h * 0.6], [e, h]], 0.028, 0.012, 0.7, 1.4, true);
+    }
+    return L;
+  }
+  function lockGeo(L) {
+    const N = 8, dirs = curvePts(L.pts.map(p => p[0]), N), n1 = L.pts.length - 1;
+    const liftAt = t => { const f = t * n1, i = Math.min(n1 - 1, Math.floor(f)), u = f - i, a = L.pts[i][1], b = L.pts[i + 1][1]; return a + (b - a) * u * u * (3 - 2 * u); };
+    const P = [], U = [], n = v3();
+    for (let i = 0; i <= N; i++) {
+      const d = dirs[i].normalize(), th = Math.atan2(d.x, d.z), ph = Math.asin(clamp(d.y, -1, 1));
+      const p = headSurf(th, ph, v3()); headNormal(th, ph, n);
+      p.addScaledVector(n, capLift(th, ph) + liftAt(i / N) + L.t * 0.35);
+      P.push(p); U.push(n.clone());
+    }
+    const base = HAIR_D.clone().lerp(HAIR_L, L.tone);
+    // aFlex < 0 marks cowlick vertices (the hair shader collapses them under a hat)
+    return sweep(P, U, t => L.w * (0.7 + 0.3 * Math.sin(Math.min(1, t * 2.2) * Math.PI / 2)) * Math.pow(1 - t, 0.9),
+      t => L.t * (1 - 0.75 * t), 6, 0.5,
+      (t, c) => { c.copy(base).multiplyScalar(0.86 + 0.26 * t); if (L.tone > 0.75 && t > 0.3) c.lerp(HAIR_H, 0.3); },
+      t => L.tuft ? -(Math.pow(t, 1.5) * L.flex + 0.01) : Math.pow(t, 1.5) * L.flex);
+  }
+  // Low-poly outer hull of head + hair (for the x-ray silhouette proxy), head-bone space shifted to bind pose (y + HB).
+  function headHullGeo() {
+    const n = v3();
+    return paramGeo((u, v, o) => {
+      const th = -Math.PI + u * TAU, ph = -Math.PI / 2 + v * Math.PI, hl = hairline(th);
+      headSurf(th, ph, o); headNormal(th, ph, n);
+      o.addScaledVector(n, capLift(th, ph) + 0.028 * sstep(hl - 0.05, hl + 0.12, ph)); o.y += HB;
+    }, 20, 14, v3(0, HB + HC.y, HC.z), true);
+  }
+
+  // ── Strand normal map for the hair (generated once, 128²) ──
+  let STRAND = null;
+  function strandTex() {
+    if (STRAND) return STRAND;
+    const S = 128, D = new Uint8Array(S * S * 4), H = new Float32Array(S * S), R = mulberry32(77);
+    const ph = [], fr = [2, 5, 9, 14, 23, 31, 47], am = [0.3, 0.25, 0.22, 0.18, 0.12, 0.1, 0.06];
+    for (let i = 0; i < fr.length; i++) ph.push(R() * TAU);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      let h = 0; const u = x / S, v = y / S;
+      for (let i = 0; i < fr.length; i++) h += am[i] * Math.sin(TAU * fr[i] * u + ph[i] + 0.6 * Math.sin(TAU * v + i));
+      H[y * S + x] = h;
+    }
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const dx = H[y * S + (x + 1) % S] - H[y * S + (x + S - 1) % S], dy = H[((y + 1) % S) * S + x] - H[((y + S - 1) % S) * S + x];
+      const nx = -dx * 2.2, ny = -dy * 2.2, l = Math.hypot(nx, ny, 1), o = (y * S + x) * 4;
+      D[o] = (nx / l * 0.5 + 0.5) * 255; D[o + 1] = (ny / l * 0.5 + 0.5) * 255; D[o + 2] = (1 / l * 0.5 + 0.5) * 255; D[o + 3] = 255;
+    }
+    const t = new THREE.DataTexture(D, S, S, THREE.RGBAFormat);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true; t.anisotropy = ANISO; t.colorSpace = THREE.NoColorSpace; t.needsUpdate = true;
+    return (STRAND = keep(t));
+  }
+
+  // ── Body geometry (built once, shared by every Feza) ──
+  // Bones: 0 root, 1 hips, 2 chest, 3 head, 4 armL, 5 foreL, 6 armR, 7 foreR, 8 thighL, 9 shinL, 10 thighR, 11 shinR.
+  // Feza faces +z, so his right side is −x (sword arm = armR).
+  const SKIN = 0xf2cbb5, TILE = 0.4;
+  const BONES = [['root', -1, 0, 0, 0], ['hips', 0, 0, 0.47, 0], ['chest', 1, 0, 0.13, 0], ['head', 2, 0, 0.24, 0],
+    ['armL', 2, 0.175, 0.16, -0.005], ['foreL', 4, 0, -0.155, 0], ['armR', 2, -0.175, 0.16, -0.005], ['foreR', 6, 0, -0.155, 0],
+    ['thighL', 1, 0.088, -0.03, 0], ['shinL', 8, 0, -0.195, 0], ['thighR', 1, -0.088, -0.03, 0], ['shinR', 10, 0, -0.195, 0]];
+  // Lathe profiles [r, y] (bind pose, metres). SHIRT_P / SHORTS_P are also used to keep the cape off the back.
+  const NECK_P = [[0, 0.76], [0.06, 0.765], [0.058, 0.84], [0.06, 0.92], [0, 0.95]];
+  const ARM_P = [[0, 0.455], [0.03, 0.458], [0.041, 0.47], [0.043, 0.5], [0.046, 0.56], [0.047, 0.605], [0.05, 0.65], [0.053, 0.7], [0.054, 0.74], [0.05, 0.775], [0.035, 0.79], [0, 0.795]];
+  const LEG_P = [[0, 0.06], [0.03, 0.063], [0.043, 0.08], [0.046, 0.11], [0.057, 0.17], [0.059, 0.2], [0.056, 0.245], [0.06, 0.29], [0.068, 0.35], [0.072, 0.4], [0.07, 0.45], [0.05, 0.48], [0, 0.49]];
+  const SLEEVE_P = [[0.055, 0.628], [0.066, 0.632], [0.069, 0.66], [0.068, 0.71], [0.062, 0.755], [0.048, 0.785], [0.026, 0.8], [0, 0.803]];
+  const PANTLEG_P = [[0.078, 0.325], [0.09, 0.33], [0.095, 0.35], [0.095, 0.39], [0.091, 0.43], [0.07, 0.45], [0, 0.46]];
+  const SHIRT_P = [[0, 0.44], [0.13, 0.438], [0.172, 0.445], [0.18, 0.46], [0.185, 0.5], [0.184, 0.55], [0.178, 0.61], [0.17, 0.67], [0.163, 0.72],
+    [0.152, 0.76], [0.13, 0.79], [0.1, 0.81], [0.07, 0.822], [0.056, 0.826], [0, 0.827]];
+  const SHORTS_P = [[0, 0.375], [0.1, 0.378], [0.155, 0.398], [0.178, 0.43], [0.187, 0.47], [0.186, 0.5], [0.18, 0.52], [0, 0.525]];
+  let BODY = null;
+  function buildBody() {
+    if (BODY) return BODY;
+    const t0 = performance.now();
+    const skin = [], cloth = [], shoe = [];
+    const pink = (x, y, z) => new THREE.Color(1, 0.95 - 0.06 * Math.exp(-sq((y - 0.245) / 0.03)) * (z > 0 ? 1 : 0.3), 0.94 - 0.08 * Math.exp(-sq((y - 0.245) / 0.03)) * (z > 0 ? 1 : 0.3));
+    skin.push({ geo: headGeo(), bone: 3 });
+    for (const s of [1, -1]) skin.push({ geo: earGeo(s), bone: 3 });
+    skin.push({ geo: lathe(NECK_P, 16, 0, 0.004, 1, 0.92), w: (x, y) => [2, 3, sstep(0.8, 0.87, y)] });
+    for (const s of [1, -1]) {
+      const up = s > 0 ? 4 : 6, fo = up + 1, th = s > 0 ? 8 : 10, sh = th + 1, ax = 0.175 * s;
+      skin.push({ geo: lathe(ARM_P, 14, ax, -0.005, 1, 0.95), w: (x, y) => [up, fo, sstep(0.64, 0.57, y)] });
+      skin.push({ geo: kitGeo(k => {
+        k.add(G.sphere(14), 0xffffff, [ax, 0.42, 0.002], 0, [0.046, 0.052, 0.048]);
+        k.add(G.sphere(10), 0xffffff, [ax - 0.034 * s, 0.432, 0.026], [0, 0, 0.5 * s], [0.017, 0.026, 0.018]);
+      }), bone: fo, color: 0xfff0ea });
+      skin.push({ geo: lathe(LEG_P, 14, 0.088 * s, 0, 1, 1), w: (x, y) => [th, sh, sstep(0.28, 0.21, y)], color: pink });
+      cloth.push({ geo: lathe(SLEEVE_P, 18, ax * 0.97, -0.005, 1, 0.95, TILE), w: (x, y) => [2, up, sstep(0.8, 0.72, y)], color: 0xeeeae6 });
+      cloth.push({ geo: kitGeo(k => k.add(G.torus(TAU, 0.14, 20), 0xffffff, [ax, 0.633, -0.005], [Math.PI / 2, 0, 0], [0.064, 0.061, 0.064])), bone: up, color: 0xf1ecf4 });
+      cloth.push({ geo: lathe(PANTLEG_P, 18, 0.09 * s, 0, 1, 0.95, TILE), w: (x, y) => [1, th, sstep(0.43, 0.37, y)], color: 0xe4e0ec });
+      shoe.push({ geo: shoeGeo(s), bone: sh });
+    }
+    cloth.push({ geo: lathe(SHIRT_P, 32, 0, 0, 1, 0.8, TILE), w: (x, y) => [1, 2, sstep(0.5, 0.6, y)], color: 0xeeeae6 });
+    cloth.push({ geo: kitGeo(k => k.add(G.torus(TAU, 0.2, 24), 0xffffff, [0, 0.821, 0.002], [Math.PI / 2, 0, 0], [0.064, 0.052, 0.064])), bone: 2, color: 0xf3eef4 });
+    cloth.push({ geo: kitGeo(k => k.add(G.torus(TAU, 0.05, 32), 0xffffff, [0, 0.443, 0], [Math.PI / 2, 0, 0], [0.178, 0.143, 0.178])), bone: 1, color: 0xf0ebf2 });
+    cloth.push({ geo: lathe(SHORTS_P, 28, 0, 0, 1, 0.82, TILE), bone: 1, color: 0xe4e0ec });
+    // hair: shell + locks + cowlicks in ONE mesh (cowlicks are collapsed in the shader under a hat)
+    const hair = [hairCapGeo()];
+    for (const L of hairLocks()) hair.push(lockGeo(L));
+    BODY = { skin: mergeSkinned(skin, true), cloth: mergeSkinned(cloth), shoe: mergeSkinned(shoe), hair: keep(concat(hair)), xray: xrayBodyGeo() };
+    BODY.ms = Math.round(performance.now() - t0);
+    return BODY;
+  }
+  // Low-poly skinned stand-in (~2k triangles) that draws the x-ray silhouette for the whole body + hair in one call.
+  function xrayBodyGeo() {
+    const P = [];
+    P.push({ geo: headHullGeo(), bone: 3 });
+    P.push({ geo: lathe(NECK_P, 8, 0, 0.004, 1, 0.92), w: (x, y) => [2, 3, sstep(0.8, 0.87, y)] });
+    for (const s of [1, -1]) {
+      const up = s > 0 ? 4 : 6, fo = up + 1, th = s > 0 ? 8 : 10, sh = th + 1, ax = 0.175 * s;
+      P.push({ geo: lathe(ARM_P, 8, ax, -0.005, 1, 0.95), w: (x, y) => [up, fo, sstep(0.64, 0.57, y)] });
+      P.push({ geo: kitGeo(k => k.add(G.sphere(8), 0xffffff, [ax, 0.42, 0.002], 0, [0.05, 0.056, 0.052])), bone: fo });
+      P.push({ geo: lathe(LEG_P, 8, 0.088 * s, 0, 1, 1), w: (x, y) => [th, sh, sstep(0.28, 0.21, y)] });
+      P.push({ geo: lathe(SLEEVE_P, 10, ax * 0.97, -0.005, 1, 0.95), w: (x, y) => [2, up, sstep(0.8, 0.72, y)] });
+      P.push({ geo: lathe(PANTLEG_P, 10, 0.09 * s, 0, 1, 0.95), w: (x, y) => [1, th, sstep(0.43, 0.37, y)] });
+    }
+    P.push({ geo: lathe(SHIRT_P, 16, 0, 0, 1, 0.8), w: (x, y) => [1, 2, sstep(0.5, 0.6, y)] });
+    P.push({ geo: lathe(SHORTS_P, 14, 0, 0, 1, 0.82), bone: 1 });
+    return mergeSkinned(P);
+  }
+  function shoeGeo(s) {
+    const x0 = 0.088 * s, W = 0xe6e4df, B = 0x3a78e0, NV = 0x24407a, RD = 0xf0604c;
+    return kitGeo(k => {
+      k.add(G.rbox(2), W, [x0, 0.018, 0.028], 0, [0.1, 0.036, 0.21]);
+      k.add(G.sphere(14), B, [x0, 0.052, 0.026], 0, [0.05, 0.046, 0.098]);
+      k.add(G.sphere(12), W, [x0, 0.043, 0.09], 0, [0.047, 0.033, 0.05]);
+      k.add(G.sphere(12), B, [x0, 0.062, -0.03], 0, [0.047, 0.052, 0.046]);
+      k.add(G.rbox(1), RD, [x0, 0.08, -0.071], [0.25, 0, 0], [0.026, 0.045, 0.014]);
+      k.add(G.torus(TAU, 0.26, 12), NV, [x0, 0.094, -0.006], [Math.PI / 2, 0, 0], 0.045);
+      k.add(G.cyl(1, 1, 10), W, [x0, 0.108, -0.004], 0, [0.047, 0.03, 0.047]);
+      for (let i = 0; i < 3; i++) k.add(G.rbox(1), W, [x0, 0.086 - i * 0.009, 0.03 + i * 0.02], [-0.55, 0, 0], [0.042, 0.007, 0.011]);
+      k.add(G.rbox(1), W, [x0 + 0.048 * s, 0.05, 0.018], [0.25, 0, 0], [0.006, 0.016, 0.075]);
+    });
+  }
+
+  // ── The face, drawn inside the skin shader ──
+  const FACE_GLSL = `
+    uniform vec4 fzEye; uniform vec3 fzEyeW; uniform vec4 fzMouth; uniform vec3 fzBrow;
+    varying vec2 vFace;
+    #define SRGB(r, g, b) pow(vec3(r, g, b), vec3(2.2))
+    float fzSq(float x) { return x * x; }
+    float fzSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+    float fzLine(float d, float w, float aa) { return 1.0 - smoothstep(w - aa, w + aa, d); }
+    void fzFace(inout vec3 col, inout float gloss, inout vec3 emis, vec2 q, float aa) {
+      // cheeks + nose tip
+      float bl = exp(-fzSq((abs(q.x) - 0.34) / 0.115) - fzSq((q.y + 0.325) / 0.07)) * (0.4 + 0.4 * fzBrow.z);
+      col = mix(col, SRGB(0.99, 0.55, 0.53), bl);
+      col = mix(col, SRGB(0.97, 0.66, 0.6), 0.22 * exp(-fzSq(q.x / 0.04) - fzSq((q.y + 0.252) / 0.035)));
+      // eyes (e: eye-local, +x = outer corner)
+      float side = q.x < 0.0 ? -1.0 : 1.0;
+      vec2 ec = vec2(0.252 * side, -0.11), er = vec2(0.138, 0.158);
+      vec2 e = vec2((q.x - ec.x) * side, q.y - ec.y) / er;
+      float aE = aa / er.y;
+      float xx = clamp(e.x, -1.0, 1.0), cx = sqrt(max(0.0, 1.0 - xx * xx));
+      float top = pow(cx, 0.75) * 0.84, bot = -cx * 0.92;
+      // going to happy ^ / wince >: both lids squeeze shut onto that curve (the lid line becomes the ^), so an in-between
+      // frame is a smiling squint, never a see-through pale ghost eye
+      float hx = clamp(e.x, -0.95, 0.95), hy = -0.08 + 0.62 * (1.0 - hx * hx);
+      float sq = clamp(1.0 - fzEyeW.x, 0.0, 1.0), tgt = mix(0.04, hy, fzEyeW.y / max(fzEyeW.y + fzEyeW.z, 1e-3));
+      float lid = mix(mix(top, tgt + 0.03, sq), bot * 0.9 + 0.06, fzEye.x);
+      lid = min(lid, top - fzEye.w * 0.6 * cx);
+      float rr = length(vec2(e.x, e.y > 0.0 ? e.y / max(0.05, top / max(cx, 0.05)) : e.y / 0.92));
+      float lidL = mix(-1.6, tgt - 0.03, sq);
+      float vis = (1.0 - smoothstep(1.0 - aE, 1.0 + aE, rr)) * (1.0 - smoothstep(-aE, aE, e.y - lid)) * smoothstep(-aE, aE, e.y - lidL);
+      vec2 ic = ec + vec2(fzEye.y * 0.03, fzEye.z * 0.024 + 0.002);
+      vec2 di = q - ic; float ir = 0.12, dr = length(di) / ir, aI = aa / ir;
+      vec3 iris = mix(SRGB(0.36, 0.2, 0.1), SRGB(0.72, 0.46, 0.22), smoothstep(0.2, -0.95, di.y / ir));
+      iris *= 0.86 + 0.14 * sin(atan(di.y, di.x) * 15.0 + dr * 5.0);
+      iris = mix(iris, SRGB(0.16, 0.08, 0.04), smoothstep(0.68, 0.98, dr));
+      iris = mix(iris, SRGB(0.06, 0.03, 0.02), 1.0 - smoothstep(0.43 - aI, 0.43 + aI, dr));
+      vec3 scl = SRGB(0.97, 0.965, 0.99) * (1.0 - 0.1 * smoothstep(0.6, 1.0, rr));
+      vec3 eye = mix(scl, iris, 1.0 - smoothstep(1.0 - aI, 1.0 + aI, dr));
+      eye *= 1.0 - 0.45 * smoothstep(lid - 0.62, lid, e.y);
+      float c1 = 1.0 - smoothstep(0.27 - aI, 0.27 + aI, length(di / ir - vec2(-0.33, 0.36)));
+      float c2 = 1.0 - smoothstep(0.13 - aI, 0.13 + aI, length(di / ir - vec2(0.38, -0.36)));
+      float cl = max(c1, c2 * 0.9);
+      eye = mix(eye, vec3(1.0), cl);
+      // thin, even upper lid line (no outer flick: a boy, not mascara)
+      float lw = (0.12 + 0.08 * fzEye.x) * mix(0.8, 1.0, smoothstep(-1.0, 0.3, e.x));
+      float ly = e.y - lid;
+      float lash = smoothstep(-0.05 - aE, -0.05 + aE, ly) * (1.0 - smoothstep(lw - aE, lw + aE, ly)) * (1.0 - smoothstep(0.88, 1.02, abs(e.x)));
+      // closed variants: happy ^ and wince >
+      float happy = fzLine(abs(e.y - hy) / sqrt(1.0 + fzSq(1.24 * hx)), 0.17, aE) * (1.0 - smoothstep(0.9, 1.02, abs(e.x)));
+      float wd = min(fzSeg(e, vec2(0.95, 0.5), vec2(-0.5, 0.02)), fzSeg(e, vec2(-0.5, 0.02), vec2(0.95, -0.42)));
+      float wince = fzLine(wd, 0.16, aE);
+      vec3 lashC = SRGB(0.17, 0.09, 0.06);
+      float lower = fzLine(abs(e.y - max(bot, lidL) - 0.05), 0.045, aE) * smoothstep(0.95, 0.4, abs(e.x - 0.1)) * (1.0 - max(fzEye.x, sq));
+      float ow = smoothstep(0.05, 0.35, fzEyeW.x), cw = smoothstep(0.45, 0.9, sq);   // open eye fades only once nearly shut
+      col = mix(col, col * SRGB(0.8, 0.62, 0.58), lower * 0.7 * ow);
+      col = mix(col, eye, vis * ow);
+      col = mix(col, lashC, lash * ow);
+      col = mix(col, lashC, happy * fzEyeW.y * cw);
+      col = mix(col, lashC, wince * fzEyeW.z * cw);
+      gloss = max(gloss, vis * ow);
+      emis += vec3(0.55) * cl * vis * ow;
+      // brows
+      float bx = e.x;
+      float by = ec.y + er.y + 0.06 + fzBrow.x * 0.035 + 0.02 * (1.0 - bx * bx) - fzBrow.y * 0.03 * bx;
+      float bw = 0.017 * (1.15 - 0.2 * (bx + 1.0));
+      float brow = fzLine(abs(q.y - by), bw, aa) * (1.0 - smoothstep(0.85, 1.0, abs(bx - 0.05)));
+      col = mix(col, SRGB(0.24, 0.13, 0.07), brow * 0.92);
+      // mouth
+      vec2 m = q - vec2(0.012, -0.44);
+      vec3 mline = SRGB(0.5, 0.22, 0.19), minner = SRGB(0.45, 0.1, 0.13), medge = SRGB(0.4, 0.12, 0.12);
+      // cheeky closed-lip smirk: thick lip line with the corner on Feza's left pushed up into a cheek bulge + dimple
+      float sx = clamp(m.x, -0.074, 0.088), sk = max(0.0, sx - 0.02);
+      float sy = 1.4 * sx * sx + 0.12 * sx + 6.5 * sk * sk - 0.004;
+      float sd = abs(m.y - sy) / sqrt(1.0 + fzSq(2.8 * sx + 0.12 + 13.0 * sk));
+      float sw = 0.0125 * (0.72 + 0.6 * smoothstep(-0.08, 0.07, m.x));
+      float inX = smoothstep(-0.088, -0.068, m.x) * (1.0 - smoothstep(0.084, 0.1, m.x));
+      float smirk = fzLine(sd, sw, aa) * inX;
+      float lipLo = exp(-fzSq((m.x + 0.004) / 0.052) - fzSq((m.y - sy + 0.021) / 0.014));                // fuller lower lip
+      float lipUp = exp(-fzSq((m.x - 0.004) / 0.05) - fzSq((m.y - sy - 0.011) / 0.008));
+      float bulge = exp(-fzSq((m.x - 0.112) / 0.045) - fzSq((m.y - 0.05) / 0.042));                        // pushed-up cheek
+      float dimple = fzLine(fzSeg(m, vec2(0.094, 0.036), vec2(0.108, 0.066)), 0.0065, aa) * smoothstep(0.03, 0.05, m.y);
+      float tuck = exp(-fzSq((m.x + 0.079) / 0.009) - fzSq((m.y - sy + 0.002) / 0.009));                  // other corner
+      col *= 1.0 + 0.09 * bulge * fzMouth.x;
+      col = mix(col, SRGB(0.9, 0.5, 0.46), (0.62 * lipLo + 0.35 * lipUp) * inX * fzMouth.x);
+      col = mix(col, col * SRGB(1.0, 1.08, 1.08), 0.35 * exp(-fzSq((m.x + 0.01) / 0.025) - fzSq((m.y - sy + 0.024) / 0.006)) * fzMouth.x);
+      col = mix(col, col * SRGB(0.8, 0.6, 0.56), (0.75 * dimple + 0.5 * tuck) * fzMouth.x);
+      col = mix(col, mline, smirk * fzMouth.x);
+      // open grin and "o" grow open as they blend in (solid colour at every weight, no pale see-through mouth)
+      float gk = mix(0.3, 1.0, fzMouth.y), ga = smoothstep(0.0, 0.3, fzMouth.y);
+      float gx = m.x / (0.105 * mix(0.8, 1.0, fzMouth.y)), gt = 0.016 + 1.2 * m.x * m.x, gb = gt - 0.1 * gk * sqrt(max(0.0, 1.0 - gx * gx));
+      float gin = min(min(gt - m.y, m.y - gb), (1.0 - abs(gx)) * 0.03);
+      float gI = smoothstep(-aa, aa, gin), gE = smoothstep(-aa, aa, gin + 0.006) - gI;
+      vec3 gc = mix(minner, SRGB(0.95, 0.46, 0.52), 1.0 - smoothstep(0.045 * gk - aa, 0.045 * gk + aa, length(m - vec2(0.0, gt - 0.09 * gk))));
+      float gty = gt - 0.017 * mix(0.6, 1.0, fzMouth.y);                                        // teeth
+      gc = mix(gc, vec3(0.98), smoothstep(gty - aa, gty + aa, m.y));
+      col = mix(col, medge, gE * ga); col = mix(col, gc, gI * ga);
+      float ok = mix(0.4, 1.0, fzMouth.z), oa = smoothstep(0.0, 0.3, fzMouth.z);
+      vec2 om = (m - vec2(0.0, -0.014)) / (vec2(0.033, 0.04) * ok);                              // "o"
+      float od = (length(om) - 1.0) * 0.033 * ok, oI = 1.0 - smoothstep(-aa, aa, od), oE = (1.0 - smoothstep(-aa, aa, od - 0.006)) - oI;
+      col = mix(col, medge, oE * oa); col = mix(col, mix(minner, SRGB(0.9, 0.42, 0.48), smoothstep(-0.2, -0.9, om.y)), oI * oa);
+      float kx = clamp(m.x, -0.034, 0.034), ky = 2.4 * kx * kx - 0.004;                          // small relaxed line
+      float small = fzLine(abs(m.y - ky) / sqrt(1.0 + fzSq(4.8 * kx)), 0.0058, aa) * (1.0 - smoothstep(0.032, 0.042, abs(m.x)));
+      col = mix(col, mline, small * fzMouth.w);
+      gloss = max(gloss, (gI * ga + oI * oa) * 0.6);
+    }`;
+  // Soft highlight knee just below the bloom threshold: skin, clothes and hair never glow, magic items still do.
+  const KNEE = 'outgoingLight = mix(outgoingLight, 1.0 + (outgoingLight - 1.0) / (1.0 + (outgoingLight - 1.0) * 5.0), step(1.0, outgoingLight));';
+  const knee = m => patchMat(m, { fOut: KNEE, key: 'knee' });
+  function makeSkinMat() {
+    const m = stencil(vcMat({ color: SKIN, roughness: 0.55, envMapIntensity: 0.75 }));
+    const U = { fzEye: { value: new THREE.Vector4(0, 0, 0, 0) }, fzEyeW: { value: v3(1, 0, 0) }, fzMouth: { value: new THREE.Vector4(1, 0, 0, 0) }, fzBrow: { value: v3() } };
+    m.onBeforeCompile = sh => {
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aFace; varying vec2 vFace;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFace = aFace;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + FACE_GLSL)
+        .replace('#include <color_fragment>', `#include <color_fragment>
+          float fzGloss = 0.0; vec3 fzEmis = vec3(0.0);
+          vec2 fzQ = vec2(vFace.x * cos(vFace.y), vFace.y); float fzAA = max(length(fwidth(fzQ)) * 0.7, 1e-4);
+          if (vFace.x > -9.0 && abs(vFace.x) < 1.2) fzFace(diffuseColor.rgb, fzGloss, fzEmis, fzQ, fzAA);`)
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.32, fzGloss);')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fzEmis;')
+        .replace('#include <opaque_fragment>', `float fzF = 1.0 - saturate(dot(normal, normalize(vViewPosition)));
+          outgoingLight += diffuseColor.rgb * vec3(0.6, 0.2, 0.12) * fzF * fzF * 0.38 + vec3(1.0, 0.74, 0.56) * pow(fzF, 3.0) * 0.12 * (1.0 - fzGloss);
+          // fake subsurface: warm wrap light past the terminator (the lower face no longer goes dark / grey-tan under an
+          // overhead light) + a little warm bounce under the chin
+          vec3 fzWrap = vec3(0.0); float fzNL;
+          #if NUM_POINT_LIGHTS > 0
+          #pragma unroll_loop_start
+          for ( int i = 0; i < NUM_POINT_LIGHTS; i ++ ) {
+            getPointLightInfo( pointLights[ i ], geometryPosition, directLight );
+            fzNL = dot( geometryNormal, directLight.direction );
+            fzWrap += directLight.color * ( 0.5 * fzNL + 0.5 - saturate( fzNL ) );
+          }
+          #pragma unroll_loop_end
+          #endif
+          #if NUM_DIR_LIGHTS > 0
+          #pragma unroll_loop_start
+          for ( int i = 0; i < NUM_DIR_LIGHTS; i ++ ) {
+            getDirectionalLightInfo( directionalLights[ i ], directLight );
+            fzNL = dot( geometryNormal, directLight.direction );
+            fzWrap += directLight.color * ( 0.5 * fzNL + 0.5 - saturate( fzNL ) );
+          }
+          #pragma unroll_loop_end
+          #endif
+          float fzLow = (vFace.x > -9.0 && abs(vFace.x) < 1.6) ? smoothstep(-0.12, -0.6, vFace.y) : 0.0;
+          outgoingLight += (BRDF_Lambert(diffuseColor.rgb) * fzWrap * vec3(0.62, 0.36, 0.28) + reflectedLight.indirectDiffuse * vec3(0.25, 0.1, 0.04) * fzLow) * (1.0 - fzGloss);
+          ${KNEE}
+          #include <opaque_fragment>`);
+    };
+    m.customProgramCacheKey = () => 'fezaSkin3';
+    m.userData.fz = U;
+    return m;
+  }
+  // Hair vertex motion: spring offset + spin puff (aFlex), cowlicks collapse (aFlex < 0) and, under a hat, every vertex
+  // outside the hat's inner ellipsoid (fzHatM: head space → unit sphere) and above its band is pulled inside it.
+  const HAIR_V = `
+    float fzFl = aFlex < 0.0 ? -aFlex - 0.01 : aFlex;
+    transformed += (fzHOff + normalize(transformed - vec3(0.0, 0.24, 0.012)) * fzHExp) * fzFl;
+    if (aFlex < 0.0 && fzHat.w < 0.5) transformed = vec3(0.0, 0.24, 0.012);
+    if (fzHat.x > 0.5) {
+      vec3 fzQ = (fzHatM * vec4(transformed, 1.0)).xyz;
+      float fzL = length(fzQ), fzK = smoothstep(fzHat.y - fzHat.z, fzHat.y, fzQ.y);
+      if (fzL > 0.93 && fzK > 0.0) transformed = (fzHatI * vec4(fzQ * mix(1.0, 0.93 / fzL, fzK), 1.0)).xyz;
+    }`;
+  const HAIR_VD = 'attribute float aFlex; uniform vec3 fzHOff; uniform float fzHExp; uniform vec4 fzHat; uniform mat4 fzHatM, fzHatI;';
+  function makeHairMat() {
+    const m = stencil(vcMat({ roughness: 0.5, normalMap: strandTex(), normalScale: V2(0.6, 0.6), envMapIntensity: 0.55 }));
+    const U = { fzHOff: { value: v3() }, fzHExp: { value: 0 }, fzHat: { value: new THREE.Vector4(0, 0, 0.3, 1) }, fzHatM: { value: new THREE.Matrix4() }, fzHatI: { value: new THREE.Matrix4() } };
+    const vpatch = sh => {
+      Object.assign(sh.uniforms, U);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n' + HAIR_VD).replace('#include <begin_vertex>', '#include <begin_vertex>\n' + HAIR_V);
+    };
+    m.onBeforeCompile = sh => {
+      vpatch(sh);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `float fzF = 1.0 - saturate(dot(normal, normalize(vViewPosition)));
+          outgoingLight += vec3(1.0, 0.8, 0.6) * pow(fzF, 3.0) * 0.12;
+          ${KNEE}
+          #include <opaque_fragment>`);
+    };
+    m.customProgramCacheKey = () => 'fezaHair2';
+    // shadow caster with the same vertex motion (hidden cowlicks cast no shadow)
+    const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    d.onBeforeCompile = vpatch; d.customProgramCacheKey = () => 'fezaHairD';
+    m.userData.fz = U; m.userData.depth = d;
+    return m;
+  }
+  let SHARED = null;
+  function sharedMats() {
+    if (SHARED) return SHARED;
+    const t = tex('shirt');
+    SHARED = {
+      cloth: keep(stencil(rimify(knee(vcMat({ roughness: 0.86, envMapIntensity: 0.55, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.8, 0.8) })), 0xfff2e6, 0.07))),
+      shoe: keep(stencil(rimify(knee(vcMat({ roughness: 0.5, envMapIntensity: 0.7 })), 0xffffff, 0.08))),
+    };
+    return SHARED;
+  }
+
+  // ── Item materials (shared, cached) ──
+  const MC = {};
+  function mat(key, make) { return MC[key] || (MC[key] = keep(stencil(make()))); }
+  function metalMat(key, color, rough, r) {
+    return mat(key + '|' + (r >= 2 ? r : 0), () => {
+      const t = tex('metal'), m = stdMat({ color, metalness: 1, roughness: rough, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.6, 0.6), envMapIntensity: 0.8 });
+      return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.75 : 0.5, 2.2) : rimify(m, 0xffffff, 0.12);
+    });
+  }
+  const steelM = r => metalMat('steel', 0xd0d6e0, 0.5, r), goldM = r => metalMat('gold', 0xffc84a, 0.28, r);
+  const vcM = (key, o, rim) => mat(key, () => rimify(vcMat(o), rim ?? 0xffffff, 0.14));
+  // Emissive from vertex colours (glowing blades, gems).
+  function glowVC(key, k, o = {}) {
+    return mat(key, () => {
+      const m = vcMat(Object.assign({ roughness: 0.25 }, o));
+      patchMat(m, { uniforms: { fzGlowK: { value: k } }, fDecl: 'uniform float fzGlowK;', fOut: 'outgoingLight += vColor * fzGlowK;', key: 'glowvc' });
+      return m;
+    });
+  }
+  function feltMat(key, color, r) {
+    return mat(key + '|' + (r >= 2 ? r : 0), () => {
+      const t = tex('fabric') ? TEX.rep('fabric', 3, 3) : null;
+      const m = knee(stdMat({ color, roughness: 0.88, normalMap: t ? t.normalMap : null, normalScale: V2(0.7, 0.7), envMapIntensity: 0.7 }));
+      return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.7 : 0.45, 2.2) : rimify(m, 0xffffff, 0.08);
+    });
+  }
+
+  function starShape(R, r, n = 5) {
+    const s = new THREE.Shape();
+    for (let i = 0; i < n * 2; i++) { const a = Math.PI / 2 + i * Math.PI / n, rr = i & 1 ? r : R; i ? s.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : s.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    return s;
+  }
+  function starGeo(R, depth = 0.012) {
+    const g = new THREE.ExtrudeGeometry(starShape(R, R * 0.48), { depth, bevelEnabled: true, bevelThickness: depth * 0.5, bevelSize: R * 0.12, bevelSegments: 2 });
+    g.translate(0, 0, -depth / 2); g.deleteAttribute('uv'); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    return g;
+  }
+  const GEO = {};   // cached item geometries
+  const geoC = (k, f) => GEO[k] || (GEO[k] = keep(f()));
+
+  // ── Lightsabers (Feza's request: every weapon is an "ışın kılıcı"; the base ids stay, so old saves keep working) ──
+  // Grip centre at the slot origin, blade along +y (the slash poses were made for that). Hilt ≈ 0.26 m: pommel at −0.105,
+  // ribbed grip, collar, control box with a glowing button, emitter shroud up to HILT_TOP. The blade comes out of the emitter:
+  // a white-hot opaque core (unlit HDR with a coloured rim) inside an additive glow shell with a soft fresnel edge and a faint
+  // wide halo, all flickering gently with TIME.u. The rainbow blade's hue drifts with time (same formula as ITEMS.bladeColor).
+  // The blade group (obj.fzBlade) is scaled along y by the hero for the ignite / retract animation; templates stay ignited.
+  const HILT_TOP = 0.155;
+  const SABER = {
+    tahta: { col: '#94e6ff', L: 0.55, metal: 0xdfe3ea, grip: 0x3d4a5c, shroud: 'plain', core: 1.4, shell: 1.5, halo: 0.42, btn: '#6fe0ff' },
+    demir: { col: '#2f7bff', L: 0.75, metal: 0xe8ebf0, grip: 0x1b1d22, shroud: 'classic', core: 1.7, shell: 2.3, halo: 0.6, btn: '#ff4a4a' },
+    kristal: { col: '#22ee4c', L: 0.75, metal: 0xd6dbe2, grip: 0x21302a, shroud: 'round', core: 1.6, shell: 1.9, halo: 0.5, btn: '#5dff7a' },
+    ates: { col: '#ff2a22', L: 0.75, metal: 0x4b4f5a, grip: 0x141518, shroud: 'classic', core: 1.7, shell: 2.3, halo: 0.6, btn: '#ff6a3a' },
+    yildiz: { col: '#9b45ff', L: 0.75, metal: 0xe4e0ea, grip: 0x251d31, shroud: 'crown', core: 1.7, shell: 2.3, halo: 0.6, btn: '#d49bff' },
+    gokkusagi: { col: '#ff5fd0', L: 0.78, metal: 0xf6f2ff, grip: 0x6f5fa6, shroud: 'crown', rainbow: true, core: 1.7, shell: 2.1, halo: 0.55, btn: '#ffffff' },
+  };
+  const saberDef = id => SABER[id] || SABER.demir;
+  // rainbow blade: hue = fract(t * RB_SPEED + y * RB_GRAD) (y along the blade in metres), HSV saturation RB_SAT
+  const RB_SPEED = 0.11, RB_GRAD = 0.3, RB_SAT = 0.8, RB_Y = 0.35;
+  const fract = x => x - Math.floor(x);
+  function hsvHex(h, s, v) {
+    const f = k => { const p = Math.abs(fract(h + k) * 6 - 3); return v * (1 + (clamp(p - 1, 0, 1) - 1) * s); };
+    const hx = x => Math.round(clamp(x, 0, 1) * 255).toString(16).padStart(2, '0');
+    return '#' + hx(f(0)) + hx(f(2 / 3)) + hx(f(1 / 3));
+  }
+  const nowT = () => (typeof TIME !== 'undefined' && TIME.u ? TIME.u.value : performance.now() / 1000);
+  // ITEMS.bladeColor(item | baseId) → '#rrggbb' (the rainbow blade: its colour right now, at mid-blade)
+  function bladeColor(item) {
+    const d = saberDef(typeof item === 'string' ? item : item ? baseId(item) : 'tahta');
+    return d.rainbow ? hsvHex(fract(nowT() * RB_SPEED + RB_Y * RB_GRAD), RB_SAT, 1) : d.col;
+  }
+  const SABER_VS = `varying vec3 vN; varying vec3 vV; varying float vY;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vN = normalize(normalMatrix * normal); vV = -mv.xyz; vY = position.y;
+      gl_Position = projectionMatrix * mv;
+    }`;
+  // SB_U: shared by every blade. Thumbnails render without tone mapping, so they dim the blades (k) to keep the hues
+  // (HDR blue clipped per channel turns cyan, purple turns pink) and spread the rainbow over the whole blade (grad).
+  const SB_U = { k: { value: 1 }, grad: { value: RB_GRAD } };
+  const SABER_FS = `uniform vec3 uCol; uniform float uI, uRb, uT, uPow, uOcc, uK, uGrad;
+    varying vec3 vN; varying vec3 vV; varying float vY;
+    vec3 sbCol() {
+      if (uRb < 0.5) return uCol;
+      vec3 p = abs(fract(fract(uT * ${RB_SPEED.toFixed(4)} + vY * uGrad) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+      return pow(mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), ${RB_SAT.toFixed(4)}), vec3(2.2));
+    }
+    float sbFlick() { float t = mod(uT, 600.0); return 1.0 + 0.045 * sin(t * 47.0) + 0.03 * sin(t * 113.0 + vY * 9.0) + 0.02 * sin(t * 7.3); }
+    float sbNV() { return abs(dot(normalize(vN), normalize(vV))); }
+    void main() {
+    #ifdef SABER_CORE
+      vec3 k = sbCol();
+      vec3 c = mix(k * 1.5, mix(k, vec3(1.0), 0.8), smoothstep(0.12, 0.72, sbNV())) * uI * uK * sbFlick();
+      gl_FragColor = vec4(c, 1.0);
+    #else
+      float a = pow(sbNV(), uPow) * sbFlick();
+      gl_FragColor = vec4(sbCol() * uI * uK * a, min(1.0, a * uOcc));
+    #endif
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`;
+  // part: 'core' (opaque) | 'shell' | 'halo'. Glow parts are premultiplied "light over" blending: they add their light and
+  // cover a little of what is behind (uOcc), so the colour still reads on the bright forest grass, and in dark caves it is
+  // plain additive glow. The alpha channel accumulates the same way, so thumbnails keep a soft transparent glow.
+  function saberMat(id, part, r) {
+    const d = saberDef(id);
+    return mat('sb:' + part + ':' + id + '|' + r, () => {
+      const glow = part !== 'core', boost = 1 + 0.06 * r;
+      const m = new THREE.ShaderMaterial({
+        uniforms: { uCol: { value: new THREE.Color(d.col) }, uI: { value: d[part] * boost }, uRb: { value: d.rainbow ? 1 : 0 }, uT: TIME.u,
+          uPow: { value: part === 'halo' ? 2.4 : 1.25 }, uOcc: { value: part === 'halo' ? 0.22 : 0.6 }, uK: SB_U.k, uGrad: SB_U.grad },
+        vertexShader: SABER_VS, fragmentShader: SABER_FS, defines: glow ? {} : { SABER_CORE: 1 },
+      });
+      if (glow) Object.assign(m, { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
+        blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor });
+      m.customProgramCacheKey = () => 'saber' + (glow ? 'G' : 'C');
+      return m;
+    });
+  }
+  // Capsule-ish lathe profile (bottom pole → tip): radius r, rounded bottom cap of height capB (0 = open), top cap capT.
+  function capsuleGeo(r, y0, y1, capB, capT, seg) {
+    const P = [], n = 6;
+    if (capB > 0) for (let i = 0; i < n; i++) { const a = i / n * Math.PI / 2; P.push(V2(Math.max(1e-4, r * Math.sin(a)), y0 + capB * (1 - Math.cos(a)))); }
+    else P.push(V2(r, y0));
+    for (let i = 0; i <= n; i++) { const a = i / n * Math.PI / 2; P.push(V2(Math.max(1e-4, r * Math.cos(a)), y1 - capT + capT * Math.sin(a))); }
+    const g = new THREE.LatheGeometry(P, seg);
+    g.deleteAttribute('uv'); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    return g;
+  }
+  const bladeParts = L => ({
+    core: geoC('sbCore:' + L, () => capsuleGeo(0.0105, 0, L, 0, 0.012, 10)),
+    shell: geoC('sbShell:' + L, () => capsuleGeo(0.027, -0.004, L + 0.014, 0.012, 0.03, 14)),
+    halo: geoC('sbHalo:' + L, () => capsuleGeo(0.064, -0.03, L + 0.05, 0.05, 0.075, 14)),
+  });
+  // y0 → y1 cylinder with bottom radius r0 and top radius r1
+  const kcyl = (k, y0, y1, r0, r1, col, seg = 24) => k.add(G.cyl(r1 / r0, 1, seg), col, [0, (y0 + y1) / 2, 0], 0, [r0, y1 - y0, r0]);
+  function hiltGeo(id) {
+    const d = saberDef(id), M = d.metal, D = 0x15171b, DK = mixCol(d.metal, '#101216', 0.55);
+    return kitGeo(k => {
+      // pommel
+      k.add(G.sphere(20), M, [0, -0.093, 0], 0, [0.0195, 0.013, 0.0195]);
+      kcyl(k, -0.094, -0.079, 0.0205, 0.0205, M);
+      kcyl(k, -0.079, -0.075, 0.0185, 0.0185, M);
+      // collar, upper body with the control box, upper collar
+      kcyl(k, 0.049, 0.053, 0.0185, 0.0185, M);
+      kcyl(k, 0.053, 0.066, 0.0198, 0.0198, M);
+      kcyl(k, 0.066, 0.113, 0.0172, 0.0172, M);
+      for (const y of [0.074, 0.105]) kcyl(k, y - 0.0015, y + 0.0015, 0.0178, 0.0178, DK);
+      k.add(G.rbox(2), D, [0, 0.089, 0.0158], 0, [0.016, 0.028, 0.009]);
+      kcyl(k, 0.113, 0.121, 0.0196, 0.0196, M);
+      // emitter shroud (the blade starts inside it) + dark emitter disc
+      if (d.shroud === 'crown') {
+        kcyl(k, 0.121, 0.147, 0.0182, 0.0222, M, 28);
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; k.add(G.cone(10), M, [Math.sin(a) * 0.0195, 0.153, Math.cos(a) * 0.0195], [Math.cos(a) * 0.18, 0, -Math.sin(a) * 0.18], [0.0048, 0.017, 0.0048]); }
+        kcyl(k, 0.145, 0.149, 0.0185, 0.0185, D);
+      } else if (d.shroud === 'round') {
+        k.add(G.sphere(24), M, [0, 0.134, 0], 0, [0.0232, 0.019, 0.0232]);
+        kcyl(k, 0.14, 0.155, 0.0198, 0.0186, M);
+        kcyl(k, 0.1515, 0.1555, 0.0158, 0.0158, D);
+      } else if (d.shroud === 'plain') {
+        kcyl(k, 0.121, 0.155, 0.0205, 0.0205, M);
+        kcyl(k, 0.134, 0.139, 0.0212, 0.0212, DK);
+        kcyl(k, 0.1515, 0.1555, 0.0172, 0.0172, D);
+      } else {   // classic: flared shroud with three little vents
+        kcyl(k, 0.121, 0.155, 0.0183, 0.0236, M, 28);
+        for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; k.add(G.rbox(2), D, [Math.sin(a) * 0.0205, 0.136, Math.cos(a) * 0.0205], [0, a, 0], [0.007, 0.016, 0.004]); }
+        kcyl(k, 0.1515, 0.1555, 0.0196, 0.0196, D);
+      }
+    });
+  }
+  function gripGeo(id) {
+    const c = saberDef(id).grip, ridge = mixCol(c, '#000000', 0.25);
+    return kitGeo(k => {
+      kcyl(k, -0.075, 0.049, 0.0162, 0.0162, c, 20);
+      for (let i = 0; i < 6; i++) { const y = -0.064 + i * 0.0205; kcyl(k, y - 0.0048, y + 0.0048, 0.0186, 0.0186, ridge, 20); }
+    });
+  }
+  function accentGeo(r) {   // gold rings (rarity ≥ 2), a gold pommel cap for legendaries
+    return kitGeo(k => {
+      for (const [y, rad] of [[-0.079, 0.0206], [0.059, 0.0201], [0.117, 0.0198], [0.1545, 0.0232]]) k.add(G.torus(TAU, 0.16, 32), 0xffffff, [0, y, 0], [Math.PI / 2, 0, 0], [rad, rad, rad]);
+      if (r >= 3) k.add(G.sphere(16), 0xffffff, [0, -0.104, 0], 0, [0.011, 0.006, 0.011]);
+    });
+  }
+  function buildSword(id, r) {   // (name kept: "sword" = the weapon slot's model)
+    const d = saberDef(id), L = d.L, g = new THREE.Group();
+    g.add(new THREE.Mesh(geoC('sbHilt:' + id, () => hiltGeo(id)), mat('sbMetal|' + (r >= 2 ? r : 0), () => {
+      const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.26, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.35, 0.35), envMapIntensity: 1.0 });
+      return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.55 : 0.4, 2.4) : rimify(m, 0xffffff, 0.14);
+    })));
+    g.add(new THREE.Mesh(geoC('sbGrip:' + id, () => gripGeo(id)), vcM('sbGrip', { roughness: 0.62, metalness: 0.1 })));
+    if (r >= 2) g.add(new THREE.Mesh(geoC('sbGold:' + (r >= 3 ? 3 : 2), () => accentGeo(r)), goldM(r)));
+    const btn = new THREE.Mesh(G.sphere(12), mat('sbBtn:' + d.btn, () => glowMat(d.btn, 2.6)));
+    btn.scale.setScalar(0.0052); btn.position.set(0, 0.096, 0.0214); btn.userData.noShadow = true; g.add(btn);
+    // blade (ignited): core + glow shell + halo; the tip marker rides at the end of the blade
+    const blade = new THREE.Group(), P = bladeParts(L);
+    blade.name = 'fzBlade'; blade.position.y = HILT_TOP - 0.004;
+    const part = (geo, p) => { const m = new THREE.Mesh(geo, saberMat(id, p, r)); m.userData.noShadow = true; m.userData.noXray = true; blade.add(m); return m; };
+    part(P.core, 'core'); const shell = part(P.shell, 'shell'), halo = part(P.halo, 'halo');
+    g.add(blade);
+    const tip = new THREE.Object3D(); tip.position.y = L; blade.add(tip);
+    g.fzTip = tip; g.fzBlade = blade; g.fzShell = shell; g.fzHalo = halo;
+    return g;
+  }
+
+  // ── Hats (origin = head centre; the hair reaches ~0.31 m above it) ──
+  function plume(pts, w, colA, colB, n, spread, seed) {
+    const R = mulberry32(seed), geos = [];
+    for (let i = 0; i < n; i++) {
+      const o = (i - (n - 1) / 2) * spread, P = curvePts(pts.map((p, j) => v3(p[0] + o * (0.3 + j * 0.5), p[1] + (R() - 0.5) * 0.02 * j, p[2] + Math.abs(o) * j * 0.2)), 14);
+      const U = P.map(() => v3(0, 1, 0.2).normalize());
+      geos.push(sweep(P, U, t => w * Math.sin(Math.PI * Math.min(1, 0.15 + t * 0.95)) * (1 - 0.3 * t), t => w * 0.25 * (1 - t), 8, 0.6,
+        (t, c) => c.copy(mixCol(colA, colB, sstep(0.55, 1, t))), null));
+    }
+    return concat(geos);
+  }
+  function brimRing(r0, r1, seg, fold) {   // flat ring (with thickness) bent by fold(angle, radialFrac) → [dy, dr]
+    const prof = [[r0, -0.006], [r1 - 0.008, -0.01], [r1, -0.002], [r1 - 0.004, 0.006], [r0, 0.008]];
+    const pts = []; for (const p of prof) pts.push(V2(p[0], p[1]));
+    const g = new THREE.LatheGeometry(pts, seg, Math.PI, TAU), P = g.attributes.position;
+    for (let i = 0; i < P.count; i++) {
+      const x = P.getX(i), y = P.getY(i), z = P.getZ(i), r = Math.hypot(x, z), a = Math.atan2(x, z), f = clamp((r - r0) / (r1 - r0), 0, 1), d = fold(a, f);
+      const k = (r + d[1]) / (r || 1);
+      P.setXYZ(i, x * k, y + d[0], z * k);
+    }
+    g.computeVertexNormals();
+    return g;
+  }
+  function buildHat(id, r) {
+    const g = new THREE.Group(), h = new THREE.Group(); g.add(h);
+    const add = (geo, m, pos, rot) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(...pos); if (rot) o.rotation.set(...rot); h.add(o); return o; };
+    if (id === 'migfer') {
+      h.position.set(0, 0.075, -0.03); h.rotation.x = -0.3;
+      add(geoC('helm', () => { const s = new THREE.SphereGeometry(1, 44, 22, 0, TAU, 0, Math.PI * 0.56); s.scale(0.335, 0.31, 0.345); return s; }), steelM(r));
+      add(geoC('helmGold', () => kitGeo(k => {
+        k.add(G.torus(TAU, 0.07, 56), 0xffffff, [0, -0.058, 0], [Math.PI / 2, 0, 0], [0.332, 0.342, 0.3]);
+        k.add(G.torus(Math.PI, 0.09, 32), 0xffffff, [0, 0, 0], [0, Math.PI / 2, 0], [0.33, 0.325, 0.33]);
+        for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; k.add(G.sphere(8), 0xffffff, [Math.sin(a) * 0.335, -0.035, Math.cos(a) * 0.345], 0, 0.012); }
+        for (const s of [-1, 1]) k.add(G.sphere(20), 0xffffff, [s * 0.305, -0.12, 0.05], [0.22, 0, s * 0.15], [0.03, 0.1, 0.075]);
+      })), goldM(0));
+      add(geoC('helmPlume', () => plume([[0, 0.3, -0.02], [0, 0.42, -0.1], [0, 0.44, -0.26], [0, 0.34, -0.4]], 0.045, '#ff4a4a', '#ffd0d0', 5, 0.03, 11)),
+        vcM('plume', { roughness: 0.75 }));
+    } else if (id === 'sihirbaz') {
+      h.position.set(0, 0.19, 0); h.rotation.set(-0.16, 0, 0.1);
+      const felt = feltMat('wiz', 0x3b5fe0, r);
+      const P = curvePts([v3(0, 0.01, 0), v3(0, 0.22, -0.01), v3(0, 0.4, -0.05), v3(0.02, 0.52, -0.15), v3(0.04, 0.54, -0.26)], 24);
+      const rad = t => 0.215 * (1 - t * 0.93);
+      add(geoC('wizBrim', () => brimRing(0.2, 0.44, 64, (a, f) => [-0.035 * f * f + 0.012 * Math.sin(a * 5) * f, 0])), felt);
+      add(geoC('wizCone', () => {
+        const geo = sweep(P, P.map(() => v3(0, 0, 1)), rad, rad, 28, 1, (t, c) => c.setRGB(1, 1, 1), null);
+        geo.deleteAttribute('aFlex'); geo.deleteAttribute('color');
+        return geo;
+      }), felt);
+      add(geoC('wizBand', () => kitGeo(k => k.add(G.torus(TAU, 0.11, 48), 0xffffff, [0, 0.035, 0], [Math.PI / 2, 0, 0], [0.212, 0.212, 0.2]))), goldM(r));
+      add(geoC('wizStars', () => {
+        const k = new Kit(), sg = starGeo(1, 0.4), q = new THREE.Quaternion();
+        for (const [t, a, s] of [[0.2, 0.5, 0.034], [0.34, -0.7, 0.03], [0.5, 0.15, 0.024], [0.13, -0.25, 0.022]]) {
+          const i = Math.round(t * 24), n = v3(Math.sin(a), 0.25, Math.cos(a)).normalize(), rr = rad(i / 24) + 0.004;
+          k.add(sg, 0xffffff, [P[i].x + Math.sin(a) * rr, P[i].y, P[i].z + Math.cos(a) * rr], q.clone().setFromUnitVectors(v3(0, 0, 1), n), s);
+        }
+        for (const [a, rr, s] of [[0.9, 0.33, 0.03], [-0.5, 0.36, 0.026], [2.6, 0.32, 0.028]]) k.add(sg, 0xffffff, [Math.sin(a) * rr, 0.004, Math.cos(a) * rr], [-Math.PI / 2, 0, a], s);
+        // crescent moon
+        const moon = new THREE.Shape(); moon.absarc(0, 0, 1, 0.5, TAU - 0.5, false); moon.absarc(0.45, 0, 0.8, TAU - 0.9, 0.9, true);
+        const mg = new THREE.ExtrudeGeometry(moon, { depth: 0.3, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.08, bevelSegments: 2 });
+        mg.deleteAttribute('uv'); mg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(mg.attributes.position.count * 2), 2));
+        const i = 7, a = 1.9, rr = rad(i / 24) + 0.004;
+        k.add(mg, 0xffffff, [P[i].x + Math.sin(a) * rr, P[i].y, P[i].z + Math.cos(a) * rr], q.clone().setFromUnitVectors(v3(0, 0, 1), v3(Math.sin(a), 0.2, Math.cos(a)).normalize()), 0.04);
+        return k.build();
+      }), mat('wizStar|' + r, () => stdMat({ color: 0xffe070, emissive: 0xffc830, emissiveIntensity: 0.55 + 0.35 * r, roughness: 0.3 })));
+    } else if (id === 'kovboy') {
+      h.position.set(0, 0.2, -0.01); h.rotation.x = -0.18;
+      const felt = feltMat('cow', 0xb0743d, r);
+      add(geoC('cowCrown', () => {
+        const geo = lathe([[0.205, 0], [0.206, 0.05], [0.198, 0.15], [0.182, 0.205], [0.13, 0.228], [0, 0.222]], 40, 0, 0, 1, 1.08);
+        const P = geo.attributes.position;
+        for (let i = 0; i < P.count; i++) {
+          const x = P.getX(i), y = P.getY(i), z = P.getZ(i), top = sstep(0.12, 0.228, y);
+          P.setY(i, y - 0.03 * Math.exp(-sq(x / 0.075)) * top * sstep(-0.25, 0.0, z));
+          if (z > 0.1) P.setX(i, x * (1 - 0.12 * top));
+        }
+        geo.computeVertexNormals();
+        return geo;
+      }), felt);
+      add(geoC('cowBrim', () => brimRing(0.195, 0.43, 72, (a, f) => { const sx = Math.abs(Math.sin(a)); return [0.15 * Math.pow(sx, 2.2) * f * f - 0.03 * sq(Math.cos(a)) * f, -0.07 * sx * sx * f * f]; })), felt);
+      add(geoC('cowBand', () => kitGeo(k => k.add(G.cyl(1, 1, 40, true), 0x4a2a1a, [0, 0.03, 0], 0, [0.208, 0.036, 0.224]))), vcM('band', { roughness: 0.7, side: THREE.DoubleSide }));
+      add(geoC('sheriff', () => starGeo(0.032, 0.008)), goldM(r), [0, 0.03, 0.226]);
+    } else if (id === 'korsan') {
+      h.position.set(0, 0.2, -0.01); h.rotation.x = -0.12;
+      const felt = feltMat('pir', 0x2a2638, r);
+      const corner = a => { let m = 0; for (const c of [0, TAU / 3, -TAU / 3]) m = Math.max(m, Math.exp(-sq(wrapPI(a - c) / 0.42))); return m; };
+      const fold = (a, f) => { const up = (1 - corner(a)) * sstep(0.1, 1, f); return [0.17 * up * f + 0.01 * f, -0.13 * up * f]; };
+      add(geoC('pirCrown', () => lathe([[0.205, 0], [0.2, 0.08], [0.16, 0.14], [0, 0.155]], 36, 0, 0, 1, 1.05)), felt);
+      add(geoC('pirBrim', () => brimRing(0.195, 0.43, 90, fold)), felt);
+      add(geoC('pirTrim', () => {
+        const P = [], U = [];
+        for (let i = 0; i <= 96; i++) { const a = -Math.PI + i / 96 * TAU, d = fold(a, 1), rr = 0.43 + d[1]; P.push(v3(Math.sin(a) * rr, d[0] + 0.004, Math.cos(a) * rr)); U.push(v3(0, 1, 0)); }
+        const geo = sweep(P, U, () => 0.009, () => 0.009, 8, 1, (t, c) => c.setRGB(1, 1, 1), null); geo.deleteAttribute('aFlex'); geo.deleteAttribute('color');
+        return geo;
+      }), goldM(r));
+      add(geoC('pirCoin', () => kitGeo(k => k.add(G.cyl(1, 1, 24), 0xffffff, [0, 0, 0], [Math.PI / 2, 0, 0], [0.036, 0.008, 0.036]))), goldM(r), [0, 0.075, 0.212], [-0.1, 0, 0]);
+      add(geoC('pirStar', () => starGeo(0.026, 0.006)), mat('pirStarW', () => stdMat({ color: 0xfff6e0, roughness: 0.4 })), [0, 0.075, 0.222], [-0.1, 0, 0]);
+      add(geoC('pirFeather', () => plume([[0.13, 0.12, 0.03], [0.22, 0.24, -0.05], [0.26, 0.3, -0.19], [0.22, 0.26, -0.35]], 0.05, '#ff5a6a', '#ffffff', 2, 0.03, 5)),
+        vcM('plume', { roughness: 0.75 }));
+    } else {   // tac: golden crown with gems, perched on the hair
+      h.position.set(0.015, 0.27, -0.03); h.rotation.set(-0.12, 0, 0.14);
+      add(geoC('tacBand', () => kitGeo(k => {
+        k.add(G.cyl(1, 1.04, 44, true), 0xffffff, [0, 0.035, 0], 0, [0.19, 0.07, 0.19]);
+        k.add(G.torus(TAU, 0.06, 48), 0xffffff, [0, 0.0, 0], [Math.PI / 2, 0, 0], 0.197);
+        k.add(G.torus(TAU, 0.05, 48), 0xffffff, [0, 0.07, 0], [Math.PI / 2, 0, 0], 0.19);
+        for (let i = 0; i < 5; i++) {
+          const a = i / 5 * TAU;
+          k.add(G.cone(4), 0xffffff, [Math.sin(a) * 0.19, 0.115, Math.cos(a) * 0.19], [0, a + Math.PI / 4, 0], [0.05, 0.09, 0.05]);
+          k.add(G.sphere(10), 0xffffff, [Math.sin(a) * 0.19, 0.168, Math.cos(a) * 0.19], 0, 0.016);
+        }
+      })), mat('tacGold|' + r, () => { const t = tex('metal'); return rimify(stdMat({ color: 0xffcc40, metalness: 1, roughness: 0.25, side: THREE.DoubleSide, map: t ? t.map : null, emissive: 0x402000, emissiveIntensity: 0.3 }), '#ffb030', 0.6 + 0.1 * r, 2); }));
+      add(geoC('tacGems', () => kitGeo(k => {
+        const cols = ['#ff3a5a', '#3aa0ff', '#3ee07a', '#c45cff', '#ffe23a'];
+        for (let i = 0; i < 5; i++) { const a = (i + 0.5) / 5 * TAU; k.add(G.sphere(12), cols[i], [Math.sin(a) * 0.196, 0.036, Math.cos(a) * 0.196], [0, a, 0], [0.022, 0.022, 0.012]); }
+      })), glowVC('gems', 0.9, { roughness: 0.08, metalness: 0.1 }));
+    }
+    // inner volume (ellipsoid centre, radii, band height, fade — hat-local metres): hair above the band is kept inside it
+    const IN = { migfer: [[0, 0, 0], [0.335, 0.31, 0.345], -0.035, 0.09], sihirbaz: [[0, -0.01, 0], [0.2, 0.24, 0.2], 0, 0.06],
+      kovboy: [[0, 0, 0], [0.195, 0.21, 0.21], 0, 0.06], korsan: [[0, 0, 0], [0.195, 0.15, 0.205], 0, 0.06] }[id];
+    if (IN) g.fzHatIn = { h, c: IN[0], r: IN[1], y0: IN[2], fade: IN[3] };
+    return g;
+  }
+
+  // ── Capes: hanging cloth sheet bent in the vertex shader (flows back when running, ripples, flares in the spin) ──
+  const CAPE_DEF = {
+    kirmizi: { base: '#dc3b3b', dark: '#961d2a', trim: '#ffcf4a', edge: 'straight' },
+    mavi: { base: '#3266dc', dark: '#1a348c', trim: '#e2ebff', edge: 'wave' },
+    yesil: { base: '#46b24d', dark: '#23772f', trim: '#b5e86a', edge: 'leaf' },
+    mor: { base: '#8a47d6', dark: '#4a1f8e', trim: '#ffcf4a', edge: 'points' },
+    gokkusagi: { base: '#ffffff', dark: '#ffffff', trim: '#ffffff', edge: 'straight' },
+  };
+  const CAPE_TEX = {};
+  function capeTex(id) {
+    if (CAPE_TEX[id]) return CAPE_TEX[id];
+    const d = CAPE_DEF[id] || CAPE_DEF.kirmizi, S = 256, cv = canvasEl(S, S), g = cv.getContext('2d'), ev = canvasEl(S, S), ge = ev.getContext('2d'), R = mulberry32(id.length * 97 + 5);
+    ge.fillStyle = '#000'; ge.fillRect(0, 0, S, S);
+    const edge = x => {
+      const u = x / S;
+      if (d.edge === 'wave') return S * (0.92 + 0.035 * Math.sin(u * TAU * 3));
+      if (d.edge === 'leaf') { const f = (u * 7) % 1; return S * (0.86 + 0.11 * Math.pow(Math.sin(f * Math.PI), 0.7)); }
+      if (d.edge === 'points') { const f = (u * 5) % 1; return S * (0.85 + 0.13 * (1 - Math.abs(f * 2 - 1))); }
+      return S * 0.95;
+    };
+    const path = c => { c.beginPath(); c.moveTo(0, 0); c.lineTo(S, 0); for (let x = S; x >= 0; x -= 2) c.lineTo(x, edge(x)); c.closePath(); };
+    const edgeLine = c => { c.beginPath(); for (let x = 0; x <= S; x += 2) x ? c.lineTo(x, edge(x)) : c.moveTo(x, edge(x)); };
+    const star = (c, x, y, rr, a) => { c.beginPath(); for (let i = 0; i < 10; i++) { const b = a - Math.PI / 2 + i * Math.PI / 5, q = i & 1 ? rr * 0.45 : rr; c.lineTo(x + Math.cos(b) * q, y + Math.sin(b) * q); } c.closePath(); c.fill(); };
+    g.save(); path(g); g.clip();
+    if (id === 'gokkusagi') {
+      const RB = ['#ff5d73', '#ff9a3c', '#ffd23f', '#72e06a', '#4fc3ff', '#8f7bff'];
+      RB.forEach((c, i) => { g.fillStyle = c; g.fillRect(0, i * S / 6, S, S / 6 + 1); });
+      ge.globalAlpha = 0.45; RB.forEach((c, i) => { ge.fillStyle = c; ge.fillRect(0, i * S / 6, S, S / 6 + 1); }); ge.globalAlpha = 1;
+      for (let i = 0; i < 26; i++) { const x = R() * S, y = R() * S * 0.9; g.fillStyle = '#fff'; star(g, x, y, 3 + R() * 4, R()); ge.fillStyle = '#fff'; star(ge, x, y, 3 + R() * 4, R()); }
+    } else {
+      const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, d.base); gr.addColorStop(1, d.dark); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+      if (id === 'mavi') {
+        for (let i = 0; i < 30; i++) {
+          const x = R() * S, y = 12 + R() * S * 0.8, rr = 4 + R() * 7, a = R();
+          g.fillStyle = '#ffe066'; star(g, x, y, rr, a); ge.fillStyle = '#ffd84a'; star(ge, x, y, rr, a);
+        }
+        for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(R() * S, R() * S, 2, 2); }
+      } else if (id === 'yesil') {
+        for (let i = 0; i < 46; i++) {
+          const x = R() * S, y = R() * S, a = R() * TAU, l = 10 + R() * 12;
+          g.save(); g.translate(x, y); g.rotate(a);
+          g.fillStyle = R() < 0.5 ? '#6fd14f' : '#2f8f3a'; g.beginPath(); g.ellipse(0, 0, l, l * 0.42, 0, 0, TAU); g.fill();
+          g.strokeStyle = 'rgba(20,80,20,0.6)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-l, 0); g.lineTo(l, 0); g.stroke(); g.restore();
+        }
+      } else if (id === 'mor') {
+        g.lineCap = 'round'; ge.lineCap = 'round';
+        for (let i = 0; i < 9; i++) {
+          const x = 20 + R() * (S - 40), y = 20 + R() * S * 0.7, rr = 9 + R() * 8, col = R() < 0.5 ? '#ff9af0' : '#8ff4ff';
+          for (const c of [g, ge]) { c.strokeStyle = col; c.lineWidth = 2.2; c.beginPath(); c.arc(x, y, rr, 0, Math.PI * 1.5); c.stroke(); c.beginPath(); c.arc(x, y, rr * 0.45, Math.PI, TAU * 0.9); c.stroke(); }
+        }
+        for (let i = 0; i < 24; i++) { const x = R() * S, y = R() * S * 0.85, col = R() < 0.5 ? '#ffe3ff' : '#c8fbff'; g.fillStyle = col; star(g, x, y, 2 + R() * 4, 0); ge.fillStyle = col; star(ge, x, y, 2 + R() * 4, 0); }
+      } else {   // kirmizi: golden star emblem
+        g.fillStyle = '#ffcf4a'; star(g, S / 2, S * 0.3, 26, 0); g.fillStyle = '#ffe79a'; star(g, S / 2, S * 0.3, 14, 0);
+        ge.fillStyle = '#6a4a00'; star(ge, S / 2, S * 0.3, 26, 0);
+      }
+    }
+    // trim along the bottom edge and the sides
+    g.strokeStyle = d.trim; g.lineWidth = 18; edgeLine(g); g.stroke();
+    g.fillStyle = d.trim; g.fillRect(0, 0, 7, S); g.fillRect(S - 7, 0, 7, S);
+    g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 2; g.save(); g.translate(0, -9); edgeLine(g); g.stroke(); g.restore();
+    if (d.trim === '#ffcf4a') { ge.strokeStyle = '#4a3200'; ge.lineWidth = 18; edgeLine(ge); ge.stroke(); }
+    g.restore();
+    const mk = c => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return keep(t); };
+    return (CAPE_TEX[id] = { map: mk(cv), emissiveMap: mk(ev) });
+  }
+  const CAPE_LEN = 0.6;
+  // Half-depth of the torso (shirt / shorts lathes, z-scaled) at bind height y and lateral offset x.
+  function profR(P, y) {
+    let r = 0;
+    for (let i = 0; i + 1 < P.length; i++) {
+      const a = P[i], b = P[i + 1];
+      if ((y - a[1]) * (y - b[1]) <= 0 && a[1] !== b[1]) r = Math.max(r, lerp(a[0], b[0], (y - a[1]) / (b[1] - a[1])));
+    }
+    return r;
+  }
+  const backDepth = (x, y) => Math.max(0.8 * Math.sqrt(Math.max(0, sq(profR(SHIRT_P, y)) - x * x)), 0.82 * Math.sqrt(Math.max(0, sq(profR(SHORTS_P, y)) - x * x)));
+  const CAPE_Y0 = 0.805, CAPE_Z0 = -0.01;   // cape slot in bind pose (chest bone 0.6 + 0.205, z −0.01)
+  function capeGeo() {
+    const NX = 16, NY = 18, pos = [], uv = [], idx = [];
+    for (let j = 0; j <= NY; j++) for (let i = 0; i <= NX; i++) {
+      const u = i / NX, v = j / NY, a = (u - 0.5) * lerp(2.7, 1.5, Math.pow(v, 0.6)), R = lerp(0.158, 0.3, Math.pow(v, 0.7)), D = lerp(0.115, 0.06, v);
+      const fold = 0.014 * Math.sin(u * Math.PI * 6) * sstep(0.1, 1, v);
+      const x = Math.sin(a) * R, y = -v * CAPE_LEN;
+      let z = -Math.cos(a) * D - 0.012 - v * 0.03 - fold;
+      // stay clear of the back (shoulder blades, bottom of the shirt): clearance grows toward the hem, soft min
+      const zb = -backDepth(x, CAPE_Y0 + y) - CAPE_Z0 - (0.022 + 0.03 * v), k = 0.02, hh = Math.max(k - Math.abs(z - zb), 0) / k;
+      z = Math.min(z, zb) - hh * hh * k * 0.25;
+      pos.push(x, y, z);
+      uv.push(u, 1 - v);
+    }
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const a = j * (NX + 1) + i; idx.push(a, a + NX + 1, a + 1, a + 1, a + NX + 1, a + NX + 2); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+    g.computeVertexNormals();
+    const n = v3().fromBufferAttribute(g.attributes.normal, Math.floor(NY / 2) * (NX + 1) + NX / 2);
+    if (n.z > 0) { const I = g.index.array; for (let t = 0; t < I.length; t += 3) { const x = I[t + 1]; I[t + 1] = I[t + 2]; I[t + 2] = x; } g.computeVertexNormals(); }
+    return keep(g);
+  }
+  const CAPE_V = `
+    float fzV = clamp(-transformed.y / ${CAPE_LEN.toFixed(3)}, 0.0, 1.2);
+    float fzA = cpFlow * 0.95 * pow(fzV, 0.9) + 0.2 * fzV;
+    float fzW = (sin(cpTime * (4.0 + 5.0 * cpFlow) - fzV * 5.5 + transformed.x * 7.0) - 1.0) * (0.3 + cpFlow) * 0.0225 * fzV;   // ripples only backward
+    float fzY = transformed.y, fzZ = transformed.z, fzC = cos(fzA), fzS = sin(fzA);
+    transformed.y = fzY * fzC - fzZ * fzS;
+    transformed.z = fzY * fzS + fzZ * fzC + fzW;
+    transformed.x += (cpSide * 0.14 + sin(cpTime * 6.0 - fzV * 4.0) * 0.012 * cpFlow) * fzV;`;
+  const CAPE_N = `
+    vec3 fzN = objectNormal; fzN = vec3(fzN.x, fzN.y * fzC - fzN.z * fzS, fzN.y * fzS + fzN.z * fzC);
+    vNormal = normalize(normalMatrix * fzN);`;
+  function capeUniforms() { return { cpFlow: { value: 0 }, cpSide: { value: 0 }, cpTime: TIME.u }; }
+  function capePatch(m, U, withNormal, key) {
+    return patchMat(m, { uniforms: U, vDecl: 'uniform float cpFlow, cpSide, cpTime;', vBegin: CAPE_V + (withNormal ? CAPE_N : ''), key: 'cape' + key });
+  }
+  function buildCape(id, r, own) {
+    const g = new THREE.Group(), T = capeTex(id), U = capeUniforms();
+    if (own) U.cpTime = { value: 0 };
+    const t = tex('fabric') ? TEX.rep('fabric', 4, 4) : null;
+    const m = stencil(stdMat({ map: T.map, emissiveMap: T.emissiveMap, emissive: 0xffffff, emissiveIntensity: id === 'kirmizi' ? (r >= 2 ? 0.6 : 0) : 0.7 + 0.35 * r,
+      normalMap: t ? t.normalMap : null, normalScale: V2(0.6, 0.6), roughness: 0.8, side: THREE.DoubleSide, alphaTest: 0.5,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
+    capePatch(m, U, true, 'm');
+    patchMat(m, { fDecl: '', fOut: 'outgoingLight *= gl_FrontFacing ? 1.0 : 0.62;', key: 'capeIn' });
+    if (r >= 2) rimify(m, rarCol(r), r === 3 ? 0.55 : 0.35, 2.4); else rimify(m, 0xffffff, 0.1);
+    const mesh = new THREE.Mesh(capeGeo(), m);
+    const dm = capePatch(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: T.map, alphaTest: 0.5 }), U, false, 'd');
+    mesh.customDepthMaterial = dm; mesh.name = 'fzCape';
+    mesh.fzXrayPatch = mm => capePatch(mm, U, true, 'x');
+    if (!own) { keep(m); keep(dm); }
+    g.add(mesh);
+    const clasp = new THREE.Mesh(geoC('clasp', () => kitGeo(k => {
+      k.add(G.sphere(16), 0xffffff, [0, -0.004, 0.108], 0, [0.024, 0.024, 0.014]);
+      for (const s of [-1, 1]) k.seg([s * 0.152, 0.002, -0.03], [s * 0.03, 0.0, 0.1], 0.006, 0xffffff, 0.006, 8);
+    })), goldM(r));
+    clasp.userData.noShadow = true; clasp.userData.noXray = true; g.add(clasp);
+    g.fzCapeU = U; g.fzDepth = dm;
+    return g;
+  }
+
+  // ── Item templates (for ground display, thumbnails) ──
+  const TPL = {};
+  function buildItem(slot, id, r, own) {
+    const o = slot === 'weapon' ? buildSword(id, r) : slot === 'hat' ? buildHat(id, r) : buildCape(id, r, own);
+    o.traverse(m => {
+      if (!m.isMesh) return;
+      // only parts big enough to make a visible shadow cast one (gems, small stars, the cape clasp don't)
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      const rad = m.geometry.boundingSphere.radius * Math.max(m.scale.x, m.scale.y, m.scale.z);
+      m.castShadow = rad > 0.07 && !m.userData.noShadow; m.receiveShadow = false;
+    });
+    o.userData.slot = slot; o.userData.id = id; o.userData.rarity = r;
+    return o;
+  }
+  const tplKey = (slot, id, r) => slot + ':' + id + ':' + r;
+  const template = (slot, id, r) => { const k = tplKey(slot, id, r); return TPL[k] || (TPL[k] = buildItem(slot, id, r, false)); };
+
+  // ── X-ray silhouette (stencil technique) ──
+  // Opaque objects are sorted by material before depth, so Feza draws after the level (renderOrder) — otherwise he would
+  // mark the stencil before the walls in front of him have written their depth. The body + hair use ONE low-poly skinned
+  // stand-in; each equipment piece gets ONE merged twin (the cape cloth its own, it bends in the vertex shader).
+  const HERO_ORDER = 5;
+  let XRAY = null;
+  function xrayMat(patch) {
+    const m = new THREE.MeshLambertMaterial({ color: 0x8fd0ff, transparent: true, depthWrite: false, depthFunc: THREE.GreaterDepth,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -8 });
+    m.stencilWrite = true; m.stencilRef = 1; m.stencilFunc = THREE.NotEqualStencilFunc;
+    m.stencilZPass = THREE.ReplaceStencilOp; m.stencilFail = THREE.KeepStencilOp; m.stencilZFail = THREE.KeepStencilOp;
+    if (patch) patch(m);
+    patchMat(m, { fDecl: '', fOut: `float fzX = 1.0 - abs(dot(normal, normalize(vViewPosition)));
+      outgoingLight = vec3(0.55, 0.82, 1.0) * (0.55 + 0.9 * fzX * fzX); diffuseColor.a = 0.34 + 0.4 * fzX * fzX;`, key: 'xray' });
+    return keep(m);
+  }
+  const xrayBase = () => XRAY || (XRAY = xrayMat(null));
+  function xrayTwin(geo, mat, parent) {
+    const t = new THREE.Mesh(geo, mat);
+    t.renderOrder = 20; t.frustumCulled = false; t.castShadow = false; t.userData.xrayTwin = true;
+    parent.add(t); return t;
+  }
+  // All meshes of an item (minus the cape cloth and flagged parts) merged into one position+normal geometry in item space.
+  const XGEO = {};
+  function mergedXrayGeo(obj, key) {
+    if (XGEO[key]) return XGEO[key];
+    const parts = [];
+    obj.traverse(o => { if (o.isMesh && !o.userData.xrayTwin && !o.userData.noXray && o.name !== 'fzCape') parts.push(o); });
+    let nv = 0, ni = 0;
+    for (const o of parts) { const g = o.geometry; nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+    const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    const m4 = new THREE.Matrix4(), nm = new THREE.Matrix3(), v = v3();
+    let vo = 0, io = 0;
+    for (const o of parts) {
+      o.updateMatrix(); m4.copy(o.matrix);
+      for (let p = o.parent; p && p !== obj; p = p.parent) { p.updateMatrix(); m4.premultiply(p.matrix); }
+      nm.getNormalMatrix(m4);
+      const g = o.geometry, P = g.attributes.position, N = g.attributes.normal;
+      for (let i = 0; i < P.count; i++) {
+        const k = (vo + i) * 3;
+        v.fromBufferAttribute(P, i).applyMatrix4(m4); pos[k] = v.x; pos[k + 1] = v.y; pos[k + 2] = v.z;
+        if (N) { v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor[k] = v.x; nor[k + 1] = v.y; nor[k + 2] = v.z; }
+      }
+      if (g.index) { const I = g.index; for (let i = 0; i < I.count; i++) idx[io + i] = I.getX(i) + vo; io += I.count; }
+      else { for (let i = 0; i < P.count; i++) idx[io + i] = vo + i; io += P.count; }
+      vo += P.count;
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    out.setIndex(new THREE.BufferAttribute(idx, 1)); out.computeBoundingSphere();
+    return (XGEO[key] = keep(out));
+  }
+  // capePatch: the cape's own vertex bend (clones of templates lose it, so it can be passed in)
+  function addXrayItem(obj, key, capePatch, capeHolder) {
+    if (obj.userData.xrayDone) return;
+    obj.userData.xrayDone = true;
+    let cape = null;
+    obj.traverse(o => { if (o.isMesh && o.name === 'fzCape') cape = o; });
+    if (cape) {
+      const patch = capePatch || cape.fzXrayPatch, holder = capeHolder || cape;
+      if (patch) xrayTwin(cape.geometry, holder.fzXrayM || (holder.fzXrayM = xrayMat(patch)), cape);
+    }
+    const g = mergedXrayGeo(obj, key);
+    if (g.attributes.position.count) xrayTwin(g, xrayBase(), obj);
+  }
+
+  // ── Offscreen renderer for thumbnails and portraits ──
+  // The mini scene mirrors the main scene's light counts (and fog type) so the same shader programs are reused — no compile
+  // hitch when the bag opens. Output goes into an sRGB render target, i.e. it is encoded like the screen.
+  const OFF = { rt: null, scene: null, cam: null, buf: null, cv: null, sig: '', busy: false };
+  function offSetup() {
+    if (!OFF.rt) {
+      OFF.rt = new THREE.WebGLRenderTarget(256, 256, { samples: 4, colorSpace: THREE.SRGBColorSpace, depthBuffer: true });
+      OFF.scene = new THREE.Scene(); OFF.cam = new THREE.PerspectiveCamera(28, 1, 0.05, 20);
+      OFF.buf = new Uint8Array(256 * 256 * 4); OFF.cv = canvasEl(256, 256);
+      OFF.lights = new THREE.Group(); OFF.scene.add(OFF.lights);
+    }
+    let p = 0, d = 0, ds = 0, h = 0, s = 0;
+    scene.traverseVisible(o => { if (!o.isLight) return; if (o.isPointLight) p++; else if (o.isDirectionalLight) { d++; if (o.castShadow) ds++; } else if (o.isHemisphereLight) h++; else if (o.isSpotLight) s++; });
+    const sig = [p, d, ds, h, s].join(',');
+    if (sig !== OFF.sig) {
+      OFF.sig = sig;
+      for (const l of OFF.lights.children.slice()) { OFF.lights.remove(l); if (l.dispose) l.dispose(); }
+      const add = l => { OFF.lights.add(l); return l; };
+      const hemi = add(new THREE.HemisphereLight(0xeaf4ff, 0x8a6a55, h ? 1.1 : 0)); hemi.visible = h > 0;
+      for (let i = 0; i < d; i++) {
+        const k = add(new THREE.DirectionalLight(0xfff2de, i === 0 ? 2.6 : 0)); k.position.set(-1.6, 3, 2.6); k.target.position.set(0, 0, 0); OFF.lights.add(k.target);
+        if (i < ds) { k.castShadow = true; k.shadow.mapSize.set(256, 256); const c = k.shadow.camera; c.left = c.bottom = -1; c.right = c.top = 1; c.near = 0.1; c.far = 10; k.shadow.bias = -0.002; }
+      }
+      for (let i = 0; i < p; i++) { const l = add(new THREE.PointLight(0xbfe2ff, i === 0 ? 3.5 : 0, 8, 1.5)); l.position.set(1.8, 1.5, -1.6); }
+      for (let i = 0; i < s; i++) add(new THREE.SpotLight(0xffffff, 0));
+      if (!d) { const k = add(new THREE.DirectionalLight(0xfff2de, 2.6)); k.position.set(-1.6, 3, 2.6); }
+      if (!p) { const l = add(new THREE.PointLight(0xbfe2ff, 3.5, 8, 1.5)); l.position.set(1.8, 1.5, -1.6); }
+    }
+    OFF.scene.fog = scene.fog ? (scene.fog.isFogExp2 ? new THREE.FogExp2(0, 0) : new THREE.Fog(0, 1e4, 2e4)) : null;
+    OFF.scene.environment = scene.environment; OFF.scene.environmentIntensity = 1;
+  }
+  // Render obj (already placed in OFF.scene) framed on the sphere (c, rad) viewed from dir; returns a canvas (256²).
+  function offRender(c, rad, dir, fov) {
+    const cam = OFF.cam; cam.fov = fov || 28; cam.updateProjectionMatrix();
+    const dist = rad / Math.sin(cam.fov * Math.PI / 360);
+    cam.position.copy(c).addScaledVector(dir.clone().normalize(), dist); cam.near = dist * 0.3; cam.far = dist * 3; cam.updateProjectionMatrix(); cam.lookAt(c);
+    // keep the key light relative to the camera
+    for (const l of OFF.lights.children) if (l.isDirectionalLight && l.intensity > 0) { l.position.copy(c).add(v3(-1.4, 2.6, 1.2).applyQuaternion(cam.quaternion)); l.target.position.copy(c); l.target.updateMatrixWorld(); if (l.castShadow) { const sc = l.shadow.camera; sc.left = sc.bottom = -rad * 1.4; sc.right = sc.top = rad * 1.4; sc.updateProjectionMatrix(); } }
+      else if (l.isPointLight && l.intensity > 0) l.position.copy(c).add(v3(1.3, 0.9, -1.5).applyQuaternion(cam.quaternion).multiplyScalar(rad * 2.2));
+    const prevRT = renderer.getRenderTarget(), prevCol = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha(), prevBg = OFF.scene.background;
+    renderer.setRenderTarget(OFF.rt); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, true);
+    OFF.busy = true;
+    try { renderer.render(OFF.scene, cam); } finally { OFF.busy = false; }
+    renderer.readRenderTargetPixels(OFF.rt, 0, 0, 256, 256, OFF.buf);
+    renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA); OFF.scene.background = prevBg;
+    const g = OFF.cv.getContext('2d'), id = g.createImageData(256, 256), B = OFF.buf, D = id.data;
+    for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
+      const s = ((255 - y) * 256 + x) * 4, d = (y * 256 + x) * 4, a = B[s + 3];
+      const k = a > 0 && a < 255 ? 255 / a : 1;
+      D[d] = Math.min(255, B[s] * k); D[d + 1] = Math.min(255, B[s + 1] * k); D[d + 2] = Math.min(255, B[s + 2] * k); D[d + 3] = a;
+    }
+    g.putImageData(id, 0, 0);
+    return OFF.cv;
+  }
+
+  // ── Pose channels ──
+  const CHN = ['bX', 'bY', 'bZ', 'bRX', 'bRY', 'bRZ', 'hRX', 'hRY', 'hRZ', 'cRX', 'cRY', 'cRZ', 'kRX', 'kRY', 'kRZ',
+    'aLX', 'aLY', 'aLZ', 'fL', 'fLZ', 'aRX', 'aRY', 'aRZ', 'fR', 'fRZ', 'wX', 'wY', 'wZ', 'tLX', 'tLZ', 'sL', 'tRX', 'tRZ', 'sR'];
+  const C = {}; CHN.forEach((n, i) => { C[n] = i; });
+  const NCH = CHN.length;
+  const LEGS = [C.tLX, C.tLZ, C.sL, C.tRX, C.tRZ, C.sR];
+  const BASE = new Float32Array(NCH);
+  Object.entries({ cRX: 0.02, kRX: -0.3, kRZ: 0.07, aLX: 0.06, aLZ: 0.17, fL: -0.3, aRX: -0.15, aRY: 0.25, aRZ: -0.2, fR: -0.95,
+    wX: 2.8, wY: 0, wZ: 0.3, tLZ: 0.035, sL: 0.03, tRZ: -0.035, sR: 0.03 }).forEach(([k, v]) => { BASE[C[k]] = v; });
+  const K = o => { const a = {}; for (const k in o) a[C[k]] = o[k]; return a; };
+  // Horizontal slash keyframes: B = wind-up, C = end of the strike, D = follow-through. dir 1 sweeps right → left.
+  const SLASH = {
+    1: {
+      B: K({ cRY: -0.7, hRY: -0.25, bRX: -0.05, bY: -0.035, aRX: -1.15, aRY: -1.9, aRZ: 0, fR: -0.15, fRZ: 0.35, wX: 2.78, wY: 0, wZ: 0.2, aLX: -0.6, aLY: 0.55, aLZ: 0.3, fL: -1.0, kRY: 0.35, kRX: -0.2, tLX: -0.35, sL: 0.3, tRX: 0.25, sR: 0.35 }),
+      C: K({ cRY: 0.62, hRY: 0.25, bRX: 0.14, bZ: 0.07, bY: -0.02, aRX: -1.22, aRY: 0.8, aRZ: 0, fR: -0.05, fRZ: -0.1, wX: 2.82, wY: 0, wZ: -0.15, aLX: 0.55, aLY: -0.3, aLZ: 0.35, fL: -0.6, kRY: -0.3, kRX: -0.18, tLX: -0.42, sL: 0.25, tRX: 0.32, sR: 0.3 }),
+      D: K({ cRY: 0.74, hRY: 0.3, bRX: 0.1, bZ: 0.06, bY: -0.02, aRX: -1.18, aRY: 1.05, aRZ: 0, fR: -0.2, fRZ: -0.35, wX: 2.78, wY: 0, wZ: -0.3, aLX: 0.45, aLY: -0.3, aLZ: 0.3, fL: -0.6, kRY: -0.35, kRX: -0.18, tLX: -0.42, sL: 0.25, tRX: 0.32, sR: 0.3 }),
+    },
+    '-1': {
+      B: K({ cRY: 0.65, hRY: 0.22, bRX: -0.04, bY: -0.035, aRX: -1.15, aRY: 0.7, aRZ: 0, fR: -0.15, fRZ: 1.1, wX: 2.78, wY: 0, wZ: 0.35, aLX: 0.35, aLY: -0.3, aLZ: 0.35, fL: -0.7, kRY: -0.3, kRX: -0.2, tLX: -0.3, sL: 0.3, tRX: 0.25, sR: 0.3 }),
+      C: K({ cRY: -0.55, hRY: -0.22, bRX: 0.14, bZ: 0.07, bY: -0.02, aRX: -1.22, aRY: -1.55, aRZ: 0, fR: -0.05, fRZ: 0.1, wX: 2.82, wY: 0, wZ: 0.15, aLX: -0.4, aLY: 0.4, aLZ: 0.3, fL: -0.9, kRY: 0.28, kRX: -0.18, tLX: -0.4, sL: 0.25, tRX: 0.32, sR: 0.3 }),
+      D: K({ cRY: -0.66, hRY: -0.26, bRX: 0.1, bZ: 0.06, bY: -0.02, aRX: -1.18, aRY: -1.85, aRZ: 0, fR: -0.2, fRZ: 0.3, wX: 2.78, wY: 0, wZ: 0.3, aLX: -0.35, aLY: 0.4, aLZ: 0.3, fL: -0.9, kRY: 0.32, kRX: -0.18, tLX: -0.4, sL: 0.25, tRX: 0.32, sR: 0.3 }),
+    },
+  };
+  const CAST = {   // gather → both hands thrust forward, the sword pointed at the target like a magic wand
+    G: K({ aLX: 0.45, aRX: 0.35, aLY: 0, aRY: 0, aLZ: 0.45, aRZ: -0.45, fL: -1.4, fR: -1.5, fLZ: 0, fRZ: 0, bY: -0.045, bRX: -0.1, kRX: -0.2, cRX: -0.06, wX: 2.2, wZ: 0 }),
+    T: K({ aLX: -1.5, aLY: -0.5, aLZ: 0.05, aRX: -1.55, aRY: 0.12, aRZ: -0.05, fL: -0.2, fR: -0.06, fLZ: 0, fRZ: 0, bRX: 0.15, bZ: 0.05, bY: 0, kRX: -0.22, cRX: 0.06, wX: 3.05, wZ: 0, tLX: -0.3, sL: 0.2, tRX: 0.2, sR: 0.1 }),
+  };
+  const SPIN = K({ aLX: -1.5, aLY: 1.5, aLZ: 0, fL: -0.15, aRX: -1.5, aRY: -1.5, aRZ: 0, fR: -0.06, wX: 3.05, wY: 0, wZ: 0, bRX: -0.04, tLZ: 0.2, tRZ: -0.2, sL: 0.25, sR: 0.25, tLX: -0.1, tRX: -0.1, kRX: -0.1, cRY: 0, hRY: 0, cRX: 0 });
+  const CHEER = K({ aLX: -2.75, aLZ: 0.38, aLY: 0, fL: -0.35, aRX: -2.8, aRZ: -0.32, aRY: 0, fR: -0.25, wX: 3.0, wY: 0, wZ: 0, kRX: -0.28, cRX: -0.08, kRZ: 0.0 });
+  const SLEEP = { bRZ: Math.PI / 2, bRX: -0.35, bY: 0.2, bX: 0.62, bZ: 0,
+    P: K({ cRX: 0.12, cRY: 0, kRX: 0.2, kRY: 0.3, kRZ: 0.22, aLX: -1.9, aLY: 0.1, aLZ: 0.1, fL: -1.9, aRX: -1.35, aRY: 0.1, aRZ: 0.25, fR: -0.35, wX: 2.9, wY: 0, wZ: -0.7,
+      tLX: -1.15, tLZ: 0.05, sL: 1.5, tRX: -0.75, tRZ: -0.02, sR: 1.2, hRX: 0.1 }) };
+  const FIDGETS = ['look', 'bounce', 'sword', 'wave', 'stretch', 'scratch'];
+  const LEGSET = new Uint8Array(NCH); for (const i of LEGS) LEGSET[i] = 1;
+  function lerpInto(P, Q, w, legW) {
+    const lw = legW === undefined ? w : legW;
+    if (w <= 0 && lw <= 0) return;
+    for (let i = 0; i < NCH; i++) P[i] += (Q[i] - P[i]) * (LEGSET[i] ? lw : w);
+  }
+  function keysBetween(out, base, A, B, t) { for (let i = 0; i < NCH; i++) { const a = A[i] ?? base[i], b = B[i] ?? base[i]; out[i] = a + (b - a) * t; } }
+
+  // ── Hero ──
+  function create() {
+    const body = buildBody(), sh = sharedMats();
+    const root = new THREE.Group(); root.name = 'feza';
+    const bones = BONES.map(b => { const o = new THREE.Bone(); o.name = b[0]; o.position.set(b[2], b[3], b[4]); o.rotation.order = 'YXZ'; return o; });
+    BONES.forEach((b, i) => { if (b[1] >= 0) bones[b[1]].add(bones[i]); });
+    root.add(bones[0]); root.updateMatrixWorld(true);
+    const skel = new THREE.Skeleton(bones);
+    const skinMat = makeSkinMat(), hairMat = makeHairMat();
+    const sk = (geo, m) => { const o = new THREE.SkinnedMesh(geo, m); root.add(o); o.bind(skel); o.frustumCulled = false; o.castShadow = true; return o; };
+    const skinMesh = sk(body.skin, skinMat); sk(body.cloth, sh.cloth); sk(body.shoe, sh.shoe);
+    const B = { root: bones[0], hips: bones[1], chest: bones[2], head: bones[3], armL: bones[4], foreL: bones[5], armR: bones[6], foreR: bones[7], thighL: bones[8], shinL: bones[9], thighR: bones[10], shinR: bones[11] };
+    const hairG = new THREE.Group(); B.head.add(hairG);
+    const hair = new THREE.Mesh(body.hair, hairMat);
+    hair.castShadow = true; hair.frustumCulled = false; hair.customDepthMaterial = hairMat.userData.depth; hairG.add(hair);
+    const hatSlot = new THREE.Group(); hatSlot.position.copy(HC); hairG.add(hatSlot);
+    const wSlot = new THREE.Group(); wSlot.position.set(0, -0.18, 0.012); wSlot.rotation.order = 'ZXY'; B.foreR.add(wSlot);
+    const capeSlot = new THREE.Group(); capeSlot.position.set(0, 0.205, -0.01); B.chest.add(capeSlot);
+    const handR = new THREE.Object3D(); handR.position.set(0, -0.18, 0.01); B.foreR.add(handR);
+    const tip0 = new THREE.Object3D(); tip0.position.set(0, 0.35, 0); wSlot.add(tip0);
+    const headC = new THREE.Object3D(); headC.position.copy(HC); B.head.add(headC);
+
+    const P = new Float32Array(NCH), Q = new Float32Array(NCH);
+    const S = {
+      t: 0, ph: 0, wRun: 0, atkK: -1, atkDir: 1, atkW: 0, castK: -1, castW: 0, wSpin: 0, spinA: 0, wCheer: 0, wDead: 0, hurt: 0,
+      blinkT: 1.5, blink: 0, blinkDur: 0, sacT: 0, sacX: 0, sacY: 0, lookX: 0, lookY: 0,
+      fidW: 0, fidI: -1, fidU: 0, zzzT: 0, prevYaw: null, yawRate: 0,
+      eyeW: v3(1, 0, 0), mouth: new THREE.Vector4(1, 0, 0, 0), brow: v3(), squint: 0,
+      hOff: v3(), hVel: v3(), hPrev: null, hPrevV: v3(), flow: 0, side: 0,
+      eq: { weapon: null, hat: null, cape: null }, cache: {}, xray: false, capeU: null, fixed: null,
+      bl: { e: 1, tgt: 1, t: 9, fx: false, sleep: false, dead: false },   // lightsaber blade: extension 0..1 → target
+    };
+    const U = skinMat.userData.fz, HU = hairMat.userData.fz;
+    const _v = v3(), _w = v3(), _a = v3(), _q = new THREE.Quaternion(), MW = [1, 0, 0, 0];
+    const face = { blink: 0, happy: 0, grin: 0, o: 0, small: 0, wince: 0, squint: 0, look: 0, lookX: 0, lookY: 0, browR: 0, browT: 0, blush: 0 };
+    let snap = false, udt = 0;
+    const dmp = (a, b, k) => snap ? b : damp(a, b, k, udt);
+
+    function applyPose(p) {
+      B.root.position.set(p[C.bX], p[C.bY], p[C.bZ]); B.root.rotation.set(p[C.bRX], p[C.bRY], p[C.bRZ]);
+      B.hips.rotation.set(p[C.hRX], p[C.hRY], p[C.hRZ]);
+      B.chest.rotation.set(p[C.cRX], p[C.cRY], p[C.cRZ]);
+      B.head.rotation.set(p[C.kRX], p[C.kRY], p[C.kRZ]);
+      B.armL.rotation.set(p[C.aLX], p[C.aLY], p[C.aLZ]); B.foreL.rotation.set(p[C.fL], 0, p[C.fLZ]);
+      B.armR.rotation.set(p[C.aRX], p[C.aRY], p[C.aRZ]); B.foreR.rotation.set(p[C.fR], 0, p[C.fRZ]);
+      wSlot.rotation.set(p[C.wX], p[C.wY], p[C.wZ]);
+      B.thighL.rotation.set(p[C.tLX], 0, p[C.tLZ]); B.shinL.rotation.set(p[C.sL], 0, 0);
+      B.thighR.rotation.set(p[C.tRX], 0, p[C.tRZ]); B.shinR.rotation.set(p[C.sR], 0, 0);
+    }
+    function idlePose(p, t) {
+      p.set(BASE);
+      const br = Math.sin(t * 2.3), sw = Math.sin(t * 0.9);
+      p[C.cRX] += 0.025 * br; p[C.aLZ] += 0.02 * br; p[C.aRZ] -= 0.02 * br; p[C.bY] += 0.004 * br; p[C.kRX] -= 0.015 * br;
+      p[C.hRZ] = 0.03 * sw; p[C.bX] = 0.008 * sw; p[C.kRZ] += 0.025 * Math.sin(t * 0.9 + 1); p[C.cRZ] = -0.02 * sw;
+      p[C.tLZ] += 0.02 * sw; p[C.tRZ] += 0.02 * sw;
+    }
+    function runPose(p, ph, m) {
+      p.set(BASE);
+      const s = Math.sin(ph), c = Math.cos(ph);
+      p[C.bY] = m * (0.05 * Math.abs(s) - 0.012); p[C.bRX] = 0.2 * m; p[C.hRY] = 0.16 * s * m; p[C.cRY] = -0.24 * s * m; p[C.hRZ] = 0.04 * c * m;
+      p[C.kRX] = -0.3 - 0.1 * m; p[C.kRY] = 0.08 * s * m; p[C.kRZ] = 0.02;
+      p[C.tLX] = -0.85 * s * m; p[C.tRX] = 0.85 * s * m;
+      p[C.sL] = m * (0.2 + 1.35 * Math.pow(Math.max(0, c), 0.8)); p[C.sR] = m * (0.2 + 1.35 * Math.pow(Math.max(0, -c), 0.8));
+      p[C.aLX] = 0.06 + 0.8 * s * m; p[C.aLZ] = 0.17 + 0.1 * m; p[C.fL] = -0.3 - 1.0 * m;
+      p[C.aRX] = -0.15 - 0.5 * s * m; p[C.fR] = -0.95 - 0.35 * m; p[C.aRZ] = -0.2 - 0.08 * m;
+      p[C.bRZ] = -0.03 * c * m;
+    }
+    function fidget(p, name, u, env, face) {
+      const E = env, ss2 = Math.sin(u * TAU);
+      if (name === 'look') { p[C.kRY] += 0.55 * ss2 * E; p[C.kRX] += 0.05 * E; face.lookX = ss2 * 1.2 * E; face.look = E; }
+      else if (name === 'bounce') { const h = Math.abs(Math.sin(u * Math.PI * 6)); p[C.bY] += 0.035 * h * E; p[C.sL] += 0.25 * (1 - h) * E; p[C.sR] += 0.25 * (1 - h) * E; p[C.aLZ] += 0.25 * h * E; p[C.aRZ] -= 0.15 * h * E; face.happy = E; }   // full ^ (a held partial blend reads as grey, half-shut eyes)
+      else if (name === 'sword') { p[C.aRX] += (-1.05 - p[C.aRX]) * E; p[C.aRY] += (0.35 - p[C.aRY]) * E; p[C.fR] += (-1.45 - p[C.fR]) * E; p[C.wX] += (0.3 + 0.25 * Math.sin(u * 14) - p[C.wX]) * E; p[C.wY] += 0.6 * Math.sin(u * 9) * E; p[C.kRX] += 0.2 * E; p[C.kRY] -= 0.2 * E; face.lookX = -0.6 * E; face.lookY = -0.6 * E; face.look = E; face.grin = 0.6 * E; }
+      else if (name === 'wave') { p[C.aLX] += (-2.45 - p[C.aLX]) * E; p[C.aLZ] += (0.55 - p[C.aLZ]) * E; p[C.fL] += (-0.55 + 0.45 * Math.sin(u * Math.PI * 10) - p[C.fL]) * E; p[C.kRZ] += 0.1 * E; face.happy = E; face.grin = E; }
+      else if (name === 'stretch') { const k = sstep(0, 0.35, u) * (1 - sstep(0.75, 1, u)); p[C.aLX] += (-2.8 - p[C.aLX]) * k; p[C.aRX] += (-2.7 - p[C.aRX]) * k; p[C.aLZ] += 0.3 * k; p[C.aRZ] -= 0.3 * k; p[C.fL] += (-0.2 - p[C.fL]) * k; p[C.fR] += (-0.3 - p[C.fR]) * k; p[C.kRX] -= 0.25 * k; p[C.bY] += 0.02 * k; p[C.cRX] -= 0.1 * k; face.blink = 0.85 * k; face.o = k; }
+      else if (name === 'scratch') { p[C.aLX] += (-2.3 - p[C.aLX]) * E; p[C.aLY] += (0.5 - p[C.aLY]) * E; p[C.aLZ] += (0.35 - p[C.aLZ]) * E; p[C.fL] += (-2.1 + 0.18 * Math.sin(u * 60) - p[C.fL]) * E; p[C.kRZ] -= 0.14 * E; p[C.kRX] += 0.04 * E; face.squint = 0.4 * E; face.lookY = 0.7 * E; face.lookX = -0.4 * E; face.look = E; }
+    }
+
+    function update(dt, st) {
+      st = st || {};
+      dt = Math.min(Math.max(dt || 0, 0), 0.1);
+      snap = dt < 1e-6; udt = dt;   // update(0, st) = settled pose for st (all blends jump to their targets)
+      const t = (S.t += dt);
+      const move = clamp(st.move || 0, 0, 1), dead = !!st.dead, spin = !!st.spin && !dead, cheer = !!st.cheer && !dead;
+      const idleT = st.idleT || 0;
+      S.wRun = dmp(S.wRun, dead ? 0 : move, 12);
+      S.ph += dt * (6 + 10 * move) * (S.wRun > 0.02 ? 1 : 0);
+      S.wDead = dmp(S.wDead, dead ? 1 : 0, dead ? 4.5 : 7);
+      S.wSpin = dmp(S.wSpin, spin ? 1 : 0, 12);
+      S.wCheer = dmp(S.wCheer, cheer ? 1 : 0, 9);
+      S.hurt = Math.max(clamp(st.hurt || 0, 0, 1), S.hurt - dt * 4);
+      // spin angle: keeps turning until the revolution is complete
+      if (spin) S.spinA += dt * 19;
+      else if (S.spinA > 0) { const nx = Math.ceil(S.spinA / TAU - 1e-4) * TAU; S.spinA = Math.min(nx, S.spinA + dt * 17); if (S.spinA >= nx - 1e-4) S.spinA = 0; }
+      if (S.spinA > TAU * 50) S.spinA -= TAU * 40;
+
+      // ── body pose ──
+      idlePose(P, t);
+      if (S.wRun > 0.001) { runPose(Q, S.ph, Math.max(S.wRun, 0.35)); lerpInto(P, Q, Math.min(1, S.wRun * 2.5)); }
+      for (const k in face) face[k] = 0;
+      // idle fidgets
+      let fidTarget = 0;
+      if (idleT > 2.5 && S.wRun < 0.05 && !dead && !spin && !cheer) {
+        const ft = idleT - 2.5, per = 4.4, act = 2.6, i = Math.floor(ft / per), u = (ft - i * per) / act;
+        if (u < 1) { S.fidI = i % FIDGETS.length; S.fidU = u; fidTarget = 1; }
+      }
+      S.fidW = dmp(S.fidW, fidTarget, fidTarget ? 6 : 10);
+      if (S.fidW > 0.01 && S.fidI >= 0) { const u = S.fidU; fidget(P, FIDGETS[S.fidI], u, S.fidW * sstep(0, 0.18, u) * (1 - sstep(0.82, 1, u)), face); }
+      // attack (horizontal slash, alternating direction)
+      if (st.attack >= 0 && !dead) { S.atkK = st.attack; S.atkDir = st.swingDir < 0 ? -1 : 1; S.atkW = 1; }
+      else S.atkW = dmp(S.atkW, 0, 14);
+      if (S.atkW > 0.01 && S.atkK >= 0) {
+        const k = S.atkK, A = SLASH[S.atkDir > 0 ? 1 : '-1'];
+        if (k < 0.16) keysBetween(Q, P, {}, A.B, easeOut(k / 0.16));
+        else if (k < 0.46) { keysBetween(Q, P, A.B, A.C, easeIO((k - 0.16) / 0.3)); }
+        else if (k < 0.62) { keysBetween(Q, P, A.C, A.D, easeOut((k - 0.46) / 0.16)); }
+        else keysBetween(Q, P, A.D, A.D, 0);
+        const w = S.atkW * (1 - sstep(0.62, 1, k));
+        lerpInto(P, Q, w, w * (1 - 0.7 * S.wRun));
+        if (k > 0.1 && k < 0.7) { face.grin = Math.max(face.grin, w); face.browT = -0.8 * w; face.squint = 0.25 * w; }
+      }
+      // cast (both hands forward)
+      if (st.cast >= 0 && !dead) { S.castK = st.cast; S.castW = 1; } else S.castW = dmp(S.castW, 0, 12);
+      if (S.castW > 0.01 && S.castK >= 0) {
+        const k = S.castK;
+        if (k < 0.28) { keysBetween(Q, P, {}, CAST.G, easeOut(k / 0.28)); }
+        else if (k < 0.48) keysBetween(Q, P, CAST.G, CAST.T, easeOut((k - 0.28) / 0.2));
+        else keysBetween(Q, P, CAST.T, CAST.T, 0);
+        const w = S.castW * (1 - sstep(0.72, 1, k));
+        lerpInto(P, Q, w, w * (1 - 0.7 * S.wRun));
+        face.o = Math.max(face.o, w * sstep(0.2, 0.4, k)); face.browR = 0.7 * w;
+      }
+      // whirlwind
+      if (S.wSpin > 0.01) {
+        Q.set(P); for (const k in SPIN) Q[k] = SPIN[k];
+        Q[C.bY] = -0.02 + 0.015 * Math.sin(t * 22);
+        lerpInto(P, Q, S.wSpin);
+        face.happy = Math.max(face.happy, S.wSpin); face.grin = Math.max(face.grin, S.wSpin); face.blush = S.wSpin * 0.5;
+      }
+      P[C.bRY] += S.spinA;
+      // cheer: hop with both arms up
+      if (S.wCheer > 0.01) {
+        const j = Math.abs(Math.sin(t * 7.5));
+        Q.set(P); for (const k in CHEER) Q[k] = CHEER[k];
+        Q[C.bY] = 0.13 * j; Q[C.sL] = 0.2 + 0.6 * (1 - j); Q[C.sR] = 0.2 + 0.6 * (1 - j); Q[C.tLX] = -0.2 * (1 - j); Q[C.tRX] = -0.2 * (1 - j);
+        Q[C.bRX] = 0; Q[C.bZ] = 0;
+        lerpInto(P, Q, S.wCheer, S.wCheer);
+        face.happy = Math.max(face.happy, S.wCheer); face.grin = Math.max(face.grin, S.wCheer); face.browR = 0.6 * S.wCheer; face.blush = Math.max(face.blush, 0.7 * S.wCheer);
+      }
+      // hurt recoil (additive)
+      const h = S.hurt * (1 - S.wDead);
+      if (h > 0.001) {
+        P[C.bRX] -= 0.3 * h; P[C.bZ] -= 0.05 * h; P[C.bY] -= 0.02 * h; P[C.kRX] -= 0.12 * h; P[C.cRX] -= 0.12 * h;
+        P[C.aLX] -= 0.7 * h; P[C.aLZ] += 0.5 * h; P[C.aRX] -= 0.35 * h; P[C.aRZ] -= 0.35 * h; P[C.fL] -= 0.4 * h;
+        P[C.kRZ] += 0.06 * Math.sin(t * 50) * h;
+        if (S.hurt > 0.25) { face.wince = 1; face.o = Math.max(face.o, 1); face.browT = 1; face.blush = 0.6; }
+      }
+      // asleep: curled up on his side, lying left-right on screen (head west) with the face turned to the camera
+      if (S.wDead > 0.001) {
+        const ry = root.rotation.y, br = Math.sin(t * 1.6), c = Math.cos(ry), s = Math.sin(ry);
+        Q.set(BASE);
+        Q[C.bRY] = wrapPI(-ry); Q[C.bRZ] = SLEEP.bRZ; Q[C.bRX] = SLEEP.bRX; Q[C.bY] = SLEEP.bY;
+        Q[C.bX] = SLEEP.bX * c - SLEEP.bZ * s; Q[C.bZ] = SLEEP.bX * s + SLEEP.bZ * c;
+        for (const k in SLEEP.P) Q[k] = SLEEP.P[k];
+        Q[C.cRX] += 0.035 * br;
+        const w = sstep(0, 1, S.wDead);
+        P[C.bRY] = wrapPI(P[C.bRY]);
+        lerpInto(P, Q, w);
+        face.blink = Math.max(face.blink, w); face.small = w; face.blush = Math.max(face.blush, 0.4 * w);
+        S.zzzT -= dt;
+        if (dead && S.wDead > 0.85 && S.zzzT <= 0) {
+          S.zzzT = 1.3;
+          if (typeof FX !== 'undefined' && FX.burst) { headC.getWorldPosition(_v); try { FX.burst('zzz', _v.x, _v.y + 0.25, _v.z, {}); } catch (e) { /* optional */ } }
+        }
+      }
+      if (S.fixed) S.fixed(P, face);
+      applyPose(P);
+
+      // ── face ──
+      S.blinkT -= dt;
+      if (S.blinkT <= 0) { S.blinkDur = 0.17; S.blinkT = Math.random() < 0.18 ? 0.25 : 1.8 + Math.random() * 3.2; }
+      let bl = 0;
+      if (S.blinkDur > 0) { S.blinkDur -= dt; const u = 1 - S.blinkDur / 0.17; bl = u < 0.35 ? u / 0.35 : u < 0.5 ? 1 : 1 - (u - 0.5) / 0.5; }
+      const blink = Math.max(bl * (1 - face.happy) * (1 - face.wince), face.blink);
+      const wOpen = clamp(1 - face.happy - face.wince, 0, 1);
+      const k = snap ? 1 : 1 - Math.exp(-22 * dt);
+      S.eyeW.x += (wOpen - S.eyeW.x) * k; S.eyeW.y += (clamp(face.happy * (1 - face.wince), 0, 1) - S.eyeW.y) * k; S.eyeW.z += (face.wince - S.eyeW.z) * k;
+      const grin = clamp(face.grin, 0, 1), o = clamp(face.o * (1 - grin), 0, 1), small = clamp(face.small * (1 - grin - o), 0, 1);
+      MW[0] = clamp(1 - grin - o - small, 0, 1); MW[1] = grin; MW[2] = o; MW[3] = small;
+      S.mouth.x += (MW[0] - S.mouth.x) * k; S.mouth.y += (MW[1] - S.mouth.y) * k; S.mouth.z += (MW[2] - S.mouth.z) * k; S.mouth.w += (MW[3] - S.mouth.w) * k;
+      S.brow.x += (face.browR - S.brow.x) * k; S.brow.y += (face.browT - S.brow.y) * k; S.brow.z += (face.blush - S.brow.z) * k;
+      S.squint += (face.squint - S.squint) * k;
+      // gaze: at the camera when idle (feels like he looks at the player), forward while busy, little saccades
+      S.sacT -= dt;
+      if (S.sacT <= 0) { S.sacT = 0.7 + Math.random() * 2.2; S.sacX = (Math.random() - 0.5) * 0.5; S.sacY = (Math.random() - 0.5) * 0.3; }
+      let lx = 0, ly = 0.1;
+      if (typeof camera !== 'undefined') {
+        _v.copy(camera.position); headC.worldToLocal(_v);
+        if (_v.z > 0.05) { lx = clamp(Math.atan2(_v.x, _v.z) / 0.55, -1, 1); ly = clamp(Math.atan2(_v.y, Math.hypot(_v.x, _v.z)) / 0.7, -1, 1); }
+      }
+      const busy = clamp(S.wRun * 1.5 + S.atkW + S.castW + S.wSpin, 0, 1);
+      lx = lerp(lx * 0.85, 0, busy) + S.sacX * (1 - busy); ly = lerp(ly * 0.85, 0.1, busy) + S.sacY * (1 - busy);
+      if (face.look) { lx = lerp(lx, face.lookX, face.look); ly = lerp(ly, face.lookY, face.look); }
+      S.lookX = dmp(S.lookX, clamp(lx, -1, 1), 18); S.lookY = dmp(S.lookY, clamp(ly, -1, 1), 18);
+      U.fzEye.value.set(blink, S.lookX, S.lookY, S.squint);
+      U.fzEyeW.value.copy(S.eyeW); U.fzMouth.value.copy(S.mouth); U.fzBrow.value.copy(S.brow);
+
+      // ── lightsaber: retracts while asleep, re-ignites on waking up ──
+      const sb = S.bl;
+      sb.dead = dead;
+      if (dead && !sb.sleep) { retract(); sb.sleep = true; }
+      else if (!dead && sb.sleep) { sb.sleep = false; ignite(); }
+      sb.t += dt;
+      sb.e = sb.tgt ? Math.min(1, sb.e + dt / 0.3) : Math.max(0, sb.e - dt / 0.22);
+      applyBlade();
+
+      root.updateMatrixWorld(true);
+
+      // ── hair spring: tips lag behind head motion, blow back when running, fly out in the spin ──
+      headC.getWorldPosition(_v);
+      if (!S.hPrev || dt <= 0) { S.hPrev = (S.hPrev || v3()).copy(_v); S.hPrevV.set(0, 0, 0); }
+      else {
+        _w.copy(_v).sub(S.hPrev).divideScalar(dt);                 // head velocity
+        const acc = _a.copy(_w).sub(S.hPrevV).divideScalar(dt); S.hPrevV.copy(_w); S.hPrev.copy(_v);
+        if (acc.lengthSq() > 900) acc.setLength(30);
+        B.head.getWorldQuaternion(_q).invert(); acc.applyQuaternion(_q);
+        const tx = 0, ty = 0.006 * S.wRun, tz = -0.02 * S.wRun - 0.01 * S.wSpin;
+        S.hVel.x += (-(S.hOff.x - tx) * 160 - S.hVel.x * 9 - acc.x * 0.3) * dt;
+        S.hVel.y += (-(S.hOff.y - ty) * 160 - S.hVel.y * 9 - acc.y * 0.3) * dt;
+        S.hVel.z += (-(S.hOff.z - tz) * 160 - S.hVel.z * 9 - acc.z * 0.3) * dt;
+        S.hOff.addScaledVector(S.hVel, dt);
+        if (S.hOff.length() > 0.035) S.hOff.setLength(0.035);
+      }
+      HU.fzHOff.value.copy(S.hOff); HU.fzHExp.value = 0.028 * S.wSpin;
+
+      // ── cape ──
+      if (S.prevYaw === null) S.prevYaw = root.rotation.y;
+      const yr = dt > 0 ? angDiff(S.prevYaw, root.rotation.y) / dt : 0; S.prevYaw = root.rotation.y;
+      S.yawRate = damp(S.yawRate, clamp(yr, -12, 12), 6, dt);
+      const jump = S.wCheer * Math.abs(Math.sin(t * 7.5));
+      S.flow = dmp(S.flow, Math.max(S.wRun * 1.05, S.wSpin * 1.35, S.atkW * 0.3, jump * 0.7, S.hurt * 0.4, S.castW * 0.25), 4.5);
+      S.side = dmp(S.side, clamp(-S.yawRate * 0.06, -0.7, 0.7) - 0.5 * S.wSpin, 5);
+      if (S.capeU) { S.capeU.cpFlow.value = S.flow; S.capeU.cpSide.value = S.side; S.capeU.cpTime.value = t; }
+
+      handR.getWorldPosition(H.hand);
+      (S.eq.weapon && S.eq.weapon.tip ? S.eq.weapon.tip : tip0).getWorldPosition(H.tip);
+      if (sb.fx && dt > 0) {   // ignition flash: a few sparkles in the blade's colour at the emitter
+        sb.fx = false;
+        const w = S.eq.weapon;
+        if (w && w.obj.fzBlade && typeof FX !== 'undefined' && FX.burst) {
+          w.obj.fzBlade.getWorldPosition(_v);
+          try { FX.burst('sparkle', _v.x, _v.y, _v.z, { color: bladeColor(w.item), count: 7 }); } catch (e) { /* optional */ }
+        }
+      }
+
+      // shader warm-up / thumbnail + portrait pre-rendering (first hero only, real frames only)
+      if (BAKE.host === H && !snap && !(typeof ICON !== 'undefined' && ICON)) {
+        try { bakeTick(H, st); } catch (e) { if (!BAKE.warned) { BAKE.warned = true; console.warn('FEZA bake', e); } }
+      }
+    }
+
+    // Lightsaber ignition: the blade grows out of the hilt in 0.3 s (the halo swells for a moment = small flash).
+    function ignite() {
+      const bl = S.bl;
+      if (bl.dead) { bl.sleep = true; H.bladeOn = false; return; }   // asleep: it ignites when he wakes up
+      if (bl.tgt === 1 && bl.t < 0.12 && bl.e < 0.6) return;         // already igniting (setEquip and GAME both asked)
+      bl.e = 0; bl.tgt = 1; bl.t = 0; bl.fx = true; H.bladeOn = !!S.eq.weapon;
+      applyBlade();
+    }
+    function retract() { const bl = S.bl; bl.tgt = 0; bl.t = 0; bl.fx = false; H.bladeOn = false; }
+    function applyBlade() {
+      const w = S.eq.weapon, o = w && w.obj, b = o && o.fzBlade;
+      if (!b) return;
+      const bl = S.bl, x = bl.tgt ? easeOut(bl.e) : sstep(0, 1, bl.e), fl = bl.tgt ? Math.max(0, 1 - bl.t / 0.4) : 0;
+      b.visible = x > 0.004; b.scale.set(1, Math.max(0.004, x), 1);
+      if (o.fzHalo) { const k = 1 + 1.2 * fl * fl; o.fzHalo.scale.set(k, 1, k); }
+      if (o.fzShell) { const k = 1 + 0.4 * fl * fl; o.fzShell.scale.set(k, 1, k); }
+    }
+    function equipObj(slot, item) {
+      const key = itemKey(item);
+      let e = S.cache[key];
+      if (!e) {
+        const obj = buildItem(slot, baseId(item), item.rarity | 0, true);
+        obj.traverse(o => { if (o.isMesh) { o.renderOrder = HERO_ORDER; o.frustumCulled = false; } });
+        e = S.cache[key] = { key, xkey: slot + ':' + baseId(item), item: plainItem(slot, baseId(item), item.rarity | 0), obj, tip: obj.fzTip || null, capeU: obj.fzCapeU || null };
+      }
+      return e;
+    }
+    // Hair under a hat: pull it inside the hat's inner volume; cowlicks only bare-headed.
+    const _hm = new THREE.Matrix4();
+    function hatUniforms(e) {
+      const inn = e && e.obj.fzHatIn, hv = HU.fzHat.value;
+      hv.w = e ? 0 : 1;
+      if (!inn) { hv.x = 0; return; }
+      e.obj.updateMatrix(); inn.h.updateMatrix();
+      const m = HU.fzHatI.value.makeTranslation(HC.x, HC.y, HC.z).multiply(e.obj.matrix).multiply(inn.h.matrix)
+        .multiply(_hm.compose(v3(...inn.c), new THREE.Quaternion(), v3(...inn.r)));
+      HU.fzHatM.value.copy(m).invert();
+      hv.set(1, (inn.y0 - inn.c[1]) / inn.r[1], inn.fade / inn.r[1], 0);
+    }
+    function wearHat(e) {   // visual only (portraits of other hats)
+      for (const c of hatSlot.children.slice()) hatSlot.remove(c);
+      if (e) hatSlot.add(e.obj);
+      hatUniforms(e);
+    }
+    function swap(slot, item, parent) {
+      const key = item ? itemKey(item) : null, cur = S.eq[slot];
+      if (cur && cur.key === key) return;
+      if (cur) parent.remove(cur.obj);
+      S.eq[slot] = null;
+      if (!key) return;
+      const e = equipObj(slot, item);
+      parent.add(e.obj); S.eq[slot] = e;
+      if (S.xray) addXrayItem(e.obj, e.xkey);
+      setTwins(e.obj, S.xray);
+      if (slot === 'weapon') { ignite(); applyBlade(); }   // a new lightsaber in hand ignites (asleep: blade stays in)
+    }
+    function setTwins(obj, on) { obj.traverse(o => { if (o.userData.xrayTwin) o.visible = on; }); }
+
+    const H = {
+      root, tip: v3(), hand: v3(), bones: B, skeleton: skel, slots: { weapon: wSlot, hat: hatSlot, cape: capeSlot },
+      update,
+      bladeOn: true,       // lightsaber on (or igniting); false while retracted / asleep
+      ignite,              // H.ignite(): blade grows out of the hilt (0 → full in 0.3 s) with a small flash
+      retract,             // extra: H.retract() puts the blade away (update() re-ignites it only after sleeping)
+      setEquip(eq) {
+        eq = eq || {};
+        swap('weapon', eq.weapon || null, wSlot);
+        if (!S.eq.weapon) H.bladeOn = false;
+        swap('hat', eq.hat || null, hatSlot);
+        swap('cape', eq.cape || null, capeSlot);
+        hatUniforms(S.eq.hat);
+        S.capeU = S.eq.cape ? S.eq.cape.capeU : null;
+      },
+      setXray(on) {
+        S.xray = !!on;
+        if (S.xray) for (const k of ['weapon', 'hat', 'cape']) { const e = S.eq[k]; if (e) addXrayItem(e.obj, e.xkey); }
+        setTwins(root, S.xray);
+      },
+      _S: S, _U: U, _mats: { skin: skinMat, hair: hairMat },
+      _hatEntry: item => equipObj('hat', item),
+      _hat(e) { const prev = S.eq.hat; wearHat(e); return () => wearHat(prev); },
+      // portrait helpers: neutral pose + face looking at (lx, ly); returns a restore function
+      _neutral(lx, ly) {
+        const saved = { bones: bones.map(b => [b.position.clone(), b.rotation.clone()]), w: wSlot.rotation.clone(), eye: U.fzEye.value.clone(), ew: U.fzEyeW.value.clone(),
+          mo: U.fzMouth.value.clone(), br: U.fzBrow.value.clone(), ho: HU.fzHOff.value.clone(), he: HU.fzHExp.value, flow: S.capeU ? S.capeU.cpFlow.value : 0 };
+        const p = new Float32Array(NCH); idlePose(p, 0); p[C.kRX] = -0.12; p[C.kRZ] = 0.1; applyPose(p);
+        U.fzEye.value.set(0, lx, ly, 0); U.fzEyeW.value.set(1, 0, 0); U.fzMouth.value.set(1, 0, 0, 0); U.fzBrow.value.set(0, 0, 0.3);
+        HU.fzHOff.value.set(0, 0, 0); HU.fzHExp.value = 0; if (S.capeU) S.capeU.cpFlow.value = 0;
+        return () => {
+          bones.forEach((b, i) => { b.position.copy(saved.bones[i][0]); b.rotation.copy(saved.bones[i][1]); }); wSlot.rotation.copy(saved.w);
+          U.fzEye.value.copy(saved.eye); U.fzEyeW.value.copy(saved.ew); U.fzMouth.value.copy(saved.mo); U.fzBrow.value.copy(saved.br);
+          HU.fzHOff.value.copy(saved.ho); HU.fzHExp.value = saved.he; if (S.capeU) S.capeU.cpFlow.value = saved.flow;
+        };
+      },
+    };
+    shadows(root, true, false);
+    root.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.renderOrder = HERO_ORDER; } });
+    // x-ray: one low-poly skinned stand-in for body + hair (shown by setXray)
+    const proxy = new THREE.SkinnedMesh(body.xray, xrayBase()); root.add(proxy); proxy.bind(skel, skinMesh.bindMatrix);
+    proxy.frustumCulled = false; proxy.castShadow = false; proxy.renderOrder = 20; proxy.userData.xrayTwin = true; proxy.visible = false;
+    if (!BAKE.host) {
+      BAKE.host = H;
+      skinMesh.onBeforeRender = () => { if (!OFF.busy) BAKE.drawn++; };
+      queuePortraits(null, false);
+    }
+    update(0, {});
+    return H;
+  }
+
+  // ── Portrait: face close-up with the current hat (256², round sky badge background) ──
+  // Cached per hat (the cape and sword are hidden: they don't show in a face close-up). hatItem (optional) renders
+  // another hat instead of the worn one (pre-rendering); null = bare-headed.
+  const PORTRAITS = {};
+  function portrait(H, hatItem) {
+    if (!H || !H.root) return null;
+    const S = H._S, e = hatItem === undefined || !H._hat ? S.eq.hat : (hatItem ? H._hatEntry(hatItem) : null);
+    const hk = e ? e.key : '-';
+    if (PORTRAITS[hk]) return PORTRAITS[hk];
+    try {
+      offSetup();
+      const root = H.root, parent = root.parent, pos = root.position.clone(), rot = root.rotation.clone(), sc = root.scale.clone();
+      const unHat = e !== S.eq.hat ? H._hat(e) : null;
+      const restore = H._neutral(0.35, 0.15);
+      const hidden = [];
+      root.traverse(o => { if (o.userData.xrayTwin && o.visible) { o.visible = false; hidden.push(o); } });
+      const ws = H.slots.weapon, wv = ws.visible, cs = H.slots.cape, cvis = cs.visible; ws.visible = false; cs.visible = false;
+      let cv;
+      try {
+        OFF.scene.add(root); root.position.set(0, 0, 0); root.rotation.set(0, -0.32, 0); root.scale.set(1, 1, 1); root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(H.slots.hat), top = clamp(box.isEmpty() ? 0 : box.max.y, 1.42, 1.62), ex = (top - 1.42) * 0.5;
+        cv = offRender(v3(0.0, 1.13 + ex, 0.03), 0.39 + ex, v3(-0.4, 0.1, 1), 24);
+      } finally {   // always put Feza back where he was
+        OFF.scene.remove(root);
+        if (parent) parent.add(root);
+        root.position.copy(pos); root.rotation.copy(rot); root.scale.copy(sc);
+        ws.visible = wv; cs.visible = cvis; for (const o of hidden) o.visible = true;
+        restore(); if (unHat) unHat(); root.updateMatrixWorld(true);
+      }
+      const out = canvasEl(256, 256), g = out.getContext('2d');
+      const gr = g.createRadialGradient(128, 96, 20, 128, 128, 128);
+      gr.addColorStop(0, '#fff6d8'); gr.addColorStop(0.55, '#9fdcff'); gr.addColorStop(1, '#4aa3f0');
+      g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.fill();
+      g.save(); g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.clip();
+      g.globalAlpha = 0.35; g.fillStyle = '#ffffff';
+      for (const [x, y, r] of [[40, 190, 34], [74, 206, 30], [196, 200, 38], [226, 182, 26]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+      g.restore(); g.globalAlpha = 1;
+      g.shadowColor = 'rgba(20,40,80,0.35)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+      g.drawImage(cv, 0, 0);
+      return (PORTRAITS[hk] = out.toDataURL('image/png'));
+    } catch (err) { console.warn('FEZA.portrait', err); return null; }
+  }
+
+  // ── Warm-up + pre-rendering, so picking up / wearing a new item never freezes the game ──
+  // 1) Shaders: every equipment template (all bases × rarities, incl. x-ray twins and cape shadow materials) rides along
+  //    with Feza for one rendered frame as a tiny hidden copy — a few new shaders per frame, during the title screen.
+  // 2) Thumbnails / portraits: rendered one at a time in calm frames (every 2nd drawn frame, not mid-swing). Items that
+  //    appear on the ground jump the queue, so their card and portrait are ready before Feza reaches them.
+  // Driven from the first hero's update(); nothing happens at load time or on frames that are not drawn.
+  const BAKE = { host: null, started: false, warmQ: [], cur: null, seen: false, sigs: new Set(), q: [], keys: new Set(), pend: [], drawn: 0, last: -9, scan: 0, wait: 0, warned: false };
+  function queueJob(k, job, front) {
+    if (job.kind === 'thumb' ? THUMBS[k.slice(2)] : PORTRAITS[k.slice(2)]) return;
+    job.k = k;
+    if (BAKE.keys.has(k)) {
+      if (!front) return;
+      const i = BAKE.q.findIndex(j => j.k === k); if (i > 0) { BAKE.q.splice(i, 1); BAKE.q.unshift(job); }
+      return;
+    }
+    BAKE.keys.add(k); if (front) BAKE.q.unshift(job); else BAKE.q.push(job);
+  }
+  const plainItem = (slot, id, r) => ({ slot, base: id, rarity: r });
+  // the worn hat (or bare head) + every hat in the bag
+  function queuePortraits(hat, bag = true) {
+    const add = it => queueJob('p:' + (it ? itemKey(it) : '-'), { kind: 'portrait', hat: it ? plainItem('hat', baseId(it), it.rarity | 0) : null });
+    add(hat);
+    if (!bag) return;
+    try {   // defensive: GAME may not exist (test pages)
+      const b = typeof GAME !== 'undefined' && GAME && GAME.P && GAME.P.bag;
+      if (Array.isArray(b)) for (const it of b) if (it && it.slot === 'hat') add(it);
+    } catch (e) { /* optional */ }
+  }
+  // Items handed out by ITEMS.model: once one is really lying in the scene (not a warm-up copy that was already removed),
+  // its card picture — and a hat's portrait — jump the queue.
+  function checkPending() {
+    for (let i = BAKE.pend.length - 1; i >= 0; i--) {
+      const p = BAKE.pend[i];
+      let top = p.o; while (top.parent) top = top.parent;
+      if (top === scene) {
+        queueJob('t:' + tplKey(p.slot, p.id, p.r), { kind: 'thumb', item: plainItem(p.slot, p.id, p.r) }, true);
+        if (p.slot === 'hat') queueJob('p:' + tplKey(p.slot, p.id, p.r), { kind: 'portrait', hat: plainItem(p.slot, p.id, p.r) }, true);
+        BAKE.pend.splice(i, 1);
+      } else if (++p.n > 3) BAKE.pend.splice(i, 1);
+    }
+  }
+  const matSig = m => m.type + '|' + (m.customProgramCacheKey ? m.customProgramCacheKey() : '') + '|' + !!m.map + !!m.normalMap + !!m.emissiveMap +
+    '|' + m.vertexColors + m.flatShading + m.side + (m.alphaTest > 0) + m.transparent;
+  function warm() {
+    if (BAKE.started) return;
+    BAKE.started = true;
+    const list = [];
+    for (const slot of ['weapon', 'hat', 'cape']) for (const b of BASES[slot]) for (let r = 0; r < 4; r++) list.push({ slot, id: b.id, r, o: (b.legendary ? 20 : b.minLvl) * 4 + r });
+    list.sort((x, y) => x.o - y.o);
+    BAKE.warmQ = list;
+    for (const j of list) queueJob('t:' + tplKey(j.slot, j.id, j.r), { kind: 'thumb', item: plainItem(j.slot, j.id, j.r) });
+  }
+  function warmStep(H) {
+    if (BAKE.cur) {
+      if (!BAKE.seen && ++BAKE.wait < 40) return;   // not drawn yet (give up after a while: shaders then compile on first use)
+      if (BAKE.cur.parent) BAKE.cur.parent.remove(BAKE.cur);
+      BAKE.cur = null;
+    }
+    const grp = new THREE.Group(), t0 = performance.now();
+    let fresh = 0, n = 0;
+    while (BAKE.warmQ.length && fresh < 4 && n < 3 && performance.now() - t0 < 8) {
+      const j = BAKE.warmQ.shift(), tpl = template(j.slot, j.id, j.r), xk = j.slot + ':' + j.id;
+      let nf = 0, capeT = null;
+      tpl.traverse(o => {
+        if (!o.isMesh) return;
+        if (o.name === 'fzCape') capeT = o;
+        for (const m of [o.material, o.customDepthMaterial]) if (m) { const sg = matSig(m); if (!BAKE.sigs.has(sg)) { BAKE.sigs.add(sg); nf++; } }
+      });
+      if (!nf && XGEO[xk]) continue;   // nothing new to compile
+      const c = tpl.clone();
+      if (capeT) c.traverse(o => { if (o.name === 'fzCape') o.customDepthMaterial = capeT.customDepthMaterial; });
+      addXrayItem(c, xk, capeT && capeT.fzXrayPatch, capeT);
+      grp.add(c); fresh += nf; n++;
+    }
+    if (!n) return;
+    let first = null;
+    grp.traverse(o => { if (o.isMesh) { o.frustumCulled = false; if (!o.userData.xrayTwin) o.castShadow = true; if (!first) first = o; } });
+    grp.scale.setScalar(1e-4); grp.position.set(0, 0.1, 0);   // inside the chest: never visible
+    BAKE.seen = false; BAKE.wait = 0; first.onBeforeRender = () => { BAKE.seen = true; };
+    H.bones.chest.add(grp); BAKE.cur = grp;
+  }
+  function bakeJob(H) {
+    const j = BAKE.q.shift(); if (!j) return;
+    BAKE.keys.delete(j.k);
+    if (j.kind === 'thumb') thumb(j.item); else if (H) portrait(H, j.hat);
+  }
+  function bakeTick(H, st) {
+    if (!BAKE.drawn) return;   // wait for the first real frame (no work in synchronous pre-rolls)
+    if (!BAKE.started) warm();
+    if (BAKE.pend.length) checkPending();
+    if (BAKE.warmQ.length || BAKE.cur) { warmStep(H); return; }
+    if (!BAKE.q.length && BAKE.drawn - BAKE.scan > 120) { BAKE.scan = BAKE.drawn; const e = H._S.eq.hat; queuePortraits(e ? e.item : null); }
+    if (!BAKE.q.length || BAKE.drawn - BAKE.last < 2) return;
+    if (st.attack >= 0 || st.cast >= 0 || st.spin || st.hurt > 0.05) return;   // not in the middle of a swing
+    BAKE.last = BAKE.drawn;
+    bakeJob(H);
+  }
+  // Explicit hooks: FEZA.warm() starts the warm-up early; ITEMS.prebake(n) renders up to n queued pictures right now
+  // (e.g. when the bag opens) and returns how many are still waiting.
+  function prebake(n = 1) {
+    for (let i = 0; i < n && BAKE.q.length; i++) bakeJob(BAKE.host);
+    return BAKE.q.length;
+  }
+
+  // ── ITEMS ──
+  const BASES = {
+    // every weapon is a lightsaber (ids unchanged for old saves)
+    weapon: [{ id: 'tahta', ad: 'Eğitim Işın Kılıcı', minLvl: 0 }, { id: 'demir', ad: 'Mavi Işın Kılıcı', minLvl: 1 }, { id: 'kristal', ad: 'Yeşil Işın Kılıcı', minLvl: 3 },
+      { id: 'ates', ad: 'Kırmızı Işın Kılıcı', minLvl: 5 }, { id: 'yildiz', ad: 'Mor Işın Kılıcı', minLvl: 7 }, { id: 'gokkusagi', ad: 'Gökkuşağı Işın Kılıcı', minLvl: 0, legendary: true }],
+    hat: [{ id: 'migfer', ad: 'Şövalye Miğferi', minLvl: 0 }, { id: 'sihirbaz', ad: 'Sihirbaz Şapkası', minLvl: 2 }, { id: 'kovboy', ad: 'Kovboy Şapkası', minLvl: 3 },
+      { id: 'korsan', ad: 'Korsan Şapkası', minLvl: 4 }, { id: 'tac', ad: 'Altın Taç', minLvl: 0, legendary: true }],
+    cape: [{ id: 'kirmizi', ad: 'Kırmızı Pelerin', minLvl: 0 }, { id: 'mavi', ad: 'Yıldızlı Pelerin', minLvl: 2 }, { id: 'yesil', ad: 'Yaprak Pelerin', minLvl: 3 },
+      { id: 'mor', ad: 'Sihirli Pelerin', minLvl: 5 }, { id: 'gokkusagi', ad: 'Gökkuşağı Pelerini', minLvl: 0, legendary: true }],
+  };
+  const MULT = [1, 1.35, 1.75, 2.3];
+  let UID = (Date.now() % 1e9) * 10;
+  function make(slot, id, rarity = 0, ilvl = 1) {
+    if (!BASES[slot]) slot = 'weapon';
+    const b = BASES[slot].find(q => q.id === id) || BASES[slot][0];
+    rarity = clamp(rarity | 0, 0, 3); ilvl = Math.max(1, ilvl | 0);
+    return { uid: ++UID, slot, base: b.id, rarity, ilvl, power: Math.round((ilvl * 2 + 4) * MULT[rarity]), ad: b.ad + (rarity >= 2 ? ' ✦' : '') };
+  }
+  // ITEMS.nameOf(item) → today's display name (old saves still carry e.g. 'Demir Kılıç ✦' in item.ad)
+  function nameOf(it) {
+    if (!it) return '';
+    const L = BASES[it.slot], b = L && L.find(q => q.id === baseId(it));
+    return b ? b.ad + ((it.rarity | 0) >= 2 ? ' ✦' : '') : (it.ad || '');
+  }
+  function roll(ilvl = 1, bias = 0, rnd = Math.random) {
+    ilvl = Math.max(1, ilvl | 0);
+    const s = rnd(), slot = s < 0.4 ? 'weapon' : s < 0.7 ? 'hat' : 'cape', b = clamp(bias || 0, 0, 2);
+    const w = [60, 28, 10, 2].map((v, i) => v * Math.pow(1 + b, i));
+    let x = rnd() * (w[0] + w[1] + w[2] + w[3]), r = 0;
+    while (r < 3 && x >= w[r]) { x -= w[r]; r++; }
+    const list = BASES[slot], leg = list.filter(q => q.legendary), pool = list.filter(q => !q.legendary && q.minLvl <= ilvl);
+    let base;
+    if (r === 3 && leg.length && rnd() < 0.65) base = leg[Math.floor(rnd() * leg.length)];
+    else {   // newer bases are a bit more likely, so progress shows new shiny things
+      let tot = 0; for (const q of pool) tot += 1 + q.minLvl * 0.8;
+      let y = rnd() * tot; base = pool[pool.length - 1];
+      for (const q of pool) { y -= 1 + q.minLvl * 0.8; if (y <= 0) { base = q; break; } }
+    }
+    return make(slot, base.id, r, ilvl);
+  }
+  function model(item) {
+    if (!item) return new THREE.Group();
+    const slot = BASES[item.slot] ? item.slot : 'weapon', id = baseId(item), r = clamp(item.rarity | 0, 0, 3);
+    const tpl = template(slot, id, r);
+    const o = tpl.clone();
+    if (tpl.fzDepth) o.traverse(m => { if (m.name === 'fzCape') m.customDepthMaterial = tpl.fzDepth; });
+    if (BAKE.host && BAKE.pend.length < 32) BAKE.pend.push({ o, slot, id, r, n: 0 });   // see checkPending()
+    return o;
+  }
+  // ITEMS.thumb(item) → dataURL (rendered now if needed). ITEMS.thumb(item, true) → cached dataURL or null (then queued).
+  const THUMBS = {};
+  function thumb(item, lazy) {
+    if (!item) return null;
+    const slot = BASES[item.slot] ? item.slot : 'weapon', id = baseId(item), r = clamp(item.rarity | 0, 0, 3), k = tplKey(slot, id, r);
+    if (THUMBS[k]) return THUMBS[k];
+    if (lazy) { queueJob('t:' + k, { kind: 'thumb', item: plainItem(slot, id, r) }, true); return null; }
+    try {
+      offSetup();
+      const o = template(slot, id, r).clone(), wrap = new THREE.Group(); wrap.add(o); OFF.scene.add(wrap);
+      let dir = v3(0.25, 0.35, 1), fov = 28;
+      if (slot === 'weapon') { o.rotation.set(0, 0.35, -Math.PI / 4); const b = o.getObjectByName('fzBlade'); if (b) b.scale.set(1.5, 1, 1.5); }   // bolder blade on a small card
+      else if (slot === 'hat') { o.rotation.set(0.12, 0.55, 0); dir = v3(0.1, 0.55, 1); }
+      else { o.rotation.set(0, Math.PI + 0.35, 0); dir = v3(0, 0.15, 1); }
+      wrap.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(wrap), c = v3(), sz = v3(); box.getCenter(c); box.getSize(sz);
+      const wk = SB_U.k.value, wg = SB_U.grad.value;
+      if (slot === 'weapon') { SB_U.k.value = 0.45; SB_U.grad.value = 1.15; }
+      let cv;
+      try { cv = offRender(c, Math.max(sz.x, sz.y, sz.z) * (slot === 'weapon' ? 0.46 : 0.56), dir, fov); }
+      finally { SB_U.k.value = wk; SB_U.grad.value = wg; OFF.scene.remove(wrap); }
+      const out = canvasEl(128, 128), g = out.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      if (r >= 1) { g.shadowColor = rarCol(r); g.shadowBlur = r >= 2 ? 14 : 9; g.drawImage(cv, 4, 4, 120, 120); }
+      g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
+      g.drawImage(cv, 4, 4, 120, 120);
+      return (THUMBS[k] = out.toDataURL('image/png'));
+    } catch (e) { console.warn('ITEMS.thumb', e); return null; }
+  }
+  const ITEMS = {
+    RARITY, BASES,
+    make, roll, model, thumb, prebake, nameOf,
+    bladeColor,   // ITEMS.bladeColor(item | baseId) → '#rrggbb' (rainbow blade: its current colour)
+    starter: () => ({ weapon: make('weapon', 'tahta', 0, 1), hat: null, cape: null }),
+    stars: it => clamp(1 + (it ? it.rarity | 0 : 0) + (it && it.power >= 18 ? 1 : 0), 1, 5),
+  };
+  const FEZA = { create, portrait, warm, bodyStats: () => BODY && { ms: BODY.ms, skinVerts: BODY.skin.attributes.position.count, clothVerts: BODY.cloth.attributes.position.count,
+    hairVerts: BODY.hair.attributes.position.count, bake: { warm: BAKE.warmQ.length + (BAKE.cur ? 1 : 0), queue: BAKE.q.length, thumbs: Object.keys(THUMBS).length, portraits: Object.keys(PORTRAITS).length, portraitKeys: Object.keys(PORTRAITS) } } };
+  return { FEZA, ITEMS };
+})();
