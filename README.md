@@ -23,7 +23,8 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - **Can:** Sol alttaki kırmızı top Feza'nın canıdır. Azalınca yanındaki **kırmızı iksire** bas ya da yerdeki kalpleri topla.
   Can biterse Feza uyuyakalır ve son parlattığı **neşe taşının** yanında dinlenmiş olarak uyanır.
 - **Hazineler:** Sandıklar, küpler ve fıçılar altın ve eşya saklar. Işık sütunlu eşyalar ışın kılıcı (mavi, yeşil, kırmızı, mor, gökkuşağı…), şapka ya da pelerindir;
-  daha güçlüyse Feza hemen giyer. 🎒 düğmesiyle çantayı açıp istediği şapkayı, pelerini ve ışın kılıcını seçebilir.
+  daha güçlüyse Feza hemen giyer. Eşya seyrek düşer ve çantada her eşyadan yalnızca bir tane olur: aynısının daha güçlüsü bulunursa eskisinin yerini alır.
+  🎒 düğmesiyle çantayı açıp istediği şapkayı, pelerini ve ışın kılıcını seçebilir.
 - **Harita:** Sağ üstteki yuvarlak harita gidilecek yönü altın okla gösterir. Mor **sihirli kapıdan** geçince yeni bölgeye gidilir.
 - ⏸ düğmesi oyunu durdurur (ses, müzik, baştan başla). Oyun kendiliğinden kaydedilir; sonra **Devam Et** ile kalınan yerden sürer.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
@@ -33,8 +34,8 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
 2. **Köstebek ve Salyangoz Mağarası:** parlayan kristallerle aydınlanan mağara. Toprağın altından "pıt" diye çıkan madenci köstebekler,
    baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri.
-3. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler ve en sonda **Huysuz Ejderha**. Ejderha neşelenince küçük bir ejderhaya
-   dönüşüp Feza'nın arkadaşı olur, neşe kristali köye döner. Sonra istenirse macera biraz daha güçlü huysuzlarla yeniden başlar.
+3. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde kaybolur,
+   neşe kristali köye döner. Sonra istenirse macera biraz daha güçlü huysuzlarla yeniden başlar.
 
 ## Dosyalar
 

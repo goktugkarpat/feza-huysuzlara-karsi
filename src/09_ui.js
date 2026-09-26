@@ -15,7 +15,7 @@ const UI = (() => {
   // (the game has 3 skills); more would spill onto an outer arc.
   const ARC = [[142, 45], [142, 0], [142, 90], [238, 45], [238, 14], [238, 76]];
   const MAP_VIEW = 22, MAP_REVEAL = 11;   // minimap: metres from centre to rim; fog reveal radius
-  const SAVE_KEY = 'fezaKotulereKarsi.v1', SAVE_BACKUP = 'fezaKotulereKarsi.v1.onceki';   // backup written before "Baştan Başla"
+  const SAVE_KEY = 'fezaKotulereKarsi.v2', SAVE_BACKUP = 'fezaKotulereKarsi.v2.onceki';   // same key as GAME's; backup written before "Baştan Başla"
 
   // ── Modules (resolved at boot; any may be missing in tests). typeof on a module that threw at load → TDZ error. ──
   const M = {};
@@ -869,7 +869,7 @@ const UI = (() => {
     let goal = null, gspr = null;
     if (L && L.portalObj && L.portalObj.active !== false) { goal = L.portalObj; gspr = MM.spr.portal; }
     else if (g.boss && !g.boss.dead) { goal = g.boss; gspr = MM.spr.boss; }
-    else if (L && L.crystalSpot && g.P.pet && g.state === 'play') { goal = L.crystalSpot; gspr = MM.spr.crystal; }
+    else if (L && L.crystalSpot && g.boss && g.boss.dead && g.state === 'play') { goal = L.crystalSpot; gspr = MM.spr.crystal; }
     if (goal) {
       const dx = goal.x - px, dz = goal.z - pz, dd = Math.hypot(dx, dz), lim = MAP_VIEW - 2.2;
       if (dd < lim) mIcon(gspr, goal.x, goal.z, 1 + 0.1 * Math.sin(t * 5));
@@ -1426,7 +1426,6 @@ const UI = (() => {
     if (P) {
       chips.push(`<span class="u-chip">⭐ Seviye ${P.lvl}</span>`, `<span class="u-chip"><span class="u-coin"></span> ${P.gold}</span>`);
       if (S.cheered) chips.push(`<span class="u-chip">😊 ${S.cheered} huysuz neşelendi</span>`);
-      if (P.pet) { dragonPortrait(); chips.push(`<span class="u-chip">${dragonHTML()} Yeni arkadaş</span>`); }
     }
     D.winChips.innerHTML = chips.join('');
     confetti();
@@ -1574,7 +1573,7 @@ const UI = (() => {
     on('victory', () => { hideBoss(); if (S.menu) closeMenu(); setTimeout(() => { if (g.state === 'end' && S.mode === 'play') showVictory(); }, 2600); });
     on('happy', d => {
       S.cheered++;
-      if (d.boss) S.cine = { t: 0, bx: d.x, bz: d.z };   // camera story beat: dragon cheers up → pet → crystal rises
+      if (d.boss) S.cine = { t: 0, bx: d.x, bz: d.z };   // camera story beat: dragon cheers up → crystal rises
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
@@ -1668,7 +1667,7 @@ const UI = (() => {
       const bd = Math.hypot(g.boss.x - px, g.boss.z - pz);
       fitSolve(px, pz, g.boss.x, g.boss.z, ty, pitch, 1.05, 1.62 + clamp((bd - 10) * 0.05, 0, 0.16));
       zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = 1.5;
-    } else if (S.cine && P) {   // boss defeated: look at the cheering dragon / pet, then at the rising crystal
+    } else if (S.cine && P) {   // boss defeated: look at the cheering dragon, then at the rising crystal
       const c = S.cine, L = g.L;
       pitch = 0.74; ty = 1.3;
       if (c.t < 4.6) {
@@ -1736,6 +1735,11 @@ const UI = (() => {
   function renderNow() { safe('renderNow', () => { updateCamera(0.016, true); camera.updateMatrixWorld(); renderFrame(); }); }
   function frame(ts) {
     requestAnimationFrame(frame);
+    // Faster screens (120 Hz iPads): at most 60 frames a second (battery). The leftover time carries over, so 90/100/144 Hz
+    // screens also get a steady 60 and 60 Hz ones are never skipped.
+    S.frameAcc = Math.min((S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : 1000 / 60), 50); S.lastRaf = ts;
+    if (S.frameAcc < 1000 / 60 - 2) return;
+    S.frameAcc = Math.max(0, S.frameAcc - 1000 / 60);
     const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / 60;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);

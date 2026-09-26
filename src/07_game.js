@@ -1,6 +1,6 @@
 /* ── Oyun: oyuncu kontrolü, dövüş, düşman yapay zekâsı, mermiler, ganimet, seviye, boss, bölgeler, kayıt ──
    Bütün simülasyon burada; DOM'a dokunmaz (UI'nin işi). Sözleşme: src/SPEC.md → "GAME".
-   Extras beyond the SPEC: events 'happy' {type,x,z,elite,boss} and 'equip' {item,slot}; GAME.boss, GAME.pet, GAME.time,
+   Extras beyond the SPEC: events 'happy' {type,x,z,elite,boss} and 'equip' {item,slot}; GAME.boss, GAME.time,
    GAME.unequip(slot), addItem(item), cast(i), hurtPlayer(n,x,z,kb), heal(frac). newGame() called in state 'end' (victory
    screen) starts NEW GAME+; newGame({plus:false}) forces a fresh start. GAME.update(dt) should run in every state except
    'title' (it drives the respawn timer, portal shrink and victory cheer); a timeout fallback respawns if it is not called.
@@ -21,26 +21,44 @@ const GAME = (() => {
     activeR: 36, hideR: 46, leash: 26, maxMelee: 4, maxRanged: 3, enemyMaxSpeed: 4.5,
     windMin: 0.5, iframes: 0.3, respawn: 3.2, regenDelay: 5, magnet: 2.5,
   };
-  // ── Difficulty: the one place to tune how hard the game is (parent: "a bit harder, but not very hard") ──
+  // ── Difficulty: the one place to tune how hard the game is (parent, 2nd round: "the creatures go happy at once,
+  //    only the dragon was strong — make the whole game a bit harder") ──
   const DIFF = {
-    hp: 2.6,            // normal enemy hp (zone 0 jelly: 4 sword hits at the start, 3 later)
+    hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
     zoneHp: [1.15, 1, 0.9],   // × per zone: the castle is spongy enough through its own hpMult
     hpType: { golem: 0.7, salyangoz: 0.8 },   // the big slow golem and the slow bubble snail are tanky enough already
-    eliteHp: 3,         // elites: hp × this (on top of hp)
+    eliteHp: 3.4,       // elites: hp × this (on top of hp; was 3)
+    eliteDmg: 1.5,      // elites: damage × this (their hp went up: their punch stays)
+    // A strong sword must not turn the creatures happy in one or two hits (lots of treasure, or the next adventure round):
+    // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
+    power: { dmg: [20, 36, 50], k: 0.8 },
     bossHp: 8,          // dragon hp at most (a button-masher with a good sword needs about a minute)
-    bossHpPerDmg: 230, bossHpMin: 0.7,   // …sized to Feza's sword when the fight starts: 230 × P.dmg, at least 70 % of the max
+    bossHpPerDmg: 175, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 175 × P.dmg, at least 58 % of the max (were 230 / 70 %:
+                                         //    the skills wait longer now, so the fight stays about as long as before, ~1 minute)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
     bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in the dragon fight tires it: damage ×0.75 (down to ×0.55), −8 % hp
-    dmg: 1.5,           // enemy damage
+    dmg: 1.8,           // enemy damage (was 1.5)
     zoneDmg: [1.7, 1.2, 1],   // × per zone: the forest must bite a little too (a potion now and then)
-    atkCd: 0.85,        // enemy attack cooldown (wind-ups unchanged, always ≥ T.windMin)
+    atkCd: 0.75,        // enemy attack cooldown (was 0.85; wind-ups unchanged, always ≥ T.windMin)
     xp: 1.1,            // xp per enemy (level pace stays about the same although fights are longer)
-    heart: 0.12,        // a heart heals this fraction of max hp
-    heartDrop: 0.75,    // heart drop chances × this
+    heart: 0.1,         // a heart heals this fraction of max hp (was 0.12)
+    heartDrop: 0.65,    // heart drop chances × this (was 0.75)
     potions: 2,         // potions at the start of a new game (max stays 5)
-    regenFight: 0.02, regenCalm: 0.05,   // hp fraction per second, T.regenDelay s after the last hit
+    regenFight: 0.012, regenCalm: 0.05,   // hp fraction per second, T.regenDelay s after the last hit (was 0.02 / 0.05)
   };
-  const SAVE_KEY = 'fezaKotulereKarsi.v1';
+  // ── Treasure (parent: "too many items, the bag fills up with the same or similar things") ──
+  // The bag keeps ONE piece per look (slot + base): a stronger copy takes the old one's place. Drops are rarer and look
+  // for something Feza doesn't have yet; a roll that would only repeat what he has becomes a few coins instead.
+  const DROP = {
+    normal: 0.02,       // item chance from a normal enemy (was 0.05)
+    elite: 0.5,         // from an elite (was: always)
+    chest: 0.6,         // from a small chest (was: always); a big chest gives one (was two), the dragon one (was two)
+    tries: 6,           // rolls looking for a new look (or a clearly stronger copy of one he has)
+    upgrade: 1.3,       // a copy of a look he has, same rarity, must be this much stronger (and beat what he wears) to drop at all
+  };
+  // v2 (parent, 2nd round: "start Feza over with the new rules"): the new key starts every device from scratch once;
+  // the old 'fezaKotulereKarsi.v1' save stays untouched on the device as a leftover backup. Keep in sync with 09_ui.js.
+  const SAVE_KEY = 'fezaKotulereKarsi.v2';
   const WORDS = ['Pof!', 'Bam!', 'Vuuş!', 'Pat!', 'Güm!', 'Tak!', 'Hop!'];
   // Lightsaber blade colours (fallback when ITEMS.bladeColor is missing; gokkusagi cycles through the rainbow).
   const BLADE_COL = { tahta: '#c8f4ff', demir: '#3f9dff', kristal: '#3dff66', ates: '#ff3344', yildiz: '#b455ff' };
@@ -114,7 +132,7 @@ const GAME = (() => {
   const P = {
     pos: new THREE.Vector3(), face: Math.PI, hp: T.baseHp, maxHp: T.baseHp, lvl: 1, xp: 0, xpNext: xpFor(1), gold: 0,
     potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, hat: null, cape: null }, bag: [],
-    skills: [], spin: 0, shield: 0, dead: false, checkpoint: { x: 0, z: 0 }, zone: 0, ng: 0, pet: false, god: false,
+    skills: [], spin: 0, shield: 0, dead: false, checkpoint: { x: 0, z: 0 }, zone: 0, ng: 0, god: false,
   };
   // Controller (input intent, swing, timers). Private.
   const C = {
@@ -132,7 +150,7 @@ const GAME = (() => {
   let L = null, H = null, gt = 0, hitstop = 0, inited = false;
   let baseScale = 1;
   const enemies = [], dying = [], projectiles = [], coins = [], loot = [], timers = [];
-  let sleepers = [], boss = null, pet = null, crystal = null;
+  let sleepers = [], boss = null, crystal = null;
   let actT = 0, tokT = 0, flowT = 0, flowCx = -1e9, flowCz = -1e9, flowAt = -9;
   let lastKocaman = -99, lastCanAz = -99, lastPraise = -99, lastPotionMsg = -99, lastSoft = -9, npcTalkUntil = -1, npcTalkAt = -99;
   const cheers = [];
@@ -381,7 +399,7 @@ const GAME = (() => {
     P.skills = GAME.skills;
   }
   function resetPlayer() {
-    P.lvl = 1; P.xp = 0; P.gold = 0; P.potions = DIFF.potions; P.ng = 0; P.pet = false; P.dead = false; P.spin = 0; P.shield = 0;
+    P.lvl = 1; P.xp = 0; P.gold = 0; P.potions = DIFF.potions; P.ng = 0; P.dead = false; P.spin = 0; P.shield = 0;
     const st = typeof ITEMS !== 'undefined' && ITEMS.starter ? ITEMS.starter() : { weapon: null, hat: null, cape: null };
     P.equip = { weapon: st.weapon || null, hat: st.hat || null, cape: st.cape || null };
     P.bag = [P.equip.weapon, P.equip.hat, P.equip.cape].filter(Boolean);
@@ -405,11 +423,6 @@ const GAME = (() => {
       removeObj(crystal.obj); remove(crystal.beam);
       crystal.obj.traverse(o => { if (o.userData && typeof o.userData.dispose === 'function') { try { o.userData.dispose(); } catch (err) { warnOnce('crystal.dispose', err); } } });
       crystal = null;
-    }
-    if (pet) {
-      removeObj(pet.m.root);
-      try { if (pet.m.dispose) pet.m.dispose(); } catch (err) { warnOnce('pet.dispose', err); }
-      pet = null; GAME.pet = null;
     }
     finale = false; ZF = {}; pathS = 0; pathCum = null;
     C.cheerT = 0; C.castT = -1;
@@ -473,12 +486,10 @@ const GAME = (() => {
       if (!WARM_E[k]) { try { WARM_E[k] = EMODEL.build(t, { variant: VARIANTS[t] ? VARIANTS[t][0] : undefined, elite: el }); } catch (err) { warnOnce('warm ' + k, err); } }
       if (WARM_E[k] && WARM_E[k].root) tmp.add(WARM_E[k].root);
     }
-    if (hasE && (Z.boss || L.boss)) {   // the finale: baby dragon pet + neşe kristali
+    if (hasE && (Z.boss || L.boss)) {   // the finale: neşe kristali
       try {
-        if (!WARM_E._pet && EMODEL.babyDragon) WARM_E._pet = EMODEL.babyDragon();
         if (!WARM_E._crystal && EMODEL.crystal) WARM_E._crystal = { root: EMODEL.crystal() };
       } catch (err) { warnOnce('warm finale', err); }
-      if (WARM_E._pet && WARM_E._pet.root) tmp.add(WARM_E._pet.root);
       if (WARM_E._crystal && WARM_E._crystal.root) tmp.add(WARM_E._crystal.root);
     }
     const temp = [];   // FX handles to release after the draw
@@ -494,7 +505,7 @@ const GAME = (() => {
           try { tmp.add(itemModel(ITEMS.make(slot, b.id, b.legendary ? 3 : 2, Z.ilvl || 1))); } catch (err) { warnOnce('warm item', err); }
         }
       }
-      const kinds = new Set(['star', 'pet']);
+      const kinds = new Set(['star']);
       for (const t of types) { const d = edef(t); if (d.kind === 'ranged' || d.kind === 'boss') kinds.add((d.shot && d.shot.kind) || SHOT_KIND[t] || 'spore'); }
       if (typeof FX !== 'undefined' && FX) {
         for (const k of kinds) { const o = fx('projectile', k, SHOT_COL[k]); if (o) { tmp.add(o); temp.push({ proj: o }); } }
@@ -557,7 +568,6 @@ const GAME = (() => {
       b.face = 0; boss = GAME.boss = b;
     } else GAME.boss = null;
     if (L.portalObj && L.portalObj.setActive) L.portalObj.setActive(true);
-    if (P.pet) spawnPet(P.pos.x - 1, P.pos.z + 1);
     activate(true, 16);
     pathInit();
   }
@@ -590,6 +600,11 @@ const GAME = (() => {
   }
 
   // ── Enemies ──
+  // Creature hp factor for a sword stronger than usual in this zone and round (see DIFF.power); 1 at or below it.
+  function powerHp(ngH) {
+    const D = DIFF.power, zi = clamp(P.zone | 0, 0, D.dmg.length - 1), usual = D.dmg[zi] * ngH;
+    return P.dmg > usual ? Math.pow(P.dmg / usual, D.k) : 1;
+  }
   function makeEnemy(sp) {
     const type = sp.type, def = edef(type), Z = zdef();
     const isBoss = def.kind === 'boss';
@@ -602,12 +617,12 @@ const GAME = (() => {
     scene.add(m.root);
     const sc = elite ? 1.4 : 1;
     const hp = Math.round(isBoss ? def.hp * (1 + 0.5 * P.ng) * DIFF.bossHp
-      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * (DIFF.zoneHp[P.zone] || 1) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1));
+      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * (DIFF.zoneHp[P.zone] || 1) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH));
     const e = {
       type, def, m, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: def.dmg * (isBoss ? 1.4 * DIFF.bossDmg : (Z.dmgMult || 1) * (DIFF.zoneDmg[P.zone] || 1) * DIFF.dmg) * ngD * (elite ? 1.5 : 1),
+      dmg: def.dmg * (isBoss ? 1.4 * DIFF.bossDmg : (Z.dmgMult || 1) * (DIFF.zoneDmg[P.zone] || 1) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1),
       speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng),
       xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
       gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
@@ -1357,7 +1372,6 @@ const GAME = (() => {
     for (let i = projectiles.length - 1; i >= 0; i--) if (projectiles[i].owner === 'enemy') killProjectile(i, false);
     const cp = P.checkpoint;
     placeHero(cp.x, cp.z, 0);
-    if (pet) { pet.x = cp.x - 1; pet.z = cp.z + 1; }
     burst('magic', cp.x, 0.8, cp.z, { count: 24 }); burst('sparkle', cp.x, 1.2, cp.z, { count: 16 });
     sfx('checkpoint');
     igniteSaber(0);
@@ -1654,8 +1668,7 @@ const GAME = (() => {
     later(0.45, () => {
       const Z = zdef(), big = !!c.big;
       spawnCoins(c.x, c.z, Math.round((big ? 34 : 16) * (Z.gold || 1) * frand(0.85, 1.2)), big ? 14 : 8);
-      spawnItem(rollItem(big ? 1.4 : 0.6), c.x, c.z);
-      if (big) spawnItem(rollItem(0.8), c.x, c.z);
+      if (big || Math.random() < DROP.chest) dropItem(big ? 1.4 : 0.6, c.x, c.z);
       if (big || Math.random() < 0.5) spawnLoot('potion', c.x, c.z);
       if (Math.random() < 0.4 * DIFF.heartDrop) spawnLoot('heart', c.x, c.z);
       burst('sparkle', c.x, 0.9, c.z, { count: 20, color: '#ffe27a' });
@@ -1802,15 +1815,41 @@ const GAME = (() => {
   }
 
   // ── Loot & pickups ──
+  // One piece per look in the bag (see DROP): the key of a look, the bag's piece of that look, one lying on the ground.
+  const lookKey = it => it.slot + ':' + (it.base && typeof it.base === 'object' ? it.base.id : it.base);
+  function ownedLook(item) { const k = lookKey(item); for (const it of P.bag) if (it && lookKey(it) === k) return it; return null; }
+  function groundLook(item) { const k = lookKey(item); for (const o of loot) if (o.kind === 'item' && o.item && lookKey(o.item) === k) return o.item; return null; }
+  // May `item` replace `have` (same look)? Stronger, never less shiny (the kid's ✦ piece must not turn into a plain one).
+  const replaces = (item, have) => item.power > have.power && (item.rarity | 0) >= (have.rarity | 0);
+  // Is it worth dropping although Feza has that look? Only if it replaces it (shinier, or clearly stronger) AND he would
+  // wear it (stronger than what he wears in that slot) — otherwise it just looks like the same thing dropping again.
+  const upgradeOf = (item, have) => replaces(item, have) && ((item.rarity | 0) > (have.rarity | 0) || item.power >= have.power * DROP.upgrade) &&
+    item.power > ((P.equip[item.slot] && P.equip[item.slot].power) || 0);
   function rollItem(bias) {
     if (typeof ITEMS === 'undefined' || !ITEMS.roll) return null;
-    try { return ITEMS.roll(ilvlNow(), clamp(bias, 0, 2)); } catch (err) { warnOnce('ITEMS.roll', err); return null; }
+    let up = null;
+    for (let i = 0; i < DROP.tries; i++) {
+      let it = null;
+      try { it = ITEMS.roll(ilvlNow(), clamp(bias, 0, 2)); } catch (err) { warnOnce('ITEMS.roll', err); return null; }
+      if (!it || groundLook(it)) continue;        // never two of the same look at once
+      const have = ownedLook(it);
+      if (!have) return it;                       // a look Feza doesn't have yet
+      if (!up && upgradeOf(it, have)) up = it;    // …otherwise maybe a better copy of one he has, which he will wear
+    }
+    return up;
+  }
+  // An item drop; when nothing new or better came up, a little gold instead.
+  function dropItem(bias, x, z) {
+    const it = rollItem(bias);
+    if (it) return spawnItem(it, x, z);
+    spawnCoins(x, z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
+    return null;
   }
   function dropLoot(e) {
     const gold = Math.round(e.gold * frand(0.8, 1.25));
     if (e.boss) {
       spawnCoins(e.x, e.z, gold, 40, 3.5);
-      spawnItem(rollItem(2), e.x, e.z); spawnItem(rollItem(2), e.x, e.z);
+      dropItem(2, e.x, e.z);
       for (let i = 0; i < 3; i++) spawnLoot('heart', e.x, e.z);
       return;
     }
@@ -1819,7 +1858,7 @@ const GAME = (() => {
     if (Math.random() < (0.16 + (lowHp ? 0.16 : 0)) * DIFF.heartDrop + (e.elite ? 0.5 : 0)) spawnLoot('heart', e.x, e.z);
     let potOnGround = 0; for (const o of loot) if (o.kind === 'potion') potOnGround++;
     if (P.potions + potOnGround < P.maxPotions && Math.random() < (e.elite ? 0.35 : 0.045)) spawnLoot('potion', e.x, e.z);
-    if (e.elite || Math.random() < 0.05) spawnItem(rollItem(e.elite ? 1 : 0), e.x, e.z);
+    if (Math.random() < (e.elite ? DROP.elite : DROP.normal)) dropItem(e.elite ? 1 : 0, e.x, e.z);
   }
   function spawnCoins(x, z, gold, n, spread = 1) {
     gold = Math.max(1, Math.round(gold));
@@ -1969,16 +2008,18 @@ const GAME = (() => {
       addItem(o.item);
     }
   }
-  function sameSlot(slot) { return P.bag.filter(it => it && it.slot === slot); }
   function addItem(item, force) {
     if (!item) return;
-    if (P.bag.indexOf(item) < 0) P.bag.push(item);
-    const list = sameSlot(item.slot);
-    if (list.length > 24) {   // keep the wardrobe tidy: drop the weakest unworn piece
-      let worst = null;
-      for (const it of list) if (it !== P.equip[item.slot] && it !== item && (!worst || it.power < worst.power)) worst = it;
-      if (worst) P.bag.splice(P.bag.indexOf(worst), 1);
-    }
+    const old = ownedLook(item);
+    if (old && old !== item) {   // one piece per look: the stronger copy takes the old one's place (worn → stays worn)
+      if (!force && !replaces(item, old)) {   // not stronger, or less shiny (the rolls avoid this): a few coins instead
+        const g = Math.max(3, Math.round(item.power / 2));
+        P.gold += g; ftext(P.pos.x, 2.1, P.pos.z, '+' + g, 'gold'); sfx('coin', { vol: 0.7 }); emit('gold', { amount: g });
+        saveSoon();
+        return;
+      }
+      P.bag[P.bag.indexOf(old)] = item;
+    } else if (P.bag.indexOf(item) < 0) P.bag.push(item);
     const cur = P.equip[item.slot];
     const better = force || !cur || item.power > cur.power;
     if (better) equip(item, true);
@@ -2051,41 +2092,7 @@ const GAME = (() => {
     later(1.2, () => checkUnlocks(true));
   }
 
-  // ── Pet dragon, crystal, victory ──
-  function spawnPet(x, z) {
-    if (pet || typeof EMODEL === 'undefined' || !EMODEL.babyDragon) return;
-    let m = null;
-    try { m = EMODEL.babyDragon(); } catch (err) { warnOnce('babyDragon', err); }
-    if (!m || !m.root) return;
-    scene.add(m.root);
-    pet = { m, x, z, y: 1.2, face: P.face, cd: 1.5, atk: 0, t: 0 };
-    GAME.pet = pet;
-  }
-  function updatePet(dt) {
-    if (!pet) return;
-    pet.t += dt;
-    const a = P.face + Math.PI * 0.78, tx = P.pos.x + Math.sin(a) * 1.5, tz = P.pos.z + Math.cos(a) * 1.5;
-    const ox = pet.x, oz = pet.z;
-    pet.x = damp(pet.x, tx, 3.2, dt); pet.z = damp(pet.z, tz, 3.2, dt);
-    pet.y = 1.25 + 0.16 * Math.sin(pet.t * 2.4);
-    const vx = (pet.x - ox) / Math.max(dt, 1e-4), vz = (pet.z - oz) / Math.max(dt, 1e-4), sp = Math.hypot(vx, vz);
-    pet.atk = Math.max(0, pet.atk - dt);
-    pet.cd -= dt;
-    let target = null;
-    if (GAME.state === 'play') target = nearestEnemy(pet.x, pet.z, 9);
-    if (target) pet.face = dampAngle(pet.face, Math.atan2(target.x - pet.x, target.z - pet.z), 8, dt);
-    else if (sp > 0.4) pet.face = dampAngle(pet.face, Math.atan2(vx, vz), 6, dt);
-    if (target && pet.cd <= 0 && los(pet.x, pet.z, target.x, target.z)) {
-      pet.cd = 1.3; pet.atk = 0.4;
-      let mz = null; try { mz = pet.m.muzzle && pet.m.muzzle(); } catch (err) { warnOnce('pet.muzzle', err); }
-      const sx = mz ? mz.x : pet.x, sy = mz ? mz.y : pet.y, sz = mz ? mz.z : pet.z;
-      const dx = target.x - sx, dz = target.z - sz, d = Math.hypot(dx, dz) || 1;
-      spawnProjectile({ x: sx, y: sy, z: sz, vx: dx / d * 11, vz: dz / d * 11, r: 0.35, dmg: Math.round(P.dmg * 0.45 + 3), owner: 'feza', kind: 'pet', life: 1.2, color: '#ffb347', kb: 0.2 });
-      sfx('fireball', { x: pet.x, z: pet.z, vol: 0.4, pitch: 1.5 });
-    }
-    pet.m.root.position.set(pet.x, pet.y, pet.z); pet.m.root.rotation.y = pet.face;
-    if (pet.m.anim) { try { pet.m.anim(dt, sp > 0.4, pet.atk > 0); } catch (err) { warnOnce('pet.anim', err); } }
-  }
+  // ── Dragon's end, crystal, victory ──
   function bossDefeated(b) {
     emit('boss', { on: false });
     finale = true;
@@ -2100,10 +2107,7 @@ const GAME = (() => {
   function bossTransformed(b) {
     burst('magic', b.x, 1.5, b.z, { count: 40, color: '#ffb0f0' }); burst('sparkle', b.x, 1.5, b.z, { count: 30 });
     fx('lightFlash', b.x, b.z, '#ffc0f0', 6, 0.6);
-    P.pet = true; spawnPet(b.x, b.z);
-    // right after 'ejderha_bitti' while the little dragon appears; 'kristal' (also prio 3, +2.4 s) queues behind it.
-    // A kid who touches the crystal before it was heard gets it after 'son' (victory()).
-    const r = say('ejder_dost', 3); dostUntil = r ? gt + r : -1;
+    // Parent's wish: the dragon cheers up and goes on its way — no little dragon following Feza around afterwards.
     later(0.6, spawnCrystal);
     saveSoon();
   }
@@ -2133,21 +2137,13 @@ const GAME = (() => {
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.vel = 0;
     if (crystal) faceTo(crystal.x, crystal.z);
     emit('victory', {});
-    const dost = P.pet && linePending('ejder_dost', dostUntil);
     aud('stopVoice');   // nothing stale may follow the ending line
     say('son', 3);
-    if (dost) say('ejder_dost', 2, { wait: 30 });   // the little dragon line was cut or not heard yet: it closes the story
     aud('music', 'zafer');
     for (let i = 0; i < 5; i++) later(i * 0.6, () => { burst('confetti', P.pos.x + frand(-3, 3), 3, P.pos.z + frand(-3, 3), {}); sfx('cheer', { vol: 0.5 }); });
     writeSave(Object.assign(snapshot(), { zone: 0, ng: P.ng + 1, plus: true }));
   }
   function faceTo(x, z) { P.face = Math.atan2(x - P.pos.x, z - P.pos.z); }
-  // Is a voice line still queued or playing? (AUD.current = the line playing now; `until` = the end estimate from say())
-  let dostUntil = -1;
-  function linePending(key, until) {
-    const cur = typeof AUD !== 'undefined' && AUD ? AUD.current : null;
-    return cur === key || (cur && typeof cur === 'object' && cur.key === key) || gt < until;
-  }
 
   // ── Queries for SKILLS / UI ──
   function enemiesNear(x, z, r) {
@@ -2246,7 +2242,7 @@ const GAME = (() => {
   }
   function snapshot() {
     return {
-      v: 1, t: Date.now(), zone: P.zone, lvl: P.lvl, xp: P.xp, gold: P.gold, potions: P.potions, ng: P.ng, pet: P.pet,
+      v: 1, t: Date.now(), zone: P.zone, lvl: P.lvl, xp: P.xp, gold: P.gold, potions: P.potions, ng: P.ng,
       bag: P.bag.map(plainItem),
       equip: { weapon: P.bag.indexOf(P.equip.weapon), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
@@ -2292,15 +2288,24 @@ const GAME = (() => {
       const j = eqIn[slot], k = Number.isInteger(j) && at.has(j) ? at.get(j) : -1;
       equip[slot] = k >= 0 && bag[k].slot === slot ? k : -1;
     }
+    // One piece per look (older builds kept every copy): the shiniest copy stays, then the strongest (same look, so a
+    // copy that loses is plainer or weaker); a worn copy that goes hands its slot to the one that stays.
+    const keepFirst = (a, b) => ((bag[a].rarity - bag[b].rarity) || (bag[a].power - bag[b].power)) > 0;
+    const best = new Map();
+    bag.forEach((c, k) => { const key = lookKey(c), j = best.get(key); if (j === undefined || keepFirst(k, j)) best.set(key, k); });
+    const slim = [], re = bag.map(() => -1);
+    bag.forEach((c, k) => { if (best.get(lookKey(c)) === k) { re[k] = slim.length; slim.push(c); } });
+    bag.forEach((c, k) => { if (re[k] < 0) re[k] = re[best.get(lookKey(c))]; });
+    for (const slot of ['weapon', 'hat', 'cape']) if (equip[slot] >= 0) equip[slot] = re[equip[slot]];
     const L1 = clamp(Math.floor(lvl), 1, 99);
     return Object.assign({}, s, {
       lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
-      ng: clamp(Math.floor(ng), 0, 99), zone: Math.max(0, Math.floor(zone)), bag, equip,
+      ng: clamp(Math.floor(ng), 0, 99), zone: Math.max(0, Math.floor(zone)), bag: slim, equip,
       skills: Array.isArray(s.skills) ? s.skills : [], flags: s.flags && typeof s.flags === 'object' ? s.flags : {},
     });
   }
   function applySave(s) {
-    P.lvl = s.lvl || 1; P.xp = s.xp || 0; P.gold = s.gold || 0; P.potions = clamp(s.potions ?? DIFF.potions, 0, P.maxPotions); P.ng = s.ng || 0; P.pet = !!s.pet;
+    P.lvl = s.lvl || 1; P.xp = s.xp || 0; P.gold = s.gold || 0; P.potions = clamp(s.potions ?? DIFF.potions, 0, P.maxPotions); P.ng = s.ng || 0;
     P.bag = (s.bag || []).filter(Boolean);
     const eq = s.equip || {};
     P.equip = { weapon: P.bag[eq.weapon] || null, hat: P.bag[eq.hat] || null, cape: P.bag[eq.cape] || null };
@@ -2528,7 +2533,6 @@ const GAME = (() => {
     updateProjectiles(dt);
     updateCoins(dt);
     updateLoot(dt);
-    updatePet(dt);
     updateCrystal(dt);
     if (L && L.npcObj && L.npcObj.model && L.npcObj.model.anim) { try { L.npcObj.model.anim(dt, owlTalking()); } catch (err) { warnOnce('owl.anim', err); } }
     if (typeof SKILLS_update === 'function') { try { SKILLS_update(dt); } catch (err) { warnOnce('SKILLS_update', err); } }
@@ -2578,7 +2582,7 @@ const GAME = (() => {
           if (circleFree(qx, qz, T.heroR)) { x = qx; z = qz; break search; }
         }
       }
-      placeHero(x, z, P.face); C.hasT = false; C.targetE = null; C.targetObj = null; if (pet) { pet.x = x - 1; pet.z = z + 1; } activate(true, 12); },
+      placeHero(x, z, P.face); C.hasT = false; C.targetE = null; C.targetObj = null; activate(true, 12); },
     xp(n = 100) { gainXp(n); return P.lvl; },
     zone(i) { if (GAME.state === 'title') { resetPlayer(); } return loadZone(i); },
     kill() { let n = 0; for (const e of enemies.slice()) { if (damage(e, e.hp + 1, { silent: true, force: true })) n++; } return n; },
@@ -2617,12 +2621,12 @@ const GAME = (() => {
     state() {
       return { state: GAME.state, zone: P.zone, lvl: P.lvl, xp: P.xp, hp: Math.round(P.hp), maxHp: P.maxHp, gold: P.gold, potions: P.potions,
         dmg: P.dmg, enemies: enemies.length, sleepers: sleepers.length, dying: dying.length, proj: projectiles.length, coins: coins.length,
-        loot: loot.length, pet: !!pet, crystal: crystal ? (crystal.ready ? 'ready' : 'rising') : null, boss: boss ? Math.round(boss.hp) + '/' + boss.maxHp + ' ' + boss.ph : null, pos: [+P.pos.x.toFixed(2), +P.pos.z.toFixed(2)] };
+        loot: loot.length, crystal: crystal ? (crystal.ready ? 'ready' : 'rising') : null, boss: boss ? Math.round(boss.hp) + '/' + boss.maxHp + ' ' + boss.ph : null, pos: [+P.pos.x.toFixed(2), +P.pos.z.toFixed(2)] };
     },
   };
 
   const GAME = {
-    P, H: null, enemies, L: null, state: 'title', paused: false, skills: [], boss: null, pet: null, time: 0,
+    P, H: null, enemies, L: null, state: 'title', paused: false, skills: [], boss: null, time: 0,
     init, newGame, continueGame, hasSave: () => !!readSave(), save, clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* private mode */ } },
     loadZone, update, titleUpdate, input, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
     on, emit, enemiesNear, nearestEnemy, damage, spawnProjectile, hitBreakables, heroDamageNow, hurtPlayer, heal,

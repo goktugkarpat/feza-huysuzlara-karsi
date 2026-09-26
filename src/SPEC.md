@@ -13,10 +13,18 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   saberOff); only **3 skills** (yildiz lvl 1, kasirga lvl 3, meteor lvl 5); every creature **cute and smiling**, nothing scary; **no spiders**;
   zone 1 = **Köstebek ve Salyangoz Mağarası** with kostebek (kind 'burrow', st.burrow, untargetable while underground) and salyangoz (ranged
   soap bubbles FX.projectile('bubble'), slime trail FX.burst('slime')); the dragon breathes sparkly bubbles instead of fire.
+- **Parent's 2nd round (read first):** skill cooldowns 4 / 15 / 24 s (were 1 / 7 / 16); creatures tougher and hit harder (DIFF.hp 3.4, dmg 1.8,
+  atkCd 0.75, elites hp ×3.4, dmg ×1.5 as before; dragon hp 175 × P.dmg, min 58 % so its fight stays ~1 min with the slower skills) and **DIFF.power**: above the usual sword damage for the zone (× the round's hp factor) creature hp grows
+  with (P.dmg / usual)^0.8, so a strong sword or a new adventure round never makes them go happy in one hit. **Treasure (GAME's `DROP`):** the bag keeps
+  ONE piece per look (slot + base) — a stronger, not less shiny copy replaces it in place; old saves are collapsed in cleanSave (shiniest copy stays, then strongest; the worn slot follows it); drops are rarer
+  (normal 2 %, elite 50 %, small chest 60 %, big chest / dragon one item) and rollItem() looks for a look Feza doesn't have (or a better copy he
+  would wear: never lower rarity, higher rarity or ≥ 1.3× power, stronger than what he wears); nothing new → a few coins. **No pet:** the dragon cheers up and is gone; no little dragon follows Feza
+  (EMODEL.babyDragon and FX.projectile('pet') still exist but are unused; the 'ejder_dost' line was removed).
 - **Difficulty (parent: "a bit harder"):** GAME's `DIFF` table scales enemy hp/damage/cooldowns/xp (the dragon's hp is set when the fight starts
-  from Feza's damage). Hearts heal 12 %, regen after 5 s (2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
+  from Feza's damage). Hearts heal 10 %, regen after 5 s (1.2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
   Auto-attack also works while dragging (gap < 1.1 m, within ±80° of the walking direction). Comic words limited by GAME.wordOK().
 - **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (2 on touch devices);
+  battery (parent): QUALITY.dpr ≤ 1.25, sun shadow map 1536², and UI's frame() runs at most 60 frames/s (120 Hz iPads);
   perfTick(rawDt, active) only counts gameplay frames, steps MSAA then DPR down and back up; perfReset; precompile(obj, async) and
   renderer.compile compile against rtMain; CTX_HOOKS run after a WebGL context restore (env map restored); SHADOW + viewRadius size the sun shadow
   box from the camera; PLAIN / ENV_OK for the no-float-render-target fallback. While POST.on the canvas has no depth/stencil, so all 3D goes through renderFrame.
@@ -165,7 +173,6 @@ ejderha_yarim "Ejderha yoruluyor! Devam et, çok az kaldı!"
 ejderha_yarasa "Ejderha yarasalarını çağırdı!"
 ejderha_bitti "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş."
 kristal "Neşe kristali! Ona dokun, köye neşe geri dönsün!"
-ejder_dost "Küçük ejderha artık senin arkadaşın! Seninle birlikte gelecek."
 son     "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!"
 tekrar  "Yeni macera! Huysuzlar bu sefer biraz daha güçlü."
 hos_geldin "Tekrar hoş geldin Feza! Macera kaldığın yerden devam ediyor."
@@ -261,7 +268,7 @@ EMODEL.build(type, {variant, elite}) → m
   m.dispose()
   Elite: 1.4× scale + golden rim light + slightly different colours (GAME adds aura/name).
 EMODEL.owl() → {root, anim(dt, talking:bool)}          Bilge Baykuş NPC (cute owl, big eyes, glasses? optional) sits on a stump
-EMODEL.babyDragon() → {root, anim(dt, moving:bool, attacking:bool), muzzle()}   friendly pet after the boss (≈0.9 m)
+EMODEL.babyDragon() → {root, anim(dt, moving:bool, attacking:bool), muzzle()}   friendly baby dragon (≈0.9 m) — unused since the parent's 2nd round (no pet)
 EMODEL.crystal() → Object3D                           the big pink "neşe kristali" (glowing, for the ending)
 Share geometries across instances (cache per type+variant+mood). Target ≤ 3 draw calls per normal enemy.
 Enemy material: vcMat + rimify; jelly glossy (roughness .15), golem uses TEX.rock map, flame/ghost use glow.
@@ -314,7 +321,7 @@ Owns all simulation. Never touches the DOM (UI does), except through FX.floatTex
 GAME.init()                      create Feza (FEZA.create), add to scene, set up pools
 GAME.P                           player: { pos:Vector3, face, hp, maxHp, lvl, xp, xpNext, gold, potions, maxPotions:5,
                                    dmg, armor, speed, equip:{weapon,hat,cape}, bag:[items], skills: [{cd, unlocked}],
-                                   spin (s left), shield (s left), dead, checkpoint:{x,z}, zone, ng (new-game+ count), pet:bool }
+                                   spin (s left), shield (s left), dead, checkpoint:{x,z}, zone, ng (new-game+ count) }
 GAME.H                           Feza model (FEZA.create())
 GAME.enemies                     alive enemy runtime objects {type, def, m, x, z, hp, maxHp, elite, name, boss, ...}
 GAME.L                           current level
@@ -348,22 +355,22 @@ enemies near the death spot reset. Difficulty is LOW (a 5-year-old must progress
 XP needed for next level = 40 + 25*lvl + 5*lvl². On level-up: +12 max HP, +2 damage, full heal, FX + 'seviye1..3' line,
 unlock skill i when lvl ≥ SKILLS[i].lvl (say its line). Base damage 8 + 2*(lvl-1) + weapon.power.
 Loot: coins (instanced, magnet within 2.5 m), hearts, potions, items (beam coloured by rarity, auto-pick when walked over;
-auto-equip when power > equipped power, else keep in bag). Elites always drop an item; chests: coins + item (+potion);
+auto-equip when power > equipped power, else keep in bag; one piece per look, see GAME's DROP). Elites: item 50 %; chests: coins + item (small 60 %) (+potion);
 breakables: coins sometimes. Praise lines ('ovguN') only occasionally (e.g. 3+ enemies cheered within 2 s, ≥ 25 s since last).
 Boss: arena aggro → 'ejderha_giris', boss bar; attacks: fireball volley (3 slow orbs), stomp (ring telegraph), fire breath (cone
 telegraph then purple flames), bite; summons bats at 66% and 33% ('ejderha_yarasa'); at 50% 'ejderha_yarim'. Defeat → happy,
-shrinks into the baby dragon pet (P.pet = true, follows Feza and shoots small fireballs), crystal appears ('kristal'), touching it
-→ 'victory' ('son' line). Continue → new game+ (ng+1, zone 0, enemies stronger, keep level/items/pet, 'tekrar').
-Save to localStorage 'fezaKotulereKarsi.v1' on zone change, level-up, item pickup (throttled).
+vanishes in sparkles (no pet), crystal appears ('kristal'), touching it
+→ 'victory' ('son' line). Continue → new game+ (ng+1, zone 0, enemies stronger, keep level/items, 'tekrar').
+Save to localStorage 'fezaKotulereKarsi.v2' (was .v1 until the parent's 2nd round: the new key restarted everyone once) on zone change, level-up, item pickup (throttled).
 Debug hooks (always on): window.__T = { god(on), tp(x,z), xp(n), zone(i), kill(), give(slot, baseId, rarity), boss() }.
 ```
 
 ## SKILLS — src/08_skills.js
 ```
 SKILLS = [   (parent decision: only these 3)
- {id:'yildiz',  ad:'Yıldız Atışı',   icon:'⭐', lvl:1, cd:1.0, color:'#ffd23f', line:'yetenek_yildiz',  cast(ctx)},
- {id:'kasirga', ad:'Kasırga',        icon:'🌪️', lvl:3, cd:7,   color:'#7ee0ff', line:'yetenek_kasirga', cast(ctx)},
- {id:'meteor',  ad:'Meteor Yağmuru', icon:'☄️', lvl:5, cd:16,  color:'#ff9a3c', line:'yetenek_meteor',  cast(ctx)},
+ {id:'yildiz',  ad:'Yıldız Atışı',   icon:'⭐', lvl:1, cd:4,   color:'#ffd23f', line:'yetenek_yildiz',  cast(ctx)},
+ {id:'kasirga', ad:'Kasırga',        icon:'🌪️', lvl:3, cd:15,  color:'#7ee0ff', line:'yetenek_kasirga', cast(ctx)},
+ {id:'meteor',  ad:'Meteor Yağmuru', icon:'☄️', lvl:5, cd:24,  color:'#ff9a3c', line:'yetenek_meteor',  cast(ctx)},
 ]
 ctx = { P, H, target (nearest enemy within 12 m or null), aim:{x,z} (unit dir to target, else facing) }
 cast returns false if it could not be used (then no cooldown). SKILLS_update(dt) advances ongoing effects (meteors, spin ticks, …).

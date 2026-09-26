@@ -963,7 +963,6 @@ AUD.LINES = /*SESLER*/{
   "ejderha_yarasa": "Ejderha yarasalarını çağırdı!",
   "ejderha_bitti": "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş.",
   "kristal": "Neşe kristali! Ona dokun, köye neşe geri dönsün!",
-  "ejder_dost": "Küçük ejderha artık senin arkadaşın! Seninle birlikte gelecek.",
   "son": "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!",
   "tekrar": "Yeni macera! Huysuzlar bu sefer biraz daha güçlü.",
   "hos_geldin": "Tekrar hoş geldin Feza! Macera kaldığın yerden devam ediyor.",

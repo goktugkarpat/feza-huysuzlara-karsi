@@ -527,10 +527,11 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   }
 
   const wrap = fn => function (ctx) { const c = prep(ctx); return c ? fn(c) : false; };
+  // Cooldowns (parent: "skills could be used far too often, the game got easy"): were 1 / 7 / 16 s.
   const list = [
-    { id: 'yildiz', ad: 'Yıldız Atışı', icon: '⭐', lvl: 1, cd: 1.0, color: '#ffd23f', line: 'yetenek_yildiz', cast: wrap(castStar) },
-    { id: 'kasirga', ad: 'Kasırga', icon: '🌪️', lvl: 3, cd: 7, color: '#7ee0ff', line: 'yetenek_kasirga', cast: wrap(castSpin) },
-    { id: 'meteor', ad: 'Meteor Yağmuru', icon: '☄️', lvl: 5, cd: 16, color: '#ff9a3c', line: 'yetenek_meteor', cast: wrap(castMeteor) },
+    { id: 'yildiz', ad: 'Yıldız Atışı', icon: '⭐', lvl: 1, cd: 4, color: '#ffd23f', line: 'yetenek_yildiz', cast: wrap(castStar) },
+    { id: 'kasirga', ad: 'Kasırga', icon: '🌪️', lvl: 3, cd: 15, color: '#7ee0ff', line: 'yetenek_kasirga', cast: wrap(castSpin) },
+    { id: 'meteor', ad: 'Meteor Yağmuru', icon: '☄️', lvl: 5, cd: 24, color: '#ff9a3c', line: 'yetenek_meteor', cast: wrap(castMeteor) },
   ];
   return { SKILLS: list, SKILLS_update: update, SKILLS_clear: clear };
 })();
