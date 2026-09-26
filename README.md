@@ -26,7 +26,9 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   daha güçlüyse Feza hemen giyer. Eşya seyrek düşer ve çantada her eşyadan yalnızca bir tane olur: aynısının daha güçlüsü bulunursa eskisinin yerini alır.
   🎒 düğmesiyle çantayı açıp istediği şapkayı, pelerini ve ışın kılıcını seçebilir.
 - **Harita:** Sağ üstteki yuvarlak harita gidilecek yönü altın okla gösterir. Mor **sihirli kapıdan** geçince yeni bölgeye gidilir.
-- ⏸ düğmesi oyunu durdurur (ses, müzik, baştan başla). Oyun kendiliğinden kaydedilir; sonra **Devam Et** ile kalınan yerden sürer.
+- ⏸ düğmesi oyunu durdurur (ses, müzik, **Kaydet**, baştan başla). Oyun kendiliğinden kaydedilmez: her açılışta yeni oyun başlar.
+  Kalınan yerden sürmek isterseniz ⏸ › **Kaydet**'e basın; oyunu yeniden açınca **Oyna**'nın yanında **Devam Et** çıkar.
+- **Bilgisayarda klavye:** ok tuşları / WASD yürür, Boşluk vurur, **1 2 3** yetenekleri kullanır (tuşlar düğmelerin üstünde yazar), Q iksir, B çanta, Esc mola.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
 ## Bölgeler

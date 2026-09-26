@@ -200,6 +200,13 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-skill .u-cdn { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; font-weight: 900;
   font-size: calc(var(--k) * 30px); color: #fff; text-shadow: 0 0 calc(var(--k) * 6px) #000, 0 2px 0 #000; pointer-events: none; }
 .u-skill.cool .u-ico { filter: saturate(0.4) brightness(0.8); }
+/* keyboard key (1 2 3) on each skill: on computers, or once a key was pressed (#ui.kbd) */
+.u-skill .u-key { display: none; position: absolute; top: calc(var(--k) * -10px); right: calc(var(--k) * -10px); z-index: 5; box-sizing: border-box;
+  min-width: calc(var(--k) * 36px); height: calc(var(--k) * 36px); padding: 0 calc(var(--k) * 6px); border-radius: calc(var(--k) * 10px);
+  background: linear-gradient(180deg, #ffffff, #e2d8f6); color: #3a1d82; font-weight: 900; font-size: calc(var(--k) * 23px);
+  line-height: calc(var(--k) * 36px); text-align: center; pointer-events: none;
+  box-shadow: 0 calc(var(--k) * 3px) 0 #7a68a8, 0 calc(var(--k) * 5px) calc(var(--k) * 8px) rgba(10, 0, 30, 0.45); }
+#ui.kbd .u-skill .u-key { display: block; }
 .u-skill.down { transform: translate(-50%, -50%) scale(0.88); }
 .u-skill.new::after { content: ""; position: absolute; inset: calc(var(--k) * -12px); border-radius: 50%; border: calc(var(--k) * 5px) solid #fff6b0;
   box-shadow: 0 0 calc(var(--k) * 14px) #ffd23f; animation: u-ring 1.1s ease-out infinite; pointer-events: none; }
@@ -341,9 +348,10 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-close { position: absolute !important; right: calc(var(--k) * -20px); top: calc(var(--k) * -20px); width: calc(var(--k) * 76px); height: calc(var(--k) * 76px);
   z-index: 5; background: radial-gradient(circle at 50% 30%, #ff9aa6, #f2435c 55%, #b81a3a) padding-box, var(--gold) border-box !important; }
 .u-close .u-svg { width: 0.95em; height: 0.95em; }
-/* restart question: exactly as tall as the main panel (Evet can never land where Baştan Başla was; Hayır does) */
+/* restart question: exactly as tall as the main panel (4 rows: Devam Et, toggles, Kaydet, Baştan Başla) — Evet can never
+   land where Baştan Başla was; Hayır does */
 .u-ask { display: none; flex-direction: column; align-items: center; justify-content: space-between; gap: calc(var(--k) * 12px);
-  height: calc(var(--k) * (3 * 84px + 2 * 18px)); min-width: calc(var(--k) * 330px); }
+  height: calc(var(--k) * (4 * 84px + 3 * 18px)); min-width: calc(var(--k) * 330px); }
 .u-panel.asking > .u-main { display: none; }
 .u-panel.asking > .u-ask { display: flex; }
 .u-asktxt { font-weight: 900; font-size: calc(var(--k) * 32px); line-height: 1.15; text-align: center; }

@@ -56,9 +56,9 @@ const GAME = (() => {
     tries: 6,           // rolls looking for a new look (or a clearly stronger copy of one he has)
     upgrade: 1.3,       // a copy of a look he has, same rarity, must be this much stronger (and beat what he wears) to drop at all
   };
-  // v2 (parent, 2nd round: "start Feza over with the new rules"): the new key starts every device from scratch once;
-  // the old 'fezaKotulereKarsi.v1' save stays untouched on the device as a leftover backup. Keep in sync with 09_ui.js.
-  const SAVE_KEY = 'fezaKotulereKarsi.v2';
+  // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
+  // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
+  const SAVE_KEY = 'fezaKotulereKarsi.v3';
   const WORDS = ['Pof!', 'Bam!', 'Vuuş!', 'Pat!', 'Güm!', 'Tak!', 'Hop!'];
   // Lightsaber blade colours (fallback when ITEMS.bladeColor is missing; gokkusagi cycles through the rainbow).
   const BLADE_COL = { tahta: '#c8f4ff', demir: '#3f9dff', kristal: '#3dff66', ates: '#ff3344', yildiz: '#b455ff' };
@@ -165,7 +165,6 @@ const GAME = (() => {
   }
   const STATS = { windup: 0, strike: 0, strikeHit: 0, cancel: 0, shots: 0, freezes: 0, casts: 0 };
   let goldAcc = 0, goldAccT = 0, coinCombo = 0, coinComboT = 0;
-  let saveAt = -1, lastSave = -99;
   const HST = { move: 0, attack: -1, swingDir: 1, cast: -1, spin: false, hurt: 0, dead: false, cheer: false, idleT: 0 };
   const _v = new THREE.Vector3(), _scr = { x: 0, y: 0, vis: false }, _tp = { x: 0, z: 0 }, _m4 = new THREE.Matrix4();
   const _q = new THREE.Quaternion(), _s = new THREE.Vector3(1, 1, 1), _e = new THREE.Euler();
@@ -596,7 +595,6 @@ const GAME = (() => {
     igniteSaber(0.45);   // vvzzum: the lightsaber lights up as the zone fades in
     if (Z.music) aud('music', Z.music);
     if (i > 0 && Z.line) later(0.8, () => say(Z.line, 2));
-    save();
   }
 
   // ── Enemies ──
@@ -1710,7 +1708,6 @@ const GAME = (() => {
       heal(1, !first);
       if (!F.nese) { F.nese = true; say('nese_tasi', 2); }
       emit('checkpoint', {});
-      save();
     }
   }
   function talkNpc(tapped) {
@@ -1733,7 +1730,6 @@ const GAME = (() => {
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.vel = 0;
     sfx('portal');
     burst('portal', P.pos.x, 1, P.pos.z, { count: 30 });
-    save();
     emit('portal', {});
     if (!handlers.portal || !handlers.portal.length) later(1.2, () => loadZone(P.zone + 1));   // no UI listening: go on ourselves
   }
@@ -2015,7 +2011,6 @@ const GAME = (() => {
       if (!force && !replaces(item, old)) {   // not stronger, or less shiny (the rolls avoid this): a few coins instead
         const g = Math.max(3, Math.round(item.power / 2));
         P.gold += g; ftext(P.pos.x, 2.1, P.pos.z, '+' + g, 'gold'); sfx('coin', { vol: 0.7 }); emit('gold', { amount: g });
-        saveSoon();
         return;
       }
       P.bag[P.bag.indexOf(old)] = item;
@@ -2029,7 +2024,6 @@ const GAME = (() => {
       if (!ZF['l_' + line] || (item.rarity || 0) >= 2) { if (chat(line, 1, (item.rarity || 0) >= 2 ? 6 : 15)) ZF['l_' + line] = true; }
     }
     if (!better && !F.canta && item.slot !== 'weapon' && !finale) { F.canta = true; later(1.5, () => say('canta', 1)); }
-    saveSoon();
   }
   function equip(item, quiet) {
     if (!item || !item.slot) return;
@@ -2043,14 +2037,12 @@ const GAME = (() => {
     if (!quiet) sfx('click');
     C.cheerT = Math.max(C.cheerT, 0.7);
     emit('equip', { item, slot: item.slot });
-    saveSoon();
   }
   function unequip(slot) {
     if (slot === 'weapon' || !P.equip[slot]) return;
     P.equip[slot] = null; recalcStats();
     if (H) H.setEquip(P.equip);
     emit('equip', { item: null, slot });
-    saveSoon();
   }
 
   // ── XP, levels, skills ──
@@ -2075,7 +2067,6 @@ const GAME = (() => {
     C.cheerT = 1.4;
     emit('levelup', { lvl: P.lvl });
     checkUnlocks(true);
-    save();
   }
   // Skills unlock by level (SKILLS[i].lvl); the first one waits for the first fight (see introFirstSkill) unless lvl ≥ 2.
   const canUnlock = (s, i) => !s.unlocked && P.lvl >= (s.def.lvl || 1) && (i > 0 || !!F.intro0 || P.lvl >= 2);
@@ -2109,7 +2100,6 @@ const GAME = (() => {
     fx('lightFlash', b.x, b.z, '#ffc0f0', 6, 0.6);
     // Parent's wish: the dragon cheers up and goes on its way — no little dragon following Feza around afterwards.
     later(0.6, spawnCrystal);
-    saveSoon();
   }
   function spawnCrystal() {
     if (crystal || !L) return;
@@ -2141,7 +2131,6 @@ const GAME = (() => {
     say('son', 3);
     aud('music', 'zafer');
     for (let i = 0; i < 5; i++) later(i * 0.6, () => { burst('confetti', P.pos.x + frand(-3, 3), 3, P.pos.z + frand(-3, 3), {}); sfx('cheer', { vol: 0.5 }); });
-    writeSave(Object.assign(snapshot(), { zone: 0, ng: P.ng + 1, plus: true }));
   }
   function faceTo(x, z) { P.face = Math.atan2(x - P.pos.x, z - P.pos.z); }
 
@@ -2250,14 +2239,15 @@ const GAME = (() => {
         ilk_kostebek: !!F.ilk_kostebek, ilk_salyangoz: !!F.ilk_salyangoz },
     };
   }
+  // Parent's wish: nothing is saved by itself — every launch starts a new game, and progress is kept only when the
+  // parent presses Kaydet in the pause menu (UI → GAME.save()). "Devam Et" on the title loads that save.
   function writeSave(s) {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); lastSave = gt; saveAt = -1; return true; } catch (err) { warnOnce('save', err); return false; }
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); return true; } catch (err) { warnOnce('save', err); return false; }
   }
   function save() {
-    if (GAME.state === 'title' || GAME.state === 'end' || (L && L._title)) return false;   // 'end': the victory save (new game+) stands
+    if (GAME.state === 'title' || GAME.state === 'end' || GAME.state === 'transition' || (L && L._title)) return false;
     return writeSave(snapshot());
   }
-  function saveSoon() { if (saveAt < 0) saveAt = gt + Math.max(0.5, 2 - (gt - lastSave)); }
   function readSave() {
     try { return cleanSave(JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')); } catch (err) { return null; }
   }
@@ -2346,7 +2336,6 @@ const GAME = (() => {
     if (!plus && useTitleLevel()) startHere(); else loadZone(0);
     if (plus) say('tekrar', 3);
     else { say('giris1', 3); say('giris2', 3); }
-    save();
   }
   function continueGame() {
     if (!inited) init();
@@ -2539,7 +2528,6 @@ const GAME = (() => {
     updateMarkers(dt);
     updateBars(dt);
     updateHero(dt);
-    if (saveAt >= 0 && gt >= saveAt && st === 'play') save();
   }
   function titleUpdate(dt) {
     if (!inited) return;

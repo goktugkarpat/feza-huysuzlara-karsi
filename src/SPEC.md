@@ -34,7 +34,8 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   to the kid); AUD.stopVoice(), AUD.current (key string). sesler.js also has window.VOICE_DUR.
 - **FX:** FX.beam(x, z, color, height, dur, {k, cut}) (column starts ~1.1 m up); floatText merges damage numbers per target and de-overlaps;
   atlas has 16 shapes (FX.SHAPES).
-- **UI:** only "Devam Et" on the title when a save exists; "Baştan Başla" needs a 2 s hold; ⏸/🎒 are hold buttons in a top row; music toggle only in
+- **UI:** title: "Oyna" always (new game), "Devam Et" next to it only with a save; nothing saves by itself — Pause › **Kaydet** (GAME.save())
+  is the only save; skill buttons show their keys 1 2 3 (#ui.kbd: no touch screen, or after any key press); "Baştan Başla" needs a 2 s hold; ⏸/🎒 are hold buttons in a top row; music toggle only in
   the pause menu; boss camera fits the whole dragon; cinematic after the boss.
 
 ## Files and load order (all classic `<script>`, NO ES modules, no network)
@@ -361,7 +362,8 @@ Boss: arena aggro → 'ejderha_giris', boss bar; attacks: fireball volley (3 slo
 telegraph then purple flames), bite; summons bats at 66% and 33% ('ejderha_yarasa'); at 50% 'ejderha_yarim'. Defeat → happy,
 vanishes in sparkles (no pet), crystal appears ('kristal'), touching it
 → 'victory' ('son' line). Continue → new game+ (ng+1, zone 0, enemies stronger, keep level/items, 'tekrar').
-Save to localStorage 'fezaKotulereKarsi.v2' (was .v1 until the parent's 2nd round: the new key restarted everyone once) on zone change, level-up, item pickup (throttled).
+Save to localStorage 'fezaKotulereKarsi.v3' ONLY when the parent presses Pause › Kaydet (parent's wish: every launch is a new game;
+.v1/.v2 were the automatic saves of older builds and are ignored).
 Debug hooks (always on): window.__T = { god(on), tp(x,z), xp(n), zone(i), kill(), give(slot, baseId, rarity), boss() }.
 ```
 
@@ -392,7 +394,7 @@ buttons 🎒 (bag/wardrobe), 🎵 music, ⏸ pause; bottom-left big red health o
 potion button with count; bottom-right: big sword attack button + skill buttons on an arc (locked ones hidden, new one pulses,
 cooldown shown as a dark conic sweep); subtitles bottom-centre; centre banners (level up, new skill, zone name);
 item card popup (thumbnail, name in rarity colour, ★ power); boss bar top-centre. Title screen: big "FEZA / Kötülere Karşı"
-logo over the live 3D scene, "▶ Oyna" (+ "Devam Et" if a save exists). Pause menu (Devam / Ses / Müzik / Baştan Başla with
+logo over the live 3D scene, "▶ Oyna" (+ "Devam Et" if a save exists). Pause menu (Devam / Ses / Müzik / Kaydet / Baştan Başla with
 confirm). Bag/wardrobe: rows per slot with thumbnails, tap to wear (kids love dressing up), current one highlighted.
 Victory screen with confetti + "Tekrar Oyna". All buttons big (≥ 72 px), rounded, glossy, colourful, readable fonts
 ("Avenir Next Rounded", "Avenir Next", system-ui; weight 800–900). Every touch target uses pointer events, touch-action none.

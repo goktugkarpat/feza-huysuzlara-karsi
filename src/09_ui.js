@@ -15,7 +15,7 @@ const UI = (() => {
   // (the game has 3 skills); more would spill onto an outer arc.
   const ARC = [[142, 45], [142, 0], [142, 90], [238, 45], [238, 14], [238, 76]];
   const MAP_VIEW = 22, MAP_REVEAL = 11;   // minimap: metres from centre to rim; fog reveal radius
-  const SAVE_KEY = 'fezaKotulereKarsi.v2', SAVE_BACKUP = 'fezaKotulereKarsi.v2.onceki';   // same key as GAME's; backup written before "Baştan Başla"
+  const SAVE_KEY = 'fezaKotulereKarsi.v3';   // same key as GAME's (only manual saves: Mola › Kaydet)
 
   // ── Modules (resolved at boot; any may be missing in tests). typeof on a module that threw at load → TDZ error. ──
   const M = {};
@@ -59,6 +59,8 @@ const UI = (() => {
     note: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M9.5 17.8a3.3 3.3 0 1 1-2.2-3.1V5.6c0-.6.4-1.1 1-1.2l10-2.2c.8-.2 1.5.4 1.5 1.2v11.8a3.3 3.3 0 1 1-2.2-3.1V7.2l-8.1 1.8z"/></svg>',
     sound: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M3 9.2c0-.6.5-1.1 1.1-1.1h3.3l4.8-4.2c.7-.6 1.8-.1 1.8.8v14.6c0 .9-1.1 1.4-1.8.8l-4.8-4.2H4.1c-.6 0-1.1-.5-1.1-1.1z"/><path d="M16.3 8.4a5 5 0 0 1 0 7.2M18.8 5.8a8.6 8.6 0 0 1 0 12.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/></svg>',
     again: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M12 4.5a7.5 7.5 0 1 1-7.1 5.1" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M12 1l4.5 3.6L12 8.2z"/></svg>',
+    save: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M4.2 2.5h12.3l5 5v12.8a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 20.3V3.7a1.2 1.2 0 0 1 1.2-1.2z"/><rect x="7" y="4.2" width="8.6" height="5" rx="0.9" fill="#2266d0"/><rect x="6.4" y="12.6" width="11.2" height="7" rx="1.1" fill="#2266d0"/></svg>',
+    check: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     close: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="4.2" stroke-linecap="round"/></svg>',
     check: '<svg class="u-svg" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5L19.5 7" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     // Lightsaber (attack button): chrome hilt + glowing blade. The blade colour is the CSS variable --blade (set from
@@ -289,6 +291,7 @@ const UI = (() => {
   // ───────────────────────── DOM ─────────────────────────
   function build() {
     const root = D.root = el('div', '', document.body); root.id = 'ui';
+    if (!(navigator.maxTouchPoints > 0)) root.classList.add('kbd');   // a computer: keyboard keys on the skill buttons from the start
     if (ICON) { root.classList.add('ikon'); document.body.classList.add('u-ikon'); }
     const hud = D.hud = el('div', '', root); hud.id = 'uiHud';
 
@@ -344,7 +347,7 @@ const UI = (() => {
     D.sk = [];
     const nSk = clamp((M.SKILLS && M.SKILLS.length) || 3, 1, ARC.length);
     for (let i = 0; i < nSk; i++) {
-      const b = el('button', 'u-skill u-hide', pad, '<span class="u-ico"></span><span class="u-cd"></span><span class="u-cdn"></span>');
+      const b = el('button', 'u-skill u-hide', pad, `<span class="u-ico"></span><span class="u-cd"></span><span class="u-cdn"></span><span class="u-key">${i + 1}</span>`);
       const [r, a] = ARC[i], rad = a * Math.PI / 180;
       b.style.setProperty('--x', (-Math.cos(rad) * r).toFixed(1)); b.style.setProperty('--y', (-Math.sin(rad) * r).toFixed(1));
       D.sk.push({ b, ico: b.firstChild, cd: b.children[1], cdn: b.children[2], shown: false, p: -1, n: -1 });
@@ -370,8 +373,8 @@ const UI = (() => {
       const s = el('span', 'u-spark', logo, '✦'); s.style.left = x + '%'; s.style.top = y + '%'; s.style.animationDelay = d + 's';
     });
     const bt = el('div', 'u-tbtns', t);
-    D.playBtn = el('button', 'u-btn g', bt, SVG.play + '<span>Oyna</span>');   // only without a save (never wipes progress)
-    D.contBtn = el('button', 'u-btn g', bt, SVG.cont + '<span>Devam Et</span>');
+    D.playBtn = el('button', 'u-btn g', bt, SVG.play + '<span>Oyna</span>');   // always: a new game (a saved game is never touched)
+    D.contBtn = el('button', 'u-btn b', bt, SVG.cont + '<span>Devam Et</span>');   // only with a save (Mola › Kaydet)
     const tg = el('div', 'u-ttog', t);
     D.tMus = el('button', 'u-rbtn', tg, SVG.note + '<span class="u-slash"></span>'); D.tMus.dataset.tog = 'music';   // sound effects: pause menu only
   }
@@ -384,6 +387,7 @@ const UI = (() => {
     const row = el('div', 'u-prow', m);
     D.pSnd = el('button', 'u-btn p', row, SVG.sound + '<span class="u-lab">Efektler Açık</span>'); D.pSnd.dataset.tog = 'sound';   // sound effects only
     D.pMus = el('button', 'u-btn p', row, SVG.note + '<span class="u-lab">Müzik Açık</span>'); D.pMus.dataset.tog = 'music';
+    D.saveBtn = el('button', 'u-btn b wide', m, SVG.save + '<span>Kaydet</span>');
     D.restart = el('button', 'u-btn o wide', m, SVG.again + '<span>Baştan Başla</span>');
     // Restart question (parental gate): same height as the main panel; the big green "Hayır" lands exactly where
     // "Baştan Başla" was (a double tap is safe) and the small red "Evet" only fires after a 2 s press-and-hold.
@@ -434,6 +438,7 @@ const UI = (() => {
     onCorner(D.pauseBtn, () => openPause(), { hold: 0.5, max: 2.5, early: () => wiggle(D.pauseBtn) });
     onCorner(D.bagBtn, () => openBag(), { hold: 0, max: 0.8 });
     onPress(D.resume, () => closeMenu(), { menu: true });
+    onPress(D.saveBtn, () => saveNow(), { menu: true });
     onPress(D.restart, () => { D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800; }, { menu: true });
     onPress(D.no, () => closeAsk(), { menu: true });
     onHold(D.yes, 2, () => restartAll(), { menu: true });
@@ -518,10 +523,11 @@ const UI = (() => {
     };
     addEventListener('keydown', e => {
       const c = e.code;
+      if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills
       if (DIRS[c]) { K[DIRS[c]] = true; sendKeys(); e.preventDefault(); return; }
       if (e.repeat) { if (c === 'Space') e.preventDefault(); return; }
       if (c === 'Escape') { if (S.menu) closeMenu(); else if (S.mode === 'play') openPause(); return; }
-      if (S.mode === 'title' && (c === 'Enter' || c === 'Space')) { e.preventDefault(); startGame(!!(M.GAME && safe('hasSave', () => M.GAME.hasSave()))); return; }
+      if (S.mode === 'title' && (c === 'Enter' || c === 'Space')) { e.preventDefault(); startGame(false); return; }
       if (!playing()) return;
       if (c === 'Space') { e.preventDefault(); attack(); bump(D.atk, 1.1, true); }
       else if (/^Digit[1-6]$/.test(c)) { const i = +c.slice(5) - 1, s = D.sk[i]; if (s && s.shown) { const ok = safe('cast', () => M.GAME.input.cast(i)); if (ok) { s.b.classList.remove('new'); bump(s.b, 1.15, true); } } }
@@ -1345,14 +1351,14 @@ const UI = (() => {
     showScreen(S.menu === 'bag' ? D.bagS : D.pause, false);
     S.menu = null; setPaused(false);
   }
-  // With a save only "Devam Et" is offered: a non-reader can't wipe his progress from the title.
-  // A fresh start lives in Pause › Baştan Başla (press-and-hold gate).
+  // Parent's wish: every launch is a new game ("Oyna"); "Devam Et" appears next to it only when the parent saved with
+  // Mola › Kaydet. Starting a new game never touches that save (nothing is saved by itself).
   function showTitle() {
     const g = M.GAME;
     const has = !!(g && g.hasSave && safe('hasSave', () => g.hasSave()));
-    D.contBtn.classList.toggle('u-hide', !has); D.playBtn.classList.toggle('u-hide', has);
-    D.playBtn.classList.add('main'); D.contBtn.classList.add('main');
-    S.titleIdle = 0; S.titleSaid = 0; S.titleSave = has;
+    D.contBtn.classList.toggle('u-hide', !has); D.playBtn.classList.remove('u-hide');
+    D.playBtn.classList.add('main'); D.contBtn.classList.remove('main');
+    S.titleIdle = 0; S.titleSaid = 0;
     setMode('title');
     aud('music', 'title');
   }
@@ -1363,9 +1369,8 @@ const UI = (() => {
     if (!SILENT && !(A.ready && A.ready())) return;   // before the first touch iOS can't play it yet
     S.titleIdle += dt;
     if (S.titleIdle < (S.titleSaid ? 25 : 1.5) || (A.speaking && A.speaking())) return;
-    const key = S.titleSave ? (A.LINES && A.LINES.devam ? 'devam' : null) : 'basla';   // 'devam' only once it is recorded
-    S.titleIdle = 0; S.titleSaid = key ? S.titleSaid + 1 : 3;
-    if (key) aud('say', key, { prio: 1 });
+    S.titleIdle = 0; S.titleSaid++;
+    aud('say', 'basla', { prio: 1 });   // "Oyna düğmesine bas…" ("Devam Et" is the parent's choice)
   }
   async function startGame(cont) {
     const g = M.GAME;
@@ -1405,8 +1410,6 @@ const UI = (() => {
     if (!g || S.busy) return;
     S.busy = true;
     showScreen(D.pause, false); S.menu = null;   // the question stays up while the menu fades (openPause resets it)
-    // safety net: keep the old progress under a backup key (a parent can copy it back in the browser console)
-    try { const old = localStorage.getItem(SAVE_KEY); if (old) localStorage.setItem(SAVE_BACKUP, old); } catch (e) { /* private mode */ }
     try {
       await fade(1, 0.45, 'load');
       setPaused(false);
@@ -1417,6 +1420,18 @@ const UI = (() => {
       renderNow(); await frames(2);
       fade(0, 0.6, null);
     } finally { S.busy = false; }
+  }
+  // Mola › Kaydet: the only way progress is kept. The button itself says "Kaydedildi!" for a moment (the menu stays open).
+  function saveNow() {
+    const g = M.GAME, b = D.saveBtn;
+    if (!g || !g.save || S.saveT) return;
+    const ok = !!safe('save', () => g.save());
+    b.classList.toggle('g', ok); b.classList.toggle('r', !ok); b.classList.remove('b');
+    b.innerHTML = ok ? SVG.check + '<span>Kaydedildi!</span>' : SVG.close + '<span>Kaydedilemedi</span>';
+    if (ok) { sfx('checkpoint', { vol: 0.7 }); bump(b, 1.08); } else nope(b);
+    S.saveT = setTimeout(() => {
+      S.saveT = 0; b.classList.remove('g', 'r'); b.classList.add('b'); b.innerHTML = SVG.save + '<span>Kaydet</span>';
+    }, 1800);
   }
   function showVictory() {
     const g = M.GAME, P = g ? g.P : null;
