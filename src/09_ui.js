@@ -31,7 +31,9 @@ const UI = (() => {
     M.ZONES = get(() => (typeof ZONES !== 'undefined' ? ZONES : null));
     M.SKILLS = get(() => (typeof SKILLS !== 'undefined' ? SKILLS : null));
     M.EMODEL = get(() => (typeof EMODEL !== 'undefined' ? EMODEL : null));
+    M.EDEF = get(() => (typeof EDEF !== 'undefined' ? EDEF : null));
   }
+  const zoneCount = () => (M.ZONES && M.ZONES.length) || 4;
   const warned = {};
   function warn(k, e) { if (!warned[k]) { warned[k] = 1; console.warn('[UI] ' + k, e); } }
   function safe(k, f) { try { return f(); } catch (e) { warn(k, e); return undefined; } }
@@ -94,7 +96,7 @@ const UI = (() => {
       <rect x="40.5" y="30" width="19" height="6" rx="3" fill="#ffd23f" stroke="#7a4205" stroke-width="2"/>
       <ellipse cx="38" cy="54" rx="6" ry="10" fill="#fff" fill-opacity=".65" transform="rotate(28 38 54)"/>
       <circle cx="60" cy="74" r="3.2" fill="#fff" fill-opacity=".5"/><circle cx="52" cy="82" r="2" fill="#fff" fill-opacity=".45"/></svg>`,
-    // Friendly purple dragon head (stand-in until the portrait of the real boss model is rendered, see dragonPortrait).
+    // Friendly purple dragon head (stand-in until the portrait of the real boss model is rendered, see bossPortrait).
     // Flat fills only (no gradient ids): several copies can be on the page at once. The pastel disc behind it is CSS (.u-dimg).
     dragon: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
       '<g stroke="#3a1d66" stroke-width="2.6" stroke-linejoin="round">' +
@@ -112,6 +114,65 @@ const UI = (() => {
       '<circle cx="38.5" cy="49.6" r="3.1" fill="#2a1030"/><circle cx="61.5" cy="49.6" r="3.1" fill="#2a1030"/>' +
       '<circle cx="36.2" cy="45.7" r="2.3" fill="#fff"/><circle cx="59.2" cy="45.7" r="2.3" fill="#fff"/>' +
       '<ellipse cx="25.5" cy="60" rx="5.8" ry="3.3" fill="#ff6fb0" opacity=".55"/><ellipse cx="74.5" cy="60" rx="5.8" ry="3.3" fill="#ff6fb0" opacity=".55"/></svg>',
+    // Stand-ins for the other bosses (same flat style, same use as SVG.dragon): Kral Jöle — a big jelly with a golden crown
+    kraljole: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g stroke="#0c4a6a" stroke-width="2.6" stroke-linejoin="round">' +
+      '<path d="M16 60C10 72 9 84 12 92H30Z" fill="#8a4ad8"/><path d="M84 60C90 72 91 84 88 92H70Z" fill="#8a4ad8"/>' +
+      '<path d="M14 82C12 56 28 35 50 35C72 35 88 56 86 82C86 88 80 90 74 88C66 92 34 92 26 88C20 90 14 88 14 82Z" fill="#3fd0de"/>' +
+      '<path d="M31 39L32 18L42 28L50 12L58 28L68 18L69 39Z" fill="#ffd23f"/><rect x="29" y="35" width="42" height="8.5" rx="3" fill="#ffb81c"/>' +
+      '<circle cx="32" cy="17.5" r="2.6" fill="#fff3a0" stroke-width="1.8"/><circle cx="50" cy="11.5" r="2.8" fill="#fff3a0" stroke-width="1.8"/><circle cx="68" cy="17.5" r="2.6" fill="#fff3a0" stroke-width="1.8"/></g>' +
+      '<circle cx="50" cy="39.2" r="2.9" fill="#ff5f9e"/><circle cx="38.5" cy="39.4" r="2.1" fill="#7be23a"/><circle cx="61.5" cy="39.4" r="2.1" fill="#7be23a"/>' +
+      '<ellipse cx="50" cy="78" rx="25" ry="9" fill="#b8f6f0" opacity=".6"/>' +
+      '<ellipse cx="28" cy="57" rx="4.6" ry="9" fill="#fff" opacity=".55" transform="rotate(22 28 57)"/><circle cx="32" cy="47" r="2.2" fill="#fff" opacity=".65"/>' +
+      '<g stroke="#0c4a6a" stroke-width="2"><ellipse cx="39" cy="60" rx="7.6" ry="8.8" fill="#fff"/><ellipse cx="61" cy="60" rx="7.6" ry="8.8" fill="#fff"/></g>' +
+      '<circle cx="40" cy="62" r="5" fill="#1a2a4a"/><circle cx="60" cy="62" r="5" fill="#1a2a4a"/>' +
+      '<circle cx="38" cy="59.2" r="2.1" fill="#fff"/><circle cx="58" cy="59.2" r="2.1" fill="#fff"/>' +
+      '<path d="M41 72Q50 83.5 59 72Q50 75 41 72Z" fill="#6a1a3a" stroke="#0c4a6a" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M45.6 77.2Q50 80.4 54.4 77.2Q50 75.6 45.6 77.2Z" fill="#ff7aa0"/>' +
+      '<ellipse cx="27" cy="70" rx="5.6" ry="3.2" fill="#ff6fb0" opacity=".6"/><ellipse cx="73" cy="70" rx="5.6" ry="3.2" fill="#ff6fb0" opacity=".6"/></svg>',
+    // Usta Köstebek — mole with a yellow hard hat and a headlamp
+    kostebekusta: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g stroke="#4a2a18" stroke-width="2.6" stroke-linejoin="round">' +
+      '<ellipse cx="50" cy="62" rx="31" ry="27" fill="#9a6b50"/><ellipse cx="50" cy="74" rx="17.5" ry="11.5" fill="#f0cfb2"/>' +
+      '<path d="M43 24L50 4.5L57 24Z" fill="#d6deec"/>' +
+      '<path d="M20 48C20 31 33 21 50 21C67 21 80 31 80 48Z" fill="#f5b82a"/>' +
+      '<rect x="12" y="44" width="76" height="8.5" rx="4.2" fill="#d98a14"/></g>' +
+      '<path d="M45.2 18.5L54.2 15.6M46.8 13.2L52.6 11.2" stroke="#8a96b0" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<circle cx="50" cy="35" r="10" fill="#fff6a0" opacity=".45"/>' +
+      '<circle cx="50" cy="35" r="6.4" fill="#fff6c8" stroke="#4a2a18" stroke-width="2.2"/><circle cx="50" cy="35" r="2.9" fill="#fff"/>' +
+      '<circle cx="31" cy="44.6" r="3" fill="#7fe0ff" stroke="#4a2a18" stroke-width="1.6"/><circle cx="69" cy="44.6" r="3" fill="#7fe0ff" stroke="#4a2a18" stroke-width="1.6"/>' +
+      '<ellipse cx="34" cy="31" rx="6" ry="3.2" fill="#fff" opacity=".5" transform="rotate(-35 34 31)"/>' +
+      '<path d="M32 71H21M32 75.5L22.5 78.5M68 71H79M68 75.5L77.5 78.5" stroke="#fbe8d4" stroke-width="1.8" stroke-linecap="round" opacity=".9"/>' +
+      '<ellipse cx="39" cy="61" rx="4.4" ry="5.2" fill="#2a1a20"/><ellipse cx="61" cy="61" rx="4.4" ry="5.2" fill="#2a1a20"/>' +
+      '<circle cx="37.6" cy="59.2" r="1.8" fill="#fff"/><circle cx="59.6" cy="59.2" r="1.8" fill="#fff"/>' +
+      '<path d="M42 75Q50 85.5 58 75Q50 78 42 75Z" fill="#6a1a3a" stroke="#4a2a18" stroke-width="2" stroke-linejoin="round"/>' +
+      '<rect x="46.4" y="76" width="3.4" height="3.6" rx="1" fill="#fffaf0"/><rect x="50.2" y="76" width="3.4" height="3.6" rx="1" fill="#fffaf0"/>' +
+      '<ellipse cx="50" cy="68.5" rx="7.6" ry="5.4" fill="#ff7a9c" stroke="#4a2a18" stroke-width="2"/><ellipse cx="47.8" cy="67" rx="2.4" ry="1.4" fill="#fff" opacity=".75"/>' +
+      '<ellipse cx="28" cy="67" rx="5" ry="3" fill="#ff6f90" opacity=".5"/><ellipse cx="72" cy="67" rx="5" ry="3" fill="#ff6f90" opacity=".5"/></svg>',
+    // Koca Lav Kaplumbağası — turtle whose shell is a little volcano (a cute steam puff on top)
+    lavkaplumbaga: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g fill="#fff" stroke="#8a6a7a" stroke-width="1.6"><circle cx="57" cy="11" r="4.2"/><circle cx="62.5" cy="7.8" r="3"/><circle cx="52" cy="8.6" r="2.6"/></g>' +
+      '<g stroke="#3a2c28" stroke-width="2.6" stroke-linejoin="round">' +
+      '<path d="M10 55C10 37 28 27 50 27C72 27 90 37 90 55Z" fill="#ffae2e"/><path d="M38 33L44 13H56L62 33Z" fill="#7a6660"/>' +
+      '<ellipse cx="50" cy="13.5" rx="7" ry="3" fill="#ffd04a"/><rect x="8" y="51" width="84" height="8" rx="4" fill="#4a3a34"/></g>' +
+      '<path d="M46 14.5C45.5 19 48 21 47 26C49.5 24 51 19 51.5 14.5Z" fill="#ffc23a"/><path d="M53 14.5C53 17 55 18 54.5 21C56 19 56.5 16.5 56 14.5Z" fill="#ffe07a"/>' +
+      '<g fill="#6a5852"><path d="M17 50L20 42L28 40L31 46L27 50Z"/><path d="M83 50L80 42L72 40L69 46L73 50Z"/><path d="M33 49L36 42H44L46 49Z"/><path d="M67 49L64 42H56L54 49Z"/>' +
+      '<path d="M26 37L32 33H37L35 38L29 39Z"/><path d="M74 37L68 33H63L65 38L71 39Z"/></g>' +
+      '<g stroke="#1f6a50" stroke-width="2.4" stroke-linejoin="round"><ellipse cx="19" cy="84" rx="8.5" ry="5.5" fill="#62d4a6"/><ellipse cx="81" cy="84" rx="8.5" ry="5.5" fill="#62d4a6"/>' +
+      '<ellipse cx="50" cy="69" rx="25" ry="21" fill="#6fdcae"/></g>' +
+      '<ellipse cx="50" cy="80" rx="15" ry="7" fill="#c4f5dc"/><circle cx="35" cy="57" r="2.6" fill="#3fae84"/><circle cx="65" cy="56.5" r="2" fill="#3fae84"/><circle cx="50" cy="52.5" r="1.8" fill="#3fae84"/>' +
+      '<g stroke="#1f6a50" stroke-width="2"><ellipse cx="40" cy="65" rx="7" ry="8.2" fill="#fff"/><ellipse cx="60" cy="65" rx="7" ry="8.2" fill="#fff"/></g>' +
+      '<circle cx="41" cy="67" r="4.7" fill="#3a2410"/><circle cx="59" cy="67" r="4.7" fill="#3a2410"/>' +
+      '<circle cx="39.2" cy="64.3" r="2" fill="#fff"/><circle cx="57.2" cy="64.3" r="2" fill="#fff"/>' +
+      '<path d="M41.5 77Q50 87 58.5 77Q50 80 41.5 77Z" fill="#7a2030" stroke="#1f6a50" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M46 81.6Q50 84.6 54 81.6Q50 80.2 46 81.6Z" fill="#ff7aa0"/>' +
+      '<ellipse cx="29" cy="74" rx="5.4" ry="3.1" fill="#ff6fb0" opacity=".55"/><ellipse cx="71" cy="74" rx="5.4" ry="3.1" fill="#ff6fb0" opacity=".55"/></svg>',
+    // any other boss: a smiling golden star
+    bstar: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<path d="M50 12L60.5 37.5L88 39L67 56.5L74 84L50 69L26 84L33 56.5L12 39L39.5 37.5Z" fill="#ffd23f" stroke="#7a4205" stroke-width="3" stroke-linejoin="round"/>' +
+      '<circle cx="43" cy="51" r="3.6" fill="#3a1a10"/><circle cx="57" cy="51" r="3.6" fill="#3a1a10"/><circle cx="42" cy="49.6" r="1.3" fill="#fff"/><circle cx="56" cy="49.6" r="1.3" fill="#fff"/>' +
+      '<path d="M44 59Q50 65 56 59" fill="none" stroke="#7a4205" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<ellipse cx="36.5" cy="58" rx="4" ry="2.4" fill="#ff8a6a" opacity=".6"/><ellipse cx="63.5" cy="58" rx="4" ry="2.4" fill="#ff8a6a" opacity=".6"/></svg>',
   };
   SLOT_EMO.weapon = SVG.saber;   // wardrobe row label + thumbnail fallback: a little lightsaber (there is no emoji for it)
 
@@ -122,6 +183,8 @@ const UI = (() => {
     boss: false, bossFrac: 1, bossTrail: 1, dpr: 1, playPitch: 0.96, guardUntil: 0, lastGoldBump: 0,
     prefs: { music: true, sound: true }, portraitUrl: null, lastFrame: 0, hold: false, hintT: -1, hintOn: false, cheered: 0,   // hold: tests keep messages on screen
     hintX: 0, hintZ: 0, askT: 0, cine: null, bossTop: 90, titleT: 0, titleIdle: 0, titleSaid: 0,
+    subTop: -1, subBot: -1, logoBot: -1,   // layout top/bottom (px) of the subtitle box while a line shows, else -1 (the camera keeps it off Feza)
+    hintGoal: null, hintD0: 0, pwatch: null,   // finger hint toward a goal (the awake portal) · watching whether Feza heads there
   };
   const D = {};                                       // DOM refs
   const last = { xp: -1, lvl: -1, gold: -1, pot: -1, potEv: 99, low: null, empty: null, hint: null };
@@ -310,17 +373,17 @@ const UI = (() => {
 
     // top-right: 🎒 and ⏸ in one row hugging the top edge, left of the minimap (music lives in the pause menu)
     const tr = D.tr = el('div', 'u-tr', hud);
-    const sb = el('div', 'u-sbtns', tr);
+    const sb = D.sbtns = el('div', 'u-sbtns', tr);
     D.bagBtn = el('button', 'u-rbtn', sb, '<span class="u-emo">🎒</span><span class="u-dot"></span>');
     D.pauseBtn = el('button', 'u-rbtn', sb, SVG.pause + '<span class="u-hold"></span>');   // 0.5 s hold
-    const mini = el('div', 'u-mini', tr);
+    const mini = D.mini = el('div', 'u-mini', tr);
     D.map = el('canvas', '', mini);
 
     // boss bar
     D.boss = el('div', 'u-boss', hud);
     D.bossName = el('div', 'u-bossname', D.boss, ol('Huysuz Ejderha'));
     const brow = el('div', 'u-bossrow', D.boss);
-    D.bossIco = el('div', 'u-bossico', brow, dragonHTML());   // portrait of the friendly dragon (never the fierce 🐲 emoji)
+    D.bossIco = el('div', 'u-bossico', brow, bossHTML('ejderha'));   // the boss's friendly portrait (never a fierce 🐲 emoji); set in showBoss
     const bbar = el('div', 'u-bossbar', brow);
     D.bossTrail = el('div', 'u-bosstrail', bbar);
     D.bossFill = el('div', 'u-bossfill', bbar);
@@ -365,14 +428,14 @@ const UI = (() => {
   function buildTitle(root) {
     const t = D.title = el('div', 'u-screen u-title', root);
     el('div', 'u-tshade', t);
-    const logo = el('div', 'u-logo', t);
+    const logo = D.logo = el('div', 'u-logo', t);
     const word = el('div', 'u-word', logo);
     for (const ch of 'FEZA') el('span', 'u-let', word, `<b>${ch}</b><i>${ch}</i>`);
     el('div', 'u-ribbon', logo, ol('Kötülere Karşı'));
     [[-8, 12, 0], [104, 6, 0.7], [96, 64, 1.4], [-4, 70, 1.9], [50, -8, 1.1]].forEach(([x, y, d]) => {
       const s = el('span', 'u-spark', logo, '✦'); s.style.left = x + '%'; s.style.top = y + '%'; s.style.animationDelay = d + 's';
     });
-    const bt = el('div', 'u-tbtns', t);
+    const bt = D.tbtns = el('div', 'u-tbtns', t);
     D.playBtn = el('button', 'u-btn g', bt, SVG.play + '<span>Oyna</span>');   // always: a new game (a saved game is never touched)
     D.contBtn = el('button', 'u-btn b', bt, SVG.cont + '<span>Devam Et</span>');   // only with a save (Mola › Kaydet)
     const tg = el('div', 'u-ttog', t);
@@ -425,6 +488,7 @@ const UI = (() => {
     el('div', 'u-wcry', p, '💖');
     el('div', 'u-ptitle', p, ol('Tebrikler Feza!', 'u-gold-t'));
     el('div', 'u-wsub', p, 'Herkes yeniden neşeli! 🎉');
+    D.winBoss = el('div', 'u-wboss', p);   // every zone's boss, cheered up (portraits)
     D.winChips = el('div', 'u-chips', p);
     D.again = el('button', 'u-btn g wide', p, SVG.play + '<span>Tekrar Oyna</span>');
   }
@@ -571,11 +635,18 @@ const UI = (() => {
     S.dpr = Math.min(window.devicePixelRatio || 1, 2);
     D.root.classList.toggle('submid', w > h && w - (300 + 290) * k - 40 < 470);   // narrow landscape: subtitles sit right of the orb
     orbResize(); mapResize();
-    measureBossBar();
+    measureBossBar(); subPlace();
     S.needRender = true;
   }
   // Lowest screen y the boss bar covers (layout box, ignores its drop-in transform): the boss camera keeps the dragon below it.
   function measureBossBar() { S.bossTop = D.boss.offsetTop + D.boss.offsetHeight + 10; }
+  // Layout box of a HUD element in screen px (ignores transforms such as the HUD's slide-in; #ui is fixed at 0,0).
+  function layBox(e, out) {
+    let x = 0, y = 0, n = e;
+    while (n && n !== D.root) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    out.l = x; out.t = y; out.r = x + e.offsetWidth; out.b = y + e.offsetHeight;
+    return out;
+  }
 
   // ───────────────────────── Health orb (canvas) ─────────────────────────
   const ORB = { px: 0, back: null, front: null, grad: null, shown: 1, target: 1, t: 0, hurt: 0, heal: 0, acc: 1 };
@@ -744,6 +815,13 @@ const UI = (() => {
       x.fillStyle = g; x.fillRect(0, 0, s, s);
       x.strokeStyle = '#f1e6ff'; x.lineWidth = 2; x.beginPath(); x.arc(s / 2, s / 2, s * 0.26, 0.3, 5.2); x.stroke();
     });
+    // the sleeping portal (its boss is still grumpy): a dim, still ring — it lights up (P.portal + halo) once the boss is happy
+    P.portalOff = sprite(24, (x, s) => {
+      const c = s / 2;
+      x.fillStyle = 'rgba(34,24,66,0.72)'; x.beginPath(); x.arc(c, c, s * 0.34, 0, TAU); x.fill();
+      x.lineWidth = 2.2; x.strokeStyle = 'rgba(190,178,226,0.8)'; x.beginPath(); x.arc(c, c, s * 0.34, 0, TAU); x.stroke();
+      x.lineWidth = 1.5; x.strokeStyle = 'rgba(190,178,226,0.45)'; x.beginPath(); x.arc(c, c, s * 0.18, 0.5, 4.9); x.stroke();
+    });
     P.chest = sprite(18, (x, s) => {
       x.fillStyle = '#3a1a08'; x.beginPath(); x.roundRect ? x.roundRect(1.5, 3.5, s - 3, s - 6, 3) : x.rect(1.5, 3.5, s - 3, s - 6); x.fill();
       x.fillStyle = '#c9803a'; x.fillRect(3, 5, s - 6, s - 9.5);
@@ -757,7 +835,7 @@ const UI = (() => {
     });
     P.cp = diamond('#d9a0c8', false); P.cpOn = diamond('#ff6ad0', true);
     P.npc = emojiSprite('🦉', 22, 'rgba(255,230,160,0.7)');
-    P.boss = dragonSprite();
+    for (const k in P) if (k.indexOf('b:') === 0) delete P[k];   // boss badges: rebuilt for the new size on first use (bossSpr)
     P.crystal = emojiSprite('💖', 26, 'rgba(255,150,220,0.9)');
   }
   function mapReset(L) {
@@ -791,7 +869,7 @@ const UI = (() => {
   function gridCanvas(L) {   // fallback base when LEVEL gave no (or an empty) mapCanvas
     const c = cnv(L.W, L.H), x = c.getContext('2d'), img = x.createImageData(L.W, L.H), d = img.data;
     const theme = (L.Z && L.Z.theme) || 'forest';
-    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : '#94d470');
+    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : theme === 'volcano' ? '#e0a47a' : '#94d470');
     const r = Math.round(Math.pow(col.r, 1 / 2.2) * 255), gg = Math.round(Math.pow(col.g, 1 / 2.2) * 255), b = Math.round(Math.pow(col.b, 1 / 2.2) * 255);
     for (let i = 0; i < L.W * L.H; i++) {
       if (!L.grid[i]) continue;
@@ -828,7 +906,7 @@ const UI = (() => {
     MM.dirty = false;
   }
   // minimap view transform for the current frame (hoisted helpers: no per-frame closures)
-  const MV = { c: null, cx: 0, sc: 1, px: 0, pz: 0, d: 1 };
+  const MV = { c: null, cx: 0, sc: 1, px: 0, pz: 0, d: 1, goal: null };
   const msx = x => MV.cx + (x - MV.px) * MV.sc, msy = z => MV.cx + (z - MV.pz) * MV.sc;
   const mInView = (x, z, m) => dist2(x, z, MV.px, MV.pz) < (MAP_VIEW + m) * (MAP_VIEW + m);
   function mIcon(spr, x, z, k) { const w = spr.css * MV.d * k; MV.c.drawImage(spr, msx(x) - w / 2, msy(z) - w / 2, w, w); }
@@ -871,15 +949,25 @@ const UI = (() => {
       for (const e of g.enemies) if (e.elite && !e.boss && e.m && e.m.root && e.m.root.visible && mInView(e.x, e.z, 0)) { const x = msx(e.x), y = msy(e.z); c.moveTo(x + 6 * d, y); c.arc(x, y, 6 * d, 0, TAU); }
       c.stroke();
     }
-    // goal: portal / boss / crystal — on the map when near; when far, a big pulsing arrow inside the rim plus the goal icon
+    // goal: boss → (once it is happy) the glowing portal, or the castle's crystal — on the map when near; when far, a big
+    // pulsing arrow inside the rim plus the goal icon. The portal sleeps (dim, no arrow) while its boss is still grumpy.
     let goal = null, gspr = null;
-    if (L && L.portalObj && L.portalObj.active !== false) { goal = L.portalObj; gspr = MM.spr.portal; }
-    else if (g.boss && !g.boss.dead) { goal = g.boss; gspr = MM.spr.boss; }
-    else if (L && L.crystalSpot && g.boss && g.boss.dead && g.state === 'play') { goal = L.crystalSpot; gspr = MM.spr.crystal; }
+    const po = L && L.portalObj, poOn = !!po && po.active !== false;
+    if (po && !poOn && mInView(po.x, po.z, 2) && seen(po.x, po.z)) mIcon(MM.spr.portalOff, po.x, po.z, 1);
+    if (poOn) { goal = po; gspr = MM.spr.portal; MV.goal = 'portal'; }
+    else if (g.boss && !g.boss.dead) { goal = g.boss; gspr = bossSpr(g.boss.type); MV.goal = 'boss'; }
+    else if (L && L.crystalSpot && g.boss && g.boss.dead && g.state === 'play') { goal = L.crystalSpot; gspr = MM.spr.crystal; MV.goal = 'crystal'; }
+    else MV.goal = null;
     if (goal) {
       const dx = goal.x - px, dz = goal.z - pz, dd = Math.hypot(dx, dz), lim = MAP_VIEW - 2.2;
-      if (dd < lim) mIcon(gspr, goal.x, goal.z, 1 + 0.1 * Math.sin(t * 5));
-      else {
+      if (dd < lim) {
+        if (goal === po) {   // awake portal: a soft pulsing glow ring behind it
+          const k = (t * 1.2) % 1, gx = msx(po.x), gy = msy(po.z);
+          c.globalAlpha = 0.8 * (1 - k); c.lineWidth = 2.4 * d; c.strokeStyle = '#d8c2ff';
+          c.beginPath(); c.arc(gx, gy, (9 + 12 * k) * d, 0, TAU); c.stroke(); c.globalAlpha = 1;
+        }
+        mIcon(gspr, goal.x, goal.z, 1 + 0.1 * Math.sin(t * 5));
+      } else {
         const a = Math.atan2(dz, dx), rr = cx - 17 * d, x = cx + Math.cos(a) * rr, y = cx + Math.sin(a) * rr, k = 1 + 0.14 * Math.sin(t * 6);
         c.save(); c.translate(x, y); c.rotate(a); c.scale(k, k);
         c.beginPath(); c.moveTo(12 * d, 0); c.lineTo(-10 * d, -11 * d); c.lineTo(-4 * d, 0); c.lineTo(-10 * d, 11 * d); c.closePath();
@@ -949,6 +1037,7 @@ const UI = (() => {
     }
     if (S.frame % 3 === 0) bladeTick(P);
     if (S.frame % 2 === 0) mapDraw();
+    if (S.pwatch) portalWatchTick(dt, P);
     if (S.hintT >= 0) hintTick(dt, P);
     // boss bar trail
     if (S.boss) {
@@ -1023,16 +1112,28 @@ const UI = (() => {
     return true;
   }
   function hintTick(dt, P) {
-    const g = M.GAME;
+    const g = M.GAME, gl = S.hintGoal;
     S.hintT += dt;
-    // done once Feza has walked ~3 m (a real drag / tap-to-walk), or after 45 s
-    if (S.hintT >= 45 || dist2(P.pos.x, P.pos.z, S.hintX, S.hintZ) > 9) { stopHint(); return; }
-    const show = S.hintT > 1.2 && !S.menu && !P.dead && S.primary === null && !!(g && g.state === 'play');
+    if (gl) {   // toward a goal (the awake portal): done once Feza is ~3 m closer or there, or after 30 s
+      const d = Math.hypot(gl.x - P.pos.x, gl.z - P.pos.z);
+      if (S.hintT >= 30 || d < 3 || d < S.hintD0 - 3) { stopHint(); return; }
+    // first run: done once Feza has walked ~3 m (a real drag / tap-to-walk), or after 45 s
+    } else if (S.hintT >= 45 || dist2(P.pos.x, P.pos.z, S.hintX, S.hintZ) > 9) { stopHint(); return; }
+    const show = S.hintT > (gl ? 0.2 : 1.2) && !S.menu && !P.dead && S.primary === null && !!(g && g.state === 'play');
     if (show !== S.hintOn) { S.hintOn = show; D.hint.classList.toggle('on', show); }
     if (!show) return;
     const L = g.L;
-    if (L && L.path && L.path.length > 1) pathAhead(L.path, P.pos.x, P.pos.z, 4.5, _hp);
-    else { _hp.x = P.pos.x + 0.9; _hp.z = P.pos.z - 3.4; }
+    let onGoal = false;
+    if (gl) {   // straight toward it (the portal stands at the open arena's edge); through a wall → along the route instead
+      const dx = gl.x - P.pos.x, dz = gl.z - P.pos.z, d = Math.hypot(dx, dz) || 1, a = Math.min(4.5, Math.max(1.5, d - 1.2));
+      _hp.x = P.pos.x + dx / d * a; _hp.z = P.pos.z + dz / d * a;
+      const LV = M.LEVEL;
+      onGoal = !L || !LV || !LV.los || !!safe('LEVEL.los', () => LV.los(L, P.pos.x, P.pos.z, _hp.x, _hp.z));
+    }
+    if (!onGoal) {
+      if (L && L.path && L.path.length > 1) pathAhead(L.path, P.pos.x, P.pos.z, 4.5, _hp);
+      else { _hp.x = P.pos.x + 0.9; _hp.z = P.pos.z - 3.4; }
+    }
     toScreen(_hv.set(_hp.x, 0, _hp.z), _hs);
     if (!hintFree(_hs.x, _hs.y)) {   // slide it back toward Feza until it's clear of the HUD
       toScreen(_hv.set(P.pos.x, 0, P.pos.z), _hf);
@@ -1043,13 +1144,32 @@ const UI = (() => {
     }
     D.hint.style.transform = `translate(${_hs.x.toFixed(1)}px, ${_hs.y.toFixed(1)}px)`;
   }
-  function startHint() {
-    const g = M.GAME; if (S.hintDone || !g || !g.P) return;
+  // startHint(): the first-run finger (once per session); startHint({x, z}): the finger toward that goal (e.g. the portal)
+  function startHint(goal) {
+    const g = M.GAME; if (!g || !g.P) return;
+    if (goal) {
+      if (S.hintT >= 0 && !S.hintGoal) S.hintDone = true;   // (a first-run finger still up: this one takes its place)
+      S.hintGoal = { x: goal.x, z: goal.z }; S.hintD0 = Math.hypot(goal.x - g.P.pos.x, goal.z - g.P.pos.z);
+    } else { if (S.hintDone) return; S.hintGoal = null; }
     S.hintT = 0; S.hintX = g.P.pos.x; S.hintZ = g.P.pos.z;
   }
   function stopHint() {
     if (S.hintT < 0) return;
-    S.hintT = -1; S.hintDone = true; S.hintOn = false; D.hint.classList.remove('on');
+    if (!S.hintGoal) S.hintDone = true;
+    S.hintT = -1; S.hintGoal = null; S.hintOn = false; D.hint.classList.remove('on');
+  }
+  // After a mid-boss story beat: if Feza has not headed for the awake portal within ~6 s, the finger shows the way.
+  function armPortalWatch() {
+    const g = M.GAME, po = g && g.L && g.L.portalObj;
+    S.pwatch = po && po.active && g.P ? { t: 0, d0: Math.hypot(po.x - g.P.pos.x, po.z - g.P.pos.z) } : null;
+  }
+  function portalWatchTick(dt, P) {
+    const w = S.pwatch, g = M.GAME, po = g && g.L && g.L.portalObj;
+    if (!po || !po.active) { S.pwatch = null; return; }
+    if (g.state !== 'play' || P.dead || S.cine) return;
+    const d = Math.hypot(po.x - P.pos.x, po.z - P.pos.z);
+    if (d < 4 || d < w.d0 - 2.5) { S.pwatch = null; return; }   // on his way
+    if ((w.t += dt) >= 6) { S.pwatch = null; startHint(po); }
   }
 
   // ── Portrait ──
@@ -1064,37 +1184,96 @@ const UI = (() => {
   }
   const portraitSoon = (delay = 0.25) => { S.portraitDirty = true; S.portraitAt = S.t + delay; };
 
-  // ── Friendly dragon portrait (boss bar, minimap goal, dragon subtitles, victory chip) ──
-  // Rendered once from the real boss model (EMODEL.build('ejderha') with its happy face) into a small offscreen render target
-  // and cached as a dataURL (transparent; the pastel disc behind it is CSS .u-dimg). The offscreen scene copies the main
-  // scene's light counts and fog type, so the boss's shader programs are reused (no compile hitch). Until it exists — or
-  // without WebGL / EMODEL — the SVG dragon head (SVG.dragon) stands in. Never the 🐲/🐉 emoji: they look fierce.
-  const DRG = { url: null, cv: null, tried: false, img: null };
-  const DRG_ST = { move: 0, windup: -1, attack: -1, hurt: 0, frozen: false, dying: -1, breath: -1, stomp: -1, roar: -1, fireball: -1 };
-  // Framing (model metres: head centre ≈ (0, 3.56, 0.74), horns up to y 4.6): almost frontal, a little from above; the wings
-  // are folded away (wings: false) so only the head, horns and hearts fill the badge. Light levels. Tests may tweak via UI._DC.
+  // ── Friendly boss portraits (boss bar, minimap goal, boss subtitles, victory row) ──
+  // Every boss type gets its happy face rendered once from its real model (EMODEL.build(type) + setMood('happy')) into a small
+  // offscreen render target, cached as a dataURL (transparent; the pastel disc behind it is CSS .u-dimg.b-<type>). It is done
+  // at the zone load of that boss's zone (behind the loading screen / fade). The offscreen scene copies the main scene's light
+  // counts and fog type, so the boss's shader programs are reused (no compile hitch later). Until it exists — or without
+  // WebGL / EMODEL, or while EMODEL does not know that boss yet — a cute inline SVG stands in. Never a fierce 🐲/🐉 emoji.
+  const BOSS_UI = {   // ad: name fallback · lines: voice key prefixes · disc/halo: badge colours (CSS .b-<type> matches disc)
+    kraljole: { ad: 'Kral Jöle', svg: SVG.kraljole, lines: ['kraljole_'], disc: ['#fbf6ff', '#e6d8ff', '#b99cf2'], halo: 'rgba(80,220,235,0.85)' },
+    kostebekusta: { ad: 'Usta Köstebek', svg: SVG.kostebekusta, lines: ['usta_'], disc: ['#fffaf0', '#ffe3b0', '#f5b86a'], halo: 'rgba(255,190,80,0.85)' },
+    lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', svg: SVG.lavkaplumbaga, lines: ['kaplumbaga_'], disc: ['#fff8f0', '#ffd6b0', '#ff9f6a'], halo: 'rgba(255,130,60,0.85)' },
+    ejderha: { ad: 'Huysuz Ejderha', svg: SVG.dragon, lines: ['ejderha_', 'ejder'], disc: ['#fff6fc', '#ffc9ec', '#f59ad6'], halo: 'rgba(255,90,140,0.85)' },
+  };
+  const BOSS_ORDER = ['kraljole', 'kostebekusta', 'lavkaplumbaga', 'ejderha'];   // when ZONES has no boss fields yet
+  const bossUi = t => BOSS_UI[t] || { ad: 'Kocaman Huysuz', svg: SVG.bstar, lines: [], disc: BOSS_UI.ejderha.disc, halo: BOSS_UI.ejderha.halo };
+  const BP = {};   // type → { url, cv, tried, img }
+  const bpRec = t => BP[t] || (BP[t] = { url: null, cv: null, tried: false, img: null });
+  const DRG = bpRec('ejderha');
+  const BP_ST = { move: 0, windup: -1, attack: -1, hurt: 0, frozen: false, dying: -1, t: 0, phase: 'idle', phaseT: 0, burrow: 0,
+    breath: -1, stomp: -1, roar: -1, fireball: -1 };
+  // Dragon framing (model metres: head centre ≈ (0, 3.56, 0.74), horns up to y 4.6): almost frontal, a little from above; the
+  // wings are folded away (wings: false) so only the head, horns and hearts fill the badge. Light levels. Tests: UI._DC.
   const DRG_CAM = { cx: 0, cy: 3.78, cz: 1.1, rad: 1.5, dx: 0.16, dy: 0.3, fov: 24, hemi: 1.0, key: 2.4, rim: 3.5, wings: false };
-  function dragonHTML() { return DRG.url ? `<img class="u-dimg" src="${DRG.url}" alt="">` : SVG.dragon; }
-  function dragonPortrait() {
-    if (DRG.tried) return DRG.url;
-    DRG.tried = true;
+  // The other bosses: a close-up spot in model metres (cam: centre + radius, like DRG_CAM — the mole's head with its drill
+  // hat, the turtle's face with the little volcano behind it), or they frame themselves from their drawn silhouette (a
+  // first small render finds it, see bossPortrait): the band of its height to fill (y0..y1 from the feet up) and how much
+  // of the badge it fills. dx/dy: view direction (right, up; toward the face). A model's own m.portrait = {cx, cy, cz, rad}
+  // wins over both. Tests: UI._BF.
+  const BOSS_FIT = {
+    kraljole: { y0: 0, y1: 1, dx: 0.12, dy: 0.24, fill: 0.9 },
+    kostebekusta: { dx: 0.12, dy: 0.14, cam: { cx: 0, cy: 2.0, cz: 0.45, rad: 1.12 } },
+    lavkaplumbaga: { dx: 0.12, dy: 0.2, cam: { cx: 0, cy: 1.26, cz: 1.62, rad: 1.0 } },   // the face fills the badge (reads at 58 px), lava-crack shell around
+    _: { y0: 0, y1: 1, dx: 0.15, dy: 0.25, fill: 0.9 },
+  };
+  function bossSvg(t) { return bossUi(t).svg.replace('class="u-dimg"', `class="u-dimg b-${t}"`); }
+  function bossHTML(t) { t = t || 'ejderha'; const R = BP[t]; return R && R.url ? `<img class="u-dimg b-${t}" src="${R.url}" alt="">` : bossSvg(t); }
+  // Boss of zone i: ZONES[i].boss (Round 3), else the level's bossType, else the old castle-only dragon.
+  function zoneBossOf(i) { const Z = M.ZONES && M.ZONES[i]; return Z ? Z.boss || null : null; }
+  function zoneBoss(i) {
+    const Z = M.ZONES && M.ZONES[i], L = M.GAME && M.GAME.L;
+    if (Z && Z.boss) return Z.boss;
+    if (L && L.bossType) return L.bossType;
+    return L && L.boss ? 'ejderha' : null;
+  }
+  function bpRender(sc, cam, N, samples) {
+    const rt = new THREE.WebGLRenderTarget(N, N, { samples, colorSpace: THREE.SRGBColorSpace, depthBuffer: true });
+    try {
+      renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, true);
+      renderer.render(sc, cam);
+      const buf = new Uint8Array(N * N * 4);
+      renderer.readRenderTargetPixels(rt, 0, 0, N, N, buf);
+      return buf;
+    } finally { renderer.setRenderTarget(null); rt.dispose(); }   // the caller restores its own target afterwards
+  }
+  function bossPortrait(type) {
+    type = type || 'ejderha';
+    const R = bpRec(type);
+    if (R.tried) return R.url;
+    R.tried = true;
     const E = M.EMODEL;
-    if (!E || typeof E.build !== 'function' || typeof renderer === 'undefined' || !renderer || !renderer.readRenderTargetPixels) return null;
+    if (ICON || !E || typeof E.build !== 'function' || typeof renderer === 'undefined' || !renderer || !renderer.readRenderTargetPixels) return null;
     const N = 256, sc = new THREE.Scene(), lights = [];
     const prevRT = renderer.getRenderTarget(), prevCol = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
-    let m = null, rt = null;
+    let m = null;
     try {
-      m = E.build('ejderha', {});
-      if (!m || !m.root) throw new Error('no dragon model');
+      m = E.build(type, {});
+      if (!m || !m.root) throw new Error('no model');
+      if (m.type && m.type !== type) throw new Error('no model for ' + type + ' yet (got ' + m.type + ')');   // keep the SVG, not a stand-in jelly
+      const drg = type === 'ejderha';
       if (m.setMood) m.setMood('happy');
-      if (m.s) { m.s.t = 0; m.s.ph = 0; m.s.flap = 0; }   // calm idle pose, head straight
-      if (m.anim) m.anim(0, DRG_ST);
-      if (!DRG_CAM.wings && m.B) for (const w of [m.B.wingL, m.B.wingR]) if (w && w.scale) w.scale.setScalar(1e-4);   // head portrait: fold the wings away
+      if (m.s) { m.s.t = 0; m.s.ph = 0; if (drg) m.s.flap = 0; }   // calm idle pose, head straight
+      if (m.anim) m.anim(0, BP_ST);
+      if (drg && !DRG_CAM.wings && m.B) for (const w of [m.B.wingL, m.B.wingR]) if (w && w.scale) w.scale.setScalar(1e-4);   // head portrait: fold the wings away
       m.root.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
       sc.add(m.root); m.root.updateMatrixWorld(true);
-      // camera: a close-up of the head (horns, cheeks, smile), see DRG_CAM
-      const F = DRG_CAM, cam = new THREE.PerspectiveCamera(F.fov, 1, 0.1, 60);
-      const c = new THREE.Vector3(F.cx, F.cy, F.cz), rad = F.rad, dir = new THREE.Vector3(F.dx, F.dy, 1).normalize();
+      // camera: the dragon's head close-up (DRG_CAM), a model's own hint, or a generous first framing that is tightened below
+      const F = DRG_CAM, fit = BOSS_FIT[type] || BOSS_FIT._, hint = m.portrait || fit.cam;
+      const cam = new THREE.PerspectiveCamera(drg ? F.fov : 24, 1, 0.1, 60);
+      let c, rad, dir, auto = false;
+      if (drg) { c = new THREE.Vector3(F.cx, F.cy, F.cz); rad = F.rad; dir = new THREE.Vector3(F.dx, F.dy, 1); }
+      else if (hint && hint.rad > 0) {
+        c = new THREE.Vector3(hint.cx || 0, hint.cy || 0, hint.cz || 0); rad = hint.rad;
+        dir = new THREE.Vector3(hint.dx !== undefined ? hint.dx : fit.dx, hint.dy !== undefined ? hint.dy : fit.dy, 1);
+      } else {
+        const box = new THREE.Box3().setFromObject(m.root);
+        if (box.isEmpty()) throw new Error('empty model bounds');
+        const sph = box.getBoundingSphere(new THREE.Sphere());
+        c = sph.center; rad = Math.max(0.3, sph.radius * 1.15); auto = true;
+        dir = new THREE.Vector3(fit.dx, fit.dy, 1);
+      }
+      dir.normalize();
       const dist = rad / Math.sin(cam.fov * Math.PI / 360);
       cam.position.copy(c).addScaledVector(dir, dist); cam.near = dist * 0.3; cam.far = dist * 3; cam.updateProjectionMatrix();
       cam.lookAt(c); cam.updateMatrixWorld();
@@ -1104,20 +1283,30 @@ const UI = (() => {
       scene.traverseVisible(o => { if (!o.isLight) return; if (o.isPointLight) np++; else if (o.isDirectionalLight) { nd++; if (o.castShadow) nds++; } else if (o.isHemisphereLight) nh++; else if (o.isSpotLight) ns++; });
       const add = l => { sc.add(l); lights.push(l); return l; };
       const hemi = add(new THREE.HemisphereLight(0xf6eeff, 0x8a6a80, F.hemi)); hemi.visible = nh > 0;
+      const sb = Math.max(3, rad * 1.6);
       for (let i = 0; i < Math.max(1, nd); i++) {
         const k = add(new THREE.DirectionalLight(0xfff2e4, i === 0 ? F.key : 0));
-        k.position.copy(rel(-1.4, 2.6, 1.2, 2)); k.target.position.copy(c); sc.add(k.target); k.target.updateMatrixWorld();
-        if (i < nds) { k.castShadow = true; k.shadow.mapSize.set(256, 256); const s = k.shadow.camera; s.left = s.bottom = -3; s.right = s.top = 3; s.near = 0.1; s.far = 20; s.updateProjectionMatrix(); }
+        k.position.copy(rel(-1.4, 2.6, 1.2, Math.max(2, rad * 2))); k.target.position.copy(c); sc.add(k.target); k.target.updateMatrixWorld();
+        if (i < nds) { k.castShadow = true; k.shadow.mapSize.set(256, 256); const s = k.shadow.camera; s.left = s.bottom = -sb; s.right = s.top = sb; s.near = 0.1; s.far = sb * 8; s.updateProjectionMatrix(); }
       }
-      for (let i = 0; i < Math.max(1, np); i++) { const l = add(new THREE.PointLight(0xffb8ee, i === 0 ? F.rim : 0, 12, 1.5)); l.position.copy(rel(1.3, 0.9, -1.5, rad * 2.2)); }
+      for (let i = 0; i < Math.max(1, np); i++) { const l = add(new THREE.PointLight(0xffb8ee, i === 0 ? F.rim : 0, 12 * Math.max(1, rad / 1.5), 1.5)); l.position.copy(rel(1.3, 0.9, -1.5, rad * 2.2)); }
       for (let i = 0; i < ns; i++) add(new THREE.SpotLight(0xffffff, 0));
       sc.fog = scene.fog ? (scene.fog.isFogExp2 ? new THREE.FogExp2(0, 0) : new THREE.Fog(0, 1e4, 2e4)) : null;
       sc.environment = scene.environment || null;
-      rt = new THREE.WebGLRenderTarget(N, N, { samples: 4, colorSpace: THREE.SRGBColorSpace, depthBuffer: true });
-      renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, true);
-      renderer.render(sc, cam);
-      const buf = new Uint8Array(N * N * 4);
-      renderer.readRenderTargetPixels(rt, 0, 0, N, N, buf);
+      if (auto) {   // small first render: where is the silhouette? Then look only at that square (same perspective, exact crop)
+        const n1 = 128, a = bpRender(sc, cam, n1, 0);
+        let x0 = n1, x1 = -1, y0 = n1, y1 = -1;
+        for (let r = 0; r < n1; r++) for (let x = 0; x < n1; x++) {
+          if (a[(r * n1 + x) * 4 + 3] < 24) continue;
+          const y = n1 - 1 - r;
+          if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+        if (x1 < 0) throw new Error('empty first render');
+        const h = y1 + 1 - y0, top = y0 + h * (1 - (fit.y1 ?? 1)), bot = y0 + h * (1 - (fit.y0 ?? 0));
+        const w = Math.max(x1 + 1 - x0, bot - top) / (fit.fill || 0.9), mx = (x0 + x1 + 1) / 2, my = (top + bot) / 2;
+        cam.setViewOffset(n1, n1, mx - w / 2, my - w / 2, w, w);
+      }
+      const buf = bpRender(sc, cam, N, 4);
       renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA);
       // flip + un-premultiply into a canvas, then add a soft drop shadow
       const raw = cnv(N), rc = raw.getContext('2d'), img = rc.createImageData(N, N), o = img.data;
@@ -1127,45 +1316,56 @@ const UI = (() => {
         o[d] = Math.min(255, buf[s] * k); o[d + 1] = Math.min(255, buf[s + 1] * k); o[d + 2] = Math.min(255, buf[s + 2] * k); o[d + 3] = a;
         cover += a;
       }
-      if (cover < N * N * 255 * 0.08) throw new Error('empty dragon portrait');   // nothing drawn (lost context…): keep the SVG
+      if (cover < N * N * 255 * 0.08) throw new Error('empty portrait');   // nothing drawn (lost context…): keep the SVG
       rc.putImageData(img, 0, 0);
       const out = cnv(N), g = out.getContext('2d');
       g.shadowColor = 'rgba(60,10,90,0.4)'; g.shadowBlur = 10; g.shadowOffsetY = 4;
       g.drawImage(raw, 0, 0);
-      DRG.cv = out; DRG.url = out.toDataURL('image/png');
-    } catch (e) { warn('dragonPortrait', e); DRG.url = null; DRG.cv = null; }
+      R.cv = out; R.url = out.toDataURL('image/png');
+    } catch (e) { warn('bossPortrait ' + type, e); R.url = null; R.cv = null; }
     finally {
       try { renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA); } catch (e) { /* ignore */ }
       if (m) { try { sc.remove(m.root); if (m.dispose) m.dispose(); } catch (e) { /* ignore */ } }
       for (const l of lights) { try { if (l.dispose) l.dispose(); } catch (e) { /* ignore */ } }
-      if (rt) rt.dispose();
     }
-    if (DRG.url) dragonApply();
-    return DRG.url;
+    if (R.url) bossApply(type);
+    return R.url;
   }
-  function dragonApply() {   // swap the SVG stand-in for the portrait wherever the dragon is on screen
-    if (D.bossIco) D.bossIco.innerHTML = dragonHTML();
-    if (MM.spr.boss) MM.spr.boss = dragonSprite();
-    if (D.subIco && D.subIco.classList.contains('drg')) D.subIco.innerHTML = dragonHTML();
+  const dragonPortrait = () => bossPortrait('ejderha');
+  function bossApply(t) {   // swap the SVG stand-in for the portrait wherever this boss is on screen
+    if (D.bossIco && D.boss.dataset.b === t) D.bossIco.innerHTML = bossHTML(t);
+    if (MM.spr['b:' + t]) MM.spr['b:' + t] = bossSprite(t);
+    if (D.subIco && D.subIco.dataset.b === t) D.subIco.innerHTML = bossHTML(t);
+    if (D.winBoss) D.winBoss.querySelectorAll('.u-wb[data-b="' + t + '"]').forEach(e => { e.innerHTML = bossHTML(t); });
   }
-  // Minimap goal icon: the portrait (or the SVG stand-in once it has loaded) on a pastel disc with a pink halo.
-  function dragonSprite() {
-    let src = DRG.cv;
+  // Voice line → boss (its portrait sits next to the subtitle): EDEF[type].lines {giris, bitti, yarim}, else the key prefixes.
+  function lineBoss(key) {
+    if (!key) return null;
+    const ED = M.EDEF;
+    if (ED) for (const t in ED) { const l = ED[t] && ED[t].lines; if (l && typeof l === 'object') for (const k in l) if (l[k] === key) return t; }
+    for (const t in BOSS_UI) for (const p of BOSS_UI[t].lines) if (key.indexOf(p) === 0) return t;
+    return null;
+  }
+  // Minimap goal icon: the portrait (or the SVG stand-in once it has loaded) on the boss's pastel disc with a coloured halo.
+  function bossSpr(t) { t = t || 'ejderha'; return MM.spr['b:' + t] || (MM.spr['b:' + t] = bossSprite(t)); }
+  function bossSprite(t) {
+    const R = bpRec(t), U = bossUi(t);
+    let src = R.cv;
     if (!src) {
-      if (!DRG.img && typeof Image !== 'undefined') {
-        const im = DRG.img = new Image();
-        im.onload = () => { if (!DRG.cv && MM.spr.boss) MM.spr.boss = dragonSprite(); };
-        im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SVG.dragon);
+      if (!R.img && typeof Image !== 'undefined') {
+        const im = R.img = new Image();
+        im.onload = () => { if (!R.cv && MM.spr['b:' + t]) MM.spr['b:' + t] = bossSprite(t); };
+        im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(U.svg);
       }
-      if (DRG.img && DRG.img.complete && DRG.img.naturalWidth) src = DRG.img;
+      if (R.img && R.img.complete && R.img.naturalWidth) src = R.img;
     }
     return sprite(30, (x, s) => {
       const c = s / 2, r = s * 0.4;
       let g = x.createRadialGradient(c, c, 0, c, c, c);
-      g.addColorStop(0, 'rgba(255,90,140,0.85)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      g.addColorStop(0, U.halo); g.addColorStop(1, 'rgba(0,0,0,0)');
       x.fillStyle = g; x.fillRect(0, 0, s, s);
       g = x.createRadialGradient(c, c - r * 0.25, 0, c, c, r);
-      g.addColorStop(0, '#fff6fc'); g.addColorStop(0.55, '#ffc9ec'); g.addColorStop(1, '#f59ad6');
+      g.addColorStop(0, U.disc[0]); g.addColorStop(0.55, U.disc[1]); g.addColorStop(1, U.disc[2]);
       x.save(); x.beginPath(); x.arc(c, c, r, 0, TAU); x.fillStyle = g; x.fill(); x.clip();
       x.imageSmoothingQuality = 'high';
       if (src) x.drawImage(src, c - r, c - r, 2 * r, 2 * r);
@@ -1194,6 +1394,11 @@ const UI = (() => {
     if (o.kind === 'zone') {
       if (o.small) h += `<div class="u-zsm">✦ ${esc(o.small)} ✦</div>`;
       h += `<div class="u-zrib"><div class="u-btitle">${ol(o.title, 'u-gold-t')}</div></div>`;
+      if (o.pips && o.pips.n > 1) {   // where we are on the journey: one gem per zone (done · here · still ahead)
+        let p = '';
+        for (let i = 0; i < o.pips.n; i++) p += `<i class="${i < o.pips.i ? 'd' : i === o.pips.i ? 'c' : ''}"></i>`;
+        h += `<div class="u-zpips">${p}</div>`;
+      }
     } else {
       if (o.icon) h += `<div class="u-bico${o.med ? ' med' : ''}"${o.color ? ` style="--c:${o.color};--cd:${shade(o.color, -0.5)}"` : ''}>${o.icon}</div>`;
       if (o.title) h += `<div class="u-btitle">${ol(o.title, 'u-gold-t')}</div>`;
@@ -1271,16 +1476,38 @@ const UI = (() => {
     if (L) for (const k in L) if (L[k] === text) return k;
     return A && A.current;
   }
+  const SUB_EMO = { baykus: '🦉', ilk_salyangoz: '🐌', ilk_kostebek: '⛏️', ilk_kaplumbaga: '🐢', ilk_ateskusu: '🐥' };
+  // Title screen: the spoken "Oyna düğmesine bas…" line sits just above the Oyna / Devam Et buttons, never on them. Measured
+  // from the buttons' layout box (offsetTop ignores their entry/breathing transforms); other screens use the CSS positions.
+  function subPlace() {
+    if (!D.sub) return;
+    let b = '';
+    if (S.mode === 'title' && D.tbtns && D.title.classList.contains('on')) {
+      const top = D.tbtns.offsetTop, k = clamp(Math.min(innerWidth, innerHeight) / 800, 0.6, 1.12);
+      if (top > 0) b = Math.round(Math.max(0, innerHeight - top) + 16 * k) + 'px';
+    }
+    if (D.sub.style.bottom !== b) D.sub.style.bottom = b;
+    subMeasure();
+  }
+  // Where the subtitle box starts (layout top, ignores its slide-up transform) while it shows: the story/boss camera keeps
+  // Feza (and the boss) above it, the title camera lifts Feza above it.
+  function subMeasure() {
+    const on = D.sub.classList.contains('on');
+    S.subTop = on ? D.sub.offsetTop : -1; S.subBot = on ? D.sub.offsetTop + D.sub.offsetHeight : -1;
+    S.logoBot = on && S.mode === 'title' && D.logo ? layBox(D.logo, _lb).b : -1;   // (the title lift keeps Feza's head under it)
+  }
   function subtitle(text) {
     clearTimeout(subHide);
     if (text) {
-      const key = lineKey(text), drg = !!key && key.indexOf('ejder') === 0;   // dragon lines: the friendly dragon's portrait
-      if (drg) { dragonPortrait(); D.subIco.innerHTML = dragonHTML(); }
-      else D.subIco.textContent = key === 'baykus' ? '🦉' : key === 'ilk_salyangoz' ? '🐌' : key === 'ilk_kostebek' ? '⛏️' : '✨';
-      D.subIco.classList.toggle('drg', drg);
+      const key = lineKey(text), bt = lineBoss(key);   // a boss's lines: that boss's friendly portrait (cached at its zone load)
+      if (bt) D.subIco.innerHTML = bossHTML(bt);
+      else D.subIco.textContent = SUB_EMO[key] || '✨';
+      D.subIco.classList.toggle('drg', !!bt); D.subIco.dataset.b = bt || '';
+      subPlace();
       D.subTxt.textContent = text;
       D.sub.classList.add('on');
-    } else subHide = setTimeout(() => D.sub.classList.remove('on'), 380);   // queued lines follow ~0.3 s later: no flicker
+      subMeasure();   // (after the text: one or two lines)
+    } else subHide = setTimeout(() => { D.sub.classList.remove('on'); S.subTop = S.subBot = -1; }, 380);   // queued lines follow ~0.3 s later: no flicker
   }
 
   // ───────────────────────── Fade ─────────────────────────
@@ -1302,15 +1529,32 @@ const UI = (() => {
   const frames = n => new Promise(res => { const f = () => (n-- <= 0 ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
 
   // Generate a zone's lazy textures while the screen is black (avoids a hitch when the level first renders)
-  function ensureTex(i) { const T = M.TEX; if (T && T.ensure && typeof i === 'number' && i >= 0) safe('TEX.ensure', () => T.ensure(i | 0)); }
-  function savedZone() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); return s && typeof s.zone === 'number' ? s.zone : -1; } catch (e) { return -1; } }
+  // (by theme name: zone indices shifted when the volcano became zone 2)
+  function ensureTex(i) {
+    const T = M.TEX; if (!T || !T.ensure || typeof i !== 'number' || i < 0) return;
+    const Z = M.ZONES && M.ZONES[i | 0];
+    safe('TEX.ensure', () => T.ensure(Z && Z.theme ? Z.theme : i | 0));
+  }
+  // Zone a "Devam Et" will load. Saves from before the volcano (no sv or sv < 3) at zone ≥ 2 continue one zone later (GAME
+  // moves them the same way: the castle is index 3 now).
+  function savedZone() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (!s || typeof s.zone !== 'number') return -1;
+      let z = s.zone | 0;
+      if (!(s.sv >= 3) && z >= 2 && zoneCount() >= 4) z++;
+      return clamp(z, 0, zoneCount() - 1);
+    } catch (e) { return -1; }
+  }
 
   // ───────────────────────── Screens / modes ─────────────────────────
+  // A closing screen fades for 0.3 s: `.closing` (ui.css) and `inert` keep its buttons from catching taps meanwhile, so a
+  // quick tap right after "Devam Et" reaches the game. The fade timer is per screen (a stale one must not cut a later fade).
   function showScreen(s, on) {
-    if (on) { s.classList.remove('closing'); s.classList.add('on'); S.guardUntil = performance.now() + 320; }
+    if (on) { clearTimeout(s._closeT); s.classList.remove('closing'); s.classList.add('on'); s.inert = false; S.guardUntil = performance.now() + 320; }
     else if (s.classList.contains('on')) {
-      s.classList.remove('on'); s.classList.add('closing');
-      setTimeout(() => s.classList.remove('closing'), 300);
+      clearTimeout(s._closeT); s.classList.remove('on'); s.classList.add('closing'); s.inert = true;
+      s._closeT = setTimeout(() => { s.classList.remove('closing'); s.inert = false; }, 300);
     }
   }
   function setHud(on) {
@@ -1322,6 +1566,7 @@ const UI = (() => {
     if (m !== 'play') releasePrimary();
     setHud(m === 'play');
     showScreen(D.title, m === 'title');
+    subPlace();
   }
   function setPaused(on) {
     S.paused = on;
@@ -1443,6 +1688,13 @@ const UI = (() => {
       if (S.cheered) chips.push(`<span class="u-chip">😊 ${S.cheered} huysuz neşelendi</span>`);
     }
     D.winChips.innerHTML = chips.join('');
+    // every zone's boss, happy now: portraits cached this session, else their SVG stand-ins — the missing ones (a game
+    // continued from a save) are rendered one by one once the panel is up (S.bpq in step), behind the blur, and swapped in
+    const bosses = [];
+    for (let i = 0; i < zoneCount(); i++) { const t = M.ZONES ? zoneBossOf(i) : BOSS_ORDER[i]; if (t && bosses.indexOf(t) < 0) bosses.push(t); }
+    D.winBoss.innerHTML = bosses.map((t, i) => `<span class="u-wb" data-b="${esc(t)}" style="animation-delay:${(-i * 0.35).toFixed(2)}s">${bossHTML(t)}</span>`).join('');
+    D.winBoss.classList.toggle('u-hide', bosses.length < 2);
+    S.bpq = bosses.length > 1 ? bosses.filter(t => !bpRec(t).tried) : []; S.bpqT = S.t + 0.8;
     confetti();
     showScreen(D.win, true);
   }
@@ -1477,7 +1729,7 @@ const UI = (() => {
   function renderBag() {
     const g = M.GAME; if (!g) return;
     const P = g.P;
-    const chips = [`<span class="u-chip">❤️ ${Math.round(P.maxHp)}</span>`, `<span class="u-chip">⚔️ ${Math.round(P.dmg)}</span>`];
+    const chips = [`<span class="u-chip">❤️ ${Math.round(P.maxHp)}</span>`, `<span class="u-chip">${SVG.saber} ${Math.round(P.dmg)}</span>`];   // damage: a little lightsaber
     if (P.armor > 0) chips.push(`<span class="u-chip">🛡️ %${Math.round(P.armor)}</span>`);
     D.bagChips.innerHTML = chips.join('');
     for (const sl of SLOTS) {
@@ -1511,9 +1763,14 @@ const UI = (() => {
 
   // ───────────────────────── Boss bar ─────────────────────────
   function showBoss(d) {
-    if (!DRG.tried) dragonPortrait();   // normally done at the castle's zone load (behind the loading fade)
+    const g = M.GAME, t = (d && d.type) || (g && g.boss && g.boss.type) || 'ejderha';
+    if (!bpRec(t).tried) bossPortrait(t);   // normally done at its zone load (behind the loading fade)
     S.boss = true; S.bossFrac = S.bossTrail = d && d.maxHp ? clamp(d.hp / d.maxHp, 0, 1) : 1;
-    D.bossName.innerHTML = ol((d && d.name) || 'Huysuz Ejderha');
+    const ED = M.EDEF, ad = (d && d.name) || (ED && ED[t] && ED[t].ad) || bossUi(t).ad;
+    D.boss.dataset.b = t;   // per-boss bar colours (ui.css .u-boss[data-b])
+    D.bossName.innerHTML = ol(ad);
+    D.bossIco.innerHTML = bossHTML(t);
+    measureBossBar();
     D.bossFill.style.transform = `scaleX(${S.bossFrac})`; D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
     D.boss.classList.add('on');
   }
@@ -1528,21 +1785,25 @@ const UI = (() => {
       mapReset(g.L);
       refreshAllSkills();
       portraitSoon(0.1);
-      hideBoss(); S.cine = null;
-      const Z = M.ZONES && M.ZONES[d.index];
-      if ((Z && Z.boss) || (g.L && g.L.boss)) dragonPortrait();   // once per session, while the loading fade still covers the screen
+      hideBoss(); S.cine = null; S.pwatch = null;
+      if (S.hintGoal) stopHint();
+      const Z = M.ZONES && M.ZONES[d.index], bt = zoneBoss(d.index);
+      // this zone's boss portrait: once per session, while the loading screen / fade still covers the screen
+      if (bt && !ICON) bossPortrait(bt);
       if (d.title || ICON) return;
       if (S.mode === 'title') setMode('play');
       const ng = g.P && g.P.ng ? ` · Macera ${g.P.ng + 1}` : '';
-      banner({ kind: 'zone', title: d.name || (Z && Z.ad) || 'Yeni Yer', small: `${(d.index | 0) + 1}. Bölge${ng}`, dur: 3.2 });
+      const zi = clamp(d.index | 0, 0, 98), nZ = Math.max(zoneCount(), zi + 1);
+      banner({ kind: 'zone', title: d.name || (Z && Z.ad) || 'Yeni Yer', small: `${zi + 1}. Bölge${ng}`, pips: { n: nZ, i: zi }, dur: 3.2 });
     });
     on('portal', async () => {
       while (S.busy) await new Promise(r => setTimeout(r, 100));   // never drop it: GAME waits in 'transition' for us
       S.busy = true;
       try {
         await fade(1, 0.8, 'load');
-        clearBanners(); clearCards(); hideBoss(); S.cine = null;
+        clearBanners(); clearCards(); hideBoss(); S.cine = null; stopHint();
         ensureTex((g.P.zone | 0) + 1);
+        aud('stopVoice');   // the old zone's boss 'bitti' / 'kapi' lines must not talk about a door in the new zone
         safe('loadZone', () => g.loadZone((g.P.zone | 0) + 1));
         renderNow(); await frames(2);
         fade(0, 0.7, null);
@@ -1588,7 +1849,10 @@ const UI = (() => {
     on('victory', () => { hideBoss(); if (S.menu) closeMenu(); setTimeout(() => { if (g.state === 'end' && S.mode === 'play') showVictory(); }, 2600); });
     on('happy', d => {
       S.cheered++;
-      if (d.boss) S.cine = { t: 0, bx: d.x, bz: d.z };   // camera story beat: dragon cheers up → crystal rises
+      if (d.boss) {   // camera story beat: the boss cheers up → the castle's crystal rises / the zone's portal wakes up
+        const L = g.L, Z = M.ZONES && g.P && M.ZONES[g.P.zone | 0];
+        S.cine = { t: 0, bx: d.x, bz: d.z, fin: !!(L && L.crystalSpot) || !!(Z && Z.final) || d.type === 'ejderha' };
+      }
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
@@ -1613,58 +1877,185 @@ const UI = (() => {
     return TY.yaw;
   }
   const CAM_FAR = camera.far;
-  // Dragon silhouette sample points in its own frame (x right, y up, z toward its face), metres, from the model's bounds.
-  // Horns, head, wing tops, wing tips, front feet, tail.
+  // Boss silhouette sample points in its own frame (x right, y up, z toward its face), metres. The dragon's come from its
+  // model's bounds (horns, head, wing tops, wing tips, front feet, tail); the rounder bosses use a box from height and radius.
   const BOSS_PTS = [-0.6, 4.8, 0, 0.6, 4.8, 0, 0, 4.6, 0.8, -2.6, 3.6, -2.1, 2.6, 3.6, -2.1, -3.5, 2.6, -1.8, 3.5, 2.6, -1.8,
     0, 0, 2.3, -2.0, 0, 1.2, 2.0, 0, 1.2, 0, 0.5, -3.8];
   const FIT_F = [0.42, 0.48, 0.54, 0.6, 0.66, 0.36, 0.3];   // look-at fractions toward the focus, in order of preference
-  const FIT = { pts: new Float32Array(72), n: 0, ox: 0, oz: 0, zoom: 1 };
+  // … and, only while a subtitle narrows the box (portrait: it crosses the middle), aiming closer to Feza (or a little past
+  // him, away from the focus) may be needed to lift everything above it
+  const FIT_FX = FIT_F.concat([0.22, 0.12, 0, -0.12, -0.25]);
+  const FIT = { pts: new Float32Array(72), n: 0, ox: 0, oz: 0, zoom: 1, res: 0, f: 0 };   // res/f: last rule + look-at fraction (tests)
   const CAMK = { k: 1 };   // cameraFollow's distance factor for this aspect (portrait pulls back), read off the real camera
   const _fc = new THREE.PerspectiveCamera(), _fv = new THREE.Vector3();
   function fitAdd(x, y, z) { const i = FIT.n++ * 3; FIT.pts[i] = x; FIT.pts[i + 1] = y; FIT.pts[i + 2] = z; }
-  function fitBoss(b, sc) {   // add the dragon's sample points (scaled by its dying shrink `sc`)
-    const cs = Math.cos(b.face || 0), sn = Math.sin(b.face || 0);
-    for (let i = 0; i < BOSS_PTS.length; i += 3) {
-      const lx = BOSS_PTS[i] * sc, ly = BOSS_PTS[i + 1] * sc, lz = BOSS_PTS[i + 2] * sc;
+  const BPC = { key: '', pts: null };
+  function bossPts(b) {
+    if (!b.type || b.type === 'ejderha') return BOSS_PTS;
+    const h = b.height > 0.5 ? b.height : 2.8, r = Math.max(0.7, b.r || 1.2), key = b.type + h.toFixed(2) + r.toFixed(2);
+    if (BPC.key !== key) {
+      BPC.key = key;
+      BPC.pts = [0, h * 1.08, 0, -r * 1.1, h * 0.62, 0, r * 1.1, h * 0.62, 0, 0, h * 0.62, r * 1.1, -r * 1.1, 0, 0, r * 1.1, 0, 0, 0, 0, r * 1.25, 0, 0, -r * 1.2];
+    }
+    return BPC.pts;
+  }
+  const bigBoss = b => !b.type || b.type === 'ejderha' || b.height > 3.6;   // the tall dragon: a more frontal, wider view
+  function fitBoss(b, sc) {   // add the boss's sample points (scaled by its dying shrink `sc`)
+    const cs = Math.cos(b.face || 0), sn = Math.sin(b.face || 0), PTS = bossPts(b);
+    for (let i = 0; i < PTS.length; i += 3) {
+      const lx = PTS[i] * sc, ly = PTS[i + 1] * sc, lz = PTS[i + 2] * sc;
       fitAdd(b.x + lx * cs + lz * sn, ly, b.z - lx * sn + lz * cs);
     }
   }
-  // Does every fit point project inside the safe screen box with the camera looking at (tx,ty,tz)?
-  function fitsView(tx, ty, tz, zoom, pitch, yTop, yBot, xLim) {
+  // The safe screen box for the fit (NDC, y up): below the boss bar (else the top 10 %), above the bottom controls, inside the
+  // sides; under the stricter rules the points must also stay clear of the HUD corners (portrait + XP block, 🎒⏸ row, minimap,
+  // health orb + potion, attack + skill buttons: their real layout boxes) and above the subtitle box while a line shows
+  // (landscape: the bottom strip; portrait: across the middle).
+  const FL = { corners: true, sub: 0, fr: null, south: false, ax: 0, az: 0, af: 0, yTop: 0.8, yBot: -0.78, yBotS: -0.78, yBand: 2, xLim: 0.88, nR: 0, R: new Float32Array(40), frame: -99, W: 0, H: 0 };
+  const _lb = { l: 0, t: 0, r: 0, b: 0 };
+  function fitRect(l, t, r, b, W, H) {   // screen px box (+ margin) → NDC [x0, x1, y0, y1]
+    if (FL.nR >= 10) return;
+    const o = FL.nR++ * 4;
+    FL.R[o] = 2 * (l - 8) / W - 1; FL.R[o + 1] = 2 * (r + 8) / W - 1; FL.R[o + 2] = 1 - 2 * (b + 12) / H; FL.R[o + 3] = 1 - 2 * (t - 12) / H;
+  }
+  function fitLimits() {
+    const W = innerWidth || 1, H = innerHeight || 1, top = S.boss ? S.bossTop : 0.1 * H;
+    FL.yTop = 1 - 2 * Math.min(top, 0.4 * H) / H; FL.yBot = -0.78; FL.xLim = 0.88;   // Feza's feet stay above the controls
+    const sub = S.hud && S.subTop > 0;
+    FL.yBotS = sub ? clamp(1 - 2 * (S.subTop - 10) / H, FL.yBot, FL.yTop - 0.6) : FL.yBot;
+    FL.yBand = sub ? 1 - 2 * (S.subBot + 10) / H : 2;   // the box's bottom edge: Feza may stand below it (portrait), never in it
+    if (S.frame - FL.frame > 30 || FL.W !== W || FL.H !== H) {   // corner boxes, refreshed twice a second
+      FL.frame = S.frame; FL.W = W; FL.H = H; FL.nR = 0;
+      if (S.hud) {
+        for (const e of [D.tl, D.sbtns, D.mini, D.bl]) {
+          if (!e) continue;
+          layBox(e, _lb); if (_lb.r - _lb.l < 4) continue;
+          fitRect(_lb.l, e === D.bl ? _lb.t : -1e4, _lb.r, e === D.bl ? 1e4 : _lb.b + (e === D.tl ? 6 : 0), W, H);   // (tl: + the level star)
+        }
+        for (const e of [D.atk].concat(D.sk.map(v => v.b))) {   // round buttons centred on their layout point (translate −50 %)
+          if (!e || !e.offsetWidth) continue;
+          layBox(e, _lb); const r = e.offsetWidth / 2;
+          fitRect(_lb.l - r, _lb.t - r, _lb.l + r, _lb.t + r, W, H);
+        }
+      }
+    }
+  }
+  // Does every fit point project inside the safe screen box with the camera looking at (tx,ty,tz)? FL.corners: every point
+  // keeps clear of the HUD corners; FL.sub: 2 every point stays above the subtitle, 1 only Feza's (the last two points), 0 none
+  // — but under every rule the subtitle box never covers Feza (his feet…head span stays above or below it).
+  function fitsView(tx, ty, tz, zoom, pitch) {
     const d = CAM.dist * CAMK.k * zoom;   // same placement as cameraFollow (its aspect pull-back factor is measured, see CAMK)
     _fc.position.set(tx, ty + Math.sin(pitch) * d, tz + Math.cos(pitch) * d);
     _fc.lookAt(tx, ty, tz); _fc.updateMatrixWorld();
-    for (let i = 0; i < FIT.n; i++) {
+    const n = FIT.n, xl = FL.xLim, sm = FL.sub, nR = FL.corners ? FL.nR * 4 : 0, R = FL.R;
+    let feet = 0;
+    for (let i = 0; i < n; i++) {
       _fv.set(FIT.pts[i * 3], FIT.pts[i * 3 + 1], FIT.pts[i * 3 + 2]).project(_fc);
-      if (_fv.x < -xLim || _fv.x > xLim || _fv.y > yTop || _fv.y < yBot) return false;
+      const x = _fv.x, y = _fv.y;
+      if (x < -xl || x > xl || y > FL.yTop) return false;
+      if (i === n - 2) feet = y;   // Feza's feet, then his head (added last by fitSolve)
+      else if (i === n - 1 && feet < FL.yBotS && y > FL.yBand) return false;
+      if (y < (sm === 2 || (sm === 1 && i >= n - 2) ? FL.yBotS : FL.yBot)) return false;
+      for (let o = 0; o < nR; o += 4) if (x > R[o] && x < R[o + 1] && y > R[o + 2] && y < R[o + 3]) return false;
     }
     return true;
   }
-  // Aim part of the way from Feza to the focus and pick the smallest zoom (in [z0,z1]) that keeps Feza and all fit points
-  // below the top HUD (boss bar) and above the bottom controls; the look-at fraction may slide (FIT_F) to use spare room.
-  // If nothing fits even at z1, z1 with the preferred fraction is used. Result in FIT.ox/oz/zoom.
-  function fitFrac(px, pz, fx, fz, ty, zoom, pitch, yTop, yBot, xLim) {
-    for (let j = 0; j < FIT_F.length; j++) {
-      const f = FIT_F[j];
-      if (fitsView(px + (fx - px) * f, ty, pz + (fz - pz) * f, zoom, pitch, yTop, yBot, xLim)) return f;
+  // Where to aim: part of the way from Feza toward the focus (the first fraction in FL.fr order whose view fits), or — only
+  // while a subtitle narrows the box (FL.south) — a little south of Feza, which lifts him and everything up the screen.
+  // Sets FL.ax/az (look-at offset from Feza) and FL.af (the fraction; −1 for a south step); false when nothing fits.
+  const FIT_SOUTH = [0.6, 1.2, 1.8, 2.4];   // metres
+  function fitAim(px, pz, fx, fz, ty, zoom, pitch) {
+    const fr = FL.fr;
+    for (let j = 0; j < fr.length; j++) {
+      const f = fr[j], ax = (fx - px) * f, az = (fz - pz) * f;
+      if (fitsView(px + ax, ty, pz + az, zoom, pitch)) { FL.ax = ax; FL.az = az; FL.af = f; return true; }
     }
-    return -1;
+    if (FL.south) for (let j = 0; j < FIT_SOUTH.length; j++) {
+      if (fitsView(px, ty, pz + FIT_SOUTH[j], zoom, pitch)) { FL.ax = 0; FL.az = FIT_SOUTH[j]; FL.af = -1; return true; }
+    }
+    return false;
   }
-  function fitSolve(px, pz, fx, fz, ty, pitch, z0, z1) {
+  // Pick the smallest zoom in [z0,z1] (and an aim) that keeps Feza and all fit points in the safe box, trying the strictest
+  // rule first (FIT_RULES: [corners, subtitle, fractions, south steps]): everything clear of the HUD corners and above the
+  // subtitle; then only Feza above it; then clear of the corners only; last the plain box (the older rule). Returns the rule's
+  // number (1…), or 0 when nothing fits even at z1: then Feza alone stays in view at z1, leaning toward the focus as far as
+  // that allows (noLean: returns -1 and leaves FIT alone). Result in FIT.ox/oz/zoom.
+  const FIT_RULES = [
+    [[true, 0, FIT_F, false], [false, 0, FIT_F, false]],   // no subtitle on screen
+    [[true, 2, FIT_F, false], [true, 2, FIT_FX, true], [true, 1, FIT_F, false], [true, 1, FIT_FX, true], [true, 0, FIT_F, false], [false, 0, FIT_F, false]],
+  ];
+  const NO_FR = [];
+  // A rule, once picked, is tried first for FIT_DWELL s while the shot (ctx) and the subtitle stay the same, so a hopping boss
+  // doesn't flip the camera between framings (e.g. Feza above ↔ below a portrait subtitle) every few frames.
+  const FITP = { ctx: '', sub: -2, rule: 0, t0: -9 }, FIT_DWELL = 1.5;
+  const FK = { ax: 0, az: 0, af: 0 };   // the best aim found so far in this solve
+  function keepAim() { FK.ax = FL.ax; FK.az = FL.az; FK.af = FL.af; }
+  function fitSolve(ctx, px, pz, fx, fz, ty, pitch, z0, z1, noLean, frs) {   // frs: own look-at fractions for every rule
     if (_fc.aspect !== camera.aspect || _fc.fov !== camera.fov) {
       _fc.fov = camera.fov; _fc.aspect = camera.aspect; _fc.near = camera.near; _fc.far = CAM_FAR; _fc.updateProjectionMatrix();
     }
     fitAdd(px, 0, pz); fitAdd(px, 1.7, pz);
-    const H = innerHeight || 1, top = S.boss ? S.bossTop : 0.1 * H;
-    const yTop = 1 - 2 * Math.min(top, 0.4 * H) / H, yBot = -0.78, xLim = 0.88;   // Feza's feet stay above the subtitle strip
-    let lo = z0, hi = z1, f = fitFrac(px, pz, fx, fz, ty, z0, pitch, yTop, yBot, xLim);
-    if (f >= 0) hi = z0;
-    else {
-      for (let i = 0; i < 7; i++) { const m = (lo + hi) / 2; if (fitFrac(px, pz, fx, fz, ty, m, pitch, yTop, yBot, xLim) >= 0) hi = m; else lo = m; }
-      f = fitFrac(px, pz, fx, fz, ty, hi, pitch, yTop, yBot, xLim);
-      if (f < 0) f = FIT_F[0];
+    fitLimits();
+    let res = -1, zoom = z1;
+    FK.ax = FK.az = FK.af = 0;
+    const rules = FIT_RULES[FL.yBotS > FL.yBot + 0.005 ? 1 : 0];
+    const st = FITP.ctx === ctx && FITP.sub === S.subTop && FITP.rule > 0 && FITP.rule <= rules.length && S.t - FITP.t0 < FIT_DWELL ? FITP.rule - 1 : -1;
+    let fresh = true;
+    for (let k = -1; k < rules.length; k++) {
+      const q = k < 0 ? st : k;
+      if (q < 0 || (k >= 0 && q === st)) continue;
+      const m = q + 1, u = rules[q]; FL.corners = u[0]; FL.sub = u[1]; FL.fr = frs || u[2]; FL.south = u[3];
+      if (noLean && !u[0]) continue;   // (story beat: a portal half behind the HUD is no view — it flies over instead)
+      fresh = k >= 0;
+      if (fitAim(px, pz, fx, fz, ty, z0, pitch)) { keepAim(); zoom = z0; res = m; break; }
+      if (!fitAim(px, pz, fx, fz, ty, z1, pitch)) continue;
+      keepAim();
+      let lo = z0, hi = z1;
+      for (let i = 0; i < 7; i++) {
+        const mid = (lo + hi) / 2;
+        if (fitAim(px, pz, fx, fz, ty, mid, pitch)) { hi = mid; keepAim(); } else lo = mid;
+      }
+      zoom = hi; res = m; break;
     }
-    FIT.ox = (fx - px) * f; FIT.oz = (fz - pz) * f; FIT.zoom = hi; FIT.n = 0;
+    if (res < 0) {
+      if (noLean) { FIT.n = 0; FITP.rule = 0; return -1; }
+      // too far apart even zoomed out (a far portal): Feza stays in view (above the subtitle if possible), leaning toward the focus
+      const n = FIT.n; FIT.pts.copyWithin(0, (n - 2) * 3, n * 3); FIT.n = 2;   // his two points (added last)
+      res = 0; FL.corners = false; FL.fr = NO_FR;
+      let hit = false;
+      for (let sm = 1; sm >= 0 && !hit; sm--) {
+        FL.sub = sm;
+        for (let ff = FIT_F[0]; ff > 0.01; ff -= 0.06) if (fitsView(px + (fx - px) * ff, ty, pz + (fz - pz) * ff, z1, pitch)) { FK.ax = (fx - px) * ff; FK.az = (fz - pz) * ff; FK.af = ff; hit = true; break; }
+        FL.south = true;   // (the subtitle covers him wherever he leans: step the aim south to lift him above it)
+        if (!hit && fitAim(px, pz, fx, fz, ty, z1, pitch)) { keepAim(); hit = true; }
+      }
+    }
+    FIT.ox = FK.ax; FIT.oz = FK.az; FIT.zoom = zoom; FIT.n = 0; FIT.res = res; FIT.f = FK.af;
+    if (fresh || res !== FITP.rule || FITP.ctx !== ctx) FITP.t0 = S.t;
+    FITP.ctx = ctx; FITP.sub = S.subTop; FITP.rule = res;
+    return res;
+  }
+  function fitPortal(po) {   // the stone arch (06: pillars at ±1.58, arch top + keystone ≈ 4.3 m, front step to z + 1.6)
+    fitAdd(po.x, 0, po.z + 1.4); fitAdd(po.x, 4.25, po.z);
+    fitAdd(po.x - 1.9, 0.2, po.z); fitAdd(po.x + 1.9, 0.2, po.z); fitAdd(po.x - 1.75, 3.3, po.z); fitAdd(po.x + 1.75, 3.3, po.z);
+  }
+  // Mid-boss story beat (S.cine, fin false): 0–4.6 s the cheering boss, then the portal that woke up — with Feza when both fit,
+  // else (a far portal) a short flight to the portal (until CINE.back) and back to Feza (CINE.panEnd). Final boss: CINE.fin.
+  const CINE = { boss: 4.6, end: 7.5, back: 8.0, panEnd: 9.0, fin: 9.5 };
+  const cineEnd = c => (c.fin === false ? (c.pan ? CINE.panEnd : CINE.end) : CINE.fin);
+  const PAN_F = [0, 0.12, 0.24, 0.36, 0.48];
+  // Title: while the spoken prompt shows, Feza steps up the screen so its box never covers his legs (his head stays under the logo).
+  const _tv = new THREE.Vector3(), _ta = { x: 0, y: 0, vis: false }, _tb = { x: 0, y: 0, vis: false };
+  let titleLiftM = 0;
+  function titleLift(px, pz) {
+    if (!(S.subTop > 0)) return (titleLiftM = 0);
+    toScreen(_tv.set(px, 0, pz), _ta); toScreen(_tv.set(px, 1.45, pz), _tb);
+    const ppm = (_ta.y - _tb.y) / 1.45;   // screen px per metre at Feza (lowering the look-at moves him up by this much)
+    if (!(ppm > 20)) return titleLiftM;
+    const cur = Math.max(0, TITLE_CAM.ty - CAMV.ty);   // lift already applied (CAMV.ty is damped toward the target)
+    let want = (_ta.y + cur * ppm - (S.subTop - 12)) / ppm;
+    if (S.logoBot > 0) want = Math.min(want, cur + (_tb.y - 0.04 * ppm - (S.logoBot + 4)) / ppm);
+    return (titleLiftM = clamp(want, 0, 0.9));
   }
   function updateCamera(dt, snap) {
     const g = M.GAME, P = g && g.P;
@@ -1672,29 +2063,43 @@ const UI = (() => {
     let zoom = 1, pitch = S.playPitch, yaw = 0, ty = 0.8, k = 2.4, ox = 0, oz = 0;
     const title = !ICON && (S.mode === 'title' || S.mode === 'boot');
     if (ICON) { zoom = 0.21; pitch = 0.16; yaw = 0.42; ty = 1.02; k = 50; }   // arms up: frame the raised, lit saber too
-    else if (title) { zoom = TITLE_CAM.zoom * (camera.aspect < 0.9 ? 1.25 : 1); pitch = TITLE_CAM.pitch; yaw = titleYaw() + Math.sin(S.t * 0.11) * TITLE_CAM.swing; ty = TITLE_CAM.ty; k = 1.6; }
+    else if (title) { zoom = TITLE_CAM.zoom * (camera.aspect < 0.9 ? 1.25 : 1); pitch = TITLE_CAM.pitch; yaw = titleYaw() + Math.sin(S.t * 0.11) * TITLE_CAM.swing; ty = TITLE_CAM.ty - (S.mode === 'title' ? titleLift(px, pz) : 0); k = 1.6; }
     else if (S.mode === 'end') { zoom = 0.62; pitch = 0.78; yaw = Math.sin(S.t * 0.16) * 0.35; ty = 1.0; k = 1.2; }
     else if (P && P.dead) { zoom = 0.82; }
-    else if (S.boss && g.boss && !g.boss.dead) {   // keep the whole dragon on screen, not just Feza
+    else if (S.boss && g.boss && !g.boss.dead) {   // keep the whole boss on screen, not just Feza
       fitBoss(g.boss, 1);
-      ty = 1.6; pitch = S.playPitch - 0.08;   // a little more frontal: the tall dragon needs less zoom-out
-      // zoom cap keeps Feza ≥ ~70 px tall; only when he is far from the dragon (it walks closer) a bit more is allowed
-      const bd = Math.hypot(g.boss.x - px, g.boss.z - pz);
-      fitSolve(px, pz, g.boss.x, g.boss.z, ty, pitch, 1.05, 1.62 + clamp((bd - 10) * 0.05, 0, 0.16));
+      const big = bigBoss(g.boss), bd = Math.hypot(g.boss.x - px, g.boss.z - pz);
+      // a little more frontal (the tall dragon needs less zoom-out); zoom cap keeps Feza ≥ ~70 px tall, only when he is far
+      // from the boss (it walks closer) a bit more is allowed
+      if (big) { ty = 1.6; pitch = S.playPitch - 0.08; fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.05, 1.62 + clamp((bd - 10) * 0.05, 0, 0.16)); }
+      else { ty = clamp((g.boss.height || 2.8) * 0.42, 0.9, 1.5); pitch = S.playPitch - 0.05; fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.0, 1.42 + clamp((bd - 10) * 0.05, 0, 0.16)); }
       zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = 1.5;
-    } else if (S.cine && P) {   // boss defeated: look at the cheering dragon, then at the rising crystal
-      const c = S.cine, L = g.L;
-      pitch = 0.74; ty = 1.3;
-      if (c.t < 4.6) {
+    } else if (S.cine && P) {   // boss defeated: look at the cheering boss, then at the rising crystal (castle) or the portal
+      const c = S.cine, L = g.L, po = c.fin === false && L ? L.portalObj || L.exit : null;
+      pitch = 0.74; ty = 1.3; k = 1.3;
+      let fit = true;
+      if (c.t < CINE.boss) {
         if (g.boss && c.t < 3.2) fitBoss(g.boss, Math.max(0.3, 1 - c.t / 3.2));
         else { fitAdd(c.bx, 0, c.bz); fitAdd(c.bx, 2.2, c.bz); }
-        fitSolve(px, pz, c.bx, c.bz, ty, pitch, 1.15, 1.7);
+        fitSolve('cheer', px, pz, c.bx, c.bz, ty, pitch, 1.15, 1.7);
+      } else if (po) {   // mid-boss: the portal that just woke up
+        pitch = 0.72;
+        if (!c.pan) {   // Feza and the portal together (a far one may zoom out a little more)…
+          fitPortal(po);
+          const far = Math.hypot(po.x - px, po.z - pz) > 12;
+          c.pan = fitSolve('portal', px, pz, po.x, po.z, ty, pitch, 1.1, far ? 1.75 : 1.6, true) < 0;
+        }
+        if (c.pan && c.t < CINE.back) {   // …or they don't fit: fly over to the portal, frame it whole, then back to Feza
+          fitPortal(po); fitSolve('pan', po.x, po.z, po.x, po.z + 5, ty, pitch, 1.0, 1.35, false, PAN_F);   // (aim a little south of it if a subtitle needs the room)
+          FIT.ox += po.x - px; FIT.oz += po.z - pz; k = 1.5;
+        } else if (c.pan) { fit = false; k = 1.6; }   // (flying back: the plain follow view)
       } else {
         const cs = (L && L.crystalSpot) || { x: c.bx, z: c.bz - 5 };
         pitch = 0.7; fitAdd(cs.x, 0, cs.z); fitAdd(cs.x, 3.4, cs.z); fitAdd(cs.x - 1.2, 1.5, cs.z); fitAdd(cs.x + 1.2, 1.5, cs.z);
-        fitSolve(px, pz, cs.x, cs.z, ty, pitch, 1.15, 1.7);
+        fitSolve('crystal', px, pz, cs.x, cs.z, ty, pitch, 1.15, 1.7);
       }
-      zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = 1.3;
+      if (fit) { zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; }
+      else { pitch = S.playPitch; ty = 0.8; }
     }
     if (snap) k = 1e3;
     CAMV.zoom = damp(CAMV.zoom, zoom, k, dt); CAMV.pitch = damp(CAMV.pitch, pitch, k, dt);
@@ -1779,11 +2184,12 @@ const UI = (() => {
         if (!SILENT && M.AUD && M.AUD.setListener) { try { M.AUD.setListener(P.pos.x, P.pos.z); } catch (e) { warn('AUD.setListener', e); } }
       }
       if (S.atkHeld && S.t >= S.atkNext) { attack(); S.atkNext = S.t + 0.27; }
-      if (S.cine && (S.cine.t += dt) > 9.5) S.cine = null;
+      if (S.cine && (S.cine.t += dt) > cineEnd(S.cine)) { const mid = S.cine.fin === false; S.cine = null; if (mid) armPortalWatch(); }
     }
     if (HOLDS.length || S.menu === 'pause') holdTick();
     if (CORNERS.length) cornerTick();
     if (S.mode === 'title') titleVoiceTick(dt);
+    if (S.bpq && S.bpq.length && S.t >= S.bpqT) { if (S.mode === 'end') { bossPortrait(S.bpq.shift()); S.bpqT = S.t + 0.35; } else S.bpq.length = 0; }
     if (S.portraitDirty && S.t >= S.portraitAt) { S.portraitDirty = false; refreshPortrait(); }
     try { hudTick(dt); } catch (e) { warn('hud', e); }
     if (render && (!S.paused || S.needRender)) { S.needRender = false; try { renderFrame(); } catch (e) { warn('renderFrame', e); } }
@@ -1842,8 +2248,10 @@ const UI = (() => {
     boot, ready: readyP, fade, banner, toast, itemCard, openBag, openPause, closeMenu, showVictory, showTitle, startGame,
     refreshPortrait, subtitle, setPref,
     get mode() { return S.mode; }, get menu() { return S.menu; }, get paused() { return S.paused; },
-    _S: S, _D: D, _TC: TITLE_CAM, _DC: DRG_CAM,
+    _S: S, _D: D, _TC: TITLE_CAM, _DC: DRG_CAM, _BF: BOSS_FIT, _FIT: FIT, _FL: FL,
     _dragon() { DRG.tried = false; DRG.url = DRG.cv = null; return dragonPortrait(); },   // tests: render the dragon portrait again
+    _boss(t) { const R = bpRec(t); R.tried = false; R.url = R.cv = null; return bossPortrait(t); },   // tests: (re)render a boss portrait
+    _bossHTML: t => bossHTML(t), _bossSvg: t => bossSvg(t), _savedZone: () => savedZone(), _goal: () => MV.goal,
     _step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) step(dt, dt, i === n - 1); },   // tests: deterministic frames
   };
 })();

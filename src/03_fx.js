@@ -191,6 +191,16 @@ const FX = (() => {
     t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
     return t;
   }
+  function buildBlobTex() {   // flat soft disc for ground markers under projectiles (alpha 1 in the middle, soft rim)
+    const N = 64, data = new Uint8Array(N * N * 4);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const r = Math.hypot((i + 0.5) / N - 0.5, (j + 0.5) / N - 0.5) * 2, k = (j * N + i) * 4;
+      data[k] = data[k + 1] = data[k + 2] = 255; data[k + 3] = 255 * (1 - sstep(0.5, 1, r)) * (1 - 0.15 * sstep(0, 0.7, r));
+    }
+    const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+    t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
+    return t;
+  }
   function buildGlowTex() {   // small radial glow for projectile halos (sprites)
     const N = 64, data = new Uint8Array(N * N * 4), o = [0, 0, 0, 0];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -208,7 +218,7 @@ const FX = (() => {
   const PX = 0, PY = 1, PZ = 2, VX = 3, VY = 4, VZ = 5, AGE = 6, LIFE = 7, S0 = 8, S1 = 9, R0 = 10, G0 = 11, B0 = 12, R1 = 13, G1 = 14, B1 = 15,
     AL = 16, GRV = 17, DRG = 18, ROT = 19, SPN = 20, SHP = 21, POP = 22, FAD = 23, FLK = 24, BNC = 25, OX = 26, OZ = 27, ORB = 28, WOB = 29, STR = 30, PHS = 31;
   const uScale = { value: 1000 }, uMaxPt = { value: 256 };
-  let SA = null, SN = null, atlas = null, glowTex = null;
+  let SA = null, SN = null, atlas = null, glowTex = null, blobTex = null;
   const PT_VS = `attribute vec4 aCol; attribute vec4 aMisc; uniform float uScale, uMaxPt;
     varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr;
     void main() {
@@ -350,6 +360,12 @@ const FX = (() => {
       BUBP: ['#ffc4ea', '#c4ecff', '#dccbff', '#c8ffe4', '#fff4c4'].map(h => lin(h)),
       PASTELG: ['#ff9ad5', '#9fe0ff', '#b9a4ff', '#9ff5c8', '#fff09a'].map(h => lin(h, 2.0)),
       GLITTER: ['#ff7ad9', '#c27bff', '#ffc2f0', '#8fd8ff'].map(h => lin(h, 2.5)).concat([[2, 2, 2]]),
+      // Volcano (Round 3): molten orange that blooms in its own hue, cheerful light smoke, white steam puffs. Kept near 1–1.5:
+      // the final (neutral) tone mapping desaturates brighter values toward white, and lava must read ORANGE.
+      LAVA0: lin('#ffb530', 1.45), LAVA1: lin('#ff7a1a', 1.3), LAVA2: lin('#ff4414', 0.95), LAVAG: hueNorm(lin('#ff8a2a'), 1.1),
+      LFL0: hueNorm(lin('#ffa830'), 1.35), LFL1: hueNorm(lin('#ff561a'), 0.95), EMB0: lin('#ffc84a', 2.2), EMB1: lin('#ff5a1a', 1.5),
+      CRUST: lin('#8a5a48'), ASH: lin('#c6b4ae'), ASHL: lin('#d8c8c0'), STEAM: lin('#fffaf5'),
+      ROCKC: ['#6a4430', '#8a5c3c', '#a87a52'].map(h => lin(h)), JELLY: '#ff5fb0',
     };
   }
   const N = (n, K) => Math.max(1, Math.round(n * K));
@@ -367,7 +383,8 @@ const FX = (() => {
   }
   const MAIN = { hit: 6, crit: 12, sparkle: 8, cheer: 6, coin: 5, dust: 6, step: 2, levelup: 22, ice: 10, fire: 8, smoke: 6, heal: 7, magic: 8,
     portal: 6, spore: 6, ghost: 5, debris: 10, zzz: 3, embers: 8, confetti: 28, star: 1, shadowPuff: 6, zap: 6,
-    slime: 2, dirt: 8, bubblePop: 7, bubbles: 3, bubble: 7, pop: 7, glitter: 3, dig: 8, mud: 8, clods: 8, trail: 2 };
+    slime: 2, dirt: 8, bubblePop: 7, bubbles: 3, bubble: 7, pop: 7, glitter: 3, dig: 8, mud: 8, clods: 8, trail: 2,
+    lava: 12, magma: 12, erupt: 16, eruption: 16, volcano: 16, steam: 4, vent: 4, jelly: 9, splat: 9 };
   const B = {
     // opts.color (the saber's blade colour, or a projectile's colour): the flash, ring and energy streaks take that hue and
     // a few crackling sparks fly off — a "zap". The cute yellow stars stay. No coloured droplets (a red blade must never
@@ -703,9 +720,92 @@ const FX = (() => {
         q.flick = 18; q.spin = frand(-6, 6); q.color = C.GLITTER[(Math.random() * 4) | 0]; emitRaw(q);
       }
     },
+    // ── Volcano (Round 3) ── Molten droplets use NORMAL blending with HDR colours: they bloom orange, and however many
+    // overlap they never add up to a white blob. Only the small flames/embers/glows are additive (hue-normalised).
+    // Lava ball landing: orange splash crown that bounces and cools to red-orange, flames, rising embers, a few crust chips,
+    // a light warm smoke puff (+ a warm light flash). opts: {color (tint), scale (< 0.7: small ambient pop, no light),
+    // ring: true → also a soft orange splash ring on the ground (off by default: GAME draws its own damage-radius ring)}.
+    lava(x, y, z, o, K) {
+      const t = o.color ? lin(o.color) : null, d0 = t ? hueNorm(t, 2.3) : C.LAVA0, d1 = t ? hueNorm(t, 1.25) : C.LAVA2, gy = Math.max(0.05, y), big = bk >= 0.7;
+      flashGlow(x, gy + 0.25, z, 1.8, t ? hueNorm(t, 1.1) : C.LAVAG, 0.18, 0.32);
+      let q;
+      for (let i = 0, n = N(12, K); i < n; i++) {   // splash crown
+        q = P(0, SH.DOT, x + frand(-0.15, 0.15), gy + 0.1, z + frand(-0.15, 0.15)); radial(q, 1.4, 3.6, 3, 6.2);
+        q.grav = 12; q.bounce = 0.22; q.drag = 0.3; q.size = frand(0.14, 0.26); q.size1 = q.size * 0.55; q.life = frand(0.75, 1.1);
+        q.fade = 3; q.pop = 0.05; q.color = i % 3 ? d0 : C.LAVA1; q.color1 = d1; q.delay = frand(0, 0.05); emitRaw(q);
+      }
+      for (let i = 0, n = N(4, K); i < n; i++) {   // short flame tongues (normal blend: stay orange however many overlap)
+        q = P(0, SH.FLAME, x + frand(-0.3, 0.3), gy + frand(0, 0.15), z + frand(-0.3, 0.3));
+        q.vy = frand(1.6, 2.8); q.vx = frand(-0.5, 0.5); q.vz = frand(-0.5, 0.5); q.drag = 1.2; q.size = frand(0.55, 0.8); q.size1 = 0.15;
+        q.life = frand(0.3, 0.45); q.rot = frand(-0.3, 0.3); q.color = C.LAVA0; q.color1 = C.LAVA2; q.alpha = 0.9; q.fade = 1.5; q.pop = 0.06; emitRaw(q);
+      }
+      for (let i = 0, n = N(8, K); i < n; i++) {   // embers drifting up
+        q = P(1, SH.GLOW, x + frand(-0.4, 0.4), gy + frand(0.1, 0.5), z + frand(-0.4, 0.4)); q.vy = frand(1.2, 2.6); q.vx = frand(-0.6, 0.6); q.vz = frand(-0.6, 0.6);
+        q.drag = 0.8; q.wob = 0.8; q.flick = 14; q.size = frand(0.09, 0.15); q.size1 = 0.03; q.life = frand(0.8, 1.4); q.color = C.EMB0; q.color1 = C.EMB1; q.delay = frand(0, 0.2); emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // little cooled crust pebbles
+        q = P(0, SH.DOT, x, gy + 0.1, z); radial(q, 1.2, 2.6, 3, 5); q.grav = 13; q.bounce = 0.3;
+        q.size = frand(0.08, 0.13); q.life = frand(0.8, 1.1); q.fade = 4; q.color = C.CRUST; emitRaw(q);
+      }
+      for (let i = 0, n = N(2, K); i < n; i++) {   // light warm puff
+        q = P(0, SH.SMOKE, x + frand(-0.2, 0.2), gy + 0.3, z + frand(-0.2, 0.2)); radial(q, 0.2, 0.6, 0.7, 1.2); q.drag = 1.4;
+        q.size = 0.45; q.size1 = 1.3; q.life = frand(0.9, 1.2); q.alpha = 0.38; q.fade = 2; q.pop = 0.12; q.spin = frand(-0.8, 0.8); q.color = C.ASHL; q.delay = 0.08; emitRaw(q);
+      }
+      if (o.ring) ring(x, z, { r0: 0.2 * bk, r1: (o.ring > 0.3 ? o.ring : 1.7) * bk, dur: 0.42, color: o.color || '#ff7a1a', k: 1.25, edge: 0.18, width: 0.5 * bk });
+      if (big) lightFlash(x, z, '#ff9a4a', 3, 0.3);
+    },
+    // Volcano top / vent eruption: a lava fountain shooting up and raining back, a flame column, cute light smoke puffs
+    // billowing from the top and a shower of embers. opts: {color, scale}.
+    erupt(x, y, z, o, K) {
+      const t = o.color ? lin(o.color) : null, d0 = t ? hueNorm(t, 2.3) : C.LAVA0, d1 = t ? hueNorm(t, 1.25) : C.LAVA2;
+      flashGlow(x, y + 0.3, z, 2.3, t ? hueNorm(t, 1.1) : C.LAVAG, 0.25, 0.34);
+      let q;
+      for (let i = 0, n = N(16, K); i < n; i++) {   // fountain
+        q = P(0, SH.DOT, x + frand(-0.12, 0.12), y, z + frand(-0.12, 0.12)); radial(q, 0.4, 2.0, 5.5, 9);
+        q.grav = 12; q.bounce = 0.2; q.drag = 0.25; q.size = frand(0.12, 0.24); q.size1 = q.size * 0.5; q.life = frand(1.2, 1.7);
+        q.fade = 3; q.pop = 0.05; q.color = i % 3 ? d0 : C.LAVA1; q.color1 = d1; q.delay = frand(0, 0.18); emitRaw(q);
+      }
+      for (let i = 0, n = N(5, K); i < n; i++) {   // flame column
+        q = P(0, SH.FLAME, x + frand(-0.15, 0.15), y + 0.05, z + frand(-0.15, 0.15));
+        q.vy = frand(3.5, 5.5); q.vx = frand(-0.4, 0.4); q.vz = frand(-0.4, 0.4); q.drag = 1.6; q.size = frand(0.9, 1.25); q.size1 = 0.25;
+        q.life = frand(0.3, 0.45); q.rot = frand(-0.15, 0.15); q.color = C.LAVA0; q.color1 = C.LAVA2; q.alpha = 0.9; q.fade = 1.5; q.pop = 0.06; q.delay = i * 0.03; emitRaw(q);
+      }
+      for (let i = 0, n = N(4, K); i < n; i++) {   // smoke puffs billowing from the top (light and friendly, never dark)
+        q = P(0, SH.SMOKE, x + frand(-0.15, 0.15), y + 0.35, z + frand(-0.15, 0.15)); radial(q, 0.3, 0.9, 1.6, 2.4); q.drag = 1.3; q.wob = 0.4;
+        q.size = frand(0.42, 0.55); q.size1 = q.size * 3; q.life = frand(1.5, 2.1); q.alpha = 0.8; q.fade = 2.2; q.pop = 0.15;
+        q.spin = frand(-0.7, 0.7); q.color = C.ASHL; q.delay = 0.05 + i * 0.07; emitRaw(q);
+      }
+      for (let i = 0, n = N(10, K); i < n; i++) {   // ember shower
+        q = P(1, SH.GLOW, x + frand(-0.2, 0.2), y + frand(0, 0.3), z + frand(-0.2, 0.2)); radial(q, 0.3, 1.4, 2, 4.5); q.drag = 0.9; q.wob = 0.8;
+        q.flick = 14; q.size = frand(0.09, 0.15); q.size1 = 0.03; q.life = frand(1, 1.8); q.color = C.EMB0; q.color1 = C.EMB1; q.delay = frand(0, 0.25); emitRaw(q);
+      }
+      if (bk >= 0.7) lightFlash(x, z, '#ffa050', 4, 0.4);
+    },
+    // Cute white steam puffs from a vent ("puf puf"): cotton-ball puffs rising one after another. opts: {color, dir, scale}.
+    steam(x, y, z, o, K) {
+      const col = o.color ? lin(o.color) : C.STEAM, dx = o.dir ? o.dir.x * 0.8 : 0, dz = o.dir ? o.dir.z * 0.8 : 0;
+      for (let i = 0, n = N(4, K); i < n; i++) {
+        const q = P(0, SH.SMOKE, x + frand(-0.08, 0.08), y + i * 0.05, z + frand(-0.08, 0.08)); radial(q, 0.05, 0.3, 0.9, 1.4);
+        q.vx += dx; q.vz += dz; q.drag = 0.9; q.wob = 0.45; q.grav = -0.2;
+        q.size = frand(0.26, 0.34); q.size1 = q.size * 3.4; q.life = frand(1.3, 1.8); q.alpha = 0.85; q.fade = 2.2; q.pop = 0.2;
+        q.spin = frand(-0.7, 0.7); q.color = col; q.delay = i * 0.14; emitRaw(q);
+      }
+      if (Math.random() < 0.5 * K) twinkles(1, x, y + 0.45, z, 0.2, C.W2, 0.28);
+    },
+    // A jelly blob splats (Kral Jöle's spit landing / swatted): glossy droplets in its colour, a soft ring, a few sparkles.
+    jelly(x, y, z, o, K) {
+      const c = lin(o.color || C.JELLY), cg = hueNorm(c, 1.3);
+      let q = P(1, SH.RING, x, y, z); q.size = 0.4; q.size1 = 1.3; q.life = 0.22; q.color = cg; q.alpha = 0.7; q.fade = 1.4; emitRaw(q);
+      for (let i = 0, n = N(9, K); i < n; i++) {
+        q = P(0, SH.DOT, x, y, z); radial(q, 1.3, 3.0, 1.5, 3.8); q.grav = 10; q.bounce = 0.15; q.drag = 0.5;
+        q.size = frand(0.1, 0.18); q.size1 = q.size * 0.7; q.life = frand(0.7, 1.0); q.fade = 3; q.pop = 0.06; q.color = c; emitRaw(q);
+      }
+      twinkles(N(4, K), x, y, z, 0.35, cg, 0.32);
+    },
   };
   // Friendly aliases (other modules may guess a name): all fall back to a real preset instead of the generic sparkle.
   B.bubble = B.bubblePop; B.pop = B.bubblePop; B.glitter = B.bubbles; B.dig = B.dirt; B.mud = B.dirt; B.clods = B.dirt; B.trail = B.slime;
+  B.magma = B.lava; B.eruption = B.erupt; B.volcano = B.erupt; B.vent = B.steam; B.splat = B.jelly;
   let warnedKind = null;
   function burst(kind, x, y, z, o) {
     if (!ready) init();
@@ -837,28 +937,29 @@ const FX = (() => {
   }
 
   // ── Ground ring / shockwave ──
-  const RING_FS = `uniform vec3 uCol; uniform float uR, uW, uA; varying vec2 vP;
+  const RING_FS = `uniform vec3 uCol; uniform float uR, uW, uA, uEdge; varying vec2 vP;
     void main() {
       float r = length(vP), s = (uR - r) / uW;
       float body = smoothstep(-0.04 / uW, 0.0, s) * pow(clamp(1.0 - s, 0.0, 1.0), 2.2);
       float e = (r - uR) / 0.06, edge = exp(-e * e);
       float seg = 0.82 + 0.18 * sin(atan(vP.y, vP.x) * 9.0 + r * 4.0);
-      vec3 c = uCol * body * seg + (uCol * 0.5 + vec3(1.2)) * edge;
+      vec3 c = uCol * body * seg + (uCol * 0.5 + vec3(1.2) * uEdge) * edge;
       gl_FragColor = vec4(c * uA, 1.0);
       ${CHUNK_OUT}
     }`;
   addPool('ring', () => {
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uSize: { value: 1 }, uR: { value: 1 }, uW: { value: 0.3 }, uA: { value: 1 }, uCol: { value: new THREE.Color() } },
+      uniforms: { uSize: { value: 1 }, uR: { value: 1 }, uW: { value: 0.3 }, uA: { value: 1 }, uEdge: { value: 1 }, uCol: { value: new THREE.Color() } },
       vertexShader: QUAD_VS, fragmentShader: RING_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     });
     return { obj: fxMesh(QUAD, mat, 12), mat, on: false, gen: 0, t: 0 };
   });
   function ring(x, z, o = EMPTY) {
     if (!ready) init();
-    const it = acquire('ring', 14), c = lin(o.color ?? '#fff3c4', 2.2);
+    // optional (Round 3): o.k = colour intensity (default 2.2), o.edge = white rim amount (default 1; lava uses a little)
+    const it = acquire('ring', 14), c = lin(o.color ?? '#fff3c4', o.k ?? 2.2);
     it.r0 = o.r0 ?? 0.3; it.r1 = o.r1 ?? 4; it.dur = o.dur ?? 0.45; it.w = o.width ?? 0.35;
-    it.mat.uniforms.uCol.value.setRGB(c[0], c[1], c[2]);
+    it.mat.uniforms.uCol.value.setRGB(c[0], c[1], c[2]); it.mat.uniforms.uEdge.value = o.edge ?? 1;
     it.obj.position.set(x, o.y ?? 0.06, z);
     stepRing(it, 0);
   }
@@ -937,6 +1038,71 @@ const FX = (() => {
     if (it.t < it.dur) { u.uA.value = Math.min(1, it.t / 0.1); return; }
     const f = (it.t - it.dur) / 0.2;
     if (f >= 1) { release(it); return; }
+    u.uFlash.value = 1 - f; u.uA.value = 1 - f * f;
+  }
+
+  // ── Lane telegraph (Round 3: the lava turtle's roll): a rounded strip from (x0,z0) to (x1,z1) in the same friendly
+  // style as the circle — candy colour, bright outline, deeper fill — that fills from the start toward the end, with soft
+  // chevrons drifting along it so a kid sees which way the charge will go. Local +z points from start to end.
+  const LANE_VS = `uniform vec2 uHalf; varying vec2 vP;
+    void main() { vP = vec2(position.x * uHalf.x, position.z * uHalf.y); gl_Position = projectionMatrix * modelViewMatrix * vec4(vP.x, position.y, vP.y, 1.0); }`;
+  const LANE_FS = `uniform vec3 uCol; uniform float uHL, uHW, uP, uA, uT, uFlash; varying vec2 vP;
+    void main() {
+      float d = length(vec2(vP.x, vP.y - clamp(vP.y, -uHL, uHL))) - uHW;   // stadium (capsule) distance
+      float inside = smoothstep(0.025, -0.025, d);
+      float line = exp(-d * d / 0.0045);
+      float s = vP.y + uHL + uHW, L = 2.0 * (uHL + uHW);   // 0 at the start cap, L at the end cap
+      float fr = L * uP, hurry = smoothstep(0.6, 1.0, uP), pulse = 1.0 + 0.35 * hurry * sin(uT * 22.0);
+      float filled = smoothstep(fr + 0.05, fr - 0.05, s) * inside;
+      float front = exp(-(s - fr) * (s - fr) / 0.012) * inside * step(0.01, uP) * step(uP, 0.995);
+      float ax = abs(vP.x);
+      float chev = smoothstep(0.17, 0.07, abs(fract((s + 0.6 * ax - uT * 1.8) / 1.25) - 0.5)) * smoothstep(uHW * 0.78, uHW * 0.5, ax) * inside;
+      float g = smoothstep(0.0, uHW, ax);
+      float m = max(max(uCol.r, uCol.g), uCol.b);
+      vec3 base = uCol / max(m, 1e-3);
+      vec3 fillCol = mix(base, base * base, 0.5 * uP) * 0.93;
+      fillCol = mix(fillCol, min(vec3(0.97), base * 0.5 + 0.5), chev * 0.6);
+      float aFill = inside * (0.1 + 0.14 * g * g + 0.2 * chev) + filled * mix(0.25, 0.55, uP) * (0.85 + 0.15 * g) * (1.0 + 0.18 * hurry * sin(uT * 22.0));
+      float a = 1.0 - (1.0 - aFill) * (1.0 - line * 0.95) * (1.0 - front * 0.85);
+      vec3 col = mix(fillCol, base * 1.9 * pulse, line);
+      col = mix(col, base * 1.5 + vec3(0.2, 0.08, 0.04), front * 0.8);
+      col = mix(col, base * 0.97, uFlash * inside * (1.0 - line));   // completion pulse in the hue (no white bloom)
+      col = mix(col, base * 2.8, uFlash * line);
+      a = max(a, uFlash * (0.88 * inside + line));
+      gl_FragColor = vec4(col, clamp(a, 0.0, 1.0) * uA);
+      ${CHUNK_OUT}
+    }`;
+  addPool('lane', () => {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uHalf: { value: new THREE.Vector2(1, 1) }, uHL: { value: 1 }, uHW: { value: 0.5 }, uP: { value: 0 }, uA: { value: 1 }, uT: uTime, uFlash: { value: 0 }, uCol: { value: new THREE.Color() } },
+      vertexShader: LANE_VS, fragmentShader: LANE_FS, transparent: true, depthWrite: false,
+    });
+    return { obj: fxMesh(QUAD, mat, 10), mat, on: false, gen: 0, t: 0, warm: false };
+  });
+  function laneSet(it, x0, z0, x1, z1, width, dur, color) {
+    const u = it.mat.uniforms, c = teleColor(color);
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), hw = Math.max(0.2, (width > 0 ? width : 2) / 2), hl = len / 2;
+    u.uCol.value.setRGB(c.r, c.g, c.b); u.uHL.value = hl; u.uHW.value = hw; u.uHalf.value.set(hw + 0.15, hl + hw + 0.15);
+    u.uP.value = 0; u.uFlash.value = 0; u.uA.value = 0;
+    it.obj.position.set((x0 + x1) / 2, 0.047, (z0 + z1) / 2); it.obj.rotation.set(0, len > 1e-4 ? Math.atan2(dx, dz) : 0, 0); it.obj.scale.set(0.7, 1, 0.94);
+    it.dur = Math.max(0.05, dur || 1); it.warm = false;
+  }
+  function telegraphLine(x0, z0, x1, z1, width, dur, color) {
+    if (!ready) init();
+    const n = v => (typeof v === 'number' && isFinite(v) ? v : 0);
+    x0 = n(x0); z0 = n(z0); x1 = n(x1); z1 = n(z1);
+    const it = acquire('lane', 6);
+    laneSet(it, x0, z0, x1, z1, n(width), n(dur), color);
+    return handle(it, it.obj);
+  }
+  function stepLane(it, dt) {
+    it.t += dt;
+    const u = it.mat.uniforms, p = Math.min(1, it.t / it.dur), pin = backOut(Math.min(1, it.t / 0.16));
+    it.obj.scale.set(0.7 + 0.3 * pin, 1, 0.94 + 0.06 * pin);
+    u.uP.value = p;
+    if (it.t < it.dur) { u.uA.value = it.warm ? 0 : Math.min(1, it.t / 0.1); return; }
+    const f = (it.t - it.dur) / 0.2;
+    if (f >= 1 || it.warm) { release(it); return; }
     u.uFlash.value = 1 - f; u.uA.value = 1 - f * f;
   }
 
@@ -1276,7 +1442,77 @@ const FX = (() => {
     pet: { core: 'ball', col: '#ff9a3c', halo: 0.62, hk: 1.8, r: 0.1, hot: '#fff3c0', hotK: 3 },
     // Snail soap bubble: iridescent film, soft pastel halo, wobbles, pops with sparkles when it disappears.
     bubble: { core: 'bubble', col: '#bfe6ff', halo: 0.95, hk: 0.8, r: 0.3, pop: 1 },
+    // Round 3 (a boss in every zone + the volcano): Kral Jöle's glossy jiggly jelly blobs, Usta Köstebek's tumbling dirt
+    // clods, the lava turtle's glowing lava balls and the fire chick's little embers. shadow: 1 = soft
+    // dark blob on the ground under it, 2 = warm light pool (both follow the projectile's height).
+    jelly: { core: 'jelly', col: '#ff5fb0', halo: 0.95, hk: 0.42, r: 0.27, shadow: 1 },
+    rock: { core: 'rock', col: '#9a6a44', haloCol: '#ffe2b8', halo: 0.85, hk: 0.3, r: 0.25, shadow: 1 },
+    lavaball: { core: 'lava', col: '#ff8a2a', halo: 1.5, hk: 1.05, r: 0.3, halo2: '#ff9a30', shadow: 2 },
+    ember: { core: 'ember', col: '#ff7a1c', halo: 0.8, hk: 0.95, r: 0.09, halo2: '#ffb040' },
   };
+  // Last colour GAME asked for per kind: FX.trail(kind, x, y, z) has no colour, so the trail matches the projectile.
+  const lastCol = {};
+  // Lava ball: molten sphere in object space — bright cracks flowing between warm orange crust plates, hot glowing rim.
+  const LAVA_VS = `varying vec3 vO, vN, vV;
+    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vO = position; vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`;
+  const LAVA_FS = `uniform float uT; uniform vec3 uHot, uMid, uCrust; varying vec3 vO, vN, vV;
+    float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float vn(vec3 x) {
+      vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(h3(i), h3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 0.0)), h3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+                 mix(mix(h3(i + vec3(0.0, 0.0, 1.0)), h3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 1.0)), h3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+    }
+    void main() {
+      vec3 p = vO * 2.6 + vec3(0.0, -uT * 0.9, uT * 0.35);
+      float n = vn(p) * 0.65 + vn(p * 2.3 + 7.1) * 0.35;
+      float crust = smoothstep(0.5, 0.66, n), crack = 1.0 - smoothstep(0.0, 0.07, abs(n - 0.5));
+      vec3 c = mix(uMid, uCrust, crust);
+      c = mix(c, uHot, crack * 0.9);
+      float f = clamp(1.0 - abs(dot(normalize(vN), normalize(vV))), 0.0, 1.0);
+      c = mix(c, uHot * 0.8, pow(f, 2.5) * 0.6);
+      c *= 0.92 + 0.08 * sin(uT * 7.0 + vO.y * 5.0);
+      gl_FragColor = vec4(c, 1.0);
+      ${CHUNK_OUT}
+    }`;
+  function lavaMat(col) {
+    const h = lin('#ffd24a', 1.9), m = hueNorm(lin(col), 1.05), k = lin('#b8401a', 0.6);
+    return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uHot: { value: new THREE.Color(h[0], h[1], h[2]) }, uMid: { value: new THREE.Color(m[0], m[1], m[2]) },
+      uCrust: { value: new THREE.Color(k[0], k[1], k[2]) } }, vertexShader: LAVA_VS, fragmentShader: LAVA_FS });
+  }
+  let ROCK_GEO = null, EMBER_GEO = null, SHADOW_GEO = null, SHADOW_DARK = null, SHADOW_GLOW = null;
+  function rockGeo() {   // soft lumpy dirt clod (radius ~1) with a few pebbles stuck in it
+    const base = new THREE.IcosahedronGeometry(1, 3), p = base.attributes.position, v = new THREE.Vector3(), key = [], nrm = new Map();
+    const lump = (x, y, z) => 0.74 + 0.3 * vnoise(x * 2.1 + 5, z * 2.1 + y * 1.7) + 0.16 * vnoise(x * 5.3 + 1, y * 5.3 - z * 2.6);
+    for (let i = 0; i < p.count; i++) {   // displaced along the normal by smooth noise (same corner → same spot)
+      v.fromBufferAttribute(p, i);
+      key[i] = Math.round(v.x * 1e3) + ',' + Math.round(v.y * 1e3) + ',' + Math.round(v.z * 1e3);
+      const s = lump(v.x, v.y, v.z);
+      p.setXYZ(i, v.x * s, v.y * s * 0.84, v.z * s);
+    }
+    base.computeVertexNormals();   // flat face normals (non-indexed) → averaged per corner for a smooth clod
+    const n = base.attributes.normal;
+    for (let i = 0; i < p.count; i++) { const a = nrm.get(key[i]) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); nrm.set(key[i], a); }
+    for (let i = 0; i < p.count; i++) { const a = nrm.get(key[i]), l = Math.hypot(a[0], a[1], a[2]) || 1; n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+    const cD = new THREE.Color('#4e3122'), cM = new THREE.Color('#7a5236'), cL = new THREE.Color('#9c7048'), t = new THREE.Color();
+    const k = new Kit();
+    k.add(base, (x, y, z) => t.copy(cD).lerp(cM, sat(0.5 + y * 0.55)).lerp(cL, sat((vnoise(x * 3.1 + 3, z * 3.1 + y * 2.3) - 0.55) * 2.4)));
+    k.add(G.dodeca(), '#a8a29a', [0.66, 0.26, 0.5], [0.4, 0.7, 0.1], 0.22);
+    k.add(G.dodeca(), '#8f8a84', [-0.72, -0.08, 0.42], [1.1, 0.2, 0.5], 0.17);
+    k.add(G.dodeca(), '#c8a070', [-0.2, -0.52, -0.7], [0.3, 1.2, 0.2], 0.19);
+    k.add(G.dodeca(), '#b0a498', [0.1, 0.7, -0.35], [0.9, 0.4, 1.3], 0.14);
+    const g = k.build();
+    base.dispose();
+    return keep(g);
+  }
+  function emberGeo() {   // teardrop: round nose toward +z (the flight direction), tail tapering toward -z
+    const pts = [];
+    for (let i = 0; i <= 14; i++) { const y = -2.4 + (2.4 * i) / 14; pts.push(new THREE.Vector2(Math.pow((y + 2.4) / 2.4, 1.5), y)); }
+    for (let i = 1; i <= 8; i++) { const a = (i / 8) * Math.PI / 2; pts.push(new THREE.Vector2(Math.cos(a), Math.sin(a))); }
+    pts[pts.length - 1].x = 0;
+    const g = new THREE.LatheGeometry(pts, 12);
+    g.rotateX(Math.PI / 2);
+    return keep(g);
+  }
   // Iridescent soap-film shell (additive): nearly clear in the middle, pastel rainbow at the rim, two glossy glints.
   const BUB_VS = `varying vec3 vN, vV, vO, vW;
     void main() { vec4 wp = modelMatrix * vec4(position, 1.0); vec4 mv = viewMatrix * wp;
@@ -1319,8 +1555,32 @@ const FX = (() => {
     if (!ready) init();
     const D = PROJ[kind] || PROJ.star, col = color || D.col, g = new THREE.Group();
     g.name = 'fxProj';
-    let core;
-    if (D.core === 'star') {
+    if (color && PROJ[kind]) lastCol[kind] = color;
+    let core, glint = null;
+    if (D.core === 'jelly') {   // translucent glossy shell, a lighter candy heart inside, a glint that keeps facing the camera
+      const cc = new THREE.Color(col), lite = cc.clone().lerp(new THREE.Color('#ffffff'), 0.45), deep = cc.clone().multiplyScalar(0.55);
+      const m = projMat('jelly|' + col, () => rimify(stdMat({ color: cc, emissive: deep, emissiveIntensity: 0.6, roughness: 0.16, metalness: 0, transparent: true, opacity: 0.58, envMapIntensity: 0.6 }),
+        lite, 0.5, 2.6));
+      core = new THREE.Mesh(G.sphere(28), m); core.scale.setScalar(D.r);
+      const im = new THREE.Mesh(G.sphere(16), projMat('jellyIn|' + col, () => glowMat(cc, 0.8)));
+      im.scale.setScalar(0.6); im.position.y = -0.12; core.add(im);
+      // the glint is drawn after the shell (not dimmed by it); only the half poking out of the surface shows
+      glint = new THREE.Mesh(G.sphere(10), projMat('glint', () => glowMat('#ffffff', 1.5, { transparent: true }))); glint.scale.set(0.24, 0.17, 0.1); glint.renderOrder = 25; core.add(glint);
+    } else if (D.core === 'rock') {
+      const m = projMat('rock', () => {
+        const o = { roughness: 1 }, D0 = typeof TEX !== 'undefined' && TEX && TEX.dirt && TEX.dirt.normalMap ? TEX.dirt.normalMap : null;
+        if (D0) { o.normalMap = D0; o.normalScale = new THREE.Vector2(0.8, 0.8); }   // grainy earth detail (shared texture, 1 tile per clod)
+        return rimify(vcMat(o), 0xffe0b8, 0.28, 2.6);
+      });
+      core = new THREE.Mesh(ROCK_GEO, m); core.scale.setScalar(D.r); core.castShadow = false;
+    } else if (D.core === 'lava') {
+      core = new THREE.Mesh(G.sphere(24), projMat('lava|' + col, () => lavaMat(col))); core.scale.setScalar(D.r);
+    } else if (D.core === 'ember') {   // hot yellow heart inside an additive orange flame teardrop
+      core = new THREE.Mesh(EMBER_GEO, projMat('emberShell|' + col, () => glowMat(col, 1.2, { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
+      core.scale.setScalar(D.r); core.renderOrder = 23;
+      const hot = new THREE.Mesh(G.sphere(12), projMat('ball|#ffe08a|1.9', () => glowMat('#ffe08a', 1.9)));
+      hot.scale.setScalar(0.6); hot.position.z = 0.12; core.add(hot);
+    } else if (D.core === 'star') {
       const m = projMat('star|' + col, () => rimify(stdMat({ color: col, emissive: col, emissiveIntensity: 0.75, roughness: 0.25, metalness: 0.2 }), 0xffffff, 0.8, 2.0));
       core = new THREE.Mesh(STAR_GEO, m); core.scale.setScalar(0.28);
     } else if (D.core === 'shard') {
@@ -1341,15 +1601,21 @@ const FX = (() => {
       core = new THREE.Mesh(G.sphere(16), m); core.scale.setScalar(D.r);
     }
     g.add(core);
-    const hm = projMat('halo|' + col + '|' + D.hk, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(col).multiplyScalar(D.hk), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    const hc = D.haloCol || col;
+    const hm = projMat('halo|' + hc + '|' + D.hk, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc).multiplyScalar(D.hk), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     const halo = new THREE.Sprite(hm); halo.scale.setScalar(D.halo); g.add(halo);
-    let halo2 = null;
+    let halo2 = null, shadow = null;
     if (D.halo2) {
       const hm2 = projMat('halo|' + D.halo2 + '|2', () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(D.halo2).multiplyScalar(1.8), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       halo2 = new THREE.Sprite(hm2); halo2.scale.setScalar(D.halo * 0.6); g.add(halo2);
     }
+    if (D.shadow) {   // ground marker: kept on the floor under the projectile by stepProjs (starts at the usual flight height)
+      shadow = new THREE.Mesh(SHADOW_GEO, D.shadow === 2 ? SHADOW_GLOW : SHADOW_DARK);
+      shadow.scale.setScalar(D.r * (D.shadow === 2 ? 5.5 : 3.4)); shadow.position.y = 0.035 - 0.85; shadow.renderOrder = 9; g.add(shadow);
+    }
     g.userData.fxp = { kind, core, halo, halo2, hs: D.halo, cs: core.scale.x, t: Math.random() * 10, seen: false, age: 0, star: D.core === 'star', shard: D.core === 'shard',
-      bub: D.core === 'bubble', pop: D.pop || 0, popCol: color || null, lp: D.pop ? new THREE.Vector3() : null };
+      bub: D.core === 'bubble', pop: D.pop || 0, popCol: color || null, lp: D.pop ? new THREE.Vector3() : null,
+      look: D.core, glint, shadow, ss: shadow ? shadow.scale.x : 0, glow: D.shadow === 2 };
     projs.push(g);
     return g;
   }
@@ -1376,14 +1642,75 @@ const FX = (() => {
       else if (u.bub) {   // soap film wobble + gentle bob
         const w = Math.sin(u.t * 7.3) * 0.07, w2 = Math.sin(u.t * 5.1 + 1.3) * 0.05;
         u.core.scale.set(u.cs * (1 + w), u.cs * (1 - w + w2), u.cs * (1 + w2)); u.core.position.y = Math.sin(u.t * 3.1) * 0.05;
+      } else if (u.look === 'jelly') {   // jiggly squash & stretch, a little hop; the glint stays top-left toward the camera
+        const w = Math.sin(u.t * 9.5) * 0.12, w2 = Math.sin(u.t * 6.3 + 1.1) * 0.06;
+        u.core.scale.set(u.cs * (1 + w), u.cs * (1 - w * 1.1 + w2), u.cs * (1 + w2)); u.core.position.y = Math.abs(Math.sin(u.t * 4.2)) * 0.06;
+        if (u.glint) {
+          g.getWorldQuaternion(_q).invert();
+          u.glint.position.set(-0.4, 0.52, 0.75).applyQuaternion(camera.quaternion).applyQuaternion(_q).multiplyScalar(0.97);
+          u.glint.quaternion.copy(_q).multiply(camera.quaternion);
+        }
+      } else if (u.look === 'rock') { u.core.rotation.x += dt * 7; u.core.rotation.z = Math.sin(u.t * 3) * 0.35; }   // tumbling clod
+      else if (u.look === 'lava') { u.core.rotation.y += dt * 1.4; u.core.scale.setScalar(u.cs * (1 + Math.sin(u.t * 11) * 0.04)); }
+      else if (u.look === 'ember') {   // flickering flame
+        u.core.scale.set(u.cs * (1 + Math.sin(u.t * 31) * 0.12), u.cs * (1 + Math.sin(u.t * 23 + 1) * 0.12), u.cs * (1 + Math.sin(u.t * 27 + 2) * 0.16));
       } else u.core.scale.setScalar(u.cs * (1 + Math.sin(u.t * 21) * 0.07));
+      if (u.shadow) {   // stay on the floor under the projectile: smaller and fainter-looking the higher it flies
+        g.getWorldPosition(_v);
+        const h = Math.max(0, _v.y), sy = g.scale.y || 1;
+        u.shadow.position.set(0, (0.035 - _v.y) / sy, 0);
+        u.shadow.scale.setScalar(u.ss * (u.glow ? clamp(1.3 - 0.09 * h, 0.55, 1.3) : clamp(1.15 - 0.12 * h, 0.45, 1.1)));
+      }
     }
   }
-  function trail(kind, x, y, z) {
+  // color (optional): the projectile's colour (else the last colour FX.projectile got for this kind, else the default).
+  function trail(kind, x, y, z, color) {
     if (!ready) init();
     bx = x; by = y; bz = z; bk = 1;
     let q;
     switch (kind) {
+      case 'jelly': {   // glossy drips that plop onto the floor and fade there, now and then a tiny sparkle
+        const c = lin(color || lastCol.jelly || C.JELLY);
+        if (Math.random() < 0.3) {
+          q = P(0, SH.DOT, x + frand(-0.1, 0.1), y - 0.14, z + frand(-0.1, 0.1)); q.vx = frand(-0.3, 0.3); q.vy = frand(-0.3, 0.3); q.vz = frand(-0.3, 0.3);
+          q.grav = 8; q.bounce = 0.1; q.size = frand(0.07, 0.12); q.size1 = q.size * 0.7; q.life = frand(0.9, 1.3); q.fade = 3; q.pop = 0.08; q.color = c; emitRaw(q);
+        }
+        if (Math.random() < 0.15) {
+          q = P(1, SH.SPARK, x + frand(-0.2, 0.2), y + frand(-0.15, 0.2), z + frand(-0.2, 0.2)); q.vy = frand(0.1, 0.4);
+          q.size = frand(0.12, 0.2); q.size1 = 0.02; q.life = frand(0.35, 0.5); q.flick = 18; q.rot = 0; q.color = hueNorm(c, 2.2); emitRaw(q);
+        }
+        break;
+      }
+      case 'rock':   // earth crumbs trickle off the tumbling clod, a faint dust wisp
+        if (Math.random() < 0.35) {
+          q = P(0, Math.random() < 0.5 ? SH.SQUARE : SH.DOT, x + frand(-0.12, 0.12), y + frand(-0.1, 0.1), z + frand(-0.12, 0.12)); q.vx = frand(-0.5, 0.5); q.vy = frand(0, 0.8); q.vz = frand(-0.5, 0.5);
+          q.grav = 10; q.bounce = 0.3; q.size = frand(0.05, 0.09); q.life = frand(0.5, 0.8); q.spin = frand(-8, 8); q.fade = 4; q.color = C.ROCKC[(Math.random() * 3) | 0]; emitRaw(q);
+        }
+        if (Math.random() < 0.12) { q = P(0, SH.SMOKE, x, y, z); q.vy = 0.2; q.size = 0.22; q.size1 = 0.6; q.life = 0.6; q.alpha = 0.35; q.fade = 2; q.spin = frand(-1, 1); q.color = C.DIRTDUST; emitRaw(q); }
+        break;
+      case 'lavaball':   // flame licks, embers, now and then a molten drip and a light puff
+        q = P(1, SH.FLAME, x + frand(-0.06, 0.06), y + frand(-0.05, 0.05), z + frand(-0.06, 0.06)); q.vy = frand(0.3, 0.8);
+        q.size = frand(0.42, 0.58); q.size1 = 0.1; q.life = frand(0.22, 0.34); q.rot = frand(-0.3, 0.3); q.alpha = 0.42; q.color = C.LFL0; q.color1 = C.LFL1; emitRaw(q);
+        if (Math.random() < 0.55) {
+          q = P(1, SH.GLOW, x + frand(-0.2, 0.2), y + frand(-0.15, 0.15), z + frand(-0.2, 0.2)); radial(q, 0.2, 0.9, 0.4, 1.4);
+          q.wob = 0.6; q.flick = 14; q.size = frand(0.07, 0.12); q.size1 = 0.02; q.life = frand(0.6, 1.0); q.color = C.EMB0; q.color1 = C.EMB1; emitRaw(q);
+        }
+        if (Math.random() < 0.18) {
+          q = P(0, SH.DOT, x + frand(-0.15, 0.15), y - 0.1, z + frand(-0.15, 0.15)); q.vx = frand(-0.4, 0.4); q.vy = frand(-0.5, 0.3); q.vz = frand(-0.4, 0.4);
+          q.grav = 9; q.bounce = 0.15; q.size = frand(0.07, 0.11); q.size1 = q.size * 0.6; q.life = frand(0.6, 0.9); q.fade = 3; q.color = C.LAVA0; q.color1 = C.LAVA2; emitRaw(q);
+        }
+        if (Math.random() < 0.1) {
+          q = P(0, SH.SMOKE, x, y + 0.1, z); q.vy = 0.5; q.size = 0.3; q.size1 = 0.9; q.life = 0.8; q.alpha = 0.3; q.fade = 2; q.spin = frand(-1, 1); q.color = C.ASH; emitRaw(q);
+        }
+        break;
+      case 'ember':   // a short glowing tail and tiny crackling sparks
+        q = P(1, SH.GLOW, x + frand(-0.03, 0.03), y + frand(-0.03, 0.03), z + frand(-0.03, 0.03)); q.vy = frand(0.1, 0.4);
+        q.size = 0.24; q.size1 = 0.05; q.life = frand(0.2, 0.3); q.alpha = 0.35; q.color = C.LFL0; q.color1 = C.LFL1; emitRaw(q);
+        if (Math.random() < 0.3) {
+          q = P(1, SH.SPARK, x + frand(-0.08, 0.08), y + frand(-0.05, 0.08), z + frand(-0.08, 0.08)); q.vx = frand(-0.5, 0.5); q.vy = frand(0.2, 0.9); q.vz = frand(-0.5, 0.5);
+          q.size = frand(0.1, 0.16); q.size1 = 0.02; q.life = frand(0.3, 0.5); q.flick = 20; q.rot = frand(-0.3, 0.3); q.color = C.EMB0; emitRaw(q);
+        }
+        break;
       case 'star': burst('star', x, y, z); break;
       case 'spore':
         q = P(0, SH.DOT, x, y, z); q.vx = frand(-0.2, 0.2); q.vy = frand(0.1, 0.4); q.vz = frand(-0.2, 0.2); q.size = frand(0.1, 0.16); q.size1 = 0.03; q.life = 0.5; q.color = C.SPORE; emitRaw(q);
@@ -1470,7 +1797,7 @@ const FX = (() => {
       const el = document.createElement('div'), b = document.createElement('b'), f = document.createElement('i');
       el.className = 'ft'; el.appendChild(b); el.appendChild(f); txtLayer.appendChild(el);
       TXT.push({ el, b, f, on: false, t: 0, life: 1, x: 0, y: 0, z: 0, rise: 1, rot: 0, t0: 0, dx: 0,
-        st: 'dmg', num: null, ox: 0, oy: 0, oz: 0, w: 0, h: 0, lift: 0, bump: 0, sx: 0, sy: 0 });
+        st: 'dmg', num: null, ox: 0, oy: 0, oz: 0, w: 0, h: 0, lift: 0, side: 0, bump: 0, sx: 0, sy: 0 });
     }
     document.body.appendChild(txtLayer);
     if (!POST.on) {
@@ -1513,13 +1840,34 @@ const FX = (() => {
     if (st === 'word') it.el.style.setProperty('--f', WORD_COLS[(Math.random() * WORD_COLS.length) | 0]);
     else it.el.style.removeProperty('--f');
     it.on = true; it.t = 0; it.t0 = clock; it.life = S.life; it.rise = S.rise;
-    it.st = st; it.num = num; it.ox = x; it.oy = y; it.oz = z; it.lift = 0; it.bump = 0;
+    it.st = st; it.num = num; it.ox = x; it.oy = y; it.oz = z; it.lift = 0; it.side = 0; it.bump = 0;
     textBox(it, s);
     it.x = x + frand(-S.drift, S.drift); it.y = y; it.z = z + frand(-0.1, 0.1); it.dx = frand(-0.25, 0.25);
     it.rot = S.rot ? frand(-S.rot, S.rot) : 0;
     it.el.style.visibility = 'visible'; it.el.style.opacity = '0';
   }
+  // Top margin (CSS px) that no floating text rises past, so numbers never climb into the HUD / boss bar.
+  // UI may set FX.textTop = its boss-bar bottom while the boss bar shows (null = automatic). Automatic: 12 % of the
+  // screen height, or under a showing boss bar (#ui .u-boss.on, looked up 4x a second: portrait puts it lower).
+  let txtTop = null, bbEl = null, bbT = -1, bbBot = 0;
+  function textTopPx() {
+    const H = innerHeight || 1;
+    if (typeof txtTop === 'number' && isFinite(txtTop) && txtTop > 0) return Math.min(txtTop, 0.45 * H);
+    if (clock - bbT > 0.25 || clock < bbT) {
+      bbT = clock; bbBot = 0;
+      if (!bbEl || !bbEl.isConnected) bbEl = typeof document !== 'undefined' ? document.querySelector('.u-boss') : null;
+      if (bbEl && bbEl.classList.contains('on')) { const r = bbEl.getBoundingClientRect(); if (r.height > 0) bbBot = r.bottom + 8; }
+    }
+    return Math.min(Math.max(0.12 * H, bbBot), 0.45 * H);
+  }
   const TACT = [];
+  function txtHit(a, n, x, y) {   // the first (oldest) of TACT[0..n-1] that text a would overlap at screen centre (x, y)
+    for (let k = 0; k < n; k++) {
+      const b = TACT[k];
+      if (Math.abs(x - b.sx - b.side) * 2 < a.w + b.w && Math.abs(y - b.sy - b.lift) * 2 < a.h + b.h) return b;
+    }
+    return null;
+  }
   function stepText(dt) {
     let na = 0;
     for (const it of TXT) {
@@ -1537,27 +1885,41 @@ const FX = (() => {
       TACT[j] = it;
     }
     // De-overlap: older texts keep their place; a newer text that overlaps one is pushed up above it (4 px gap).
-    // The lift only ever grows, so texts never bounce back down.
+    // The lift only ever grows, so texts never bounce back down. No text passes the top margin (textTopPx): a text
+    // there stays put, and one that would be pushed past it steps aside (left/right of the text it overlaps) instead.
+    const top = textTopPx(), W = innerWidth || 1;
     for (let i = 0; i < na; i++) {
       const a = TACT[i];
-      let L = a.lift;
-      for (let pass = 0; pass < 8; pass++) {
-        let moved = false;
-        for (let k = 0; k < i; k++) {
-          const b = TACT[k], by = b.sy + b.lift;
-          if (Math.abs(a.sx - b.sx) * 2 < a.w + b.w && Math.abs(a.sy + L - by) * 2 < a.h + b.h) {
-            L = by - (a.h + b.h) * 0.5 - 4 - a.sy; moved = true;
-          }
-        }
-        if (!moved) break;
-      }
-      a.lift = a.t < 0.15 || L > a.lift - 2 ? L : a.lift + (L - a.lift) * Math.min(1, dt * 22);   // glide if pushed late
       if (a.bump > 0) a.bump = Math.max(0, a.bump - dt / 0.18);
       const p = a.t / a.life;
       const pop = a.t < 0.2 ? 0.3 + 0.7 * backOut(a.t / 0.2) : 1;
       const s = pop * (p > 0.7 ? 1 - (p - 0.7) * 0.5 : 1) * (1 + 0.3 * a.bump);
       const o = p < 0.62 ? 1 : 1 - (p - 0.62) / 0.38;
-      a.el.style.transform = 'translate3d(' + a.sx.toFixed(1) + 'px,' + (a.sy + a.lift).toFixed(1) + 'px,0) translate(-50%,-50%) scale(' + s.toFixed(3) + ') rotate(' + a.rot.toFixed(1) + 'deg)';
+      // smallest lift that keeps the whole box under the margin: rotated corners, pop/merge scale, the POW starburst (1.15 em)
+      const rr = a.rot * (Math.PI / 180);
+      let up = 0.52 * (a.h * Math.abs(Math.cos(rr)) + a.w * Math.abs(Math.sin(rr)));
+      if (a.st === 'crit') up = Math.max(up, TXT_FS.crit * 1.18);
+      const yMin = top + up * Math.max(1, s) - a.sy;
+      let L = Math.max(a.lift, yMin), X = a.side, dir = 0;
+      for (let pass = 0; pass < 12; pass++) {
+        const b = txtHit(a, i, a.sx + X, a.sy + L);
+        if (!b) break;
+        const bx = b.sx + b.side, above = b.sy + b.lift - (a.h + b.h) * 0.5 - 4 - a.sy;
+        if (above >= yMin) { L = above; continue; }
+        // no room above (HUD band): step aside. The first step picks a free, on-screen side (the side it leans to first),
+        // later steps in this frame keep that direction so it never ping-pongs between two neighbours.
+        const d = (a.w + b.w) * 0.5 + 4;
+        const fits = dd => (dd > 0 ? bx + d + a.w * 0.5 <= W : bx - d - a.w * 0.5 >= 0);
+        if (!dir) {
+          const pref = a.sx + X >= bx ? 1 : -1;
+          dir = fits(pref) && !txtHit(a, i, bx + pref * d, a.sy + L) ? pref
+            : fits(-pref) && !txtHit(a, i, bx - pref * d, a.sy + L) ? -pref : fits(pref) ? pref : -pref;
+        } else if (!fits(dir)) dir = -dir;
+        X = bx + dir * d - a.sx;
+      }
+      a.lift = a.t < 0.15 || L > a.lift - 2 ? L : a.lift + (L - a.lift) * Math.min(1, dt * 22);   // glide if pushed late
+      a.side = a.t < 0.15 ? X : a.side + (X - a.side) * Math.min(1, dt * 22);
+      a.el.style.transform = 'translate3d(' + (a.sx + a.side).toFixed(1) + 'px,' + (a.sy + a.lift).toFixed(1) + 'px,0) translate(-50%,-50%) scale(' + s.toFixed(3) + ') rotate(' + a.rot.toFixed(1) + 'deg)';
       a.el.style.opacity = o.toFixed(3);
     }
     for (let i = 0; i < na; i++) TACT[i] = null;
@@ -1617,7 +1979,7 @@ const FX = (() => {
     if (ready) return;
     ready = true;
     palette();
-    atlas = buildAtlas(); glowTex = buildGlowTex();
+    atlas = buildAtlas(); glowTex = buildGlowTex(); blobTex = buildBlobTex();
     try {
       const gl = renderer.getContext(), r = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
       if (r && r[1]) uMaxPt.value = Math.max(32, r[1]);
@@ -1626,11 +1988,14 @@ const FX = (() => {
     RESIZE_HOOKS.push(updScale);
     SN = makeSys(1000, false); SA = makeSys(2000, true);
     QUAD = quadGeo(); SLASH_GEO = slashGeo(); BEAM_GEO = beamGeo(); STAR_GEO = starGeo();
-    ICE_GEO = iceGeo();
+    ICE_GEO = iceGeo(); ROCK_GEO = rockGeo(); EMBER_GEO = emberGeo();
+    SHADOW_GEO = keep(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+    SHADOW_DARK = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: 0x2a1824, transparent: true, opacity: 0.4, depthWrite: false }));
+    SHADOW_GLOW = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: new THREE.Color('#ff7020').multiplyScalar(0.5), transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false }));
     ICE_MAT = keep(rimify(vcMat({ roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.42, flatShading: true, emissive: 0x1a78c0, emissiveIntensity: 0.4, envMapIntensity: 1.8, depthWrite: false }), 0xbff0ff, 0.6, 2.2));
     initText();
     // pre-create a few pooled meshes and compile their shaders now (no hitch on first use)
-    const pre = { slash: 3, ring: 4, tele: 3, beam: 2, bolt: 2, shield: 1 };
+    const pre = { slash: 3, ring: 4, tele: 3, lane: 1, beam: 2, bolt: 2, shield: 1 };
     const made = [];
     for (const k in pre) for (let i = 0; i < pre[k]; i++) { const it = pools[k].make(); pools[k].items.push(it); made.push(it.obj); }
     for (const o of made) o.visible = true;
@@ -1647,8 +2012,13 @@ const FX = (() => {
     scene.add(g);
     try { renderer.compile(scene, camera); } catch (e) { /* ignore */ }
     scene.remove(g);
+    // An invisible lane telegraph rides along into the next real draw (GAME's warm-up render right after this call):
+    // ANGLE/Metal only builds the pipeline at the first draw, so the lava turtle's first roll does not hitch.
+    const it = acquire('lane', 6);
+    laneSet(it, CAM.target.x, CAM.target.z + 1, CAM.target.x, CAM.target.z - 1, 1.5, 0.3, null);
+    it.warm = true;
   }
-  const STEP = { slash: stepSlash, ring: stepRing, tele: stepTele, beam: stepBeam, bolt: stepBolt, shield: stepShield, ice: stepIce };
+  const STEP = { slash: stepSlash, ring: stepRing, tele: stepTele, lane: stepLane, beam: stepBeam, bolt: stepBolt, shield: stepShield, ice: stepIce };
   function update(dt) {
     if (!ready) return;
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
@@ -1680,8 +2050,9 @@ const FX = (() => {
   }
 
   return {
-    init, update, clear, warm, stats, burst, emit, slash, ring, telegraph, telegraphCone, beam, lightning, shield, iceBlock,
+    init, update, clear, warm, stats, burst, emit, slash, ring, telegraph, telegraphCone, telegraphLine, beam, lightning, shield, iceBlock,
     projectile, trail, floatText, shake, flash, lightFlash, shakeOffset, SHAPES: SH,
     get atlas() { return atlas; },
+    get textTop() { return txtTop; }, set textTop(v) { txtTop = v; },
   };
 })();

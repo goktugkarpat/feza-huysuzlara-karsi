@@ -1176,8 +1176,13 @@ const { FEZA, ITEMS } = (function () {
     m.stencilWrite = true; m.stencilRef = 1; m.stencilFunc = THREE.NotEqualStencilFunc;
     m.stencilZPass = THREE.ReplaceStencilOp; m.stencilFail = THREE.KeepStencilOp; m.stencilZFail = THREE.KeepStencilOp;
     if (patch) patch(m);
-    patchMat(m, { fDecl: '', fOut: `float fzX = 1.0 - abs(dot(normal, normalize(vViewPosition)));
-      outgoingLight = vec3(0.55, 0.82, 1.0) * (0.55 + 0.9 * fzX * fzX); diffuseColor.a = 0.34 + 0.4 * fzX * fzX;`, key: 'xray' });
+    // Two-tone so it reads on ANY occluder: a deep royal-blue fill (lighter towards the top) stands out on bright / turquoise
+    // things (Kral Jöle, lava, leaves), a cream rim that gently breathes stands out on dark ones (cave, basalt, castle walls).
+    patchMat(m, { uniforms: { fzXT: TIME.u }, fDecl: 'uniform float fzXT;', fOut: `float fzX = 1.0 - abs(dot(normal, normalize(vViewPosition)));
+      float fzRim = smoothstep(0.3, 0.8, fzX * fzX * (3.0 - 2.0 * fzX));
+      vec3 fzFill = mix(vec3(0.02, 0.05, 0.42), vec3(0.08, 0.2, 0.95), clamp(normal.y * 0.55 + 0.5, 0.0, 1.0));
+      outgoingLight = mix(fzFill, vec3(1.0, 0.94, 0.78) * (0.95 + 0.2 * sin(fzXT * 4.5)), fzRim);
+      diffuseColor.a = mix(0.72, 0.97, fzRim);`, key: 'xray' });
     return keep(m);
   }
   const xrayBase = () => XRAY || (XRAY = xrayMat(null));
@@ -1249,25 +1254,37 @@ const { FEZA, ITEMS } = (function () {
       for (const l of OFF.lights.children.slice()) { OFF.lights.remove(l); if (l.dispose) l.dispose(); }
       const add = l => { OFF.lights.add(l); return l; };
       const hemi = add(new THREE.HemisphereLight(0xeaf4ff, 0x8a6a55, h ? 1.1 : 0)); hemi.visible = h > 0;
+      // Shadowed lights stay shadowed (same shader programs as the game), but their shadow map is drawn only ONCE, now, while
+      // the mini scene is still empty, so it stays blank. Hero and item meshes don't receive shadows anyway (same pictures),
+      // but a shadow pass per card/portrait used to compile depth shaders mid-game (three.js picks the shared depth shader
+      // by draw order; cape cards lost their custom one in clone()) and cost an extra pass.
+      let shadowed = 0;
       for (let i = 0; i < d; i++) {
         const k = add(new THREE.DirectionalLight(0xfff2de, i === 0 ? 2.6 : 0)); k.position.set(-1.6, 3, 2.6); k.target.position.set(0, 0, 0); OFF.lights.add(k.target);
-        if (i < ds) { k.castShadow = true; k.shadow.mapSize.set(256, 256); const c = k.shadow.camera; c.left = c.bottom = -1; c.right = c.top = 1; c.near = 0.1; c.far = 10; k.shadow.bias = -0.002; }
+        if (i < ds) { k.castShadow = true; k.shadow.mapSize.set(16, 16); k.shadow.autoUpdate = false; k.shadow.needsUpdate = true; shadowed++; }
       }
       for (let i = 0; i < p; i++) { const l = add(new THREE.PointLight(0xbfe2ff, i === 0 ? 3.5 : 0, 8, 1.5)); l.position.set(1.8, 1.5, -1.6); }
       for (let i = 0; i < s; i++) add(new THREE.SpotLight(0xffffff, 0));
       if (!d) { const k = add(new THREE.DirectionalLight(0xfff2de, 2.6)); k.position.set(-1.6, 3, 2.6); }
       if (!p) { const l = add(new THREE.PointLight(0xbfe2ff, 3.5, 8, 1.5)); l.position.set(1.8, 1.5, -1.6); }
+      if (shadowed) {
+        const prevRT = renderer.getRenderTarget();
+        renderer.setRenderTarget(OFF.rt);
+        const sm = renderer.shadowMap, au = sm.autoUpdate; sm.autoUpdate = true;
+        try { renderer.render(OFF.scene, OFF.cam); } finally { sm.autoUpdate = au; renderer.setRenderTarget(prevRT); }
+      }
     }
     OFF.scene.fog = scene.fog ? (scene.fog.isFogExp2 ? new THREE.FogExp2(0, 0) : new THREE.Fog(0, 1e4, 2e4)) : null;
     OFF.scene.environment = scene.environment; OFF.scene.environmentIntensity = 1;
   }
+  if (typeof CTX_HOOKS !== 'undefined') CTX_HOOKS.push(() => { OFF.sig = ''; });   // WebGL context restored: rebuild the lights + blank shadow map
   // Render obj (already placed in OFF.scene) framed on the sphere (c, rad) viewed from dir; returns a canvas (256²).
   function offRender(c, rad, dir, fov) {
     const cam = OFF.cam; cam.fov = fov || 28; cam.updateProjectionMatrix();
     const dist = rad / Math.sin(cam.fov * Math.PI / 360);
     cam.position.copy(c).addScaledVector(dir.clone().normalize(), dist); cam.near = dist * 0.3; cam.far = dist * 3; cam.updateProjectionMatrix(); cam.lookAt(c);
     // keep the key light relative to the camera
-    for (const l of OFF.lights.children) if (l.isDirectionalLight && l.intensity > 0) { l.position.copy(c).add(v3(-1.4, 2.6, 1.2).applyQuaternion(cam.quaternion)); l.target.position.copy(c); l.target.updateMatrixWorld(); if (l.castShadow) { const sc = l.shadow.camera; sc.left = sc.bottom = -rad * 1.4; sc.right = sc.top = rad * 1.4; sc.updateProjectionMatrix(); } }
+    for (const l of OFF.lights.children) if (l.isDirectionalLight && l.intensity > 0) { l.position.copy(c).add(v3(-1.4, 2.6, 1.2).applyQuaternion(cam.quaternion)); l.target.position.copy(c); l.target.updateMatrixWorld(); }
       else if (l.isPointLight && l.intensity > 0) l.position.copy(c).add(v3(1.3, 0.9, -1.5).applyQuaternion(cam.quaternion).multiplyScalar(rad * 2.2));
     const prevRT = renderer.getRenderTarget(), prevCol = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha(), prevBg = OFF.scene.background;
     renderer.setRenderTarget(OFF.rt); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, true);

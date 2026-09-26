@@ -1,18 +1,23 @@
 /* ── Bölgeler ve seviye: seviye üretimi, görseller, çarpışma, yol bulma ──
-   ZONES: üç bölgenin tanımı. LEVEL.generate() saf veri üretir, LEVEL.build() sahneyi kurar (bkz. src/SPEC.md). */
+   ZONES: dört bölgenin tanımı (sıra = kayıttaki bölge numarası). Her bölgenin sonunda büyük bir bölüm sonu canavarı arenası var.
+   LEVEL.generate() saf veri üretir, LEVEL.build() sahneyi kurar (bkz. src/SPEC.md). */
 const ZONES = [
   { id: 'orman', ad: 'Huysuz Orman', theme: 'forest', line: 'orman', music: 'orman', size: 100, rooms: 8, side: 3,
-    enemies: { jole: 4, mantar: 2, yarasa: 2, goblin: 3 }, elites: ['jole', 'goblin'], hpMult: 1, dmgMult: 1, xpMult: 1, gold: 1, ilvl: 1 },
+    enemies: { jole: 4, mantar: 2, yarasa: 2, goblin: 3 }, elites: ['jole', 'goblin'], hpMult: 1, dmgMult: 1, xpMult: 1, gold: 1, ilvl: 1, boss: 'kraljole' },
   { id: 'magara', ad: 'Köstebek ve Salyangoz Mağarası', theme: 'cave', line: 'magara', music: 'magara', size: 100, rooms: 9, side: 3,
-    enemies: { kostebek: 4, salyangoz: 3, yarasa: 2, golem: 1 }, elites: ['kostebek', 'salyangoz'], hpMult: 1.8, dmgMult: 1.4, xpMult: 1.7, gold: 2, ilvl: 4 },
+    enemies: { kostebek: 4, salyangoz: 3, yarasa: 2, golem: 1 }, elites: ['kostebek', 'salyangoz'], hpMult: 1.8, dmgMult: 1.4, xpMult: 1.7, gold: 2, ilvl: 4, boss: 'kostebekusta' },
+  { id: 'yanardag', ad: 'Lav Yanardağı', theme: 'volcano', line: 'yanardag', music: 'yanardag', size: 100, rooms: 8, side: 3,
+    enemies: { jole: 3, kaplumbaga: 4, ateskusu: 3, atescik: 2, golem: 1 }, variants: { jole: ['lava'], golem: ['magma'] }, elites: ['kaplumbaga', 'ateskusu'],
+    hpMult: 2.3, dmgMult: 1.65, xpMult: 2.1, gold: 2.5, ilvl: 6, boss: 'lavkaplumbaga' },
   { id: 'kale', ad: 'Ejderhanın Kalesi', theme: 'castle', line: 'kale', music: 'kale', size: 104, rooms: 8, side: 2,
-    enemies: { asker: 4, atescik: 3, hayalet: 2, golem: 1 }, elites: ['asker', 'atescik'], hpMult: 2.8, dmgMult: 1.9, xpMult: 2.5, gold: 3, ilvl: 7, boss: 'ejderha' },
+    enemies: { asker: 4, atescik: 3, hayalet: 2, golem: 1 }, elites: ['asker', 'atescik'], hpMult: 2.8, dmgMult: 1.9, xpMult: 2.5, gold: 3, ilvl: 7, boss: 'ejderha', final: true },
 ];
 
 const LEVEL = (function () {
   'use strict';
   const BIG = ['golem'];                   // at most one of these per pack
   const MARGIN = { x: 16, n: 18, s: 15 };  // empty border (trees / rock / wall mass) around the playable area
+  const ARENA_R = 11.5;                    // boss arena radius (forest / cave / volcano; the castle keeps its 26×22 m hall)
   // Gameplay camera pitch, captured once at load (core has applied its default and any ?kam override by now). All occlusion
   // math uses it, never the live CAM.pitch the UI animates (title 0.32, victory 0.78), so a seed always builds the same level.
   const LV_PITCH = CAM.pitch || 0.86, LV_PK = 1 / Math.tan(LV_PITCH);   // floor distance hidden behind 1 m of height
@@ -65,7 +70,7 @@ const LEVEL = (function () {
   }
   const roomExt = rm => (rm.hw ? Math.max(rm.hw, rm.hh) : rm.r * 1.3);
 
-  // ── Layout: blobs (forest / cave) ──
+  // ── Layout: blobs (forest / cave / volcano). The last room is the round boss arena (radius 11.5 m, gently wobbly outline). ──
   function harmonics(amp) {
     return [[2, RNG.range(0.5, 1) * amp, RNG.range(0, TAU)], [3, RNG.range(0.4, 0.8) * amp, RNG.range(0, TAU)], [5, RNG.range(0.2, 0.5) * amp, RNG.range(0, TAU)]];
   }
@@ -92,17 +97,17 @@ const LEVEL = (function () {
     let side = RNG.chance(0.5) ? 1 : -1;
     for (let k = 1; k < N; k++) {
       const A = rooms[k - 1], last = k === N - 1;
-      const r = last ? 8.2 : RNG.range(6.4, 8.4);
-      const kind = last ? 'exit' : 'main';
+      const r = last ? ARENA_R : RNG.range(6.4, 8.4);
+      const kind = last ? 'boss' : 'main';
       let best = null;
       for (let t = 0; t < 80 && !best; t++) {
         const sd = t < 40 ? side : -side;
         const a = sd * RNG.range(0.62, 1.2), d = A.r + r + RNG.range(3.8, 6.2);
-        const c = { x: A.x + Math.sin(a) * d, z: A.z - Math.cos(a) * d, r, kind, hs: harmonics(0.11) };
+        const c = { x: A.x + Math.sin(a) * d, z: A.z - Math.cos(a) * d, r, kind, hs: harmonics(last ? 0.045 : 0.11) };
         if (Math.abs(c.x) > 22) continue;
         if (clear(c, k - 1)) best = c;
       }
-      if (!best) best = { x: A.x, z: A.z - (A.r + r + 6), r, kind, hs: harmonics(0.1) };
+      if (!best) best = { x: A.x, z: A.z - (A.r + r + 6), r, kind, hs: harmonics(last ? 0.045 : 0.1) };
       rooms.push(best);
       links.push({ a: k - 1, b: k, w: RNG.range(1.75, 2.05), bend: RNG.range(-2.6, 2.6), main: true });
       side = -side; if (RNG.chance(0.15)) side = -side;
@@ -284,7 +289,7 @@ const LEVEL = (function () {
         for (let j = rm.z - rm.hh; j < rm.z + rm.hh; j++) for (let i = rm.x - rm.hw; i < rm.x + rm.hw; i++) if (inb(i, j)) grid[idx(i, j)] = 1;
         continue;
       }
-      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : theme === 'cave' ? 1.0 : 0.7;
+      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : rm.kind === 'boss' ? 0.4 : theme === 'cave' ? 1.0 : theme === 'volcano' ? 0.8 : 0.7;
       for (let j = Math.floor(rm.z - e); j <= rm.z + e; j++) for (let i = Math.floor(rm.x - e); i <= rm.x + e; i++) {
         if (!inb(i, j)) continue;
         const x = i + 0.5, z = j + 0.5, dx = x - rm.x, dz = z - rm.z;
@@ -475,14 +480,19 @@ const LEVEL = (function () {
       for (const h of L.village.houses) taken.push({ x: h.x, z: h.z, r: Math.max(h.w, h.d) * 0.5 + 0.9 });
     }
 
-    // exit portal / boss
+    // boss (centre of the arena; the castle's dragon a little north of the hall's centre) · the castle's neşe kristali ·
+    // every other zone's exit portal at the arena's north edge (GAME wakes it up when the boss is cheered up)
+    L.bossType = Z.boss || null;
     if (Z.boss) {
-      L.boss = { x: last.x, z: last.z - 1 };
-      L.crystalSpot = { x: last.x, z: last.z - last.hh + 4.5 };
-      taken.push({ x: L.boss.x, z: L.boss.z, r: 5 }, { x: L.crystalSpot.x, z: L.crystalSpot.z, r: 3 });
+      L.boss = castle ? { x: last.x, z: last.z - 1 } : { x: last.x, z: last.z };
+      taken.push({ x: L.boss.x, z: L.boss.z, r: 5 });
+    }
+    if (Z.final) {
+      L.crystalSpot = { x: last.x, z: last.z - (last.hh || last.r) + 4.5 };
+      taken.push({ x: L.crystalSpot.x, z: L.crystalSpot.z, r: 3 });
     } else {
-      let pz = last.z - last.r * 0.5;
-      while (pz < last.z && dW(last.x, pz) < 3.2) pz += 0.5;
+      let pz = last.z - (last.hh || last.r) * (Z.boss ? 0.95 : 0.5);
+      while (pz < last.z - (Z.boss ? 3 : 0) && dW(last.x, pz) < 3.2) pz += 0.5;
       L.exit = { x: last.x, z: pz };
       taken.push({ x: L.exit.x, z: L.exit.z, r: 3 });
       addSolid(L.exit.x - 1.55, L.exit.z - 0.1, 0.5, 'portal'); addSolid(L.exit.x + 1.55, L.exit.z - 0.1, 0.5, 'portal');
@@ -495,19 +505,34 @@ const LEVEL = (function () {
     // village edge (zone 0): owl on a stump, well, lamps, houses north of the plaza
     if (zi === 0) buildVillageData(L, S, taken, addSolid, dW, clearOfPath);
 
-    // checkpoints
-    const cpRooms = castle ? [Math.round((N - 1) * 0.45), N - 2] : (N >= 8 ? [Math.round((N - 1) * 0.4), Math.round((N - 1) * 0.72)] : [Math.round((N - 1) * 0.5)]);
+    // checkpoints: one on the way — at the way INTO its room, so Feza lights it before he meets that room's pack (which waits on the
+    // far side, see packIn) — and one right before the boss arena (in the room before it, on the arena side; the castle too)
+    const cpRooms = castle ? [Math.round((N - 1) * 0.45), N - 2] : [...new Set([Math.round((N - 1) * 0.4), N - 2])].filter(k => k > 0 && k < N - 1);
+    const rsP = [];   // the route resampled every ≤ 0.8 m with its direction (the castle's path only has its corners)
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1], b = path[i], l = hyp(b.x - a.x, b.z - a.z) || 1, n = Math.max(1, Math.ceil(l / 0.8));
+      for (let k = i === 1 ? 0 : 1; k <= n; k++) rsP.push({ x: lerp(a.x, b.x, k / n), z: lerp(a.z, b.z, k / n), dx: (b.x - a.x) / l, dz: (b.z - a.z) / l });
+    }
+    // …and clear of the corners a walker cuts (chords 4 and 8 m long across the route's bends, e.g. the castle's right-angle turns)
+    const cutOK = (x, z) => {
+      for (let i = 0; i + 5 < rsP.length; i++) {
+        if (segDist(x, z, rsP[i].x, rsP[i].z, rsP[i + 5].x, rsP[i + 5].z) < 1.4) return false;
+        if (i + 10 < rsP.length && segDist(x, z, rsP[i].x, rsP[i].z, rsP[i + 10].x, rsP[i + 10].z) < 1.4) return false;
+      }
+      return true;
+    };
     for (const k of cpRooms) {
-      const rm = main[k];
+      const rm = main[k], pre = k === N - 2 && last.kind === 'boss';
       let p = null;
       // beside the main path (walking by lights it up) but never on it
-      const onP = path.filter(q => inRoom(rm, q.x, q.z, 1)).sort((a, b) => hyp(a.x - rm.x, a.z - rm.z) - hyp(b.x - rm.x, b.z - rm.z));
-      for (let t = 0; t < 40 && !p && onP.length; t++) {
-        const q = onP[Math.min(onP.length - 1, t >> 2)], qi = path.indexOf(q), q2 = path[Math.min(path.length - 1, qi + 1)], q1 = path[Math.max(0, qi - 1)];
-        const dx = q2.x - q1.x, dz = q2.z - q1.z, l = hyp(dx, dz) || 1, sd = t & 1 ? 1 : -1, o = RNG.range(1.5, 1.8);
-        const x = q.x - dz / l * o * sd, z = q.z + dx / l * o * sd;
-        if (dW(x, z) >= 2.2 && free(x, z, 2) && clearOfPath(x, z, 1.4, 3) && gapOK(x, z, 0.7)) p = { x, z };
+      const onP = rsP.filter(q => inRoom(rm, q.x, q.z, 1));
+      if (pre) onP.reverse();   // nearest the way out to the arena first (else nearest the way in)
+      for (let t = 0; t < 48 && !p && onP.length; t++) {
+        const q = onP[Math.min(onP.length - 1, t >> 2)], sd = t & 1 ? 1 : -1, o = RNG.range(1.5, 1.8);
+        const x = q.x - q.dz * o * sd, z = q.z + q.dx * o * sd;
+        if (dW(x, z) >= 2.2 && free(x, z, 2) && clearOfPath(x, z, 1.4, 3) && gapOK(x, z, 0.7) && cutOK(x, z)) p = { x, z };
       }
+      if (!p) p = spot(rm, 2.4, 2, 60, 99, (x, z) => clearOfPath(x, z, 1.4, 3) && gapOK(x, z, 0.7) && cutOK(x, z));
       if (!p) p = spot(rm, 2.4, 2, 60, 99, (x, z) => clearOfPath(x, z, 1.4, 3) && gapOK(x, z, 0.7));
       if (!p) continue;
       L.checkpoints.push(p); taken.push({ x: p.x, z: p.z, r: 3.2 });
@@ -609,24 +634,43 @@ const LEVEL = (function () {
     }
     for (const c of L.chests) addSolid(c.x, c.z, c.big ? 0.8 : 0.62, 'chest');
 
-    // enemy packs
+    // enemy packs — none within reach of a checkpoint's wake-up spot (cp.z + 1.6, where GAME puts Feza after a nap): creatures notice
+    // him at ~9 m, so a pack there would be on him the moment he wakes up. 12 m (the pack's centre 13.5 m, room for its members),
+    // else 10 m, else anywhere (a tiny room)
     const types = Z.enemies;
     let pack = 0;
+    const wake = L.checkpoints.map(c => ({ x: c.x, z: c.z + 1.6 }));
+    const cpD = (x, z) => { let d = 1e9; for (const w of wake) d = Math.min(d, hyp(w.x - x, w.z - z)); return d; };
+    const spill = [];   // members that found no spot away from a checkpoint
     const eliteRooms = [];
-    {
-      const a = clamp(Math.round((N - 1) * 0.45), 2, N - 2), b = Z.boss ? N - 2 : N - 1;
+    {   // not in the room right before the arena (its checkpoint): one room earlier; the castle's small halls can't keep a pack 12 m
+        // off their checkpoint, so its first elite also waits a room before the middle checkpoint
+      let a = clamp(Math.round((N - 1) * 0.45), 2, N - 2);
+      const b = Z.boss ? N - 3 : N - 1;
+      if (castle && cpRooms.includes(a) && a - 1 >= 2) a--;
       eliteRooms.push(a); if (b !== a) eliteRooms.push(b);
     }
     const packIn = (ri, n, elite) => {
       const rm = rooms[ri];
       const far = (x, z) => hyp(x - L.start.x, z - L.start.z) > 12;
-      let c = spot(rm, 2.6, 1.2, 60, 99, far) || spot(rm, 1.6, 0.8, 80, 99, far);
+      let c = null, memCp = 0;
+      for (const [cc, cm] of [[13.5, 12], [11, 10]]) {
+        const ok = (x, z) => far(x, z) && cpD(x, z) >= cc;
+        c = spot(rm, 2.6, 1.2, 60, 99, ok) || spot(rm, 1.6, 0.8, 80, 99, ok);
+        if (c) { memCp = cm; break; }
+      }
+      if (!c) {   // a small room with a checkpoint: the valid spot farthest from it; packmates that can't keep 9.6 m join other packs
+        let bd = -1;
+        for (let t = 0; t < 40; t++) { const q = spot(rm, 1.6, 0.8, 4, 99, far), d = q ? cpD(q.x, q.z) : -1; if (d > bd) { bd = d; c = q; } }
+        if (c) memCp = 9.6;
+      }
       if (!c) {   // small room next to the start: take the valid spot farthest from it
         let bd = -1;
         for (let t = 0; t < 40; t++) { const q = spot(rm, 1.2, 0.7, 4); if (q && hyp(q.x - L.start.x, q.z - L.start.z) > bd) { bd = hyp(q.x - L.start.x, q.z - L.start.z); c = q; } }
       }
       if (!c) return;
       pack++;
+      const nearCp = memCp > 0 && cpD(c.x, c.z) < memCp + 6;   // a pack kept off a checkpoint: its members get a little more room
       let bigs = 0;
       const list = [];
       for (let m = 0; m < n; m++) {
@@ -640,15 +684,17 @@ const LEVEL = (function () {
       list.forEach((t, m) => {
         const big = BIG.includes(t) || (elite && m === 0);
         let p = m === 0 && hyp(c.x - L.start.x, c.z - L.start.z) > 12 ? { x: c.x, z: c.z } : null;
-        for (let tr = 0; tr < 40 && !p; tr++) {
-          const a = RNG.range(0, TAU), d = RNG.range(1.3, 3.2);
+        for (let tr = 0; tr < (nearCp ? 80 : 40) && !p; tr++) {
+          const wide = tr >= 40, a = RNG.range(0, TAU), d = RNG.range(1.3, wide ? 4.4 : 3.2);
           const x = c.x + Math.cos(a) * d, z = c.z + Math.sin(a) * d;
-          if (dW(x, z) >= (big ? 2.2 : 1.5) && inRoom(rm, x, z, 0.8) && free(x, z, big ? 1.4 : 0.7) && hyp(x - L.start.x, z - L.start.z) > 12) p = { x, z };
+          if (dW(x, z) >= (big ? 2.2 : 1.5) && inRoom(rm, x, z, 0.8) && free(x, z, big ? 1.4 : 0.7) && hyp(x - L.start.x, z - L.start.z) > 12 && cpD(x, z) >= (wide ? Math.min(memCp, 9.6) : memCp)) p = { x, z };
         }
-        if (!p) return;
+        if (!p) { if (nearCp && !big && m > 0) spill.push(t); return; }   // no room away from the checkpoint: it joins another pack
         const el = !!elite && !eliteDone && (m === 0 || t === list[0] || m === list.length - 1);
         if (el) eliteDone = true;
-        L.spawns.push({ type: el ? list[0] : t, x: p.x, z: p.z, elite: el, pack, room: ri });
+        const sp = { type: el ? list[0] : t, x: p.x, z: p.z, elite: el, pack, room: ri }, vs = Z.variants && Z.variants[sp.type];
+        if (vs && vs.length) sp.variant = RNG.pick(vs);   // e.g. the volcano's lava jellies (GAME passes it to EMODEL.build)
+        L.spawns.push(sp);
         taken.push({ x: p.x, z: p.z, r: big ? 1.5 : 0.8 });
       });
     };
@@ -658,10 +704,33 @@ const LEVEL = (function () {
       packIn(k, n, eliteRooms.includes(k));
     }
     rooms.forEach((rm, ri) => { if (rm.kind === 'side' && RNG.chance(0.6)) packIn(ri, RNG.int(2, 3), false); });
-    ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12);
+    if (spill.length) {   // …so the level keeps its creatures: they join the packs of main rooms far from any checkpoint (smallest first, ≤ 7)
+      const groups = {};
+      for (const sp of L.spawns) if (sp.room >= 2 && sp.room < N - 1) (groups[sp.pack] || (groups[sp.pack] = [])).push(sp);
+      const hosts = Object.values(groups).filter(g => g.every(q => cpD(q.x, q.z) >= 12));
+      for (const t of spill) {
+        hosts.sort((a, b) => a.length - b.length);
+        for (const g of hosts) {
+          if (g.length >= 7) break;
+          const cx = g.reduce((a, q) => a + q.x, 0) / g.length, cz = g.reduce((a, q) => a + q.z, 0) / g.length, rm = rooms[g[0].room];
+          let p = null;
+          for (let tr = 0; tr < 40 && !p; tr++) {
+            const a = RNG.range(0, TAU), d = RNG.range(1.3, 3.8), x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d;
+            if (dW(x, z) >= 1.5 && inRoom(rm, x, z, 0.8) && free(x, z, 0.7) && hyp(x - L.start.x, z - L.start.z) > 12 && cpD(x, z) >= 12) p = { x, z };
+          }
+          if (!p) continue;
+          const sp = { type: t, x: p.x, z: p.z, elite: false, pack: g[0].pack, room: g[0].room }, vs = Z.variants && Z.variants[t];
+          if (vs && vs.length) sp.variant = RNG.pick(vs);
+          L.spawns.push(sp); g.push(sp);
+          taken.push({ x: p.x, z: p.z, r: 0.8 });
+          break;
+        }
+      }
+    }
+    if (!ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12 && cpD(x, z) >= 10)) ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12);
 
     // breakables: small clusters against the walls
-    const kindsBy = { forest: ['barrel', 'crate', 'vase'], cave: ['crate', 'barrel', 'vase'], castle: ['vase', 'vase', 'barrel', 'crate'] }[L.theme];
+    const kindsBy = { forest: ['barrel', 'crate', 'vase'], cave: ['crate', 'barrel', 'vase'], volcano: ['vase', 'crate', 'barrel'], castle: ['vase', 'vase', 'barrel', 'crate'] }[L.theme] || ['barrel', 'crate', 'vase'];
     rooms.forEach((rm, ri) => {
       if (rm.kind === 'boss') return;
       const nCl = rm.kind === 'start' ? (zi === 0 ? 1 : 0) : rm.kind === 'side' ? 1 : RNG.int(1, 2);
@@ -684,8 +753,8 @@ const LEVEL = (function () {
     });
     for (const b of L.breakables) b.solid = addSolid(b.x, b.z, b.kind === 'crate' ? 0.45 : 0.4, 'break');
 
-    // torches on north walls (cave / castle)
-    if (L.theme !== 'forest') {
+    // torches on north walls (cave / castle; the volcano's light comes from its lava)
+    if (L.theme === 'cave' || castle) {
       const nearT = (x, z, d) => L.torches.some(t => hyp(t.x - x, t.z - z) < d);
       if (castle) {
         const rowTorches = (xa, xb, jw) => {   // jw = wall row, floor at jw+1
@@ -734,8 +803,10 @@ const LEVEL = (function () {
     const mateOf = s => packs[s.pack].length <= 4 ? null : packs[s.pack].filter(o => o !== s).sort((a, b) => hyp(a.x - s.x, a.z - s.z) - hyp(b.x - s.x, b.z - s.z))[0] || null;
     const roomy = (s, t, tm, x, z) => dW(x, z) >= 2.2 && gridFree(L, x, z, 1.1) && inRoom(L.rooms[s.room], x, z, 0.8) && farOK(x, z) &&
       taken.every(q => q === t || q === tm || hyp(q.x - x, q.z - z) >= q.r + 1.4);
+    const vs = L.Z.variants && L.Z.variants[big];
     const make = (s, t, m, tm, x, z) => {
       s.type = big; s.x = x; s.z = z;
+      if (vs && vs.length) s.variant = vs[L.spawns.indexOf(s) % vs.length]; else delete s.variant;
       if (t) { t.x = x; t.z = z; t.r = 1.5; } else taken.push({ x, z, r: 1.5 });
       if (m) { L.spawns.splice(L.spawns.indexOf(m), 1); if (tm) taken.splice(taken.indexOf(tm), 1); }
       return true;
@@ -1521,11 +1592,105 @@ const LEVEL = (function () {
     forest: { a: 'grass', b: 'dirt', c: 'cobble', tA: 0xdce6c8, tB: 0xf2e6da, tC: 0xf6ecdc, rough: [0.92, 0.96, 0.82], crispB: 0, crispC: 0, ao: 0.62, border: 0, out: 0x1e3a18, outAmt: 0.45, anti: 1, macro: 0xffe890 },
     cave: { a: 'caveFloor', b: 'caveSand', c: 'moss', lumC: 1.05, cScale: 1.6, tA: 0xb6b2c6, tB: 0xc8bec8, tC: 0x2a7a80, rough: [0.55, 0.95, 0.9], crispB: 0, crispC: 0, ao: 0.75, border: 0, out: 0x04050a, outAmt: 0.92, anti: 1, macro: 0x9cc0ff, speck: [0x7affe0, 2.6] },
     castle: { a: 'castleFloor', b: 'carpet', c: 'carpet', lumC: 1.5, tA: 0xe2dcf0, tB: 0xffffff, tC: 0x2e9aa4, tA2: 0xf8e4c8, tC2: 0xc8303e, rough: [0.3, 0.95, 0.95], crispB: 1, crispC: 1, ao: 0.62, border: 1, out: 0x2c2248, outAmt: 1, anti: 0, macro: 0xffffff },
+    // basalt slabs, an ash path, paved bridges / checkpoint discs; the lava itself is drawn by the same floor shader (uLava)
+    volcano: { a: 'basalt', b: 'ash', c: 'cobble', lumC: 1.1, tA: 0xf2f0f2, tB: 0xfff6ee, tC: 0xb8a498, rough: [0.8, 0.96, 0.82], crispB: 0, crispC: 0, ao: 0.62, border: 0, out: 0x5a3a2c, outAmt: 0.58, anti: 0, macro: 0xfff0e4, lava: 1 },   // out: warm mid-brown (bright volcano, no black holes)
   };
+  // ── Volcano ground: which non-walkable ground is lava (at the floor mask's 4 px/m) ──
+  // Lava fills most of the ground next to the floor — always on the camera side, where it is flat and hides nothing — and the rest
+  // is basalt ground with rocks (more of it far away and behind the rooms). The shore keeps 0.26–0.94 m outside the walkable cells,
+  // so Feza never looks like he stands in it. The boss arena is ringed by a lava moat with basalt cliffs behind it (north). Where a
+  // corridor runs with lava on both sides it becomes a paved stone bridge (L._volc.bridges; deck in the floor mask, parapets in build).
+  function volcanoField(L) {
+    const P = MPX, W = L.W, H = L.H, MW = W * P, MH = H * P, n = MW * MH, grid = L.grid, seed = (L.seed & 0xffff) + 31;
+    const fl = new Uint8Array(n);
+    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * W, o = py * MW; for (let px = 0; px < MW; px++) fl[o + px] = grid[row + ((px / P) | 0)]; }
+    const D = chamfer(MW, MH, fl, 1);   // mask pixels to the nearest floor pixel
+    const up = new Float32Array(W * H), dn = new Float32Array(W * H);   // metres to floor straight north (camera side) / south (behind a room)
+    for (let i = 0; i < W; i++) {
+      let lf = -99; for (let j = 0; j < H; j++) { if (grid[j * W + i]) lf = j; up[j * W + i] = j - lf; }
+      lf = 1e9; for (let j = H - 1; j >= 0; j--) { if (grid[j * W + i]) lf = j; dn[j * W + i] = lf - j; }
+    }
+    const ar = L.rooms.find(r => r.kind === 'boss' && !r.hw);
+    let dA = null;
+    if (ar) { const src = new Uint8Array(W * H); for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) src[j * W + i] = grid[j * W + i] && inRoom(ar, i + 0.5, j + 0.5, -1.5) ? 1 : 0; dA = chamfer(W, H, src, 1); }
+    // The per-cell fields are sampled bilinearly (and up/dn through a gentle noise warp), then the rock factor is blurred ~0.75 m, so
+    // the lava / basalt borders curve naturally instead of following the 1 m cell lines (straight strips, right-angled pockets).
+    const Uc = new Float32Array(W * H), Dc = new Float32Array(W * H), Ac = dA ? new Float32Array(W * H) : null;
+    for (let c = 0; c < W * H; c++) {   // camera side reaches round a floor edge sideways too, fading with the sideways distance
+      const i = c % W;
+      let u = Math.min(20, up[c]);
+      for (let di = 1; di <= 4; di++) { if (i - di >= 0) u = Math.min(u, up[c - di] + 1.6 * di); if (i + di < W) u = Math.min(u, up[c + di] + 1.6 * di); }
+      Uc[c] = u;
+      Dc[c] = Math.min(20, dn[c]);
+      if (Ac) Ac[c] = Math.min(30, dA[c]);
+    }
+    const bil = (F, x, z) => {
+      const fx = clamp(x - 0.5, 0, W - 1.001), fz = clamp(z - 0.5, 0, H - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, k = j * W + i;
+      return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + W] * (1 - tx) + F[k + W + 1] * tx) * tz;
+    };
+    const rkF = new Float32Array(n), nfF = new Float32Array(n);
+    for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+      const k = py * MW + px;
+      if (fl[k]) continue;
+      const x = (px + 0.5) / P, z = (py + 0.5) / P, d = D[k] / P;
+      let rk = vnoise(x / 7.5, z / 7.5, seed + 1) * 0.75 + vnoise(x / 2.6, z / 2.6, seed + 2) * 0.22 + Math.max(0, d - 4) * 0.13 - 0.04;
+      const wa = 1.1 * smooth01((d - 0.4) / 1.6), wx = x + vnoise(x / 2.3, z / 2.3, seed + 5) * wa, wz = z + vnoise(x / 2.3, z / 2.3, seed + 6) * wa;   // no warp at the shore (floor cells read as u = dn = 0)
+      const u = bil(Uc, wx, wz), cam = 1 - smooth01((u - 6.25) / 1.5);
+      rk -= 0.5 * Math.max(0, 1 - u / 9) * cam;                                          // camera side: lava
+      rk += 0.3 * (1 - cam) * (1 - smooth01((bil(Dc, wx, wz) - 5.75) / 1.5));            // behind a room: rocky shore, cliffs
+      if (Ac) {   // moat · cliffs north of the arena
+        const a = bil(Ac, x, z), cl = (1 - smooth01((a - 9.5) / 1.0)) * smooth01((ar.z - 3 - z) / 2 + 0.5), moat = 1 - smooth01((a - 4.7) / 1.0);
+        rk += Math.max(0, 0.6 - rk) * cl;
+        rk = rk * (1 - moat) - moat;
+      }
+      rkF[k] = rk; nfF[k] = 1;
+    }
+    const rkB = boxBlur(rkF, MW, MH, 3), nfB = boxBlur(nfF, MW, MH, 3);   // normalised: walkable floor pixels don't pull the average
+    const raw = new Float32Array(n);
+    for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+      const k = py * MW + px;
+      if (fl[k]) continue;
+      const x = (px + 0.5) / P, z = (py + 0.5) / P, d = D[k] / P;
+      const off = 0.6 + 0.22 * vnoise(x / 2.6, z / 2.6, seed) + 0.12 * vnoise(x / 1.1, z / 1.1, seed + 7);   // a wavy shore, 0.26–0.94 m off the walkable cells
+      const rock = smooth01((rkB[k] / Math.max(1e-3, nfB[k]) - 0.14) / 0.16 + 0.5);
+      raw[k] = smooth01((d - off) / 0.22 + 0.5) * (1 - rock);
+    }
+    const lava = boxBlur(raw, MW, MH, 1);
+    for (let k = 0; k < n; k++) if (fl[k]) lava[k] = 0;   // never on walkable floor, even blurred
+    const V = L._volc = { lava, MW, MH, P, dA, arena: ar || null, bridges: [] };
+    // bridges: corridor stretches (outside both rooms) with lava close on both sides
+    const lavaAt = (x, z) => lava[clamp(Math.floor(z * P), 0, MH - 1) * MW + clamp(Math.floor(x * P), 0, MW - 1)];
+    const edge = (x, z, nx, nz) => { for (let d = 0; d < 4.5; d += 0.1) if (!isFloor(L, x + nx * d, z + nz * d)) return d; return 9; };
+    for (const l of L.links) {
+      const c = l.curve;
+      if (!c) continue;
+      const A = L.rooms[l.a], B = L.rooms[l.b];
+      let run = null, gap = 0;
+      const flush = () => { if (run && run.pts.length >= 4) V.bridges.push(run); run = null; gap = 0; };
+      for (let s = 0; s < c.length; s += 2) {
+        const x = c[s][0], z = c[s][1], a = c[Math.max(0, s - 2)], b = c[Math.min(c.length - 1, s + 2)];
+        const dx = b[0] - a[0], dz = b[1] - a[1], ll = hyp(dx, dz) || 1, nx = -dz / ll, nz = dx / ll;
+        let ok = !inRoom(A, x, z, -0.8) && !inRoom(B, x, z, -0.8) && isFloor(L, x, z), e1 = 0, e2 = 0;
+        if (ok) {
+          e1 = edge(x, z, nx, nz); e2 = edge(x, z, -nx, -nz);
+          ok = e1 < 4 && e2 < 4 && lavaAt(x + nx * (e1 + 1.1), z + nz * (e1 + 1.1)) > 0.5 && lavaAt(x - nx * (e2 + 1.1), z - nz * (e2 + 1.1)) > 0.5;
+        }
+        if (ok) { if (!run) run = { pts: [], main: !!l.main }; if (gap) run.pts.push(...run.hold); run.hold = []; gap = 0; run.pts.push({ x, z, nx, nz, e1, e2 }); }
+        else if (run && gap < 2 && isFloor(L, x, z)) { gap++; run.hold.push({ x, z, nx, nz, e1: Math.min(edge(x, z, nx, nz), 4), e2: Math.min(edge(x, z, -nx, -nz), 4) }); }   // bridge a short break
+        else flush();
+      }
+      flush();
+    }
+    for (const b of V.bridges) for (let it = 0; it < 2; it++) {   // smooth the edge distances (cell staircase) so the parapets run in a line
+      const e1 = b.pts.map(q => q.e1), e2 = b.pts.map(q => q.e2), n = b.pts.length;
+      for (let i = 0; i < n; i++) { const a = Math.max(0, i - 1), c = Math.min(n - 1, i + 1); b.pts[i].e1 = (e1[a] + e1[i] * 2 + e1[c]) / 4; b.pts[i].e2 = (e2[a] + e2[i] * 2 + e2[c]) / 4; }
+    }
+    return V;
+  }
   function buildMask(L) {
-    const P = MPX, MW = L.W * P, MH = L.H * P, n = MW * MH, seed = L.seed & 0xffff;
+    const P = MPX, MW = L.W * P, MH = L.H * P, n = MW * MH, seed = L.seed & 0xffff, VL = L._volc && L._volc.lava;
     const wall = new Float32Array(n);
-    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) wall[o + px] = L.grid[row + ((px / P) | 0)] ? 0 : 1; }
+    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) wall[o + px] = L.grid[row + ((px / P) | 0)] ? 0 : VL ? 1 - VL[o + px] : 1; }   // volcano: lava is no wall (no AO, no dark ground)
     let g = boxBlur(wall, MW, MH, 3); g = boxBlur(g, MW, MH, 2);
     let a = boxBlur(g, MW, MH, 7); a = boxBlur(a, MW, MH, 7);
     const Rm = new Float32Array(n), Bm = new Float32Array(n);
@@ -1565,7 +1730,7 @@ const LEVEL = (function () {
         const x = px / P, z = py / P, k = py * MW + px;
         Bm[k] = clamp(0.5 + (vnoise(x / 4.5, z / 4.5, seed + 3) * 0.7 + vnoise(x / 1.7, z / 1.7, seed + 4) * 0.3 - 0.45) * 1.5 + g[k] * 1.1 - 0.2, 0, 1);
       }
-    } else {
+    } else if (L.theme === 'castle') {
       const p = L.path.slice();
       if (L.crystalSpot) p.push({ x: L.crystalSpot.x, z: L.crystalSpot.z + 2.6 });
       band(p, 1.25, 0.8, Rm, 0);
@@ -1580,6 +1745,19 @@ const LEVEL = (function () {
       }
       if (L.crystalSpot) disc(L.crystalSpot.x, L.crystalSpot.z, 3.3, 0.8, Bm, 0);
       if (L.boss) disc(L.boss.x, L.boss.z + 3.2, 3.6, 0.8, Bm, 0);
+    }
+    if (L.theme === 'volcano') {
+      band(L.path, 1.2, 1.5, Rm, 0.5);
+      for (const l of L.links) if (!l.main) band(curvePts(l), 0.8, 1.2, Rm, 0.35);
+      for (const c of L.checkpoints) disc(c.x, c.z, 2.1, 1.0, Bm, 0.45);
+      if (L.exit) disc(L.exit.x, L.exit.z + 0.6, 2.6, 1.1, Bm, 0.45);
+      for (const b of (L._volc && L._volc.bridges) || []) for (let i = 1; i < b.pts.length; i++) {   // paved bridge decks, wall to wall
+        const p0 = b.pts[i - 1], p1 = b.pts[i];
+        band([p0, p1], Math.max(p0.e1, p0.e2, p1.e1, p1.e2) + 0.25, 0.6, Bm, 0.12);
+      }
+      const ar = L._volc && L._volc.arena;
+      if (ar) disc(ar.x, ar.z, 3.3, 0.9, Bm, 0.35);   // the arena island: a round paved dais in the middle where the boss waits
+      if (ar && L.exit) band([{ x: ar.x, z: ar.z }, { x: L.exit.x, z: L.exit.z + 0.6 }], 1.35, 0.9, Bm, 0.3);   // …and a paved walk from it to the portal
     }
     const D = new Uint8Array(n * 4);
     for (let k = 0; k < n; k++) { D[k * 4] = Rm[k] * 255; D[k * 4 + 1] = g[k] * 255; D[k * 4 + 2] = Bm[k] * 255; D[k * 4 + 3] = a[k] * 255; }
@@ -1611,28 +1789,34 @@ const LEVEL = (function () {
   function buildGlowTex(L, B) {
     const m = R.mat['floor-' + L.theme];
     if (!m) return;
-    const styled = L.rooms.filter(r => r.style === 0);
-    if (!B.glows.length && !styled.length) { m.userData.u.tGlow.value = blackTex(); return; }
-    const GW = L.W * GPX, GH = L.H * GPX, acc = new Float32Array(GW * GH * 3);
+    const styled = L.rooms.filter(r => r.style === 0), V = L._volc;
+    if (!B.glows.length && !styled.length && !V) { m.userData.u.tGlow.value = blackTex(); return; }
+    const gp = V ? V.P : GPX, GW = L.W * gp, GH = L.H * gp, acc = new Float32Array(GW * GH * 3);   // volcano: 4 px/m (alpha carries the lava)
     for (const g of B.glows) {
       const rx = g.r * g.sx, rz = g.r * g.sz;
-      const x0 = Math.max(0, Math.floor((g.x - rx) * GPX)), x1 = Math.min(GW - 1, Math.ceil((g.x + rx) * GPX));
-      const y0 = Math.max(0, Math.floor((g.z - rz) * GPX)), y1 = Math.min(GH - 1, Math.ceil((g.z + rz) * GPX));
+      const x0 = Math.max(0, Math.floor((g.x - rx) * gp)), x1 = Math.min(GW - 1, Math.ceil((g.x + rx) * gp));
+      const y0 = Math.max(0, Math.floor((g.z - rz) * gp)), y1 = Math.min(GH - 1, Math.ceil((g.z + rz) * gp));
       const cr = g.c.r * g.k, cg = g.c.g * g.k, cb = g.c.b * g.k;
       for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
-        const dx = ((px + 0.5) / GPX - g.x) / rx, dz = ((py + 0.5) / GPX - g.z) / rz, d2 = dx * dx + dz * dz;
+        const dx = ((px + 0.5) / gp - g.x) / rx, dz = ((py + 0.5) / gp - g.z) / rz, d2 = dx * dx + dz * dz;
         if (d2 >= 1) continue;
         const f = (1 - d2) * (1 - d2), o = (py * GW + px) * 3;
         acc[o] += cr * f; acc[o + 1] += cg * f; acc[o + 2] += cb * f;
       }
     }
+    if (V) {   // the lava's warm light on the floor next to it: a soft orange band along every shore
+      let bl = boxBlur(V.lava, GW, GH, 4); bl = boxBlur(bl, GW, GH, 3);
+      const c = lin(0xff8a3c), k = 0.4;
+      for (let i = 0, n = GW * GH; i < n; i++) { const f = bl[i] * k; acc[i * 3] += c.r * f; acc[i * 3 + 1] += c.g * f; acc[i * 3 + 2] += c.b * f; }
+    }
     const D = new Uint8Array(GW * GH * 4), sc = 255 / GLOW_K;
     for (let i = 0, n = GW * GH; i < n; i++) {
-      D[i * 4] = Math.min(255, acc[i * 3] * sc); D[i * 4 + 1] = Math.min(255, acc[i * 3 + 1] * sc); D[i * 4 + 2] = Math.min(255, acc[i * 3 + 2] * sc); D[i * 4 + 3] = 255;
+      D[i * 4] = Math.min(255, acc[i * 3] * sc); D[i * 4 + 1] = Math.min(255, acc[i * 3 + 1] * sc); D[i * 4 + 2] = Math.min(255, acc[i * 3 + 2] * sc);
+      D[i * 4 + 3] = V ? 255 - Math.round(clamp(V.lava[i], 0, 1) * 255) : 255;
     }
     for (const rm of styled) {   // alpha = room style (rectangular castle rooms, reaching a little under the walls)
-      const x0 = Math.max(0, Math.floor((rm.x - rm.hw - 0.25) * GPX)), x1 = Math.min(GW - 1, Math.ceil((rm.x + rm.hw + 0.25) * GPX) - 1);
-      const y0 = Math.max(0, Math.floor((rm.z - rm.hh - 0.25) * GPX)), y1 = Math.min(GH - 1, Math.ceil((rm.z + rm.hh + 0.25) * GPX) - 1);
+      const x0 = Math.max(0, Math.floor((rm.x - rm.hw - 0.25) * gp)), x1 = Math.min(GW - 1, Math.ceil((rm.x + rm.hw + 0.25) * gp) - 1);
+      const y0 = Math.max(0, Math.floor((rm.z - rm.hh - 0.25) * gp)), y1 = Math.min(GH - 1, Math.ceil((rm.z + rm.hh + 0.25) * gp) - 1);
       for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) D[(py * GW + px) * 4 + 3] = 0;
     }
     const t = new THREE.DataTexture(D, GW, GH, THREE.RGBAFormat, THREE.UnsignedByteType);
@@ -1656,14 +1840,18 @@ const LEVEL = (function () {
         uMode: { value: new THREE.Vector4(th.crispB, th.crispC, th.ao, th.border) }, uOut: { value: new THREE.Vector4(oc.r, oc.g, oc.b, th.outAmt) },
         uTrim: { value: lin(0xffcf5a, 0.9) }, uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 },
         tGlow: { value: blackTex() }, uTime: TIME.u, uSpeck: { value: th.speck ? lin(th.speck[0], th.speck[1]) : new THREE.Color(0, 0, 0) },
+        // lava (volcano): TEX.lava scrolled + wobbled; tGlow.a = 1 - lava there. x on · y 1/tile · z shore rim · w emissive gain
+        tLava: { value: th.lava ? surf('lava').map : blackTex() },
+        uLava: { value: new THREE.Vector4(th.lava ? 1 : 0, 1 / (th.lava ? tM('lava') : 6), 0.55, 1) },
+        uLavaT: { value: th.lava && !(texOK() && TEX.lava) ? lin(0xff8a30) : new THREE.Color(1, 1, 1) },
     };
     lvShade(m, {
       key: 'floor',
       uniforms: U,
       vDecl: 'varying vec3 vLvW;',
       vBegin: 'vLvW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
-      fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow; uniform vec4 uSc, uMode, uOut; uniform vec2 uMaskInv;
-        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck; uniform float uLumC, uTime; varying vec3 vLvW;
+      fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow, tLava; uniform vec4 uSc, uMode, uOut, uLava; uniform vec2 uMaskInv;
+        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT; uniform float uLumC, uTime; varying vec3 vLvW;
         ${GLSL_NOISE}
         float lvHB(float h1, float h2, float t) {   // height-aware blend weight of layer 2
           t = clamp(t, 0.0, 1.0);
@@ -1709,6 +1897,23 @@ const LEVEL = (function () {
           lvCol = mix(lvCol, uTrim, ln * 0.85); lvTrim = max(lvTrim, ln);
         }
         lvCol = mix(lvCol, uOut.rgb, smoothstep(0.25, 0.95, lvM.a) * uOut.a);
+        float lvLv = 0.0; vec3 lvLvE = vec3(0.0);
+        if (uLava.x > 0.5) {   // volcano: molten lava wherever the baked lava mask says so (never on walkable floor)
+          lvLv = 1.0 - lvGs.a;
+          if (lvLv > 0.002) {
+            // TEX.lava (brightness = heat) in two drifting layers wobbled by the noise; brightness² → emission: the molten rivers
+            // glow and bloom, the crust plates stay warm red. Lava is (almost) unlit.
+            float lt = uTime;
+            vec4 lz = texture2D(tNoise, lvXZ * 0.045 + vec2(lt * 0.006, lt * 0.004));
+            vec2 lu = lvU * uLava.y + (lz.rg - 0.5) * 0.16 + vec2(0.0, lt * 0.035);
+            vec3 l1 = texture2D(tLava, lu).rgb, l2 = texture2D(tLava, mat2(0.8, 0.6, -0.6, 0.8) * lu * 0.71 + vec2(0.31, 0.57) - vec2(lt * 0.018, 0.0)).rgb;
+            vec3 lc = max(l1, l2 * 0.92) * uLavaT;
+            float lh = dot(lc, vec3(0.45, 0.45, 0.1));
+            float lsh = smoothstep(0.0, 0.22, lvLv) * (1.0 - smoothstep(0.3, 0.85, lvLv));                  // hot rim along the shore
+            lvLvE = (lc * (0.62 + 1.7 * lh * lh) * (0.94 + 0.12 * sin(lt * 1.3 + lz.b * 6.0)) + vec3(1.0, 0.42, 0.08) * lsh * uLava.z) * uLava.w;
+            lvCol = mix(lvCol, lc * 0.06, lvLv);
+          }
+        }
         diffuseColor.rgb = lvCol;
         float lvSp = 0.0;
         if (uSpeck.r + uSpeck.g + uSpeck.b > 0.0) {   // bioluminescent specks in the moss (cave)
@@ -1717,14 +1922,15 @@ const LEVEL = (function () {
           lvSp = smoothstep(0.1, 0.02, length(so)) * step(0.55, h) * wC * (1.0 - smoothstep(0.25, 0.8, lvM.a)) * (0.55 + 0.45 * sin(uTime * 1.7 + h * 40.0));
         }`,
       fNormal: `vec3 lvNt = normalize(mix(mix(nAu, nB.xyz * 2.0 - 1.0, wB), nC.xyz * 2.0 - 1.0, wC));
+        lvNt = normalize(mix(lvNt, vec3(0.0, 0.0, 1.0), lvLv));
         vec3 lvWn = normalize(vec3(lvNt.x, lvNt.z, -lvNt.y));
         normal = normalize((viewMatrix * vec4(lvWn, 0.0)).xyz);
-        roughnessFactor = mix(mix(mix(uRough.x, uRough.y, wB), uRough.z, wC), 0.3, lvTrim);
+        roughnessFactor = mix(mix(mix(mix(uRough.x, uRough.y, wB), uRough.z, wC), 0.3, lvTrim), 0.8, lvLv);
         metalnessFactor = lvTrim * 0.9;`,
       fAO: 'reflectedLight.indirectDiffuse *= lvAOv; reflectedLight.indirectSpecular *= lvAOv * lvAOv;',
       // baked coloured light pools (crystals, torches, lamps, stained glass) with a gentle shimmer
       fOut: `vec3 lvGl = lvGs.rgb * ${GLOW_K.toFixed(1)};
-        outgoingLight += lvGl * (diffuseColor.rgb + 0.07) * (0.86 + 0.14 * sin(uTime * 1.9 + vLvW.x * 0.41 + vLvW.z * 0.53)) + uSpeck * lvSp;`,
+        outgoingLight += lvGl * (diffuseColor.rgb + 0.07) * (0.86 + 0.14 * sin(uTime * 1.9 + vLvW.x * 0.41 + vLvW.z * 0.53)) + uSpeck * lvSp + lvLvE * lvLv;`,
     });
     return (R.mat[key] = keep(m));
   }
@@ -1734,7 +1940,8 @@ const LEVEL = (function () {
     if (typeof document === 'undefined') return;
     const c = document.createElement('canvas'); c.width = L.W; c.height = L.H;
     const g = c.getContext('2d'), id = g.createImageData(L.W, L.H), M = L._mask;
-    const pal = { forest: [[112, 178, 86], [206, 164, 110], [196, 190, 176]], cave: [[98, 112, 150], [176, 160, 132], [90, 170, 160]], castle: [[168, 156, 196], [196, 52, 64], [140, 100, 200]] }[L.theme];
+    const pal = { forest: [[112, 178, 86], [206, 164, 110], [196, 190, 176]], cave: [[98, 112, 150], [176, 160, 132], [90, 170, 160]], castle: [[168, 156, 196], [196, 52, 64], [140, 100, 200]],
+      volcano: [[132, 112, 104], [214, 186, 156], [186, 160, 140]] }[L.theme] || [[150, 150, 150], [200, 180, 150], [180, 180, 180]];
     for (let j = 0; j < L.H; j++) for (let i = 0; i < L.W; i++) {
       if (!L.grid[j * L.W + i]) continue;
       const k = ((j * MPX + 2) * M.W + i * MPX + 2) * 4, pr = M.data[k] / 255, pb = M.data[k + 2] / 255, ao = M.data[k + 1] / 255;
@@ -1755,6 +1962,9 @@ const LEVEL = (function () {
       env: [0x3a4a7a, 0x252a44, 0x10101a, 0.45], bloom: 0.9, exposure: 1.15, fezaLight: 6, fezaLightColor: 0xffd9a0, sat: 1.12 },
     castle: { moss: [0x6a8a5a, 0], rim: [0xe0d0ff, 0.08], fog: [0x2a2046, 26, 64], hemiSky: 0xc4b2ff, hemiGround: 0x3a2848, hemi: 0.62, sunColor: 0xffd8bc, sun: 1.6, sunOffset: [-11, 26, 13],
       env: [0x7a68b8, 0xe0c0d8, 0x2a2038, 0.75], bloom: 0.72, exposure: 1.05, fezaLight: 1.1, fezaLightColor: 0xffc890, sat: 1.1 },
+    // bright, warm and cheerful: a peach sky-fog, a strong warm sun, orange bounce light from the lava
+    volcano: { moss: [0xc8b8a8, 0], rim: [0xffb888, 0.15], fog: [0xf2ac84, 30, 78], hemiSky: 0xfff0e6, hemiGround: 0x6a3a2c, hemi: 0.85, sunColor: 0xfff2e4, sun: 2.3, sunOffset: [-12, 26, 14],
+      env: [0xffe0cc, 0xffbc98, 0x4a2a20, 0.85], bloom: 0.55, exposure: 1.0, fezaLight: 0.35, fezaLightColor: 0xffc890, sat: 1.06 },
   };
 
   // ── Instancing (chunked ~16 m for frustum culling) and merged static decor per chunk ──
@@ -2072,7 +2282,7 @@ const LEVEL = (function () {
   function buildForest(L, B) {
     const rnd = B.rnd, W = L.W, H = L.H, grid = L.grid, dW = L.dWall, M = L._mask;
     L._dF = chamfer(W, H, grid, 1);
-    const opt = { petals: [] };
+    const opt = { petals: [] }, arenaPlan = forestArenaPlan(L, B);   // the arena's giant toadstools keep the trees away first
     treeLayer(L, B, opt);
     const maskAt = (x, z, ch) => { const px = clamp(Math.floor(x * MPX), 0, M.W - 1), py = clamp(Math.floor(z * MPX), 0, M.H - 1); return M.data[(py * M.W + px) * 4 + ch] / 255; };
     const pick = a => a[Math.floor(rnd() * a.length)];
@@ -2105,7 +2315,7 @@ const LEVEL = (function () {
         }
       }
     }
-    // flower patches (+ butterflies over some of them)
+    // flower patches (+ a little blossom drifting in the breeze over some of them; no insects: Feza's rule)
     const nPatch = Math.round(L.W * L.H / 70);
     for (let n = 0; n < nPatch; n++) {
       const x = 1 + rnd() * (W - 2), z = 1 + rnd() * (H - 2), c = Math.floor(z) * W + Math.floor(x);
@@ -2117,8 +2327,9 @@ const LEVEL = (function () {
         if (B.noDec[Math.floor(pz) * W + Math.floor(px)]) continue;
         dec(B, 'decor', flowerGeo(fi), mat4(px, 0, pz, rnd() * TAU, 0.85 + rnd() * 0.5), null);
       }
-      if (grid[c] && rnd() < 0.3) B.pts.norm.push({ x, y: 0.9, z, kind: 6, ph: rnd(), size: 0.46, prm: 0.7 + rnd() * 0.6, col: pick([0xffe066, 0xff9ad0, 0x9ad0ff, 0xffffff, 0xffa24a]) });
+      if (grid[c] && rnd() < 0.3) B.pts.norm.push({ x, y: 0.9, z, kind: 6, ph: rnd(), size: 0.34, prm: 0.7 + rnd() * 0.6, col: pick([0xffe066, 0xff9ad0, 0x9ad0ff, 0xffffff, 0xffa24a]) });
     }
+    forestArenaDecor(L, B, arenaPlan);
     // falling petals under blossom trees, soft light motes floating over the paths
     for (const [x, z, s, pal] of opt.petals) for (let m = 0; m < 3; m++)
       B.pts.norm.push({ x: x + (rnd() - 0.5) * 2.4 * s, y: 3.2 * s, z: z + (rnd() - 0.5) * 2.4 * s, kind: 5, ph: rnd(), size: pal === PAL.autumn ? 0.17 : 0.13, prm: 0.1 + rnd() * 0.06, col: pick(pal || PAL.blossom) });
@@ -2129,7 +2340,7 @@ const LEVEL = (function () {
     }
   }
 
-  // ── GPU-animated points: embers, motes, sparkles, portal swirl, fireflies, twinkles (additive) · petals, butterflies, smoke (normal) ──
+  // ── GPU-animated points: embers, motes, sparkles, portal swirl, glowing light motes, twinkles (additive) · petals, drifting blossoms, smoke (normal) ──
   const PT_VS = `uniform float uTime, uScale; uniform float uOn[16];
     attribute vec4 aData; attribute vec3 aCol; attribute float aGrp;
     varying vec3 vCol; varying float vA, vK, vF;
@@ -2152,8 +2363,12 @@ const LEVEL = (function () {
       } else if (kind < 5.5) { float f = fract(t * prm + ph);
         p += vec3(sin(f * 9.0 + ph * 5.0) * 0.5 + f * 1.4, -position.y * f, cos(f * 7.0 + ph * 3.0) * 0.4);
         a = smoothstep(0.0, 0.08, f) * smoothstep(1.0, 0.85, f); vF = f * 25.0 + ph * 6.0;
-      } else if (kind < 6.5) { float an = t * 0.8 * prm + ph * 6.28;
-        p += vec3(cos(an) * 1.3 + sin(an * 2.3) * 0.3, sin(t * 3.0 + ph * 9.0) * 0.18 + sin(an * 1.7) * 0.25, sin(an) * 0.9); vF = t * 16.0 + ph * 20.0;
+      } else if (kind < 6.5) { float an = t * 0.45 * prm + ph * 6.28;   // blossom drifting in lazy loops on the breeze, slowly turning
+        p += vec3(cos(an) * 1.3 + sin(an * 2.3) * 0.3, sin(t * 0.9 + ph * 9.0) * 0.2 + sin(an * 1.7) * 0.3, sin(an) * 0.9); vF = t * 0.8 * (prm - 0.4) * sign(ph - 0.5) + ph * 6.28;
+      } else if (kind > 8.5) {   // lava ember: drifts up ~3 m, glowing, fading
+        float f = fract(t * prm + ph);
+        p += vec3(sin(f * 5.0 + ph * 30.0) * 0.35 + f * 0.5, f * 3.2, cos(f * 4.0 + ph * 20.0) * 0.3);
+        a = smoothstep(0.0, 0.08, f) * (1.0 - f) * (1.0 - f) * 1.4; s *= 1.0 - f * 0.55;
       } else if (kind > 7.5) {   // twinkle in place (sparkles on the snail-slime trails)
         a = pow(max(0.0, sin(t * 2.2 * prm + ph * 40.0)), 5.0); s *= 0.35 + 0.65 * a; vF = 1.0;
       } else { float f = fract(t * prm + ph);
@@ -2168,19 +2383,17 @@ const LEVEL = (function () {
     void main() {
       vec2 c = gl_PointCoord - 0.5; c.y = -c.y;
       float d = length(c);
-      if (vK > 5.5 && vK < 6.5) {   // butterfly: two pairs of round wings flapping around a dark body
-        float fl = 0.25 + 0.75 * abs(sin(vF));
-        vec2 q = vec2(abs(c.x) / fl, c.y);
-        float w1 = smoothstep(0.2, 0.17, length((q - vec2(0.2, 0.1)) * vec2(0.95, 1.1)));
-        float w2 = smoothstep(0.14, 0.11, length((q - vec2(0.15, -0.13))));
-        float body = smoothstep(0.035, 0.02, abs(c.x)) * smoothstep(0.24, 0.2, abs(c.y));
-        float wing = max(w1, w2) * step(0.02, abs(c.x));
-        if (wing + body < 0.05) discard;
-        float spot = smoothstep(0.06, 0.03, length(q - vec2(0.25, 0.14)));
-        vec3 col = mix(vCol, vCol * 0.55, smoothstep(0.08, 0.24, length(q - vec2(0.12, 0.0))));
-        col = mix(col, vec3(1.0), spot * 0.8);
-        col = mix(col, vec3(0.12, 0.08, 0.1), body);
-        gl_FragColor = vec4(col, max(wing, body) * vA);
+      if (vK > 5.5 && vK < 6.5) {   // drifting blossom: five round petals around a golden heart, turning slowly
+        float r = vF; vec2 q = mat2(cos(r), sin(r), -sin(r), cos(r)) * c;
+        float pa = atan(q.y, q.x), sec = floor(pa / 1.25664 + 0.5) * 1.25664;   // nearest of the 5 petal directions
+        vec2 pc = q - vec2(cos(sec), sin(sec)) * 0.2;
+        float pd = length(pc), petal = smoothstep(0.17, 0.14, pd), heart = smoothstep(0.1, 0.075, d);
+        if (max(petal, heart) < 0.05) discard;
+        vec3 col = mix(vCol, vec3(1.0), 0.28 * smoothstep(0.05, 0.16, pd));           // paler petal rims
+        col *= 0.8 + 0.2 * smoothstep(0.06, 0.2, d);                                  // a soft shade at the petals' base
+        vec3 hc = vCol.g > 0.5 && vCol.b < 0.3 ? vec3(1.0, 0.5, 0.16) : vec3(1.0, 0.8, 0.26);   // yellow blossoms get an orange heart
+        col = mix(col, hc, heart);
+        gl_FragColor = vec4(col, max(petal, heart) * vA);
       } else if (vK > 4.5 && vK < 5.5) {
         float r = vF; vec2 q = mat2(cos(r), sin(r), -sin(r), cos(r)) * c;
         float al = smoothstep(0.4, 0.28, length(q * vec2(1.0, 1.9)));
@@ -2358,7 +2571,7 @@ const LEVEL = (function () {
     }));
   }
 
-  // ── Cave: boulder walls (low on the camera side), stalagmites, glowing crystals, fireflies — and the moles' and snails' home ──
+  // ── Cave: boulder walls (low on the camera side), stalagmites, glowing crystals, light motes — and the moles' and snails' home ──
   const CRYSTAL_COL = [0x5ef0ff, 0xb07aff, 0xff7ad8, 0x4affc0];
   function crystalGeo(v) {
     const key = 'cry' + v;
@@ -2604,7 +2817,8 @@ const LEVEL = (function () {
     const nearPath = (x, z, d) => { for (const p of L.path) if (Math.abs(p.x - x) < d && Math.abs(p.z - z) < d && hyp(p.x - x, p.z - z) < d) return true; return false; };
     const busy = (x, z, pad) => (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3.4 + pad) || L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 2.4 + pad) ||
       L.chests.some(q => hyp(q.x - x, q.z - z) < 1.3 + pad) || L.torches.some(q => hyp(q.x - x, q.z - z) < 0.8 + pad) ||
-      L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + pad) || (L.start && hyp(L.start.x - x, L.start.z - z) < 1.5 + pad);
+      L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + pad) || (L.start && hyp(L.start.x - x, L.start.z - z) < 1.5 + pad) ||
+      (L.boss && hyp(L.boss.x - x, L.boss.z - z) < 4 + pad);
     const cells = (test) => { const out = []; for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) if (test(j * W + i, i, j)) out.push([i, j]); return shuffle(out, rnd); };
 
     // molehills near the room edges: never on the main path, next to a spawn or in a doorway (a mole in the game shows a *moving* mound)
@@ -2806,7 +3020,8 @@ const LEVEL = (function () {
     }
     // things standing on the floor inside a room: against a wall, never in a corridor (main or side), leaving a real gap or
     // none, and never hiding floor behind them from the camera (so only in front of north walls)
-    const roomSpot = (x, z, r, h) => linkDist(L, x, z) >= 2.5 && gapOKL(L, x, z, r) && hiddenBehind(L, x, z, r, h) === 0 &&
+    const arenaRm = L.rooms.find(q => q.kind === 'boss' && !q.hw);   // the boss arena's floor stays clear (its rim gets its own decor)
+    const roomSpot = (x, z, r, h) => !(arenaRm && inRoom(arenaRm, x, z, -1.5)) && linkDist(L, x, z) >= 2.5 && gapOKL(L, x, z, r) && hiddenBehind(L, x, z, r, h) === 0 &&
       !L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + r + 1.1) && !L.spawns.some(q => hyp(q.x - x, q.z - z) < 1.6) &&
       !L.chests.some(q => hyp(q.x - x, q.z - z) < 2.5) && !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 3) && !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < 4);
     // a few stalagmites inside the rooms, hugging the walls (they block like the rocks around them)
@@ -2854,9 +3069,11 @@ const LEVEL = (function () {
       if (!grid[c] || dW[c] > 2.2 || rnd() > 0.05) continue;
       dec(B, 'decor', pebbleGeo(1 + Math.floor(rnd() * 2), true), mat4(i + rnd(), 0, j + rnd(), rnd() * TAU, 1), null);
     }
+    // the boss arena: crystal clusters around its rim, the mine-cart corner
+    caveArena(L, B, crystals, capAt, gapAt);
     // the moles' and snails' home: molehills, hanging roots with glowing buds, moss cushions, lamp mushrooms, slime trails
     caveFriends(L, B, crystals, roomSpot);
-    // fireflies and floating dust
+    // glowing light motes and floating dust
     for (let n = 0; n < 60; n++) {
       const x = rnd() * W, z = rnd() * H;
       if (!grid[Math.floor(z) * W + Math.floor(x)]) continue;
@@ -2866,6 +3083,539 @@ const LEVEL = (function () {
       const x = rnd() * W, z = rnd() * H;
       if (!grid[Math.floor(z) * W + Math.floor(x)]) continue;
       B.pts.add.push({ x, y: 0.5 + rnd() * 2.2, z, kind: 1, ph: rnd(), size: 0.07, prm: 0.5 + rnd() * 0.5, col: lin(0xb0c8ff, 0.9) });
+    }
+  }
+  // ── Boss arenas (forest / cave; the volcano's is in buildVolcano, the castle keeps its hall). L.arenaDecor: spots for tests ──
+  // Walk from the arena's centre outward along angle a to the floor edge (null where a corridor leaves)
+  function arenaEdge(L, ar, a, far = 5) {
+    const dx = Math.cos(a), dz = Math.sin(a);
+    let r = ar.r * 0.6;
+    while (r < ar.r + far && isFloor(L, ar.x + dx * r, ar.z + dz * r)) r += 0.2;
+    return r >= ar.r + far ? null : { r, dx, dz, x: ar.x + dx * r, z: ar.z + dz * r };
+  }
+  // Forest: Kral Jöle's flower-and-mushroom clearing — giant friendly toadstools around the rim (low ones on the camera side),
+  // a fairy ring of little mushrooms and flowers where the king waits, glowing light motes, sparkles and drifting blossoms
+  function bigMushGeo(v) {   // a big friendly toadstool (≈1.03 m tall at scale 1): cream stem, round cap with white spots, pale gills
+    const key = 'bigMush' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), rnd = mulberry32(3100 + v * 13), capC = new THREE.Color([0xd84434, 0xd86a98, 0x8466c8, 0xd88430][v % 4]), capT = capC.clone().lerp(new THREE.Color(0xffffff), 0.12);   // not too bright: the forest sun is strong
+    k.add(G.cyl(0.8, 1, 14), (x, y) => new THREE.Color(0xf6ecd8).multiplyScalar(0.82 + 0.18 * clamp(y / 0.6, 0, 1)), [0, 0.31, 0], 0, [0.19, 0.62, 0.19]);
+    k.add(G.sphere(14, 10), 0xf2e6d0, [0, 0.07, 0], 0, [0.24, 0.12, 0.24]);
+    k.add(G.cyl(1, 1, 22), 0xf4dcc4, [0, 0.605, 0], 0, [0.56, 0.03, 0.56]);
+    k.add(G.hemi(22), (x, y) => capC.clone().lerp(capT, clamp((y - 0.6) / 0.42, 0, 1)), [0, 0.6, 0], 0, [0.6, 0.42, 0.6]);
+    for (let i = 0; i < 10; i++) {
+      const a = rnd() * TAU, e = 0.3 + rnd() * 1.0, px = Math.cos(a) * Math.cos(e) * 0.6, py = 0.6 + Math.sin(e) * 0.42, pz = Math.sin(a) * Math.cos(e) * 0.6;
+      const q = new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(px / 0.36, (py - 0.6) / 0.18, pz / 0.36).normalize());
+      k.add(G.sphere(10, 6), 0xffffff, [px, py, pz], q, [0.07 + rnd() * 0.03, 0.02, 0.07 + rnd() * 0.03]);
+    }
+    return (R.geo[key] = keep(k.build()));
+  }
+  function forestArenaPlan(L, B) {
+    const ar = L.rooms.find(r => r.kind === 'boss' && !r.hw);
+    if (!ar) return null;
+    const rnd = B.rnd, big = [];
+    for (let a = rnd(); a < TAU + rnd() * 0.1; a += 0.26 + rnd() * 0.1) {
+      const e = arenaEdge(L, ar, a);
+      if (!e) continue;
+      const o = 0.75 + rnd() * 1.0, x = e.x + e.dx * o, z = e.z + e.dz * o;
+      if (isFloor(L, x, z) || linkDist(L, x, z) < 3 || big.some(m => hyp(m.x - x, m.z - z) < 1.1)) continue;
+      let s = Math.min(1.1 + rnd() * 1.2, southCap(southGap(L, x, z), 0.7, 1.0) / 1.03);
+      while (s >= 0.5 && hides(L, x, z, 0.6 * s, 0.4 * s, 1.03 * s, 0.25)) s *= 0.85;
+      if (s < 0.5) continue;
+      big.push({ x, z, s, v: Math.floor(rnd() * 4), ry: rnd() * TAU });
+      B.noTree.push({ x, z, r: 0.75 * s + 0.5 });
+    }
+    return { ar, big };
+  }
+  function forestArenaDecor(L, B, plan) {
+    if (!plan) return;
+    const rnd = B.rnd, ar = plan.ar, M = L._mask;
+    const maskAt = (x, z, ch) => { const px = clamp(Math.floor(x * MPX), 0, M.W - 1), py = clamp(Math.floor(z * MPX), 0, M.H - 1); return M.data[(py * M.W + px) * 4 + ch] / 255; };
+    for (const m of plan.big) {
+      dec(B, 'decor', bigMushGeo(m.v), mat4(m.x, 0, m.z, m.ry, m.s), null);
+      for (let n = 0; n < 2; n++) { const a = rnd() * TAU, d = 0.55 * m.s + 0.2 + rnd() * 0.3; dec(B, 'decor', mushroomGeo(rnd() < 0.7 ? 0 : 1), mat4(m.x + Math.cos(a) * d, 0, m.z + Math.sin(a) * d, rnd() * TAU, 1.1 + rnd() * 0.6), null); }
+    }
+    // the fairy ring
+    const R0 = ar.r * 0.62, ring = [];
+    for (let a = 0; a < TAU; a += 0.1) {
+      const r = R0 + (rnd() - 0.5) * 0.3, x = ar.x + Math.cos(a) * r, z = ar.z + Math.sin(a) * r;
+      if (!isFloor(L, x, z) || maskAt(x, z, 0) > 0.4 || maskAt(x, z, 2) > 0.4 || (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3)) continue;
+      ring.push([x, z]);
+      if (rnd() < 0.75) dec(B, 'decor', mushroomGeo(rnd() < 0.8 ? 0 : 1), mat4(x, 0, z, rnd() * TAU, 1.05 + rnd() * 0.45), null);
+      const fr = r + (rnd() < 0.5 ? -0.45 : 0.45);   // flowers just inside / outside the ring
+      if (rnd() < 0.6) dec(B, 'decor', flowerGeo(Math.floor(rnd() * FLOWER_COL.length)), mat4(ar.x + Math.cos(a + 0.05) * fr, 0, ar.z + Math.sin(a + 0.05) * fr, rnd() * TAU, 0.85 + rnd() * 0.35), null);
+      if (rnd() < 0.2) B.pts.add.push({ x, y: 0.25, z, kind: 2, ph: rnd(), size: 0.14, prm: 0.3 + rnd() * 0.3, col: lin(0xfff0a0, 2) });
+    }
+    for (let n = 0; n < 16; n++) {   // glowing light motes over the clearing, a few blossoms drifting on the breeze (no insects)
+      const a = rnd() * TAU, r = Math.sqrt(rnd()) * ar.r * 0.8;
+      B.pts.add.push({ x: ar.x + Math.cos(a) * r, y: 0.6 + rnd() * 1.4, z: ar.z + Math.sin(a) * r, kind: 4, ph: rnd(), size: 0.13, prm: 0.6 + rnd() * 0.6, col: lin(0xfff08a, 2.2) });
+    }
+    for (let n = 0; n < 4; n++) B.pts.norm.push({ x: ar.x + (rnd() - 0.5) * ar.r, y: 0.9, z: ar.z + (rnd() - 0.5) * ar.r, kind: 6, ph: rnd(), size: 0.34, prm: 0.7 + rnd() * 0.6, col: [0xffe066, 0xff9ad0, 0x9ad0ff][n % 3] });
+    L.arenaDecor = { mushrooms: plan.big.length, ring: ring.length };
+  }
+  // Cave: Usta Köstebek's crystal cavern — big glowing crystal clusters around the rim (small ones on the camera side), and a
+  // mine-cart corner: rails coming out of the rock, a cart full of glowing crystals, a lantern post, a pickaxe
+  function mineCartData() {
+    if (R.geo.cart) return R.geo.cart;
+    const w = new Kit(), m = new Kit(), iron = 0x5a5866, wood = 0xf0dcc0;
+    const box = R.geo.cartBox || (R.geo.cartBox = keep(boxUV(1, 1, 1, 0.5)));
+    w.add(box, wood, [0, 0.5, 0], 0, [0.78, 0.44, 1.1]);                                 // the tub
+    w.add(G.box(), 0x2a1a10, [0, 0.715, 0], 0, [0.68, 0.02, 1.0]);
+    for (const z of [-0.5, 0, 0.5]) m.add(MK(G.box()), iron, [0, 0.5, z], 0, [0.82, 0.46, 0.06]);   // iron bands
+    m.add(MK(G.box()), iron, [0, 0.73, 0], 0, [0.84, 0.04, 1.14]);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      m.add(MK(G.cyl(1, 1, 16)), 0x3a3844, [sx * 0.36, 0.17, sz * 0.36], [0, 0, Math.PI / 2], [0.16, 0.07, 0.16]);
+      m.add(MK(G.cyl(1, 1, 8)), 0xc8a050, [sx * 0.4, 0.17, sz * 0.36], [0, 0, Math.PI / 2], [0.05, 0.02, 0.05]);
+    }
+    m.add(MK(G.cyl(1, 1, 8)), iron, [0, 0.17, 0.36], [0, 0, Math.PI / 2], [0.03, 0.72, 0.03]);
+    m.add(MK(G.cyl(1, 1, 8)), iron, [0, 0.17, -0.36], [0, 0, Math.PI / 2], [0.03, 0.72, 0.03]);
+    const g = new Kit();   // glowing crystals heaped in the tub
+    for (let i = 0; i < 6; i++) { const q = new THREE.Quaternion().setFromEuler(new THREE.Euler((i % 3 - 1) * 0.4, i * 1.1, (i % 2 - 0.5) * 0.5)); g.push([(i % 2 - 0.5) * 0.3, 0.62, (i % 3 - 1) * 0.32], q); g.add(G.cyl(1, 1, 6), new THREE.Color(CRYSTAL_COL[i % 4]).multiplyScalar(0.7), [0, 0.12, 0], 0, [0.07, 0.3, 0.07]); g.add(G.cone(6), CRYSTAL_COL[i % 4], [0, 0.32, 0], 0, [0.07, 0.1, 0.07]); g.pop(); }
+    const r = new Kit();   // rails + sleepers (local +z: into the arena, from under the rock at z = -1)
+    for (let z = -0.9; z <= 4.0; z += 0.55) r.add(box, 0xd0b090, [0, 0.025, z], [0, (Math.sin(z * 7) * 0.06), 0], [1.05, 0.05, 0.2]);
+    for (const sx of [-0.36, 0.36]) r.add(MK(G.box()), 0x8a8a98, [sx, 0.07, 1.55], 0, [0.05, 0.06, 5.1]);
+    r.add(box, 0xb88a5a, [0, 0.16, 4.1], 0, [0.95, 0.2, 0.16]); for (const sx of [-0.32, 0.32]) r.add(box, 0xa87a4a, [sx, 0.1, 4.2], 0, [0.12, 0.2, 0.12]);   // buffer stop
+    const p = new Kit();   // lantern post + pickaxe
+    p.add(G.cyl(0.8, 1, 8), 0xc49a6a, [0, 0.75, 0], 0, [0.06, 1.5, 0.06]);
+    p.add(G.box(), 0xc49a6a, [0.18, 1.45, 0], 0, [0.4, 0.06, 0.06]);
+    p.add(MK(G.cyl(1, 1, 8)), iron, [0.34, 1.34, 0], 0, [0.09, 0.03, 0.09]); p.add(MK(G.cone(8)), iron, [0.34, 1.13, 0], [Math.PI, 0, 0], [0.1, 0.06, 0.1]);
+    p.add(G.cyl(1, 1, 8), 0xc49a6a, [0.9, 0.45, 0.35], [0, 0, 0.45], [0.03, 0.9, 0.03]);   // pickaxe handle leaning on the cart
+    p.add(MK(G.torus(Math.PI * 0.8, 0.12, 12)), 0x9aa0b0, [0.72, 0.86, 0.35], [0, 0, 0.45 + Math.PI * 0.6], [0.28, 0.28, 0.28]);
+    const lg = new Kit(); lg.add(G.box(), 0xffe0a0, [0.34, 1.22, 0], 0, [0.12, 0.16, 0.12]);
+    return (R.geo.cart = { wood: keep(w.build()), metal: keep(m.build()), glow: keep(g.build()), rails: keep(r.build()), post: keep(p.build()), lamp: keep(lg.build()) });
+  }
+  function caveArena(L, B, crystals, capAt, gapAt) {
+    const ar = L.rooms.find(r => r.kind === 'boss' && !r.hw);
+    if (!ar) return;
+    const rnd = B.rnd, out = L.arenaDecor = { crystals: 0, cart: null };
+    for (let a = rnd(); a < TAU; a += 0.4 + rnd() * 0.18) {
+      const e = arenaEdge(L, ar, a);
+      if (!e) continue;
+      const o = 0.45 + rnd() * 1.1, x = e.x + e.dx * o, z = e.z + e.dz * o;
+      if (isFloor(L, x, z) || linkDist(L, x, z) < 2.8 || crystals.some(q => hyp(q[0] - x, q[1] - z) < 2.0) || (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 2.6)) continue;
+      const north = e.dz < -0.35;
+      let s = north ? 1.3 + rnd() * 1.2 : Math.min(1.2 + rnd() * 0.4, (capAt(gapAt(x, z)) + 0.3) / 1.3);
+      while (s >= 0.45 && hides(L, x, z, 0.35 * s, 0, 1.3 * s, 0.05)) s *= 0.85;
+      if (s < 0.45) continue;
+      crystals.push([x, z]);
+      const v = Math.floor(rnd() * 8), col = new THREE.Color(CRYSTAL_COL[v % 4]);
+      dec(B, 'glow', crystalGeo(v), mat4(x, -0.05, z, rnd() * TAU, s), null);
+      dec(B, 'rock', rockGeo(v % 3), mat4(x, 0, z, rnd() * TAU, 0.4 * s, 0.22 * s, 0.34 * s), lin(0x7a7f98));
+      if (out.crystals % 2 === 0) B.lights.push({ x: x - e.dx * 0.6, y: 1.1, z: z - e.dz * 0.6, col, int: 5, dist: 8, fl: 0, ph: rnd() * 10 });
+      glowAt(B, x - e.dx * 0.8, z - e.dz * 0.8, 2.6 + s, col, 0.75);
+      for (let m = 0; m < 3; m++) B.pts.add.push({ x: x + (rnd() - 0.5) * 0.8, y: 0.3 + rnd() * 1.1, z: z + (rnd() - 0.5) * 0.8, kind: 2, ph: rnd(), size: 0.17, prm: 0.3 + rnd() * 0.3, col: col.clone().multiplyScalar(2.2) });
+      out.crystals++;
+    }
+    // the mine-cart corner: north-west or north-east (the side whose cart hides the least floor), cart hugging the rock
+    let best = null;
+    for (let a = -Math.PI * 0.95; a <= Math.PI * 0.2; a += 0.12) {   // the northern half first (it hides nothing), then the sides
+      const e = arenaEdge(L, ar, a);
+      if (!e) continue;
+      for (const o of [0.75, 0.65, 0.85]) {
+        const cx = e.x - e.dx * o, cz = e.z - e.dz * o;
+        if (!isFloor(L, cx, cz) || gridFree(L, cx, cz, 0.9) || !gridFree(L, cx, cz, 0.45)) continue;   // hugging the rock, no gap to get stuck in
+        if ((L.exit && hyp(L.exit.x - cx, L.exit.z - cz) < 4.5) || linkDist(L, cx, cz) < 3 || L.torches.some(t => hyp(t.x - cx, t.z - cz) < 1.6) || L.solids.some(q => hyp(q.x - cx, q.z - cz) < q.r + 1.4)) continue;
+        const k = hiddenBehind(L, cx, cz, 0.7, 1.0) + Math.abs(Math.abs(a + Math.PI / 2) - 0.8) * 0.6 + (a > -0.2 || a < -Math.PI + 0.2 ? 3 : 0);
+        if (!best || k < best.k) best = { e, cx, cz, k };
+        break;
+      }
+    }
+    if (best) {
+      const { e, cx, cz } = best, D = mineCartData(), yaw = Math.atan2(-e.dx, -e.dz);   // local +z points into the arena
+      const at = (lx, lz) => [cx + Math.sin(yaw) * lz + Math.cos(yaw) * lx, cz + Math.cos(yaw) * lz - Math.sin(yaw) * lx];
+      const [rx, rz] = at(0, -0.3), Mr = mat4(rx, 0, rz, yaw), Mc = mat4(cx, 0.02, cz, yaw);
+      dec(B, 'prop', D.rails, Mr, null);
+      const vis = [dec(B, 'prop', D.wood, Mc, null), dec(B, 'prop', D.metal, Mc, null), dec(B, 'glow', D.glow, Mc, lin(0xffffff, 0.75))];
+      propSolid(L, cx, cz, 0.62, 'cart', vis);
+      const [px, pz] = at(-0.95, -0.25), Mp = mat4(px, 0, pz, yaw);
+      if (isFloor(L, px, pz) && !gridFree(L, px, pz, 0.5)) {
+        const pv = [dec(B, 'prop', D.post, Mp, null), dec(B, 'window', D.lamp, Mp, null)];
+        propSolid(L, px, pz, 0.14, 'lamp', pv);
+        const [lx, lz] = at(-0.61, -0.25);
+        B.lights.push({ x: lx, y: 1.25, z: lz + 0.2, col: new THREE.Color(0xffc070), int: 3, dist: 6.5, fl: 0.25, ph: rnd() * 9 });
+        glowAt(B, lx, lz + 0.3, 2.2, 0xffc070, 0.35);
+      }
+      B.lights.push({ x: cx, y: 1.0, z: cz, col: new THREE.Color(0x7ae8ff), int: 3.2, dist: 6, fl: 0, ph: 0 });
+      glowAt(B, cx, cz, 2.2, 0x7ae8ff, 0.4);
+      for (let n = 0; n < 4; n++) { const [gx, gz] = at((rnd() - 0.5) * 1.6, 0.9 + rnd() * 1.4); if (isFloor(L, gx, gz)) dec(B, 'glow', crystalGeo(Math.floor(rnd() * 8)), mat4(gx, -0.03, gz, rnd() * TAU, 0.3 + rnd() * 0.15), null); }
+      out.cart = { x: cx, z: cz };
+    }
+  }
+  // ── Volcano: lava (drawn by the floor shader), basalt boulders + columns, glossy obsidian and glowing fire gems, steam vents with
+  //    cute puffs, fire flowers, rising embers, warm lava light, paved bridges, and the boss arena's lava moat with cliffs and little
+  //    lavafalls. Bright and cheerful: warm sun, peach fog, nothing dark or spiky. ──
+  KIND.basaltC = { mat: 'rock', shadow: 'near', geo() {   // a cluster of hexagonal basalt columns (≈1 m tall at scale 1), flat tops
+    const k = new Kit(), rnd = mulberry32(3300);
+    for (const [x, z, h, r] of [[0, 0, 1.0, 0.34], [0.52, 0.12, 0.8, 0.3], [-0.46, 0.2, 0.72, 0.3], [0.1, -0.5, 0.64, 0.28], [0.2, 0.55, 0.88, 0.29], [-0.32, -0.42, 0.55, 0.26], [-0.64, -0.16, 0.46, 0.24]]) {
+      const ry = rnd() * 1.05;
+      k.add(G.cyl(1, 1, 6), 0xffffff, [x, h / 2 - 0.06, z], [0, ry, 0], [r, h + 0.12, r]);
+      k.add(G.cyl(0.8, 1, 6), 0xf0e8e2, [x, h + 0.025, z], [0, ry, 0], [r, 0.05, r]);   // chamfered top
+    }
+    return k.build();
+  } };
+  function gemGeo(v, warm) {   // chunky crystal clusters with blunt tops: glossy obsidian (decor 'shiny') or glowing fire gems ('glow')
+    const key = (warm ? 'fgem' : 'obs') + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), rnd = mulberry32((warm ? 3500 : 3400) + v * 7);
+    const lo = new THREE.Color(warm ? [0xff7a2a, 0xff5a6a, 0xffa030, 0xff8a50][v % 4] : 0x1e1828), hi = new THREE.Color(warm ? [0xffe070, 0xffb0c0, 0xfff0a0, 0xffd090][v % 4] : 0x8a74c4);
+    const n = 3 + (v % 3);
+    for (let i = 0; i < n; i++) {
+      const h = (i ? 0.34 + rnd() * 0.36 : 0.82) * (1 + (v % 2) * 0.2), r = h * (warm ? 0.22 : 0.3), a = rnd() * TAU, tl = i ? 0.25 + rnd() * 0.35 : 0.06;
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.cos(a) * tl, rnd() * TAU, Math.sin(a) * tl));
+      const facet = (x, z) => (Math.sin(x * 41.3 + z * 29.7) > 0 ? 1 : 0.7);   // alternate light / dark edges: reads as facets, even unlit
+      const col = (x, y, z) => (warm ? lo.clone().lerp(hi, clamp(y / (h * 1.05), 0, 1)).multiplyScalar((0.4 + 0.75 * clamp(y / h, 0, 1)) * facet(x, z)) : lo.clone().lerp(hi, clamp(y / (h * 1.15), 0, 1) * 0.75 + Math.sin(x * 37 + y * 23) * 0.05));
+      k.push([Math.cos(a) * 0.13 * (i > 0), 0, Math.sin(a) * 0.13 * (i > 0)], q);
+      k.add(G.cyl(1, 1, 6), col, [0, h * 0.4, 0], 0, [r, h * 0.8, r]);
+      k.add(G.cyl(0.42, 1, 6), col, [0, h * 0.88, 0], 0, [r, h * 0.16, r]);   // a blunt, rounded-looking top (no spikes)
+      k.pop();
+    }
+    return (R.geo[key] = keep(k.build()));
+  }
+  function ventData() {   // a little basalt cone with a crater (rock material) and its glowing heart (glow)
+    if (R.geo.vent) return R.geo.vent;
+    const pts = [[0.001, 0.13], [0.12, 0.14], [0.17, 0.3], [0.24, 0.33], [0.42, 0.22], [0.62, 0.07], [0.72, 0]].map(p => new THREE.Vector2(p[0], p[1]));
+    const k = new Kit(), g = new Kit(), rnd = mulberry32(3600);
+    k.add(new THREE.LatheGeometry(pts, 14), (x, y) => new THREE.Color(0.62 + y * 0.9, 0.56 + y * 0.8, 0.54 + y * 0.75));
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + rnd(), d = 0.62 + rnd() * 0.2; k.add(rockSGeo(), 0xd8d0cc, [Math.cos(a) * d, 0.02, Math.sin(a) * d], [rnd(), rnd() * 6, rnd()], [0.12 + rnd() * 0.07, 0.08, 0.1 + rnd() * 0.06]); }
+    g.add(G.cyl(1, 1, 14), 0xffa040, [0, 0.14, 0], 0, [0.14, 0.02, 0.14]);
+    g.add(G.torus(TAU, 0.3, 14), 0xff7a2a, [0, 0.29, 0], [Math.PI / 2, 0, 0], [0.19, 0.19, 0.19]);
+    return (R.geo.vent = { rock: keep(k.build()), glow: keep(g.build()) });
+  }
+  function fireFlowerData(v) {   // stem + leaves + flame-coloured petals (decor, no wind: it's warm and still) and a glowing heart
+    const key = 'ffl' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), g = new Kit(), h = 0.27 + (v % 2) * 0.08, pc = [[0xff5a1a, 0xffa020], [0xff3a5a, 0xff9040], [0xff9a10, 0xffd84a]][v % 3];
+    const petal = R.geo.petalStill || (R.geo.petalStill = keep(markUV(petalDisc().clone(), 0)));
+    k.add(G.cyl(1, 1, 4, true), 0x5a8a3a, [0, h / 2, 0], 0, [0.016, h, 0.016]);
+    k.add(G.octa(), 0x6aa844, [0.05, h * 0.35, 0], [0, 0, -0.7], [0.08, 0.016, 0.035]);
+    k.add(G.octa(), 0x62a040, [-0.045, h * 0.55, 0.01], [0, 0.4, 0.7], [0.07, 0.014, 0.03]);
+    k.add(petal, pc[0], [0, h, 0], [0.2, v, 0.1], 0.13);
+    k.add(petal, pc[1], [0, h + 0.018, 0], [0.2, v + 0.6, 0.1], 0.085);
+    g.add(G.sphere(8, 6), 0xffd060, [0, h + 0.035, 0], 0, [0.036, 0.026, 0.036]);
+    return (R.geo[key] = { decor: keep(k.build()), glow: keep(g.build()) });
+  }
+  // Little lavafalls pouring from the arena cliffs into the moat: curved ribbons, one mesh for all of them
+  const LAVAFALL_VS = `attribute vec2 aF; varying vec2 vF; varying float vFogD;
+    void main() { vF = aF; vec4 mv = modelViewMatrix * vec4(position, 1.0); vFogD = -mv.z; gl_Position = projectionMatrix * mv; }`;
+  const LAVAFALL_FS = `uniform float uTime, fogNear, fogFar; uniform vec3 fogColor; uniform sampler2D tNoise, tLava; varying vec2 vF; varying float vFogD;
+    void main() {
+      float x = vF.x, v = vF.y;   // x: 0..1 across · v: metres down from the lip (+ a phase)
+      float e = smoothstep(0.0, 0.2, x) * smoothstep(1.0, 0.8, x);
+      float s2 = texture2D(tNoise, vec2(x * 1.7 + 0.6, v * 0.3 - uTime * 0.7)).g;
+      if (e * (0.85 + 0.5 * s2) < 0.3) discard;   // a wobbly edge
+      vec3 lc = texture2D(tLava, vec2(x * 0.55 + v * 0.01, v * 0.028 - uTime * 0.1)).rgb;   // the lake's lava, stretched into falling streaks
+      float h = dot(lc, vec3(0.45, 0.45, 0.1));
+      vec3 col = lc * (0.7 + 1.6 * h * h) * (0.8 + 0.35 * s2) * mix(0.55, 1.0, e);
+      col = mix(col, fogColor, smoothstep(fogNear, fogFar, vFogD));
+      gl_FragColor = vec4(col, 1.0);
+      #include <colorspace_fragment>
+    }`;
+  function lavafallMat() {
+    return R.mat.lavafall || (R.mat.lavafall = keep(new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uTime: TIME.u, tNoise: { value: texOK() && TEX.noise ? TEX.noise : blackTex() }, tLava: { value: surf('lava').map } }, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)),
+      vertexShader: LAVAFALL_VS, fragmentShader: LAVAFALL_FS, side: THREE.DoubleSide, fog: true,
+    })));
+  }
+  function finishLavafalls(B) {
+    const list = B.falls;
+    if (!list || !list.length) return;
+    const NR = 12, NC = 5, pos = [], fa = [], idx = [];
+    for (const f of list) {   // f: base (x, z), facing yaw (toward +z locally), height h, width w
+      const cs = Math.cos(f.yaw), sn = Math.sin(f.yaw), v0 = pos.length / 3;
+      for (let r = 0; r <= NR; r++) {
+        const t = r / NR, y = f.h * (1 - Math.pow(t, 1.25)), back = -1.25 * Math.pow(1 - t, 2) - 0.05, w = f.w * (0.78 + 0.3 * t);
+        for (let c = 0; c <= NC; c++) {
+          const u = c / NC, lx = (u - 0.5) * w + Math.sin(t * 7 + f.ph + u * 3) * 0.03, lz = back + Math.sin(u * Math.PI) * 0.08;
+          pos.push(f.x + lx * cs + lz * sn, y, f.z - lx * sn + lz * cs);
+          fa.push(u, t * f.h * 1.25 + f.ph);
+        }
+      }
+      for (let r = 0; r < NR; r++) for (let c = 0; c < NC; c++) { const a = v0 + r * (NC + 1) + c, b = a + NC + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aF', new THREE.Float32BufferAttribute(fa, 2));
+    g.setIndex(idx); g.computeBoundingSphere();
+    B.dispose.push(g);
+    const m = new THREE.Mesh(g, lavafallMat()); m.name = 'lavafalls'; m.renderOrder = 1;
+    B.g.add(m);
+  }
+  function buildVolcano(L, B) {
+    const rnd = B.rnd, W = L.W, H = L.H, grid = L.grid, dW = L.dWall, V = L._volc || volcanoField(L), M = L._mask;
+    const dF = L._dF = chamfer(W, H, grid, 1);
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const lavaAt = (x, z) => V.lava[clamp(Math.floor(z * V.P), 0, V.MH - 1) * V.MW + clamp(Math.floor(x * V.P), 0, V.MW - 1)];
+    const cellOf = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i < 0 || j < 0 || i >= W || j >= H ? -1 : j * W + i; };
+    const maskAt = (x, z, ch) => { const px = clamp(Math.floor(x * MPX), 0, M.W - 1), py = clamp(Math.floor(z * MPX), 0, M.H - 1); return M.data[(py * M.W + px) * 4 + ch] / 255; };
+    const gapAt = (x, z) => southGap(L, x, z), capAt = g => southCap(g, 0.6, 1.0);
+    const ar = V.arena, inArena = (x, z, pad = 0) => !!ar && inRoom(ar, x, z, pad);
+    const tint = () => lin(pick([0x857672, 0x7a6e6c, 0x8e7e78, 0x746868, 0x94847c]), 0.8 + rnd() * 0.28);
+    const tintC = () => lin(pick([0x6e6260, 0x645a5a, 0x76686a]), 0.85 + rnd() * 0.25);   // basalt columns: darker
+    const busy = (x, z, pad) => (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3.4 + pad) || L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 2.4 + pad) ||
+      L.chests.some(q => hyp(q.x - x, q.z - z) < 1.3 + pad) || L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + pad) || (L.start && hyp(L.start.x - x, L.start.z - z) < 1.5 + pad) ||
+      (L.boss && hyp(L.boss.x - x, L.boss.z - z) < 4 + pad);
+    const RS = L.volcDecor = { rocks: 0, cols: 0, islands: 0, gems: 0, vents: 0, flowers: 0, lights: 0, embers: 0, falls: 0, bridges: V.bridges.length };   // tests / debugging
+    const RG = [rockGeo(0), rockGeo(1), rockGeo(2), rockSGeo()], rTop = RG.map(g => { if (!g.boundingBox) g.computeBoundingBox(); return g.boundingBox.max.y + 0.22; });
+    const nearLava = (x, z, r) => { let m = lavaAt(x, z); for (let k = 0; k < 8; k++) m = Math.max(m, lavaAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; };
+    const nearLavaMin = (x, z, r) => { let m = lavaAt(x, z); for (let k = 0; k < 8; k++) m = Math.min(m, lavaAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; };
+    const rock = (x, z, s, sy, sz, tilt, small) => {
+      const k = small ? 3 : Math.floor(rnd() * 3);
+      inst(B, small ? 'rockS' : 'rock' + k, mat4(x, 0.22 * sy, z, rnd() * TAU, s, sy, sz, (rnd() - 0.5) * tilt, (rnd() - 0.5) * tilt), tint());
+      RS.rocks++;
+      return rTop[k] * sy;
+    };
+    // basalt ground: boulders, columns (tall only where they hide no floor), a low band on the camera side; small islets in the lava
+    for (let z0 = 0; z0 < H; z0 += 1.9) for (let x0 = 0; x0 < W; x0 += 1.9) {
+      const x = x0 + rnd() * 1.75, z = z0 + rnd() * 1.75, c = cellOf(x, z);
+      if (c < 0 || grid[c]) continue;
+      const d = dF[c], lv = lavaAt(x, z), g = gapAt(x, z);
+      if (d < 0.6 || d > 12.5 || (V.dA && V.dA[c] < 5.4 && lv <= 0.35)) continue;
+      if (lv > 0.35) {   // an islet now and then (low, round)
+        if (d > 1.8 && rnd() < 0.045 && !inArena(x, z, -4.2)) { const s = 0.45 + rnd() * 0.45; rock(x, z, s, Math.min(s * 0.5, capAt(g) * 0.8 / rTop[3]), s * (0.8 + rnd() * 0.4), 0.1, true); RS.islands++; }
+        continue;
+      }
+      if (d > 5.5 && rnd() < (d > 8.5 ? 0.5 : 0.3)) continue;
+      if (nearLava(x, z, 0.9) > 0.5) continue;   // the lava shores stay open (bridges, moat)
+      if (g <= 5) {   // camera side: low and round
+        const s = 0.6 + rnd() * 0.45, sz = s * (0.8 + rnd() * 0.4);
+        if (nearLava(x, z, s + 0.3) > 0.5) continue;
+        rock(x, z, s, Math.max(0.2 * s, Math.min(s * (0.5 + rnd() * 0.5), capAt(g) / rTop[0])), sz, 0.14);
+        continue;
+      }
+      if (d > 1.1 && d < 6.5 && rnd() < 0.4) {   // basalt columns
+        const s = 0.8 + rnd() * 0.6;
+        let hy = 0;
+        if (nearLava(x, z, 0.8 * s + 0.3) > 0.5) continue;
+        for (const h of [3.2, 2.4, 1.7, 1.1, 0.7]) if (!hides(L, x, z, 0.8 * s, 0, h, 0.2)) { hy = h; break; }
+        if (hy && hy <= southCap(g, 0.6, 1.0) + 1e-6) { inst(B, 'basaltC', mat4(x, 0, z, rnd() * TAU, s, hy * (0.85 + rnd() * 0.2), s), tintC()); RS.cols++; continue; }
+      }
+      const s = d < 2 ? 0.95 + rnd() * 0.7 : d > 7 ? 1.9 + rnd() * 1.3 : 1.4 + rnd() * 1.1, sz = s * (0.8 + rnd() * 0.4);
+      if (nearLava(x, z, Math.max(s, sz) + 0.3) > 0.5) continue;
+      let hy = 1.1 + rnd() * 0.7;
+      for (const h of [hy, 0.75, 0.45, 0.3]) { hy = h; if (!hides(L, x, z, s, 0, 1.45 * s * h, 0.15)) break; }
+      rock(x, z, s, s * hy, sz, 0.25);
+    }
+    // fill the basalt ground near the floor with small stones (the lava needs none)
+    for (let z0 = 0; z0 < H; z0 += 1.3) for (let x0 = 0; x0 < W; x0 += 1.3) {
+      const x = x0 + rnd() * 1.2, z = z0 + rnd() * 1.2, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 4 || dF[c] < 0.7 || lavaAt(x, z) > 0.2 || (V.dA && V.dA[c] < 5.4) || rnd() < 0.55 || nearLava(x, z, 0.7) > 0.5) continue;
+      const s = 0.4 + rnd() * 0.3;
+      rock(x, z, s, Math.min(s * (0.5 + rnd() * 0.4), capAt(gapAt(x, z)) / rTop[3]), s * (0.8 + rnd() * 0.4), 0.14, true);
+    }
+    // obsidian clusters and glowing fire gems on the basalt ground next to the floor (fire gems light their surroundings)
+    const gems = [];
+    for (let n = 0; n < W * H / 10 && gems.length < 34; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 4 || dF[c] < 0.5 || lavaAt(x, z) > 0.3) continue;
+      if (gems.some(q => hyp(q[0] - x, q[1] - z) < 4.2)) continue;
+      const warm = rnd() < 0.42, s = Math.min(0.85 + rnd() * 0.75, (capAt(gapAt(x, z)) + 0.25) / 1.05);
+      if (s < 0.4 || hides(L, x, z, 0.35 * s, 0, 1.0 * s, 0.05)) continue;
+      gems.push([x, z]);
+      const v = Math.floor(rnd() * 6), m = mat4(x, -0.04, z, rnd() * TAU, s);
+      dec(B, warm ? 'glow' : 'shiny', gemGeo(v, warm), m, warm ? lin(0xffffff, 0.55) : null);
+      dec(B, 'rock', rockGeo(v % 3), mat4(x, 0, z, rnd() * TAU, 0.34 * s, 0.18 * s, 0.3 * s), lin(0x8a7a76));
+      if (!warm && rnd() < 0.4) dec(B, 'glow', gemGeo(v + 1, true), mat4(x + 0.35 * s, -0.04, z + 0.2 * s, rnd() * TAU, s * 0.45), lin(0xffffff, 0.55));
+      if (warm) {
+        const col = new THREE.Color([0xffa040, 0xff7a8a, 0xffc050, 0xff9a60][v % 4]);
+        B.lights.push({ x, y: 0.9, z: z + 0.2, col, int: 3.2, dist: 6, fl: 0, ph: rnd() * 10 });
+        glowAt(B, x, z + 0.2, 2.2 + s, col, 0.5);
+        for (let m2 = 0; m2 < 3; m2++) B.pts.add.push({ x: x + (rnd() - 0.5) * 0.7, y: 0.3 + rnd() * 0.7, z: z + (rnd() - 0.5) * 0.7, kind: 2, ph: rnd(), size: 0.15, prm: 0.3 + rnd() * 0.3, col: col.clone().multiplyScalar(2) });
+      }
+      RS.gems++;
+    }
+    // glowing fire-gem islets in the lava near the shores (low: the camera side has lots of lava)
+    for (let n = 0, made = 0; n < W * H / 8 && made < 12; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 4.5 || dF[c] < 1.8 || lavaAt(x, z) < 0.85 || nearLavaMin(x, z, 1.0) < 0.6 || inArena(x, z, -5)) continue;
+      if (gems.some(q => hyp(q[0] - x, q[1] - z) < 5) || linkDist(L, x, z) < 3) continue;
+      const s = Math.min(0.6 + rnd() * 0.3, (capAt(gapAt(x, z)) + 0.2) / 0.95);
+      if (s < 0.45 || hides(L, x, z, 0.45 * s, 0, 0.9 * s, 0.05)) continue;
+      gems.push([x, z]); made++;
+      rock(x, z, s, s * 0.45, s * 0.9, 0.08, true);
+      const v = rnd() < 0.5 ? 0 : 2, col = new THREE.Color(v ? 0xffc050 : 0xffa040);
+      dec(B, 'glow', gemGeo(v, true), mat4(x, 0.08, z, rnd() * TAU, s), lin(0xffffff, 0.6));
+      glowAt(B, x, z, 1.8, col, 0.3);
+      RS.gems++;
+    }
+    // steam vents on the basalt ground beside the floor: soft round puffs rising
+    const vents = [];
+    for (let n = 0; n < W * H / 8 && vents.length < 14; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 3.5 || dF[c] < 0.8 || lavaAt(x, z) > 0.15) continue;
+      if (vents.some(q => hyp(q[0] - x, q[1] - z) < 7) || gems.some(q => hyp(q[0] - x, q[1] - z) < 1.6)) continue;
+      const s = Math.min(0.9 + rnd() * 0.5, capAt(gapAt(x, z)) / 0.35);
+      if (s < 0.5 || hides(L, x, z, 0.6 * s, 0, 0.35 * s, 0.1)) continue;
+      vents.push([x, z]);
+      const D = ventData(), m = mat4(x, 0, z, rnd() * TAU, s);
+      dec(B, 'rock', D.rock, m, tint()); dec(B, 'glow', D.glow, m, lin(0xffffff, 0.9));
+      glowAt(B, x, z, 1.6 * s, 0xff8a3c, 0.35);
+      for (let p = 0; p < 6; p++) B.pts.norm.push({ x: x + (rnd() - 0.5) * 0.1, y: 0.32 * s, z: z + (rnd() - 0.5) * 0.1, kind: 7, ph: p / 6 + rnd() * 0.05, size: 0.62, prm: 0.2 + rnd() * 0.04, col: lin(0xfff6f0, 1.0) });
+      for (let p = 0; p < 2; p++) B.pts.add.push({ x, y: 0.3 * s, z, kind: 9, ph: rnd(), size: 0.09, prm: 0.3 + rnd() * 0.2, col: lin(0xffa040, 2.6) });
+      RS.vents++;
+    }
+    // inside the rooms, against a wall (never in a corridor, never hiding floor, leaving a real gap or none): glowing fire-gem
+    // clusters and little steam vents; they block like the cave's crystals
+    const roomSpot = (x, z, r, h) => !inArena(x, z, -1.5) && linkDist(L, x, z) >= 2.5 && gapOKL(L, x, z, r) && hiddenBehind(L, x, z, r, h) === 0 &&
+      !L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + r + 1.1) && !L.spawns.some(q => hyp(q.x - x, q.z - z) < 1.6) &&
+      !L.chests.some(q => hyp(q.x - x, q.z - z) < 2.5) && !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 3) && !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < 4) &&
+      !L.path.some(p => hyp(p.x - x, p.z - z) < 2.8);
+    for (let n = 0, nIn = 0, nV = 0; n < W * H / 12 && (nIn < 9 || nV < 5); n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || !grid[c] || dW[c] > 1.3 || dW[c] < 0.85) continue;
+      const vent = nV < 5 && rnd() < 0.35;
+      if (vent ? vents.some(q => hyp(q[0] - x, q[1] - z) < 6) : (nIn >= 9 || gems.some(q => hyp(q[0] - x, q[1] - z) < 4.5))) continue;
+      const s = vent ? 0.75 + rnd() * 0.3 : 0.8 + rnd() * 0.6, r = vent ? 0.55 * s : 0.3 * s + 0.1;
+      if (!roomSpot(x, z, r, vent ? 0.4 * s : 1.0 * s)) continue;
+      if (vent) {
+        vents.push([x, z]); nV++;
+        const D = ventData(), m = mat4(x, 0, z, rnd() * TAU, s);
+        propSolid(L, x, z, r, 'vent', [dec(B, 'rock', D.rock, m, tint()), dec(B, 'glow', D.glow, m, lin(0xffffff, 0.9))]);
+        glowAt(B, x, z, 1.6 * s, 0xff8a3c, 0.35);
+        for (let p = 0; p < 6; p++) B.pts.norm.push({ x, y: 0.32 * s, z, kind: 7, ph: p / 6 + rnd() * 0.05, size: 0.6, prm: 0.2 + rnd() * 0.04, col: lin(0xfff6f0, 1.0) });
+        RS.vents++;
+      } else {
+        gems.push([x, z]); nIn++;
+        const v = Math.floor(rnd() * 4), col = new THREE.Color([0xffa040, 0xff7a8a, 0xffc050, 0xff9a60][v]), m = mat4(x, -0.04, z, rnd() * TAU, s);
+        propSolid(L, x, z, r, 'gem', [dec(B, 'glow', gemGeo(v, true), m, lin(0xffffff, 0.55)), dec(B, 'rock', rockGeo(v % 3), mat4(x, 0, z, rnd() * TAU, 0.34 * s, 0.18 * s, 0.3 * s), lin(0x8a7a76))]);
+        B.lights.push({ x, y: 0.9, z: z + 0.25, col, int: 3.2, dist: 6, fl: 0, ph: rnd() * 10 });
+        glowAt(B, x, z + 0.3, 2.3 + s, col, 0.5);
+        for (let m2 = 0; m2 < 3; m2++) B.pts.add.push({ x: x + (rnd() - 0.5) * 0.7, y: 0.3 + rnd() * 0.7, z: z + (rnd() - 0.5) * 0.7, kind: 2, ph: rnd(), size: 0.15, prm: 0.3 + rnd() * 0.3, col: col.clone().multiplyScalar(2) });
+        RS.gems++;
+      }
+    }
+    // fire flowers: small patches along the floor's edges (off the path) and on the basalt ground next to it
+    const nPatch = Math.round(W * H / 90);
+    for (let n = 0; n < nPatch; n++) {
+      const x = 1 + rnd() * (W - 2), z = 1 + rnd() * (H - 2), c = cellOf(x, z);
+      if (c < 0) continue;
+      const onF = grid[c] === 1;
+      if (onF ? (dW[c] > 2.6 || maskAt(x, z, 0) > 0.3 || maskAt(x, z, 2) > 0.3 || busy(x, z, 0.6) || inArena(x, z, 1.5)) : (dF[c] > 1.6 || lavaAt(x, z) > 0.2 || B.noDec[c])) continue;
+      const cnt = 3 + Math.floor(rnd() * 4), v0 = Math.floor(rnd() * 3);
+      for (let m = 0; m < cnt; m++) {
+        const a = rnd() * TAU, r = Math.sqrt(rnd()) * 0.8, px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r, cc = cellOf(px, pz);
+        if (cc < 0 || B.noDec[cc] || lavaAt(px, pz) > 0.1) continue;
+        const D = fireFlowerData(rnd() < 0.7 ? v0 : Math.floor(rnd() * 3)), mm = mat4(px, 0, pz, rnd() * TAU, 1.1 + rnd() * 0.5);
+        dec(B, 'decor', D.decor, mm, null); dec(B, 'glow', D.glow, mm, lin(0xffffff, 0.55));
+        RS.flowers++;
+      }
+    }
+    // dark pebbles along the walls
+    for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+      const c = j * W + i;
+      if (!grid[c] || dW[c] > 2 || rnd() > 0.035) continue;
+      dec(B, 'decor', pebbleGeo(1 + Math.floor(rnd() * 2)), mat4(i + rnd(), 0, j + rnd(), rnd() * TAU, 1), lin(0xa89c98));
+    }
+    // warm light from the lava along the shores (the 4 pooled torch lights pick the nearest), embers rising, bubbles glinting
+    const lit = [];
+    for (const [i, j] of shuffle((() => { const o = []; for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) if (grid[j * W + i] && dW[j * W + i] <= 1.6) o.push([i, j]); return o; })(), rnd)) {
+      const x = i + 0.5, z = j + 0.5;
+      if (lit.some(q => hyp(q[0] - x, q[1] - z) < 6.5)) continue;
+      let best = null;
+      for (let a = 0; a < 8 && !best; a++) { const dx = Math.cos(a * TAU / 8), dz = Math.sin(a * TAU / 8); if (lavaAt(x + dx * 1.8, z + dz * 1.8) > 0.6) best = [x + dx * 1.8, z + dz * 1.8]; }
+      if (!best) continue;
+      lit.push([x, z]);
+      B.lights.push({ x: best[0], y: 0.55, z: best[1], col: new THREE.Color(0xff7a34), int: 3.4, dist: 7.5, fl: 0.14, ph: rnd() * 10 });
+      RS.lights++;
+    }
+    for (let n = 0, tries = 0; n < 190 && tries < 6000; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 6 || lavaAt(x, z) < 0.7) continue;
+      B.pts.add.push({ x, y: 0.05, z, kind: 9, ph: rnd(), size: 0.07 + rnd() * 0.06, prm: 0.14 + rnd() * 0.16, col: lin(pick([0xffa040, 0xffc060, 0xff7a30]), 2.6) });
+      if (n % 3 === 0) B.pts.add.push({ x: x + rnd() - 0.5, y: 0.04, z: z + rnd() - 0.5, kind: 2, ph: rnd(), size: 0.14, prm: 0.25 + rnd() * 0.25, col: lin(0xffc070, 1.8) });
+      n++; RS.embers++;
+    }
+    // paved bridges: low parapet stones along both edges, little lamp posts at the ends
+    for (const b of V.bridges) {
+      for (const sd of [1, -1]) {
+        const P = b.pts;
+        for (let i = 0; i < P.length; i++) {
+          const q = P[i], e = sd > 0 ? q.e1 : q.e2, nx = q.nx * sd, nz = q.nz * sd, x = q.x + nx * (e + 0.24), z = q.z + nz * (e + 0.24), ry = Math.atan2(q.nx, q.nz);
+          const end = i === 0 || i === P.length - 1;
+          if (end) {
+            dec(B, 'stone', G.rbox(), mat4(x, 0.3, z, ry, 0.42, 0.6, 0.42), lin(0xd8ccc4));
+            dec(B, 'glow', G.sphere(12, 8), mat4(x, 0.72, z, 0, 0.13), lin(0xffb050, 1.1));
+            glowAt(B, x, z, 1.4, 0xffa050, 0.3);
+          } else dec(B, 'stone', G.rbox(), mat4(x, 0.13, z, ry, 0.62, 0.28, 0.38), lin(pick([0xcfc2ba, 0xc4b8b0, 0xd8ccc4])));
+        }
+      }
+      for (const q of b.pts) { const c = cellOf(q.x, q.z); if (c >= 0) B.noDec[c] = 1; }
+    }
+    // the boss arena: an island in a lava moat, basalt cliffs to the north with little lavafalls, glowing islets in the moat
+    if (ar) {
+      B.falls = [];
+      const offs = [-0.95, -0.4, 0.4, 0.95];
+      offs.splice(Math.floor(rnd() * 4), 1);
+      for (const o of offs) {
+        const a = -Math.PI / 2 + o, dx = Math.cos(a), dz = Math.sin(a);
+        let r = ar.r * 0.8;
+        while (r < ar.r + 12 && (V.dA ? V.dA[cellOf(ar.x + dx * r, ar.z + dz * r)] < 4.7 : r < ar.r + 4.7)) r += 0.25;
+        const x = ar.x + dx * r, z = ar.z + dz * r;
+        if (lavaAt(x - dx * 0.6, z - dz * 0.6) < 0.5) continue;
+        let h = 2.6 + rnd() * 0.8;
+        while (h > 1.4 && hides(L, x, z, 0.7, 0, h + 0.5, 0.1)) h -= 0.3;
+        if (h <= 1.4) continue;
+        const yaw = Math.atan2(-dx, -dz);   // local +z faces the arena
+        B.falls.push({ x, z, yaw, h, w: 1.5 + rnd() * 0.5, ph: rnd() * 5 });
+        // the cliff behind it: a big basalt column cluster + boulders at its sides
+        const bx = x + dx * 2.0, bz = z + dz * 2.0;
+        inst(B, 'basaltC', mat4(bx, 0, bz, rnd() * TAU, 1.35, h + 0.5, 1.35), tintC());
+        for (const sd of [-1, 1]) { const px = bx - dz * sd * 1.6 - dx * 0.3, pz = bz + dx * sd * 1.6 - dz * 0.3; if (!hides(L, px, pz, 1.1, 0, (h + 0.2) * 0.9, 0.15)) inst(B, 'basaltC', mat4(px, 0, pz, rnd() * TAU, 1.1, (h + 0.2) * (0.7 + rnd() * 0.25), 1.1), tintC()); }
+        // the splash: a bubbling glowing mound, steam and embers, a warm light
+        dec(B, 'glow', R.geo.splash || (R.geo.splash = lumpy(1, 0.25, 3700, { flat: 0 })), mat4(x + dx * 0.05, -0.1, z + dz * 0.05, rnd() * TAU, 0.6, 0.26, 0.5), lin(0xff7a28, 0.5));
+        for (let p = 0; p < 5; p++) B.pts.norm.push({ x: x + (rnd() - 0.5) * 0.6, y: 0.2, z: z + (rnd() - 0.5) * 0.4, kind: 7, ph: p / 5 + rnd() * 0.05, size: 0.75, prm: 0.22, col: lin(0xfff0e6, 1.0) });
+        for (let p = 0; p < 7; p++) B.pts.add.push({ x: x + (rnd() - 0.5) * 0.8, y: 0.1, z: z + (rnd() - 0.5) * 0.5, kind: 9, ph: rnd(), size: 0.1, prm: 0.35 + rnd() * 0.3, col: lin(0xffb050, 2.8) });
+        B.lights.push({ x: x - dx * 0.6, y: 1.2, z: z - dz * 0.6, col: new THREE.Color(0xff8a3c), int: 5, dist: 9, fl: 0.2, ph: rnd() * 10 });
+        glowAt(B, x - dx * 1.2, z - dz * 1.2, 3.2, 0xff8a3c, 0.45);
+        RS.falls++;
+      }
+      // on the island: a ring of fire-flower clumps around the fight (decor only), little glowing gem clusters along its lava shore
+      RS.ring = 0;
+      for (let a = rnd() * 0.4; a < TAU; a += 0.27 + rnd() * 0.14) {
+        const r = ar.r * 0.74 + (rnd() - 0.5) * 0.9, x = ar.x + Math.cos(a) * r, z = ar.z + Math.sin(a) * r, c = cellOf(x, z);
+        if (c < 0 || !grid[c] || dW[c] < 1.6 || linkDist(L, x, z) < 2.6 || busy(x, z, 0.6) || maskAt(x, z, 0) > 0.3 || maskAt(x, z, 2) > 0.3) continue;
+        const n = 4 + Math.floor(rnd() * 3), v0 = Math.floor(rnd() * 3);
+        for (let m = 0; m < n; m++) {
+          const px = x + (rnd() - 0.5) * 1.1, pz = z + (rnd() - 0.5) * 1.1;
+          const D = fireFlowerData(rnd() < 0.75 ? v0 : Math.floor(rnd() * 3)), mm = mat4(px, 0, pz, rnd() * TAU, 1.3 + rnd() * 0.55);
+          dec(B, 'decor', D.decor, mm, null); dec(B, 'glow', D.glow, mm, lin(0xffffff, 0.55));
+          RS.flowers++;
+        }
+        RS.ring++;
+      }
+      for (let a = rnd() * 0.5; a < TAU; a += 0.42 + rnd() * 0.3) {
+        let r = ar.r * 0.8;
+        const dx = Math.cos(a), dz = Math.sin(a);
+        while (r < ar.r + 4 && isFloor(L, ar.x + dx * r, ar.z + dz * r)) r += 0.2;
+        const x = ar.x + dx * (r + 0.2), z = ar.z + dz * (r + 0.2);   // just past the walkable edge, on the moat's shore (Feza can't walk into it)
+        if (isFloor(L, x, z) || r >= ar.r + 4 || nearLava(x, z, 1.3) < 0.5 || linkDist(L, x, z) < 3 || busy(x, z, 0.4) || gems.some(q => hyp(q[0] - x, q[1] - z) < 2.2)) continue;
+        const s = Math.min(0.55 + rnd() * 0.3, (capAt(gapAt(x, z)) + 0.2) / 1.05);
+        if (s < 0.35) continue;
+        gems.push([x, z]);
+        const v = Math.floor(rnd() * 4), col = new THREE.Color([0xffa040, 0xff7a8a, 0xffc050, 0xff9a60][v]);
+        dec(B, 'glow', gemGeo(v, true), mat4(x, -0.03, z, rnd() * TAU, s), lin(0xffffff, 0.55));   // (no rock base: fewer draw calls)
+        glowAt(B, x, z, 1.5, col, 0.35);
+        RS.gems++; RS.ring++;
+      }
+      // glowing islets in the moat (low; the camera side too)
+      for (let k = 0, made = 0; k < 40 && made < 5; k++) {
+        const a = rnd() * TAU, dx = Math.cos(a), dz = Math.sin(a);
+        let r = ar.r * 0.8;
+        while (r < ar.r + 10 && isFloor(L, ar.x + dx * r, ar.z + dz * r)) r += 0.25;
+        r += 1.9 + rnd() * 1.2;
+        const x = ar.x + dx * r, z = ar.z + dz * r;
+        if (lavaAt(x, z) < 0.8 || linkDist(L, x, z) < 3.5 || gems.some(q => hyp(q[0] - x, q[1] - z) < 3.5)) continue;
+        const s = 0.6 + rnd() * 0.3;
+        if (hides(L, x, z, 0.5 * s, 0, 0.75 * s, 0.05)) continue;
+        gems.push([x, z]); made++;
+        rock(x, z, s, s * 0.45, s * 0.9, 0.08, true);
+        dec(B, 'glow', gemGeo(rnd() < 0.5 ? 0 : 2, true), mat4(x, 0.08, z, rnd() * TAU, 1.0 * s), lin(0xffffff, 0.6));
+        glowAt(B, x, z, 2.0, 0xffb050, 0.3);
+      }
+    }
+    // soft warm motes in the air
+    for (let n = 0; n < 50; n++) {
+      const x = rnd() * W, z = rnd() * H;
+      if (!grid[Math.floor(z) * W + Math.floor(x)]) continue;
+      B.pts.add.push({ x, y: 0.6 + rnd() * 2.2, z, kind: 1, ph: rnd(), size: 0.07, prm: 0.5 + rnd() * 0.5, col: lin(0xffd0a0, 1.1) });
     }
   }
   // ── Castle: brick wall blocks (tall N/E/W, low caps on the camera side), pillars, banners, rose window ──
@@ -3345,7 +4095,7 @@ const LEVEL = (function () {
     for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [0, 1]) k.add(MK(G.box()), 0x6a6470, [a * s / 2, c * s, b * s / 2], 0, [0.1, 0.1, 0.1]);
     return k.build();
   } };
-  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8] };
+  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], volcano: [0xe0875a, 0x6ab8c8, 0xf0b060, 0xd07aa0], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8] };
   function makeBreakables(L, B) {
     const byKind = {};
     L.breakables.forEach((b, i) => (byKind[b.kind] || (byKind[b.kind] = [])).push(i));
@@ -3353,7 +4103,7 @@ const LEVEL = (function () {
     for (const kind in byKind) {
       const ids = byKind[kind], K = KIND[kind];
       const im = new THREE.InstancedMesh(kgeo(kind), R.mat[K.mat], ids.length);
-      const pal = VASE_COL[L.theme];
+      const pal = VASE_COL[L.theme] || VASE_COL.forest;
       ids.forEach((bi, n) => {
         const b = L.breakables[bi], ry = B.rnd() * TAU, sc = kind === 'vase' ? 0.95 + B.rnd() * 0.3 : 0.95 + B.rnd() * 0.12;
         const m = mat4(b.x, 0, b.z, ry, sc);
@@ -3459,7 +4209,7 @@ const LEVEL = (function () {
   function makePortal(L, B) {
     if (!L.exit) return;
     const ex = L.exit, g = new THREE.Group(); g.position.set(ex.x, 0, ex.z); B.g.add(g);
-    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : [0xd4ccbc, 0xc4bcae];
+    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : L.theme === 'volcano' ? [0x9a8a86, 0x8c7e7c] : [0xd4ccbc, 0xc4bcae];
     const st = () => lin(tint[Math.floor(rnd() * 2)], 0.9 + rnd() * 0.2);
     for (const sx of [-1, 1]) {
       let y = 0;
@@ -3502,6 +4252,7 @@ const LEVEL = (function () {
     B.lights.push(light);
     L.portalObj = { x: ex.x, z: ex.z, active: true, obj: g,
       setActive(v) { this.active = !!v; uOn.value = v ? 1 : 0; light.int = v ? 6 : 0; if (grp && B.ptOn) B.ptOn.value[grp] = v ? 1 : 0; } };
+    if (L.boss) L.portalObj.setActive(false);   // asleep until the boss is cheered up (GAME calls setActive(true))
   }
   // Torch holders (flames are added to the shared flame billboard)
   function torchGeo(kind) {
@@ -3734,10 +4485,11 @@ const LEVEL = (function () {
     if (!L) return L;
     if (L.group) dispose(L);
     const t0 = performance.now();
+    if (texOK() && TEX.ensure) { try { TEX.ensure(L.theme); } catch (e) { console.warn('LEVEL: TEX.ensure', e); } }   // no-op when the UI already did it under the fade
     ensureRes();
     const g = L.group = new THREE.Group(); g.name = 'level'; scene.add(g);
     if (L.solids.some(s => s.built)) { L.solids = L.solids.filter(s => !s.built); L._sh = null; }   // rebuilding the same L
-    const th = THEME[L.theme];
+    const th = THEME[L.theme] || THEME.forest;
     setLighting(th); POST.saturation = th.sat;
     const ru = R.mat.rock.userData.u, mc = lin(th.moss[0]);
     ru.uMoss.value.set(mc.r, mc.g, mc.b, th.moss[1]);
@@ -3745,7 +4497,7 @@ const LEVEL = (function () {
     R.mat.stone.userData.u.uMoss.value.set(mc.r, mc.g, mc.b, th.moss[1] * 0.6);
     for (const l of LIGHTS.torches) l.intensity = 0;
     R.ptOn.value.fill(1); R.portalOn.value = 1;
-    const B = L._b = { L, g, rnd: mulberry32((L.seed ^ 0x9e3779b9) >>> 0), inst: {}, dec: {}, lights: [], pts: { add: [], norm: [] }, flames: [], slime: [], banners: [], windows: [], shelves: [],
+    const B = L._b = { L, g, rnd: mulberry32((L.seed ^ 0x9e3779b9) >>> 0), inst: {}, dec: {}, lights: [], pts: { add: [], norm: [] }, flames: [], slime: [], banners: [], windows: [], shelves: [], falls: [],
       anim: [], dispose: [], tmpGeo: [], glows: [], far: [], noTree: [], noDec: new Uint8Array(L.W * L.H), prox: {}, grpN: 0, ptOn: R.ptOn, ptScale: R.ptScale, slots: LIGHTS.torches.map(() => ({ c: null, k: 0 })) };
     const V = L.village;
     if (V) {
@@ -3765,12 +4517,13 @@ const LEVEL = (function () {
       if (V.well) B.noDec[Math.floor(V.well.z) * L.W + Math.floor(V.well.x)] = 1;
     }
     if (L.exit) B.noTree.push({ x: L.exit.x, z: L.exit.z - 0.5, r: 2.4 });
+    L._volc = L.theme === 'volcano' ? volcanoField(L) : null;   // lava + bridges first: the floor mask needs them
     buildFloor(L, B);
-    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'cave') buildCave(L, B); else buildCastle(L, B);
+    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'cave') buildCave(L, B); else if (L.theme === 'volcano') buildVolcano(L, B); else buildCastle(L, B);
     if (V) buildVillage(L, B);
     L.fixedProps = fixReach(L, unProp, dropUnreachable);   // build-time rocks / props must not cut off a room, chest or checkpoint
     buildProps(L, B);
-    finishBanners(B); finishSlime(B); finishWindows(B);
+    finishBanners(B); finishSlime(B); finishWindows(B); finishLavafalls(B);
     finishInst(L, B); finishDecor(L, B); finishPoints(L, B); finishFlames(L, B); buildGlowTex(L, B);
     for (const t of B.tmpGeo) t.dispose();
     B.tmpGeo.length = 0;

@@ -9,7 +9,25 @@
    loadZone() pre-compiles and draws everything the zone will show (warmZone) while the loading fade covers the screen.
    Feza's request: every sword is a LIGHTSABER (slash + hit sparks + Feza's light take ITEMS.bladeColor; the blade ignites
    with 'saberOn' at every zone start and respawn), the Köstebek burrows (kind 'burrow', st.burrow 0..1; untargetable while
-   underground), the Salyangoz blows soap bubbles and leaves a slime trail, the dragon breathes bubbles and glitter. */
+   underground), the Salyangoz blows soap bubbles and leaves a slime trail, the dragon breathes bubbles and glitter.
+   Round 3 (Feza: a volcano zone + a boss at the end of EVERY zone): one boss framework for all four (arena aggro, 'boss'
+   event {on, name, type, final, hp, maxHp}, boss music, intro line, hp sized to Feza's damage per boss (DIFF.boss), naps
+   tire the boss, checkpoint at the arena entrance). Kral Jöle hops + slams + spits jelly, Usta Köstebek burrows + pops up
+   under Feza + throws dirt clods + drills, Koca Lav Kaplumbağası erupts lava balls onto circles + rolls along a lane +
+   stomps; each summons little ones. A mid-zone boss cheering up drops treasure and opens the zone's portal (it is shut
+   until then; an inactive portal does nothing); the dragon keeps the crystal finale. New creatures: kaplumbaga (tucks
+   in and rolls at Feza along a lane), ateskusu (flying fire chick flicking slow embers). DIFF arrays are in ZONES order
+   orman, magara, yanardag, kale (looked up by zone id). Saves before sv 3 with zone ≥ 2 move one zone on (castle = 3).
+   Extra event 'portalOpen' {x, z}; 'happy' also carries final (true for the dragon). __T.boss(i) jumps to zone i's
+   boss (default: the dragon), __T.bossHit(frac) / __T.bossCfg(type) testing aids.
+   Round 3 QA fixes: a boss never sits inside Feza (separate() moves the boss when he cannot give way; hops / pop-ups land
+   next to him); a portal that just opened does not swallow Feza standing on it (L.portalObj.openT / .armed: walk-in after
+   PORTAL.wait s and once he was PORTAL.arm m away; a tap always works) and the boss's treasure flies to him (and into his
+   pockets on entering); Kaydet after a mid-zone boss saves the NEXT zone, after the dragon flags.bossDone (crystal waits);
+   a nap keeps the pack's progress (NAP); the arena checkpoint is just outside the arena; 'kapi' is skipped when the boss's
+   happy line already says the door opened; a new skill's line waits for the boss story (skillQ).
+   Tap-to-walk never runs in place: a net-progress watchdog (tapWalkProgress, PROG) swings at a vase in the way, else
+   walks round once, else stands still (test/r3y_src_07_game_js_stuck.html). */
 const GAME = (() => {
   'use strict';
 
@@ -23,22 +41,35 @@ const GAME = (() => {
   };
   // ── Difficulty: the one place to tune how hard the game is (parent, 2nd round: "the creatures go happy at once,
   //    only the dragon was strong — make the whole game a bit harder") ──
+  // Arrays "per zone" are in ZONES order: orman, magara, yanardag (Round 3), kale — looked up by zone id (see zslot).
   const DIFF = {
     hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
-    zoneHp: [1.15, 1, 0.9],   // × per zone: the castle is spongy enough through its own hpMult
-    hpType: { golem: 0.7, salyangoz: 0.8 },   // the big slow golem and the slow bubble snail are tanky enough already
+    // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1)
+    zoneHp: [1.15, 1, 0.95, 1],
+    hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85 },   // the big slow golem, the slow bubble snail and the shell turtle are tanky enough already
     eliteHp: 3.4,       // elites: hp × this (on top of hp; was 3)
     eliteDmg: 1.5,      // elites: damage × this (their hp went up: their punch stays)
     // A strong sword must not turn the creatures happy in one or two hits (lots of treasure, or the next adventure round):
     // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
-    power: { dmg: [20, 36, 50], k: 0.8 },
+    power: { dmg: [20, 36, 44, 54], k: 0.8 },
     bossHp: 8,          // dragon hp at most (a button-masher with a good sword needs about a minute)
-    bossHpPerDmg: 175, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 175 × P.dmg, at least 58 % of the max (were 230 / 70 %:
-                                         //    the skills wait longer now, so the fight stays about as long as before, ~1 minute)
+    bossHpPerDmg: 220, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 220 × P.dmg, at least 58 % of the max (2nd round: 175;
+                                         //    Round 3: Feza reaches the castle a zone stronger, the fight stays ~1 minute, 60–90 s)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
-    bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in the dragon fight tires it: damage ×0.75 (down to ×0.55), −8 % hp
+    // Round 3: the bosses at the end of zones 0–2. hp = per × Feza's damage (clamped to lo..hi) × (1 + 0.5 × round), sized
+    // when the fight starts; dmg = the base hit (× 1 + 0.3 × round). Targets for a button-masher: kral jöle ~30–45 s,
+    // usta köstebek ~40–55 s (it spends time underground), lav kaplumbağası ~50–70 s (the dragon above: ~60–90 s).
+    boss: {   // (Round 3 QA: masher fights measured 34 s / 45 s → per 100 / 125 raised a little to centre them in their targets)
+      kraljole:      { per: 110, lo: 15, hi: 34, dmg: 14 },
+      kostebekusta:  { per: 130, lo: 21, hi: 48, dmg: 23 },
+      lavkaplumbaga: { per: 205, lo: 26, hi: 60, dmg: 25 },
+    },
+    bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in a boss fight tires the boss: damage ×0.75 (down to ×0.55), −8 % hp
     dmg: 1.8,           // enemy damage (was 1.5)
-    zoneDmg: [1.7, 1.2, 1],   // × per zone: the forest must bite a little too (a potion now and then)
+    // × per zone: the forest must bite a little too (a potion now and then); the volcano's rolling turtles and ember chicks
+    // come in crowds. Round 3 QA (10 naive kid runs: forest/cave hit as hard as each other while Feza is much weaker in the
+    // forest, level-1 naps in the first 20 s; the castle was the easiest): was [1.7, 1.2, 1, 1].
+    zoneDmg: [1.5, 1.05, 1, 1.15],
     atkCd: 0.75,        // enemy attack cooldown (was 0.85; wind-ups unchanged, always ≥ T.windMin)
     xp: 1.1,            // xp per enemy (level pace stays about the same although fights are longer)
     heart: 0.1,         // a heart heals this fraction of max hp (was 0.12)
@@ -59,15 +90,33 @@ const GAME = (() => {
   // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
+  const SAVE_V = 3;   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale)
   const WORDS = ['Pof!', 'Bam!', 'Vuuş!', 'Pat!', 'Güm!', 'Tak!', 'Hop!'];
   // Lightsaber blade colours (fallback when ITEMS.bladeColor is missing; gokkusagi cycles through the rainbow).
   const BLADE_COL = { tahta: '#c8f4ff', demir: '#3f9dff', kristal: '#3dff66', ates: '#ff3344', yildiz: '#b455ff' };
-  const SHOT_KIND = { mantar: 'spore', salyangoz: 'bubble', hayalet: 'ghost', atescik: 'fire', ejderha: 'dragonfire' };
-  const SHOT_COL = { spore: '#b9f07a', bubble: '#bfe6ff', ghost: '#bfe3ff', fire: '#ff9a3c', dragonfire: '#e46bff' };   // dragonfire = the dragon's pink bubbles
-  const ELITE_AD = { kostebek: 'Kocaman Köstebek', salyangoz: 'Kocaman Salyangoz' };
-  const FIRST_LINE = { kostebek: 'ilk_kostebek', salyangoz: 'ilk_salyangoz' };   // said once, the first time that type notices Feza
+  const SHOT_KIND = { mantar: 'spore', salyangoz: 'bubble', hayalet: 'ghost', atescik: 'fire', ejderha: 'dragonfire', ateskusu: 'ember',
+    kraljole: 'jelly', kostebekusta: 'rock', lavkaplumbaga: 'lavaball' };
+  const SHOT_COL = { spore: '#b9f07a', bubble: '#bfe6ff', ghost: '#bfe3ff', fire: '#ff9a3c', dragonfire: '#e46bff',   // dragonfire = the dragon's pink bubbles
+    ember: '#ffae3c', jelly: '#5cc8ff', rock: '#b58f68', lavaball: '#ff7a1c' };   // jelly: the sky-blue Kral Jöle spits sky-blue blobs
+  // How an enemy shot ends when it hits or fades (burst kind, sfx): soap bubbles pop on their own (bubblePop).
+  // (jelly: FX's glossy jelly splat in the blob's colour — 'slime' is the snail's trail lying on the floor)
+  const SHOT_END = { jelly: ['jelly', 'splat'], rock: ['dirt', 'hitSoft'], ember: ['embers', null], lavaball: ['lava', 'splat'] };
+  const ELITE_AD = { kostebek: 'Kocaman Köstebek', salyangoz: 'Kocaman Salyangoz', kaplumbaga: 'Kocaman Kaplumbağa', ateskusu: 'Kocaman Ateş Kuşu' };
+  // said once per game, the first time that type notices Feza (the flags go into the save)
+  const FIRST_LINE = { kostebek: 'ilk_kostebek', salyangoz: 'ilk_salyangoz', kaplumbaga: 'ilk_kaplumbaga', ateskusu: 'ilk_ateskusu' };
   const RAR_COL = ['#f4f4f4', '#5aa8ff', '#ffd23f', '#ff8a1c'];
   const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple'] };
+  const ZORDER = ['orman', 'magara', 'yanardag', 'kale'];   // the order of DIFF's per-zone arrays
+  const ROLLERS = { kaplumbaga: 1 };                         // melee by tucking into the shell and rolling (EDEF kind 'roll' too)
+  // Boss behaviour data (tuning numbers are in DIFF.boss). lines: voice keys (EDEF[type].lines overrides); add: the little
+  // ones it calls at the hp fractions `at` (n of them each time); roar: pitch of its (cute) roar; summonAt: when in its summon
+  // phase (0..1) the little ones pop up (the model's "come out, friends!" beat; default 0.47).
+  const BOSS_KIT = {
+    kraljole:      { lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' }, add: 'jole', at: [0.66, 0.33], n: [3, 3], roar: 1.45, col: '#5cc8ff' },
+    kostebekusta:  { lines: { giris: 'usta_giris', bitti: 'usta_bitti' }, add: 'kostebek', at: [0.66, 0.33], n: [3, 3], roar: 1.2, col: '#ffcf7a', summonAt: 0.8 },
+    lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c' },
+    ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yarasa' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
+  };
   // Fallback enemy stats (EDEF overrides every field it defines).
   const DEF0 = {
     jole:    { ad: 'Jöle', hp: 22, dmg: 5, speed: 2.6, r: 0.5, height: 0.8, xp: 10, gold: 3, kind: 'melee', atkRange: 0.9, atkCd: 1.6, windup: 0.6, aggro: 8.5 },
@@ -82,6 +131,13 @@ const GAME = (() => {
     asker:   { ad: 'Teneke Asker', hp: 55, dmg: 10, speed: 2.6, r: 0.55, height: 1.3, xp: 22, gold: 6, kind: 'melee', atkRange: 1.2, atkCd: 1.9, windup: 0.7, aggro: 9 },
     atescik: { ad: 'Ateşçik', hp: 32, dmg: 8, speed: 2.4, r: 0.5, height: 0.9, xp: 16, gold: 4, kind: 'ranged', atkRange: 7, atkCd: 2.5, windup: 0.7, fly: true, hover: 0.3, aggro: 9 },
     ejderha: { ad: 'Huysuz Ejderha', hp: 1600, dmg: 16, speed: 1.6, r: 2.2, height: 4.5, xp: 600, gold: 150, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 14 },
+    // Round 3 (volcano creatures + the zone bosses; used until 05_enemies has them)
+    kaplumbaga: { ad: 'Minik Lav Kaplumbağası', hp: 36, dmg: 7, speed: 2.1, r: 0.55, height: 0.75, xp: 16, gold: 4, kind: 'roll', atkRange: 2.2, atkCd: 2.0, windup: 0.75, aggro: 9 },
+    ateskusu: { ad: 'Ateş Kuşu', hp: 26, dmg: 7, speed: 2.6, r: 0.45, height: 0.8, xp: 14, gold: 4, kind: 'ranged', atkRange: 6.5, atkCd: 2.5, windup: 0.7, fly: true, hover: 0.95, aggro: 9.5,
+      shot: { kind: 'ember', speed: 4.6, r: 0.3 } },
+    kraljole: { ad: 'Kral Jöle', hp: 900, dmg: 12, speed: 1.9, r: 1.5, height: 2.8, xp: 150, gold: 40, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
+    kostebekusta: { ad: 'Usta Köstebek', hp: 1100, dmg: 14, speed: 2.0, r: 1.35, height: 2.6, xp: 260, gold: 60, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
+    lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', hp: 1400, dmg: 16, speed: 1.5, r: 1.8, height: 2.8, xp: 400, gold: 90, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
   };
 
   // ── Other modules are optional (tests, half-wired builds): every call is guarded ──
@@ -108,6 +164,22 @@ const GAME = (() => {
     const Z = zones();
     return (Z && Z[i]) || { id: 'z' + i, ad: 'Bölge', line: null, music: null, hpMult: 1, dmgMult: 1, xpMult: 1, gold: 1, ilvl: 1 + i * 3 };
   }
+  // Index into DIFF's per-zone arrays (ZORDER), by the zone's id (a level list without the volcano still maps right).
+  function zslot(i = P.zone) {
+    const k = ZORDER.indexOf(zdef(i).id);
+    return k >= 0 ? k : clamp(i | 0, 0, ZORDER.length - 1);
+  }
+  const zpick = (arr, i) => arr[Math.min(arr.length - 1, zslot(i))];
+  // The last zone (the dragon + crystal finale). Older ZONES without the flag: the zone whose boss is the dragon.
+  function finalZone(i = P.zone) {
+    const Z = zdef(i);
+    return Z.final !== undefined ? !!Z.final : Z.boss === 'ejderha';
+  }
+  function bossKit(type) {
+    const k = BOSS_KIT[type] || BOSS_KIT.ejderha, d = edef(type);
+    return d.lines && typeof d.lines === 'object' ? Object.assign({}, k, { lines: Object.assign({}, k.lines, d.lines) }) : k;
+  }
+  const isBossType = t => !!BOSS_KIT[t] || edef(t).kind === 'boss';
   const defCache = {};
   function edef(type) {
     let d = defCache[type];
@@ -142,6 +214,7 @@ const GAME = (() => {
     lunge: { vx: 0, vz: 0, t: 0 }, kbx: 0, kbz: 0, castT: -1, hurtT: 0, invuln: 0, idleT: 0, cheerT: 0,
     lastHurt: -99, playT: 0, deadT: 0, deathX: 0, deathZ: 0, transT: 0, stepT: 0, stepSide: 1,
     tgtRef: null, tgtBest: 1e9, tgtStall: 0, blockT: 0, waitT: 0,   // walk-to-target watchdogs
+    progT: 0, progD: 0, progGx: NaN, progGz: NaN, autoBrk: 0,        // tap-walk net-progress watchdog (see PROG)
   };
   let F = {};                       // story flags (lines said once, intro done…)
   let ZF = {};                      // per-zone flags (reset on every zone load)
@@ -150,7 +223,10 @@ const GAME = (() => {
   let L = null, H = null, gt = 0, hitstop = 0, inited = false;
   let baseScale = 1;
   const enemies = [], dying = [], projectiles = [], coins = [], loot = [], timers = [];
-  let sleepers = [], boss = null, crystal = null;
+  let sleepers = [], boss = null, crystal = null, storyUntil = -99;   // storyUntil: a mid-zone boss's happy lines play (no chatter)
+  const skillQ = [];                // new-skill lines held back while a boss's story lines play (said at skillAt, or in the next zone)
+  let skillAt = -99;
+  const mortars = [];               // lobbed shots (the lava turtle's lava balls): fly in an arc onto a telegraph circle
   let actT = 0, tokT = 0, flowT = 0, flowCx = -1e9, flowCz = -1e9, flowAt = -9;
   let lastKocaman = -99, lastCanAz = -99, lastPraise = -99, lastPotionMsg = -99, lastSoft = -9, npcTalkUntil = -1, npcTalkAt = -99;
   const cheers = [];
@@ -346,17 +422,26 @@ const GAME = (() => {
     scene.add(R.bars);
   }
   // Elite name tag (few elites → a small canvas sprite each).
+  // A long name ('Kocaman Lav Kaplumbağası') never clips: the canvas grows with the text (up to 768 px, the sprite with it),
+  // and a still longer one gets a smaller font.
+  const TAG_FONT = '"Avenir Next Rounded", "Avenir Next", system-ui, sans-serif';
   function nameTag(text) {
-    const c = document.createElement('canvas'); c.width = 512; c.height = 96;
-    const g = c.getContext('2d');
-    g.font = '900 54px "Avenir Next Rounded", "Avenir Next", system-ui, sans-serif';
+    const c = document.createElement('canvas');
+    let g = c.getContext('2d'), fs = 54;
+    g.font = '900 ' + fs + 'px ' + TAG_FONT;
+    const need = g.measureText(text).width + 14 + 24;   // text + stroke + a little air
+    if (need > 768) fs = Math.max(30, Math.floor(fs * 744 / (need - 24)));
+    c.width = clamp(Math.ceil(Math.min(need, 768) / 16) * 16, 512, 768); c.height = 96;
+    g = c.getContext('2d');   // (resizing the canvas reset its state)
+    const cx = c.width / 2;
+    g.font = '900 ' + fs + 'px ' + TAG_FONT;
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-    g.lineWidth = 14; g.strokeStyle = 'rgba(40,16,50,0.92)'; g.strokeText(text, 256, 50);
+    g.lineWidth = 14 * fs / 54; g.strokeStyle = 'rgba(40,16,50,0.92)'; g.strokeText(text, cx, 50);
     const gr = g.createLinearGradient(0, 22, 0, 78); gr.addColorStop(0, '#fff6c2'); gr.addColorStop(0.5, '#ffd23f'); gr.addColorStop(1, '#ff9f1c');
-    g.fillStyle = gr; g.fillText(text, 256, 50);
+    g.fillStyle = gr; g.fillText(text, cx, 50);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true, fog: false }));
-    sp.scale.set(2.6, 0.49, 1); sp.renderOrder = 41;
+    sp.scale.set(2.6 * c.width / 512, 0.49, 1); sp.renderOrder = 41;
     return sp;
   }
 
@@ -403,7 +488,7 @@ const GAME = (() => {
     P.equip = { weapon: st.weapon || null, hat: st.hat || null, cape: st.cape || null };
     P.bag = [P.equip.weapon, P.equip.hat, P.equip.cape].filter(Boolean);
     for (const s of GAME.skills) { s.unlocked = false; s.cd = 0; }
-    F = { zl: {}, kapi: {} };
+    F = { zl: {}, kapi: {} }; skillQ.length = 0;
     recalcStats(); P.hp = P.maxHp;
     if (H) H.setEquip(P.equip);
   }
@@ -413,9 +498,11 @@ const GAME = (() => {
   function clearWorld() {
     for (const e of enemies) dropEnemy(e);
     for (const e of dying) dropEnemy(e);
-    enemies.length = 0; dying.length = 0; sleepers = []; boss = null;
+    enemies.length = 0; dying.length = 0; sleepers = []; boss = null; GAME.boss = null;
     for (const p of projectiles) killProjectileObj(p);
     projectiles.length = 0; coins.length = 0; if (R.coins) R.coins.count = 0;
+    for (const m of mortars) { killProjectileObj(m); remove(m.tele); }
+    mortars.length = 0; storyUntil = -99;
     for (const o of loot) { removeObj(o.obj); remove(o.beam); }
     loot.length = 0; timers.length = 0;
     if (crystal) {   // EMODEL.crystal() keeps its disposer on userData
@@ -426,7 +513,7 @@ const GAME = (() => {
     finale = false; ZF = {}; pathS = 0; pathCum = null;
     C.cheerT = 0; C.castT = -1;
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.queued = false; C.vel = 0;
-    C.lunge.t = 0; C.kbx = C.kbz = 0;
+    C.lunge.t = 0; C.kbx = C.kbz = 0; C.route = null;
     if (R.marker) { R.marker.visible = false; R.sel.visible = false; R.bars.count = 0; }
     fx('clear');
     if (typeof SKILLS_clear === 'function') { try { SKILLS_clear(); } catch (err) { warnOnce('SKILLS_clear', err); } }
@@ -474,18 +561,25 @@ const GAME = (() => {
     if (typeof renderer === 'undefined' || !renderer || !L) return;
     const t0 = performance.now();
     const Z = zdef(i), types = new Set(Object.keys(Z.enemies || {})), elites = new Set(Z.elites || []);
-    for (const s of L.spawns || []) { types.add(s.type); if (s.elite) elites.add(s.type); }
-    if (Z.boss || L.boss) { types.add(Z.boss || 'ejderha'); types.add('yarasa'); }
+    const vars = {};   // type → the variants this zone shows (spawn.variant from LEVEL, ZONES[i].variants)
+    const addVar = (t, v) => { if (v) (vars[t] || (vars[t] = new Set())).add(v); };
+    for (const s of L.spawns || []) { types.add(s.type); if (s.elite) elites.add(s.type); addVar(s.type, s.variant); }
+    if (Z.variants) for (const t in Z.variants) for (const v of Z.variants[t] || []) addVar(t, v);
+    const bt = Z.boss || L.bossType || null;
+    if (bt || L.boss) { const b = bt || 'ejderha'; types.add(b); types.add(bossKit(b).add); }
     const tmp = new THREE.Group(); tmp.name = 'gameWarm';
     const hasE = typeof EMODEL !== 'undefined' && EMODEL && EMODEL.build;
     if (hasE && EMODEL.warm) { try { EMODEL.warm([...types], false); } catch (err) { warnOnce('EMODEL.warm', err); } }   // geometry caches
     if (hasE) for (const t of types) for (const el of [false, true]) {
       if (el && !elites.has(t)) continue;
-      const k = t + (el ? '*' : '');
-      if (!WARM_E[k]) { try { WARM_E[k] = EMODEL.build(t, { variant: VARIANTS[t] ? VARIANTS[t][0] : undefined, elite: el }); } catch (err) { warnOnce('warm ' + k, err); } }
-      if (WARM_E[k] && WARM_E[k].root) tmp.add(WARM_E[k].root);
+      const vl = vars[t] ? [...vars[t]] : [VARIANTS[t] ? VARIANTS[t][0] : undefined];
+      for (const variant of vl) {
+        const k = t + (variant ? ':' + variant : '') + (el ? '*' : '');
+        if (!WARM_E[k]) { try { WARM_E[k] = EMODEL.build(t, { variant, elite: el }); } catch (err) { warnOnce('warm ' + k, err); } }
+        if (WARM_E[k] && WARM_E[k].root) tmp.add(WARM_E[k].root);
+      }
     }
-    if (hasE && (Z.boss || L.boss)) {   // the finale: neşe kristali
+    if (hasE && finalZone(i) && (bt || L.boss)) {   // the finale: neşe kristali
       try {
         if (!WARM_E._crystal && EMODEL.crystal) WARM_E._crystal = { root: EMODEL.crystal() };
       } catch (err) { warnOnce('warm finale', err); }
@@ -510,6 +604,7 @@ const GAME = (() => {
         for (const k of kinds) { const o = fx('projectile', k, SHOT_COL[k]); if (o) { tmp.add(o); temp.push({ proj: o }); } }
         const tx = CAM.target.x, tz = CAM.target.z;
         temp.push(fx('telegraph', tx, tz, 2, 1, '#ff4a3a'), fx('telegraphCone', tx, tz, 0, 1.5, 2.5, 1, '#ff5a44'), fx('beam', tx, tz, '#ffd23f', 3));
+        if (FX.telegraphLine) temp.push(fx('telegraphLine', tx - 2, tz, tx + 2, tz, 1.2, 1, '#ff6a3a'));
       }
     } catch (err) { warnOnce('warmZone', err); }
     tmp.position.copy(CAM.target); tmp.position.y = 0;
@@ -537,14 +632,21 @@ const GAME = (() => {
     }
     let dressed = false;
     const prevT = renderer.getRenderTarget();
+    // The first draw also draws the WHOLE level unculled, so every shadow-depth variant it uses is built now (compile()
+    // never builds shadow programs; an instanced coloured caster — basalt columns, stalactites, vases — first entering
+    // the sun's shadow box used to compile mid-game, usually as a boss arena came into view).
+    const lvlCull = [];
+    if (L.group) L.group.traverse(o => { if ((o.isMesh || o.isPoints || o.isSprite) && o.frustumCulled) { lvlCull.push(o); o.frustumCulled = false; } });
     try {
       renderer.compile(scene, camera);   // everything in the level too (ignores frustum culling)
       renderer.setRenderTarget(typeof POST !== 'undefined' && POST.on && typeof rtMain !== 'undefined' && rtMain ? rtMain : null);
-      for (const eq of combos) {
+      combos.forEach((eq, n) => {
         if (eq) { try { H.setEquip(eq); dressed = true; } catch (err) { warnOnce('warm equip', err); } }
         renderer.render(scene, camera);  // a real draw (shadow pass included)
-      }
+        if (n === 0) for (const o of lvlCull) o.frustumCulled = true;   // the outfit draws: the usual culled view
+      });
     } catch (err) { warnOnce('warm render', err); }
+    for (const o of lvlCull) o.frustumCulled = true;
     renderer.setRenderTarget(prevT);
     if (dressed) { try { H.setEquip(title && R.titleWear ? R.titleWear : P.equip); } catch (err) { warnOnce('H.setEquip', err); } }
     scene.remove(tmp);
@@ -559,14 +661,33 @@ const GAME = (() => {
   function populate() {
     if (!L) return;
     L._title = false;
-    sleepers = (L.spawns || []).filter(s => s.type !== 'ejderha').map(s => Object.assign({}, s));
-    const bs = (L.spawns || []).find(s => s.type === 'ejderha');
-    const bz = zdef().boss;
-    if (bs || (L.boss && bz)) {
-      const b = makeEnemy({ type: bz || 'ejderha', x: (bs || L.boss).x, z: (bs || L.boss).z, elite: false, pack: 'boss' });
+    L._bossRoom = undefined;
+    sleepers = (L.spawns || []).filter(s => !isBossType(s.type)).map(s => Object.assign({}, s));   // (boss types never wander in the level)
+    const bs = (L.spawns || []).find(s => isBossType(s.type));
+    const bz = zdef().boss || L.bossType || (bs && bs.type) || null;
+    const rm = bossRoom();
+    const at = L.boss || bs || (bz && rm ? { x: rm.x, z: rm.z } : null);
+    // a save made after the dragon cheered up (see snapshot): no dragon, the crystal is waiting, Feza wakes at the arena
+    const won = F.bossDone === P.zone && finalZone() && !!at;
+    F.bossDone = -1;
+    if (bz && at && !won) {
+      const b = makeEnemy({ type: bz, x: at.x, z: at.z, elite: false, pack: 'boss', face: 0 });
       b.face = 0; boss = GAME.boss = b;
     } else GAME.boss = null;
-    if (L.portalObj && L.portalObj.setActive) L.portalObj.setActive(true);
+    if (won) {
+      finale = true;
+      let sx = at.x, sz = at.z + 4;
+      for (let s = 4; s >= 0 && !circleFree(sx, sz, T.heroR); s -= 0.5) sz = at.z + s;
+      if (!circleFree(sx, sz, T.heroR)) { const door = arenaDoor(); if (door) { sx = door.x; sz = door.z; } }
+      if (circleFree(sx, sz, T.heroR)) { P.checkpoint = { x: sx, z: sz }; placeHero(sx, sz, 0); }
+      spawnCrystal();
+    }
+    // Round 3: the portal of a zone with a boss opens when the boss cheers up; without a boss (older levels) it is open.
+    if (L.portalObj && L.portalObj.setActive) {
+      const open = !(boss && !finalZone());
+      try { L.portalObj.setActive(open); } catch (err) { warnOnce('portal.setActive', err); }
+      L.portalObj.active = open;
+    }
     activate(true, 16);
     pathInit();
   }
@@ -595,32 +716,48 @@ const GAME = (() => {
     igniteSaber(0.45);   // vvzzum: the lightsaber lights up as the zone fades in
     if (Z.music) aud('music', Z.music);
     if (i > 0 && Z.line) later(0.8, () => say(Z.line, 2));
+    skillAt = gt + 1.2;   // a new skill's line held back from the last boss: right after this zone's name
   }
 
   // ── Enemies ──
   // Creature hp factor for a sword stronger than usual in this zone and round (see DIFF.power); 1 at or below it.
   function powerHp(ngH) {
-    const D = DIFF.power, zi = clamp(P.zone | 0, 0, D.dmg.length - 1), usual = D.dmg[zi] * ngH;
+    const D = DIFF.power, usual = zpick(D.dmg) * ngH;
     return P.dmg > usual ? Math.pow(P.dmg / usual, D.k) : 1;
+  }
+  // Boss tuning: DIFF.boss[type], or the dragon's numbers (its hp cap = EDEF hp × DIFF.bossHp, floor = bossHpMin of that).
+  function bossCfg(type) {
+    const c = DIFF.boss[type];
+    if (c) return c;
+    const d = edef(type), per = DIFF.bossHpPerDmg, hi = (d.hp || 1600) * DIFF.bossHp / per;
+    return { per, lo: hi * DIFF.bossHpMin, hi, dmg: (d.dmg || 16) * 1.4 * DIFF.bossDmg };
+  }
+  const bossHpNow = type => { const c = bossCfg(type); return Math.max(1, Math.round(c.per * clamp(P.dmg, c.lo, c.hi) * (1 + 0.5 * P.ng))); };
+  // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
+  function variantFor(type, sp) {
+    if (sp && sp.variant) return sp.variant;
+    const zv = zdef().variants && zdef().variants[type];
+    if (Array.isArray(zv) && zv.length) return fpick(zv);
+    return VARIANTS[type] ? fpick(VARIANTS[type]) : undefined;
   }
   function makeEnemy(sp) {
     const type = sp.type, def = edef(type), Z = zdef();
-    const isBoss = def.kind === 'boss';
+    const isBoss = def.kind === 'boss' || sp.pack === 'boss';
     const elite = !!sp.elite && !isBoss;
     const ngH = 1 + 0.6 * P.ng, ngD = 1 + 0.3 * P.ng;
-    const variant = sp.variant || (VARIANTS[type] ? fpick(VARIANTS[type]) : undefined);
+    const variant = variantFor(type, sp);
     let m = null;
     if (typeof EMODEL !== 'undefined' && EMODEL.build) { try { m = EMODEL.build(type, { variant, elite }); } catch (err) { warnOnce('EMODEL.build ' + type, err); } }
     if (!m || !m.root) m = fallbackEnemy(type, elite);
     scene.add(m.root);
     const sc = elite ? 1.4 : 1;
-    const hp = Math.round(isBoss ? def.hp * (1 + 0.5 * P.ng) * DIFF.bossHp
-      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * (DIFF.zoneHp[P.zone] || 1) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH));
+    const hp = Math.round(isBoss ? bossHpNow(type)
+      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH));
     const e = {
-      type, def, m, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
+      type, def, m, variant, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: def.dmg * (isBoss ? 1.4 * DIFF.bossDmg : (Z.dmgMult || 1) * (DIFF.zoneDmg[P.zone] || 1) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1),
+      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1),
       speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng),
       xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
       gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
@@ -633,8 +770,9 @@ const GAME = (() => {
       tele: null, ice: null, aura: null, tag: null, sparkT: 0, bar: { trail: 1, delay: 0 }, fade: 1, aggroAt: -99, dead: false,
       bur: 0, upT: 99, digT: 0, digS: 0, trailT: frand(0, 0.2),   // burrow amount (köstebek), time on the surface, fx timers
       // No EDEF entry for a burrower = the stand-in model cannot sink by itself: GAME lowers it into the ground instead.
-      selfBurrow: def.kind === 'burrow' && !(typeof EDEF !== 'undefined' && EDEF && EDEF[type]),
-      st: { move: 0, windup: -1, attack: -1, hurt: 0, frozen: false, dying: -1, t: 0, burrow: 0, breath: -1, stomp: -1, roar: -1, fireball: -1 },
+      selfBurrow: (def.kind === 'burrow' || type === 'kostebekusta') && !(typeof EDEF !== 'undefined' && EDEF && EDEF[type]),
+      st: { move: 0, windup: -1, attack: -1, hurt: 0, frozen: false, dying: -1, t: 0, burrow: 0, breath: -1, stomp: -1, roar: -1, fireball: -1,
+        phase: 'idle', phaseT: 0, air: 0 },   // (phase/phaseT/air: the Round 3 bosses' animation state)
     };
     if (elite) {
       e.aura = new THREE.Group();
@@ -644,7 +782,10 @@ const GAME = (() => {
       e.aura.add(glow, ring); scene.add(e.aura);
       e.tag = nameTag(e.name); scene.add(e.tag);
     }
-    if (isBoss) { e.ph = 'idle'; e.wait = 1.5; e.last = ''; e.s66 = e.s50 = e.s33 = false; e.summon = 0; e.dmg0 = e.dmg; e.naps = 0; e.sized = false; }
+    if (isBoss) {
+      e.ph = 'idle'; e.phD = 1; e.wait = 1.5; e.last = ''; e.last2 = ''; e.th = []; e.yarim = false; e.summon = 0; e.dmg0 = e.dmg; e.naps = 0; e.sized = false;
+      e.kit = bossKit(type); e.final = finalZone(); e.did = 0;
+    }
     place(e);
     enemies.push(e);
     return e;
@@ -694,7 +835,7 @@ const GAME = (() => {
     }
     if (!F.intro0) introFirstSkill();
     const fl = FIRST_LINE[e.type];   // "Bak bak! Köstebekler toprağın altından çıkıyor!" — once per game, the first time
-    if (fl && !F[fl] && !finale && hasLine(fl)) { F[fl] = true; later(0.5, () => say(fl, 2)); }
+    if (fl && !F[fl] && !finale && hasLine(fl)) { F[fl] = true; later(0.5, () => say(fl, 2, { wait: 8 })); }   // (a first-sight line 15 s late is wrong)
     if (spread && e.pack !== undefined && e.pack !== null) {
       for (let i = sleepers.length - 1; i >= 0; i--) if (sleepers[i].pack === e.pack) { const s = sleepers.splice(i, 1)[0]; makeEnemy(s); }
       for (const o of enemies) if (o !== e && o.pack === e.pack && !o.aggro && !o.boss) setAggro(o, false);
@@ -713,7 +854,7 @@ const GAME = (() => {
     }
   }
   function freeze(e, s) {
-    if (e.boss) s = Math.min(s, 1);
+    if (e.boss) return;   // (no skill freezes any more; a boss frozen mid-hop or underground would look broken)
     const was = e.frozen > 0;
     e.frozen = Math.max(e.frozen, s); STATS.freezes++;
     cancelWindup(e);
@@ -792,7 +933,7 @@ const GAME = (() => {
     if (!e.m.root.visible) { e.m.root.visible = true; if (e.aura) e.aura.visible = true; }
     e.cd -= dt;
     e.hurt = Math.max(0, e.hurt - dt * 3.5); st.hurt = e.hurt;
-    if (e.flash > 0) { e.flash = Math.max(0, e.flash - dt * 6); if (e.m.flash) e.m.flash(e.flash, e.flashCol || '#ffffff'); }
+    if (e.flash > 0) { e.flash = Math.max(0, e.flash - dt * (e.boss ? 8 : 6)); if (e.m.flash) e.m.flash(e.flash, e.flashCol || '#ffffff'); }
     if (e.kvx || e.kvz) {
       moveE(e, e.kvx * dt, e.kvz * dt);
       const k = Math.exp(-9 * dt); e.kvx *= k; e.kvz *= k;
@@ -805,8 +946,8 @@ const GAME = (() => {
       if (e.frozen <= 0) unfreeze(e);
       place(e); anim(e, dt); return;
     }
-    if (e.stun > 0) { e.stun -= dt; st.hurt = Math.max(st.hurt, 0.5); place(e); anim(e, dt); return; }
-    if (e.bur > 0 && !BUR_ST[e.state]) {   // köstebek calmed / reset / interrupted underground: pops up where it is first
+    if (e.stun > 0 && !e.boss) { e.stun -= dt; st.hurt = Math.max(st.hurt, 0.5); place(e); anim(e, dt); return; }
+    if (e.bur > 0 && !e.boss && !BUR_ST[e.state]) {   // köstebek calmed / reset / interrupted underground: pops up where it is first
       e.bur = Math.max(0, e.bur - dt / riseT(e));
       if (e.bur <= 0) { burst('dirt', e.x, 0.05, e.z, { count: 6, color: DIRT }); sfx('emerge', { x: e.x, z: e.z, vol: 0.6 }); }
       place(e); anim(e, dt); return;
@@ -816,11 +957,13 @@ const GAME = (() => {
     if (e.boss) bossStep(e, dt, d, ux, uz, canTarget);
     else if (!e.aggro) {
       e.lookT -= dt;
-      if (canTarget && e.lookT <= 0) { e.lookT = 0.25; if (d < e.aggroR && e.losOk) setAggro(e); }
+      // (just after Feza's nap they let him wake up in peace: see respawn)
+      if (canTarget && e.lookT <= 0) { e.lookT = 0.25; if (d < e.aggroR && e.losOk && (!(gt < e.calmT) || d < NAP.near)) setAggro(e); }
       if (!e.aggro) wander(e, dt);
     } else if (!canTarget || d > T.leash) calm(e);
     else if (e.kind === 'ranged') rangedStep(e, dt, d, ux, uz);
     else if (e.kind === 'burrow') burrowStep(e, dt, d, ux, uz);
+    else if (e.kind === 'roll' || ROLLERS[e.type]) rollStep(e, dt, d, ux, uz);
     else meleeStep(e, dt, d, ux, uz);
     if (SLIMY[e.type] && st.move > 0.05 && d < 30) slimeTrail(e, dt);
     place(e); anim(e, dt);
@@ -987,6 +1130,84 @@ const GAME = (() => {
     e.digS -= dt;
     if (e.digS <= 0) { e.digS = 0.45; sfx('dig', { x: e.x, z: e.z, vol: 0.45, pitch: frand(0.9, 1.15) }); }
   }
+  // ── Minik Lav Kaplumbağası: from a few metres away it tucks into its shell (the wind-up; a lane telegraph shows where it
+  // will go), then rolls forward along the lane and bumps whoever is in the way. Afterwards it sits dizzy for a moment:
+  // the time to whack it. ──
+  const ROLL = { start: 2.6, speed: 7, len: 4.2, w: 1.25, rec: 0.9 };
+  function laneLen(x, z, dx, dz, maxL, r, rm) {   // free length of a straight lane (walls, solids, the boss arena's edge)
+    let l = 0;
+    for (let s = 0.25; s <= maxL; s += 0.25) {
+      const qx = x + dx * s, qz = z + dz * s;
+      if (!circleFree(qx, qz, r) || (rm && !inRoom(rm, qx, qz, r * 0.6))) break;
+      l = s;
+    }
+    return l;
+  }
+  function telegraphLine(x0, z0, x1, z1, w, dur, col) {
+    if (typeof FX !== 'undefined' && FX && FX.telegraphLine) return fx('telegraphLine', x0, z0, x1, z1, w, dur, col);
+    const len = Math.hypot(x1 - x0, z1 - z0);   // older FX: a narrow cone along the lane
+    return fx('telegraphCone', x0, z0, Math.atan2(x1 - x0, z1 - z0), clamp(2 * Math.atan2(w * 0.5, Math.max(1, len)) * 1.6, 0.25, 1.2), len, dur, col);
+  }
+  function rollStep(e, dt, d, ux, uz) {
+    const st = e.st, R = e.def.roll || {};
+    if (e.state === 'windup') {
+      e.stT += dt; st.windup = clamp(e.stT / e.wind, 0, 1);
+      if (e.stT < e.wind * 0.3) { e.face = dampAngle(e.face, Math.atan2(e.rdx, e.rdz), 10, dt); }
+      if (e.stT >= e.wind) {
+        e.state = 'roll'; e.stT = 0; e.tele = null; e.rollHit = false; e.rollD = 0; STATS.strike++;
+        sfx('roll', { x: e.x, z: e.z, vol: 0.8, pitch: e.elite ? 0.85 : frand(1, 1.15) });
+        burst('dust', e.x, 0.05, e.z, { count: 6, dir: { x: -e.rdx, z: -e.rdz } });
+      }
+      return;
+    }
+    if (e.state === 'roll') {
+      e.stT += dt;
+      const sp = (R.speed || ROLL.speed) * (e.elite ? 1.1 : 1), step = sp * dt, ox = e.x, oz = e.z;
+      moveE(e, e.rdx * step, e.rdz * step);
+      const moved = Math.hypot(e.x - ox, e.z - oz);
+      e.rollD += moved; e.face = Math.atan2(e.rdx, e.rdz);
+      st.attack = clamp(e.rollD / Math.max(0.5, e.rollLen), 0, 1); st.move = 1;
+      e.trailT -= dt;
+      if (e.trailT <= 0 && e.dist < 26) {
+        e.trailT = 0.07;
+        burst('dust', e.x - e.rdx * e.r, 0.04, e.z - e.rdz * e.r, { count: 2, color: '#c9a07a', dir: { x: -e.rdx, z: -e.rdz } });
+        if (Math.random() < 0.5) burst('embers', e.x, 0.3, e.z, { count: 2 });
+      }
+      if (!e.rollHit && !P.dead && Math.hypot(P.pos.x - e.x, P.pos.z - e.z) < e.r + T.heroR + 0.15) {
+        e.rollHit = true; STATS.strikeHit++;
+        hurtPlayer(e.dmg, e.x - e.rdx, e.z - e.rdz, 0.9);
+        sfx('bounce', { x: e.x, z: e.z, vol: 0.7 });
+      }
+      const bumped = moved < step * 0.3;
+      if (e.rollD >= e.rollLen || bumped || e.stT > 1.4) {
+        e.state = 'recover'; e.stT = 0;
+        if (bumped) { sfx('bounce', { x: e.x, z: e.z, vol: 0.6, pitch: 0.8 }); burst('dust', e.x, 0.1, e.z, { count: 8 }); }
+      }
+      return;
+    }
+    if (e.state === 'recover') {   // dizzy for a moment (pops out of its shell)
+      e.stT += dt; st.attack = 1;
+      if (e.stT >= (R.rec || ROLL.rec)) { e.state = 'chase'; e.cd = e.atkCd * frand(0.85, 1.2); }
+      return;
+    }
+    const start = (R.start || ROLL.start) + e.r;
+    const want = e.token ? start * 0.8 : 4.3 + e.r;
+    if (d > want) { const c = chaseDir(e, d, ux, uz); stepToward(e, c.x, c.z, e.speed * (e.token ? 1 : 0.7), dt); }
+    else if (!e.token && d < want - 1.4) { stepToward(e, -ux, -uz, e.speed * 0.35, dt, false); e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt); }
+    else e.face = dampAngle(e.face, Math.atan2(ux, uz), 7, dt);
+    if (e.token && d <= start && e.cd <= 0 && e.losOk) startRoll(e, ux, uz, d);
+  }
+  function startRoll(e, ux, uz, d) {
+    const R = e.def.roll || {};
+    e.state = 'windup'; e.stT = 0; STATS.windup++;
+    e.wind = Math.max(T.windMin, e.windup);
+    e.rdx = ux; e.rdz = uz;
+    const want = Math.max((R.len || ROLL.len) * (e.elite ? 1.25 : 1), d + 1.2);
+    e.rollLen = Math.max(1, laneLen(e.x, e.z, ux, uz, want, e.r * 0.9, null));
+    const w = (R.w || ROLL.w) * (e.elite ? 1.35 : 1);
+    e.tele = telegraphLine(e.x, e.z, e.x + ux * (e.rollLen + e.r), e.z + uz * (e.rollLen + e.r), w, e.wind, '#ff6a3a');
+    sfx('whoosh', { x: e.x, z: e.z, vol: 0.4, pitch: 0.7 });
+  }
   // Salyangoz: a short sparkly slime trail behind it while it moves.
   function slimeTrail(e, dt) {
     e.trailT -= dt;
@@ -1023,10 +1244,15 @@ const GAME = (() => {
     STATS.shots++;
     const m = muzzle(e), sh = e.def.shot || {};
     const kind = sh.kind || SHOT_KIND[e.type] || 'spore', speed = Math.min(sh.speed || 5.5, 7);
-    const dx = P.pos.x - m.x, dz = P.pos.z - m.z, d = Math.hypot(dx, dz) || 1;
-    spawnProjectile({ x: m.x, y: m.y, z: m.z, vx: dx / d * speed, vz: dz / d * speed, r: sh.r || 0.32, dmg: e.dmg, owner: 'enemy', kind,
-      life: (e.atkRange + 4) / speed, color: SHOT_COL[kind] });
+    const dx = P.pos.x - m.x, dz = P.pos.z - m.z, a0 = Math.atan2(dx, dz);
+    // an elite fire chick flicks three embers in a little fan
+    const fan = e.elite && e.type === 'ateskusu' ? [-0.26, 0, 0.26] : [0];
+    for (const da of fan) {
+      spawnProjectile({ x: m.x, y: m.y, z: m.z, vx: Math.sin(a0 + da) * speed, vz: Math.cos(a0 + da) * speed, r: sh.r || 0.32, dmg: e.dmg, owner: 'enemy', kind,
+        life: (e.atkRange + 4) / speed, color: SHOT_COL[kind] });
+    }
     if (kind === 'bubble') { sfx('bubble', { x: e.x, z: e.z, vol: 0.8 }); burst('sparkle', m.x, m.y, m.z, { color: '#d8f4ff', count: 5 }); }
+    else if (kind === 'ember') { sfx('chirp', { x: e.x, z: e.z, vol: 0.7, pitch: frand(0.95, 1.2) }); burst('embers', m.x, m.y, m.z, { count: 5 }); }
     else sfx(kind === 'fire' ? 'fireball' : 'spit', { x: e.x, z: e.z, vol: 0.7 });
   }
 
@@ -1044,64 +1270,514 @@ const GAME = (() => {
         if (wa) moveE(a, -ux * push * wa, -uz * push * wa);
         if (wb) moveE(b, ux * push * wb, uz * push * wb);
       }
-      if (P.dead) continue;
+      if (P.dead || (a.boss && a.st.air > 0.15 && a.st.air < 0.85)) continue;   // (a hopping jelly king flies over Feza)
       const rr = a.r + T.heroR, dx = a.x - P.pos.x, dz = a.z - P.pos.z, d2 = dx * dx + dz * dz;
       if (d2 < rr * rr) {
-        const d = Math.sqrt(d2) || 0.01, push = rr - d, ux = dx / d, uz = dz / d;
-        if (a.boss || a.r >= 0.95) moveXZ(P.pos, -ux * push, -uz * push, T.heroR);
-        else moveE(a, ux * push, uz * push);
+        // Right on top of each other (a mole popping up on him): no direction to push along → Feza goes toward the camera
+        // (+z, he stays in view), the creature the other way.
+        let d = Math.sqrt(d2), ux = 0, uz = -1;
+        if (d > 1e-3) { ux = dx / d; uz = dz / d; } else d = 0;
+        const push = rr - d;
+        if (a.boss || a.r >= 0.95) {
+          // The big ones push Feza aside. If he cannot go (arena rim, lava edge, trees, a corner), the big one steps back
+          // instead — never a boss sitting inside Feza for the whole fight.
+          const ox = P.pos.x, oz = P.pos.z;
+          moveXZ(P.pos, -ux * push, -uz * push, T.heroR);
+          const got = -(P.pos.x - ox) * ux - (P.pos.z - oz) * uz;   // how far he really got away from it
+          const left = push - Math.max(0, got);
+          if (left > 0.01) pushBig(a, ux * left, uz * left);
+        } else moveE(a, ux * push, uz * push);
       }
     }
   }
-
-  // ── Boss: Huysuz Ejderha ──
-  function inBossArena(b) {
-    const rm = L && L.rooms && L.rooms.find(r => r.kind === 'boss');
-    if (rm) {
-      if (rm.hw && rm.hh) return Math.abs(P.pos.x - rm.x) < rm.hw - 0.5 && Math.abs(P.pos.z - rm.z) < rm.hh - 0.5;
-      if (rm.r) return dist2(P.pos.x, P.pos.z, rm.x, rm.z) < (rm.r - 0.5) * (rm.r - 0.5);
+  function pushBig(e, dx, dz) {   // a boss stays in its room while it is pushed
+    const ox = e.x, oz = e.z;
+    moveE(e, dx, dz);
+    if (e.boss) {
+      const rm = bossRoom();
+      if (rm && !inRoom(rm, e.x, e.z, e.r * 0.5) && dist2(e.x, e.z, rm.x, rm.z) > dist2(ox, oz, rm.x, rm.z)) { e.x = ox; e.z = oz; }
     }
+  }
+
+  // ── Bosses (Round 3: one at the end of every zone; the dragon is the last) ──
+  // The boss room (the zone's last room, kind 'boss'): the fight starts when Feza walks in, and the boss never leaves it.
+  function bossRoom() {
+    if (!L) return null;
+    if (L._bossRoom === undefined) L._bossRoom = (L.rooms && L.rooms.find(r => r.kind === 'boss')) || null;
+    return L._bossRoom;
+  }
+  function inRoom(rm, x, z, pad) {
+    if (!rm) return true;
+    if (rm.hw && rm.hh) return Math.abs(x - rm.x) < rm.hw - pad && Math.abs(z - rm.z) < rm.hh - pad;
+    if (rm.r) { const q = Math.max(0.5, rm.r - pad); return dist2(x, z, rm.x, rm.z) < q * q; }
+    return true;
+  }
+  function inBossArena(b) {
+    const rm = bossRoom();
+    if (rm && ((rm.hw && rm.hh) || rm.r)) return inRoom(rm, P.pos.x, P.pos.z, 0.5);
     return b.dist < 14;
+  }
+  // A free spot for the boss near (x, z): at most maxD from where it stands, inside its room, room for its body.
+  function bossSpot(b, x, z, maxD) {
+    let dx = x - b.x, dz = z - b.z; const d = Math.hypot(dx, dz);
+    if (d > maxD) { dx *= maxD / d; dz *= maxD / d; }
+    const rm = bossRoom(), rr = b.r * 0.75;
+    for (let k = 0; k <= 8; k++) {
+      const f = 1 - k / 8, qx = b.x + dx * f, qz = b.z + dz * f;
+      if (circleFree(qx, qz, rr) && inRoom(rm, qx, qz, rr)) return { x: qx, z: qz };
+    }
+    return { x: b.x, z: b.z };
+  }
+  // Where a hop lands / a mole pops up: next to Feza on the side it comes from, its body just short of his (b.r + heroR +
+  // 0.3 from his centre) — he still stands inside the danger circle, but never inside the boss.
+  function approachSpot(b, maxD) {
+    let dx = b.x - P.pos.x, dz = b.z - P.pos.z;
+    const d = Math.hypot(dx, dz), gap = b.r + T.heroR + 0.3;
+    if (d > 1e-3) { dx /= d; dz /= d; } else { dx = 0; dz = -1; }   // (right under him: behind him, Feza stays in view)
+    return bossSpot(b, P.pos.x + dx * gap, P.pos.z + dz * gap, maxD);
+  }
+  function bossWalk(b, dx, dz, speed, dt) {   // like stepToward, but the boss stays in its room
+    const ox = b.x, oz = b.z, rm = bossRoom();
+    stepToward(b, dx, dz, speed, dt);
+    if (rm && !inRoom(rm, b.x, b.z, b.r * 0.5) && dist2(b.x, b.z, rm.x, rm.z) > dist2(ox, oz, rm.x, rm.z)) { b.x = ox; b.z = oz; b.st.move = 0; }
+    return Math.hypot(b.x - ox, b.z - oz);
   }
   function bossAggro(b) {
     if (b.aggro || b.dead) return;
-    b.aggro = true; bossPhase(b, 'roar');
-    if (!b.sized) {   // a weak sword must not mean a 2-minute fight: the dragon's hp follows Feza's damage (once)
+    b.aggro = true; remove(b.tele); b.tele = null;
+    bossPhase(b, 'roar', 1.6);
+    if (!b.sized) {   // a weak sword must not mean a 2-minute fight: the boss's hp follows Feza's damage (once, when it starts)
       b.sized = true;
-      const top = b.maxHp, hp = Math.round(clamp(DIFF.bossHpPerDmg * P.dmg * (1 + 0.5 * P.ng), top * DIFF.bossHpMin, top));
+      const hp = bossHpNow(b.type);
       b.hp = Math.max(1, Math.round(b.hp / b.maxHp * hp)); b.maxHp = hp;
     }
-    if (!b.intro) { b.intro = true; say('ejderha_giris', 3); }
-    // Falling asleep in the fight must not mean the long walk back: wake up at the arena entrance.
-    if (GAME.state === 'play' && !P.dead && circleFree(P.pos.x, P.pos.z, T.heroR)) P.checkpoint = { x: P.pos.x, z: P.pos.z };
-    emit('boss', { on: true, name: b.name, hp: b.hp, maxHp: b.maxHp });
+    if (!b.intro) { b.intro = true; const k = b.kit.lines.giris; if (k && hasLine(k)) say(k, 3); }
+    // Falling asleep in the fight must not mean the long walk back: wake up at the arena entrance — just OUTSIDE it, so
+    // he wakes up, sees the boss and walks in when he is ready (inside, it would roar at him while the wake-up flash is up).
+    if (GAME.state === 'play' && !P.dead) {
+      const door = arenaDoor();
+      if (door) P.checkpoint = door;
+      else if (circleFree(P.pos.x, P.pos.z, T.heroR)) P.checkpoint = { x: P.pos.x, z: P.pos.z };
+    }
+    emit('boss', { on: true, name: b.name, type: b.type, final: !!b.final, hp: b.hp, maxHp: b.maxHp });
     aud('music', 'boss');
   }
+  // A free spot on the main route ~1.5 m outside the boss arena (walking the route back from its end), else one straight
+  // out from the arena centre past Feza. null: no arena.
+  function arenaDoor() {
+    const rm = bossRoom();
+    if (!rm || !((rm.hw && rm.hh) || rm.r)) return null;
+    const out = (x, z) => !inRoom(rm, x, z, -1.5) && isFloor(x, z) && circleFree(x, z, T.heroR);
+    const path = L && L.path;
+    if (path && path.length > 1) {
+      let seenIn = false;   // (the route's end might poke past the arena: only a spot on the way in counts)
+      for (let i = path.length - 1; i > 0; i--) {
+        const a = path[i], b = path[i - 1], l = Math.hypot(b.x - a.x, b.z - a.z);
+        for (let s = 0; s <= l; s += 0.5) {
+          const k = l > 0 ? s / l : 0, x = lerp(a.x, b.x, k), z = lerp(a.z, b.z, k);
+          if (inRoom(rm, x, z, 0)) seenIn = true;
+          else if (seenIn && out(x, z)) return { x, z };
+        }
+      }
+    }
+    let dx = P.pos.x - rm.x, dz = P.pos.z - rm.z; const d = Math.hypot(dx, dz) || 1; dx /= d; dz /= d;
+    for (let s = 0.5; s <= 8; s += 0.5) { const x = P.pos.x + dx * s, z = P.pos.z + dz * s; if (out(x, z)) return { x, z }; }
+    return null;
+  }
   function bossCalm(b) {
-    b.aggro = false; remove(b.tele); b.tele = null; bossPhase(b, 'idle'); b.wait = 1;
-    emit('boss', { on: false });
+    b.aggro = false; remove(b.tele); b.tele = null; bossPhase(b, 'idle', 1); b.wait = 1;
+    emit('boss', { on: false, type: b.type });
     const Z = zdef(); if (Z.music) aud('music', Z.music);
   }
-  // Feza napped in the dragon fight: the dragon gets tired too, so a careless kid naps once or twice, not four times.
-  // It never falls asleep for good from this (hp stays above 10 %).
+  // Calm (Feza napped or ran off): land / pop out of the ground, then waddle back to its spot facing the entrance.
+  function bossHome(b, dt) {
+    if (b.y > 0) b.y = Math.max(0, b.y - dt * 6);
+    b.st.air = 0;
+    if (b.bur > 0) {
+      b.bur = Math.max(0, b.bur - dt / 0.5);
+      if (b.bur <= 0) { burst('dirt', b.x, 0.05, b.z, { count: 10, color: DIRT }); sfx('emerge', { x: b.x, z: b.z, vol: 0.6 }); }
+      return;
+    }
+    const dx = b.homeX - b.x, dz = b.homeZ - b.z, d = Math.hypot(dx, dz);
+    if (d > 0.6) bossWalk(b, dx / d, dz / d, b.speed * 0.6, dt);
+    else b.face = dampAngle(b.face, 0, 2, dt);
+  }
+  // Feza napped in a boss fight: the boss gets tired too, so a careless kid naps once or twice, not four times.
+  // It never cheers up from this (hp stays above 10 %).
   function bossTired(b) {
     const N = DIFF.bossNap;
     b.naps = (b.naps || 0) + 1;
     b.dmg = Math.max((b.dmg0 || b.dmg) * N.dmgMin, b.dmg * N.dmg);
     b.hp = Math.round(Math.max(Math.min(b.hp, b.maxHp * 0.1), b.hp - b.maxHp * N.hp));
-    later(1.2, () => {   // a big dragon yawn (in front of its snout: the head itself is above the frame when Feza is close)
+    emit('bossHp', { frac: Math.max(0, b.hp / b.maxHp) });
+    later(1.2, () => {   // a big yawn (in front of its face: the head itself is above the frame when Feza is close)
       if (!b.dead) burst('zzz', b.x + Math.sin(b.face) * b.r * 0.9, b.height * 0.45, b.z + Math.cos(b.face) * b.r * 0.9, {});
     });
   }
-  function bossPhase(b, ph) { b.ph = ph; b.stT = 0; b.did = 0; }
+  function bossPhase(b, ph, D) { b.ph = ph; b.stT = 0; b.did = 0; b.phD = D || 1; }
   function bossStep(b, dt, d, ux, uz, canTarget) {
     const st = b.st;
     if (!b.aggro) {
       if (canTarget && inBossArena(b)) bossAggro(b);
-      else { b.face = dampAngle(b.face, 0, 2, dt); return; }
+      else { bossHome(b, dt); st.phase = st.move > 0.05 ? 'move' : 'idle'; st.phaseT = 0; return; }
     }
-    if (!canTarget || d > 34) { bossCalm(b); return; }
+    // Feza gone (napping, or ran far off out of the room): the boss calms down and waits (its hp stays as it is)
+    if (!canTarget || d > 34 || (!b.final && d > 22 && !inBossArena(b))) { bossCalm(b); return; }
     b.stT += dt;
+    (BOSS_AI[b.type] || dragonStep)(b, dt, d, ux, uz);
+    st.phase = b.ph === 'idle' && st.move > 0.05 ? 'move' : b.ph;
+    st.phaseT = clamp(b.stT / (b.phD || 1), 0, 1);
+  }
+
+  // ── Shared boss moves ──
+  // Idle between attacks: face Feza, walk closer when far, count down. true = choose the next attack now.
+  function bossIdle(b, dt, d, ux, uz, keep) {
+    b.face = dampAngle(b.face, Math.atan2(ux, uz), 3.5, dt);
+    if (d > keep) bossWalk(b, ux, uz, b.speed, dt);
+    b.wait -= dt;
+    return b.wait <= 0;
+  }
+  function pickPhase(b, opts) {   // opts [[phase, weight], …]; never the same attack three times in a row
+    let sum = 0; for (const o of opts) sum += o[1];
+    let r = Math.random() * sum, ph = opts[0][0];
+    for (const o of opts) { r -= o[1]; if (r <= 0) { ph = o[0]; break; } }
+    if (ph === b.last && ph === b.last2) { const alt = opts.filter(o => o[0] !== ph && o[1] > 0); if (alt.length) ph = fpick(alt)[0]; }
+    b.last2 = b.last; b.last = ph;
+    return ph;
+  }
+  function bossEnd(b, w0, w1) {
+    remove(b.tele); b.tele = null; b.y = 0; bossPhase(b, 'idle', 1); b.wait = frand(w0, w1);
+    if (b.summon) b.wait = Math.min(b.wait, 0.35);   // an hp mark was crossed: the little ones come right after this move
+  }
+  function nextWave(b) { if (b.sq) b.sq.shift(); b.summon = b.sq && b.sq.length ? b.sq[0] : 0; }
+  function bossRoar(b, D) {   // the intro roar (a cute growl + a soft ring)
+    if (b.did === 0 && b.stT > 0.35) {
+      b.did = 1; sfx('roar', { x: b.x, z: b.z, pitch: b.kit.roar || 1 }); shake(0.25);
+      fx('ring', b.x, b.z, { r0: 1, r1: 7, dur: 0.6, color: b.kit.col || '#ffb0f0', width: 0.5 });
+    }
+    if (b.stT >= D) bossEnd(b, 0.5, 0.9);
+  }
+  function bossSummon(b, D) {   // "come, little ones!": a happy roar, then they pop up around it
+    if (b.did === 0 && b.stT > 0.25) { b.did = 1; sfx('roar', { x: b.x, z: b.z, pitch: (b.kit.roar || 1) * 1.12, vol: 0.8 }); fx('ring', b.x, b.z, { r0: 1, r1: 5, dur: 0.5, color: b.kit.col, width: 0.4 }); }
+    if (b.did === 1 && b.stT > (b.kit.summonAt || 0.47) * D) { b.did = 2; summonAdds(b, b.kit.add, b.summon || 3); nextWave(b); }
+    if (b.stT >= D) bossEnd(b, 0.7, 1.1);
+  }
+  function bossShot(b, kind, spread, speed, dmgK, r, life = 5) {   // one slow straight shot at Feza (the saber can swat it)
+    const m = muzzle(b), a = Math.atan2(P.pos.x - m.x, P.pos.z - m.z) + spread;
+    spawnProjectile({ x: m.x, y: Math.max(0.9, m.y), z: m.z, vx: Math.sin(a) * speed, vz: Math.cos(a) * speed, r, dmg: b.dmg * dmgK,
+      owner: 'enemy', kind, life, color: SHOT_COL[kind] });
+    return m;
+  }
+  function bossRing(b, x, z, R, dmgK, kb, col) {   // a landing / stomp / pop-up shockwave: hurts Feza inside R
+    fx('ring', x, z, { r0: 0.6, r1: R + 0.6, dur: 0.5, color: col || '#ffd9a0', width: 0.6 });
+    const pd = Math.hypot(P.pos.x - x, P.pos.z - z);
+    shake(0.35 * clamp(1.4 - pd / 16, 0.3, 1));
+    if (pd < R + T.heroR * 0.5) hurtPlayer(b.dmg * dmgK, x, z, kb);
+  }
+  function summonAdds(b, type, n) {
+    let made = 0;
+    const rm = bossRoom(), at = [];
+    // in front of it first (toward Feza), fanning out; farther rings if a wall or a pillar is in the way
+    for (const rr of [b.r + 2.0, b.r + 3.2, b.r + 1.4, b.r + 4.4]) for (let k = 0; k < 12 && made < n; k++) {
+      const a = b.face + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.52 + (made ? 0 : 0.26), x = b.x + Math.sin(a) * rr, z = b.z + Math.cos(a) * rr;
+      if (!isFloor(x, z) || !circleFree(x, z, 0.55) || (rm && !inRoom(rm, x, z, 0.6))) continue;
+      if (at.some(q => dist2(q[0], q[1], x, z) < 1.4 * 1.4) || dist2(x, z, P.pos.x, P.pos.z) < 1.6 * 1.6) continue;
+      at.push([x, z]);
+      const e = makeEnemy({ type, x, z, elite: false, pack: 'bossadds', face: a });
+      e.xp *= 0.5; e.gold *= 0.5; setAggro(e, false); made++;
+      if (e.kind === 'burrow') { e.bur = 1; e.upT = 0; }   // a little mole pops out of the ground
+      burst('magic', x, 1, z, { color: b.kit.col || '#c77dff', count: 14 });
+      if (type === 'jole') burst('jelly', x, 0.35, z, { color: b.kit.col || SHOT_COL.jelly, scale: 1.2 });
+      else if (e.kind === 'burrow') burst('dirt', x, 0.05, z, { count: 10, color: DIRT });
+      else if (type === 'kaplumbaga') burst('lava', x, 0.1, z, {});
+      else burst('shadowPuff', x, 0.8, z, {});
+    }
+    sfx(type === 'yarasa' ? 'bat' : type === 'kostebek' ? 'dig' : type === 'jole' ? 'bounce' : 'pop', { x: b.x, z: b.z });
+    return made;
+  }
+  function bossThresholds(b) {
+    const f = b.hp / b.maxHp, kit = b.kit;
+    // one wave per mark, queued (one big hit crossing both marks still brings both waves, one after the other)
+    (kit.at || []).forEach((a, i) => { if (!b.th[i] && f <= a) { b.th[i] = true; (b.sq || (b.sq = [])).push((kit.n && kit.n[i]) || 3); } });
+    if (b.sq && b.sq.length && !b.summon) { b.summon = b.sq[0]; if (b.ph === 'idle') b.wait = Math.min(b.wait, 0.35); }
+    if (!b.yarim && f <= 0.25) { b.yarim = true; const k = kit.lines.yarim; if (k && hasLine(k)) say(k, 2); }   // 'çok az kaldı' must be true
+  }
+  function chargeFxAt(m, col, k) {
+    if (Math.random() > 0.6) return;
+    const a = frand(0, TAU), r = 1.1 * (1 - k * 0.6);
+    emitP(m.x + Math.sin(a) * r, m.y + frand(-0.4, 0.4), m.z + Math.cos(a) * r, -Math.sin(a) * r * 2.5, 0, -Math.cos(a) * r * 2.5, 0.3, 0.2, 0.5, col, '#ffffff', 0);
+  }
+
+  // ── Kral Jöle: hops toward Feza and lands with a slam ring (the landing circle shows first), spits 3 slow jelly blobs ──
+  // Timings follow the model's phases (05): hop = crouch 0–0.2, airborne 0.2–0.8 (the model jumps up by itself; GAME only
+  // carries it across), lands at 0.8; spit = puff up, blobs at 0.42 / 0.6 / 0.78.
+  const HOP = { D: 1.8, up: 0.2, down: 0.8, R: 3.0, maxD: 8.5 }, SPIT = { D: 1.7, at: [0.42, 0.6, 0.78] };
+  function kraljoleStep(b, dt, d, ux, uz) {
+    const faceP = Math.atan2(ux, uz), st = b.st;
+    st.air = 0;
+    switch (b.ph) {
+      case 'roar': bossRoar(b, 1.6); break;
+      case 'summon': bossSummon(b, 1.5); break;
+      case 'idle':
+        if (bossIdle(b, dt, d, ux, uz, 5.5)) {
+          if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
+          const ph = pickPhase(b, d < b.r + 3 ? [['hop', 0.65], ['spit', 0.35]] : d < 9 ? [['hop', 0.5], ['spit', 0.5]] : [['hop', 0.6], ['spit', 0.4]]);
+          if (ph === 'hop') {
+            bossPhase(b, 'hop', HOP.D);
+            const t = approachSpot(b, HOP.maxD);   // lands right next to Feza (he is inside the circle), never on him
+            b.hx0 = b.x; b.hz0 = b.z; b.hx1 = t.x; b.hz1 = t.z;
+            b.tele = fx('telegraph', t.x, t.z, b.def.slamR || HOP.R, HOP.D * HOP.down, '#ff4a3a');
+          } else bossPhase(b, 'spit', SPIT.D);
+        }
+        break;
+      case 'hop': {   // GAME carries it across while the model is in the air (st.air 0..1 = the flight)
+        const t = b.stT, c = HOP.D * HOP.up, a = HOP.D * (HOP.down - HOP.up);
+        if (t < c) b.face = dampAngle(b.face, Math.atan2(b.hx1 - b.x, b.hz1 - b.z), 6, dt);
+        else if (t < c + a) {
+          if (b.did === 0) { b.did = 1; sfx('bounce', { x: b.x, z: b.z, pitch: 0.7 }); burst('jelly', b.x, 0.3, b.z, { color: SHOT_COL.jelly, scale: 1.4 }); burst('dust', b.x, 0.05, b.z, { count: 10 }); }
+          const k = smooth01((t - c) / a);
+          b.x = lerp(b.hx0, b.hx1, k); b.z = lerp(b.hz0, b.hz1, k); st.air = (t - c) / a;
+        } else if (b.did === 1) {
+          b.did = 2; b.x = b.hx1; b.z = b.hz1; remove(b.tele); b.tele = null;
+          burst('jelly', b.x, 0.3, b.z, { color: SHOT_COL.jelly, scale: 2 }); burst('dust', b.x, 0.1, b.z, { count: 30, scale: 1.8 });
+          sfx('slam', { x: b.x, z: b.z }); sfx('splat', { x: b.x, z: b.z, pitch: 0.7 });
+          bossRing(b, b.x, b.z, b.def.slamR || HOP.R, 1, 1.8, '#b8ecff');
+        }
+        if (t >= b.phD) bossEnd(b, 0.8, 1.3);
+        break;
+      }
+      case 'spit': {
+        if (b.stT < 1.2) b.face = dampAngle(b.face, faceP, 4, dt);
+        const t0 = SPIT.D * SPIT.at[0];
+        if (b.stT < t0) chargeFxAt(muzzle(b), SHOT_COL.jelly, b.stT / t0);
+        if (b.did < 3 && b.stT >= SPIT.D * SPIT.at[b.did]) {
+          const m = bossShot(b, 'jelly', [-0.3, 0, 0.3][b.did], 4.6, 0.6, 0.45);
+          sfx('splat', { x: b.x, z: b.z, pitch: 1.3, vol: 0.8 }); burst('jelly', m.x, m.y, m.z, { color: SHOT_COL.jelly, count: 4 });
+          b.did++;
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.4);
+        break;
+      }
+    }
+  }
+
+  // ── Usta Köstebek: burrows (untargetable) and runs at Feza as a dirt mound, a circle shows under him, it pops up there
+  // with a shockwave (then sits dizzy: whack it!); throws slow dirt clods; drills at close range. Model timings (05): the
+  // throw leaves the paw at 0.5, the drill spins 0.2–0.85; dig-in / pop-up times are EDEF's burrowIn / burrowOut. ──
+  // (drillAt 0.5 → 0.65: the drill was its most frequent hit with the shortest warning, 0.75 s; now ~1 s like the others)
+  const DIG = { sink: 0.6, travel: 2.2, tele: 1.1, speed: 4.4, R: 2.7, rise: 0.35, rec: 1.3, throwD: 1.5, throwAt: 0.5, drillD: 1.5, drillAt: 0.65 };
+  function kostebekustaStep(b, dt, d, ux, uz) {
+    const faceP = Math.atan2(ux, uz), sink = b.def.burrowIn || DIG.sink, rise = b.def.burrowOut || DIG.rise, R = b.def.slamR || DIG.R;
+    switch (b.ph) {
+      case 'roar': bossRoar(b, 1.6); break;
+      case 'summon': bossSummon(b, 1.5); break;
+      case 'idle':
+        if (bossIdle(b, dt, d, ux, uz, 5)) {
+          if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
+          const ph = pickPhase(b, d < b.r + 2.6 ? [['drill', 0.44], ['burrow', 0.34], ['throw', 0.22]] : d < 9 ? [['throw', 0.45], ['burrow', 0.55]] : [['burrow', 0.6], ['throw', 0.4]]);
+          if (ph === 'burrow') {
+            bossPhase(b, 'burrow', sink + DIG.travel + DIG.tele); b.dig = 0;
+            burst('dirt', b.x, 0.05, b.z, { count: 14, scale: 1.4, color: DIRT }); sfx('dig', { x: b.x, z: b.z, pitch: 0.8 });
+          } else if (ph === 'drill') {
+            bossPhase(b, 'drill', DIG.drillD); b.face = faceP;
+            b.tele = fx('telegraphCone', b.x, b.z, b.face, 1.3, b.r + 2.8, DIG.drillD * DIG.drillAt, '#ff5a44');
+          } else bossPhase(b, 'throw', DIG.throwD);
+        }
+        break;
+      case 'burrow': {
+        const t = b.stT;
+        if (b.dig === 0) {            // digging in
+          b.bur = Math.min(1, t / sink); digFx(b, dt, 0.06);
+          if (t >= sink) { b.dig = 1; b.digAt = t; }
+        } else if (b.dig === 1) {     // the mound runs toward Feza
+          b.bur = 1; bossWalk(b, ux, uz, DIG.speed, dt); digFx(b, dt, 0.08);
+          if (d < b.r + T.heroR + 0.6 || t - b.digAt > DIG.travel) {
+            b.dig = 2; b.digAt = t;
+            // the circle is still around Feza, but the mole comes up right beside him (not inside him)
+            const s = approachSpot(b, 30);
+            b.tx = s.x; b.tz = s.z;
+            b.tele = fx('telegraph', s.x, s.z, R, DIG.tele, '#ff7a3a');
+            sfx('dig', { x: s.x, z: s.z, pitch: 1.2 });
+          }
+        } else {                      // trembling under the circle (05: st.windup ≥ 0 makes the mound shake and swell)
+          b.bur = 1; b.st.windup = clamp((t - b.digAt) / DIG.tele, 0, 1);
+          const dx = b.tx - b.x, dz = b.tz - b.z, dd = Math.hypot(dx, dz);
+          if (dd > 0.05) { const s = Math.min(dd, 9 * dt); b.x += dx / dd * s; b.z += dz / dd * s; }
+          digFx(b, dt, 0.05);
+          if (t - b.digAt >= DIG.tele) { b.x = b.tx; b.z = b.tz; bossPhase(b, 'emerge', rise + DIG.rec); }
+        }
+        break;
+      }
+      case 'emerge': {
+        const t = b.stT;
+        b.bur = Math.max(0, 1 - t / rise);
+        if (b.did === 0) {
+          b.did = 1; remove(b.tele); b.tele = null;
+          burst('dirt', b.x, 0.1, b.z, { count: 24, scale: 1.6, color: DIRT }); burst('dust', b.x, 0.1, b.z, { count: 20, scale: 1.8, color: '#c9a77e' });
+          sfx('emerge', { x: b.x, z: b.z, pitch: 0.8 }); sfx('slam', { x: b.x, z: b.z, vol: 0.7 });
+          bossRing(b, b.x, b.z, R, 1, 1.6, '#ffd9a0');
+        }
+        if (t > rise + 0.2 && Math.random() < dt * 4) burst('star', b.x, b.height + 0.2, b.z, { count: 2, color: '#fff3a0' });   // dizzy stars
+        if (t >= b.phD) bossEnd(b, 0.7, 1.1);
+        break;
+      }
+      case 'throw': {   // one big throw that breaks into three slow clods (a little fan)
+        if (b.stT < DIG.throwD * DIG.throwAt) b.face = dampAngle(b.face, faceP, 5, dt);
+        if (b.did === 0 && b.stT >= DIG.throwD * DIG.throwAt) {
+          b.did = 1;
+          let m = null;
+          for (const sp of [-0.3, 0, 0.3]) m = bossShot(b, 'rock', sp, 5.2, 0.6, 0.42);
+          sfx('whoosh', { x: b.x, z: b.z, pitch: 0.9 }); burst('dirt', m.x, m.y, m.z, { count: 6, color: DIRT });
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.4);
+        break;
+      }
+      case 'drill': {
+        const HIT = DIG.drillD * DIG.drillAt, fx0 = Math.sin(b.face), fz0 = Math.cos(b.face);
+        if (b.did === 0 && b.stT >= HIT) {
+          b.did = 1; b.tele = null; sfx('drill', { x: b.x, z: b.z }); shake(0.2);
+          moveE(b, fx0 * 0.6, fz0 * 0.6);
+          burst('dirt', b.x + fx0 * (b.r + 0.8), 0.3, b.z + fz0 * (b.r + 0.8), { count: 10, color: DIRT, dir: { x: fx0, z: fz0 } });
+          if (d < b.r + 2.8 && Math.abs(angDiff(b.face, faceP)) < 0.7) hurtPlayer(b.dmg, b.x, b.z, 1.4);
+        }
+        if (b.did === 1 && b.stT < DIG.drillD * 0.85 && Math.random() < dt * 18)   // drill sparks
+          burst('debris', b.x + fx0 * (b.r + 0.6), 0.9, b.z + fz0 * (b.r + 0.6), { color: '#ffe27a', count: 2 });
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.3);
+        break;
+      }
+    }
+  }
+
+  // ── Koca Lav Kaplumbağası: its shell-volcano erupts 3–5 lava balls that arc onto circles, it tucks in and rolls across
+  // the room along a lane (the lane shows first; afterwards it sits dizzy), stomps a ring; calls 2 little turtles at 50 %.
+  // Model timings (05): erupt = crouch + tremble 0–0.3, the volcano puffs at 0.36 … 0.78; stomp = rears up, slams at 0.62. ──
+  const LAVA = { eruptD: 2.4, puff: [0.36, 0.78], fly: [1.25, 1.6], r: 1.5, h: 4.2, roll: 8, stomp: 4.5, stompD: 1.8, stompAt: 0.62 };
+  function lavkaplumbagaStep(b, dt, d, ux, uz) {
+    const st = b.st, SR = b.def.slamR || LAVA.stomp;
+    switch (b.ph) {
+      case 'roar': bossRoar(b, 1.6); break;
+      case 'summon': bossSummon(b, 1.5); break;
+      case 'idle':
+        if (bossIdle(b, dt, d, ux, uz, 6)) {
+          if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
+          let ph = pickPhase(b, d < b.r + 3 ? [['stomp', 0.5], ['hide', 0.2], ['erupt', 0.3]] : d < 10 ? [['erupt', 0.45], ['hide', 0.4], ['stomp', 0.15]] : [['erupt', 0.55], ['hide', 0.45]]);
+          // no room for a real roll (Feza between it and the rim, a pillar in the way): stomp up close, else erupt
+          if (ph === 'hide' && !startLavaRoll(b, ux, uz)) b.last = ph = d < b.r + 3.5 ? 'stomp' : 'erupt';
+          if (ph === 'stomp') { bossPhase(b, 'stomp', LAVA.stompD); b.tele = fx('telegraph', b.x, b.z, SR, LAVA.stompD * LAVA.stompAt, '#ff4a3a'); }
+          else if (ph === 'erupt') {
+            const f = b.hp / b.maxHp;
+            bossPhase(b, 'erupt', LAVA.eruptD); b.balls = f > 0.66 ? 3 : f > 0.33 ? 4 : 5;   // 3–5 lava balls (more when it is tired)
+            sfx('rumble', { x: b.x, z: b.z });
+          }
+        }
+        break;
+      case 'erupt': {   // one lava ball per volcano puff: the first lands where Feza stands, the others around him
+        const t = b.stT, n = b.balls || 3, t0 = LAVA.puff[0] * b.phD, t1 = LAVA.puff[1] * b.phD;
+        if (t < t0) { chargeFxAt(muzzle(b), '#ff8a2a', t / t0); if (Math.random() < dt * 8) shake(0.04); }
+        if (b.did < n && t >= t0 + (t1 - t0) * b.did / Math.max(1, n - 1)) {
+          const m = muzzle(b), mx = m.x, my = m.y, mz = m.z;
+          burst('erupt', mx, my, mz, { scale: b.did ? 1 : 1.4 }); sfx('erupt', { x: b.x, z: b.z, pitch: frand(0.9, 1.1), vol: b.did ? 0.7 : 1 });
+          if (!b.did) shake(0.2);
+          for (let i = 0; i < 6; i++) {
+            let tx = P.pos.x, tz = P.pos.z;
+            if (b.did > 0 || i > 0) { const a = frand(0, TAU), r = frand(1.8, 4.2); tx += Math.sin(a) * r; tz += Math.cos(a) * r; }
+            if (!isFloor(tx, tz)) continue;
+            spawnMortar({ x0: mx, y0: my, z0: mz, x1: tx, z1: tz, dur: frand(LAVA.fly[0], LAVA.fly[1]), h: LAVA.h, r: LAVA.r, dmg: b.dmg * 0.7, kind: 'lavaball' });
+            break;
+          }
+          b.did++;
+        }
+        if (t >= b.phD) bossEnd(b, 1.0, 1.5);
+        break;
+      }
+      case 'hide':   // tucked into its shell while the lane fills up
+        if (b.stT >= b.phD) {
+          bossPhase(b, 'roll', b.rollLen / (b.def.rollSpeed || LAVA.roll) + 0.4); b.rollD = 0; b.rollHit = false;
+          sfx('roll', { x: b.x, z: b.z, pitch: 0.7 });
+        }
+        break;
+      case 'roll': {
+        const step = (b.def.rollSpeed || LAVA.roll) * dt, ox = b.x, oz = b.z, rm = bossRoom();
+        moveE(b, b.rdx * step, b.rdz * step);
+        if (rm && !inRoom(rm, b.x, b.z, b.r * 0.5)) { b.x = ox; b.z = oz; }
+        const moved = Math.hypot(b.x - ox, b.z - oz);
+        b.rollD += moved; st.move = 1;
+        b.trailT -= dt;
+        if (b.trailT <= 0) {
+          b.trailT = 0.05;
+          burst('dust', b.x - b.rdx * b.r, 0.05, b.z - b.rdz * b.r, { count: 3, color: '#c9a07a', dir: { x: -b.rdx, z: -b.rdz } });
+          burst('embers', b.x, 0.5, b.z, { count: 2 });
+        }
+        const gx = P.pos.x - b.x, gz = P.pos.z - b.z, gd = Math.hypot(gx, gz);
+        if (!b.rollHit && !P.dead && gd < b.r + T.heroR + 0.2) {
+          b.rollHit = true; hurtPlayer(b.dmg, b.x - b.rdx, b.z - b.rdz, 2.2); sfx('bounce', { x: b.x, z: b.z, pitch: 0.8 });
+        }
+        // it bonked Feza and he is still right in front of it (the rim behind him, or he could not be knocked away): it
+        // bounces off him and stops, instead of rolling on through him
+        const onFeza = b.rollHit && !P.dead && gd < b.r + T.heroR + 0.05 && gx * b.rdx + gz * b.rdz > 0.2 * gd;
+        const bumped = moved < step * 0.3 || onFeza;
+        if (b.rollD >= b.rollLen || bumped || b.stT >= b.phD) {
+          if (bumped) { sfx('bounce', { x: b.x, z: b.z, pitch: 0.6 }); shake(0.25); burst('dust', b.x, 0.2, b.z, { count: 16, scale: 1.4 }); }
+          bossEnd(b, 1.3, 1.8);   // pops out of its shell, a bit dizzy: the time to whack it
+        }
+        break;
+      }
+      case 'stomp':
+        if (b.did === 0 && b.stT >= LAVA.stompD * LAVA.stompAt) {
+          b.did = 1; b.tele = null;
+          burst('dust', b.x, 0.1, b.z, { count: 36, scale: 2 }); burst('embers', b.x, 0.4, b.z, { count: 16 }); burst('lava', b.x, 0.2, b.z, { scale: 1.2 });
+          sfx('slam', { x: b.x, z: b.z }); sfx('rumble', { x: b.x, z: b.z, vol: 0.6 });
+          bossRing(b, b.x, b.z, SR, 1.1, 2.2, '#ffb36a');
+        }
+        if (b.stT >= b.phD) bossEnd(b, 1.0, 1.5);
+        break;
+    }
+  }
+  function startLavaRoll(b, ux, uz) {   // false: the lane is too short for a roll
+    const len = laneLen(b.x, b.z, ux, uz, 16, b.r * 0.85, bossRoom());
+    if (len < 3) return false;
+    bossPhase(b, 'hide', 1.0);
+    b.face = Math.atan2(ux, uz); b.rdx = ux; b.rdz = uz;
+    b.rollLen = len;
+    // the lane ends where the shell's front stops (the roll keeps its centre r/2 inside the arena): never out over the lava
+    const e = b.rollLen + b.r * 0.5;
+    b.tele = telegraphLine(b.x, b.z, b.x + ux * e, b.z + uz * e, b.r * 2 + 0.3, 1.0, '#ff6a3a');
+    sfx('whoosh', { x: b.x, z: b.z, pitch: 0.6 });
+    return true;
+  }
+  // Lobbed shots (lava balls): an arc from the muzzle onto a telegraph circle; they hurt only where they land.
+  function spawnMortar(o) {
+    let obj = fx('projectile', o.kind, SHOT_COL[o.kind]);
+    if (!obj) { obj = new THREE.Mesh(G.sphere(12), glowMat(SHOT_COL[o.kind] || '#ff7a1c', 3)); obj.scale.setScalar(o.r * 0.3); }
+    if (!obj.parent) scene.add(obj);
+    obj.position.set(o.x0, o.y0, o.z0);
+    const m = Object.assign({ t: 0, obj, tele: fx('telegraph', o.x1, o.z1, o.r, o.dur, '#ff7a2a') }, o);
+    mortars.push(m);
+    return m;
+  }
+  function updateMortars(dt) {
+    for (let i = mortars.length - 1; i >= 0; i--) {
+      const m = mortars[i];
+      m.t += dt;
+      const k = Math.min(1, m.t / m.dur);
+      const x = lerp(m.x0, m.x1, k), z = lerp(m.z0, m.z1, k), y = lerp(m.y0, 0.25, k) + 4 * m.h * k * (1 - k);
+      m.obj.position.set(x, y, z);
+      fx('trail', m.kind, x, y, z);
+      if (k < 1) continue;
+      remove(m.tele);
+      burst((SHOT_END[m.kind] && SHOT_END[m.kind][0]) || 'lava', m.x1, 0.15, m.z1, { scale: 1.2 });
+      fx('ring', m.x1, m.z1, { r0: 0.3, r1: m.r + 0.4, dur: 0.4, color: '#ff7a1a', width: 0.4, k: 1.25, edge: 0.18 });   // lava orange (a white rim washed it to peach)
+      sfx('splat', { x: m.x1, z: m.z1, pitch: frand(0.7, 0.9) }); sfx('lava', { x: m.x1, z: m.z1, vol: 0.5 });
+      shake(0.06);
+      if (!P.dead && Math.hypot(P.pos.x - m.x1, P.pos.z - m.z1) < m.r + T.heroR * 0.5) hurtPlayer(m.dmg, m.x1, m.z1, 0.8);
+      killProjectileObj(m); mortars.splice(i, 1);
+    }
+  }
+
+  // ── Huysuz Ejderha (the last boss; unchanged except: up close it also breathes sometimes — bite 45 / stomp 30 / breath 25) ──
+  function dragonStep(b, dt, d, ux, uz) {
+    const st = b.st;
+    st.breath = st.stomp = st.roar = st.fireball = -1;
     const faceP = Math.atan2(ux, uz);
     switch (b.ph) {
       case 'roar': {
@@ -1110,25 +1786,22 @@ const GAME = (() => {
           b.did = 1; sfx('roar', { x: b.x, z: b.z }); shake(0.35);
           fx('ring', b.x, b.z, { r0: 1, r1: 9, dur: 0.7, color: '#ffb0f0', width: 0.6 });
         }
-        if (b.did === 1 && b.summon && b.stT > 0.75) { b.did = 2; summonBats(b, b.summon); b.summon = 0; }
-        if (b.stT >= 1.6) { bossPhase(b, 'idle'); b.wait = frand(0.6, 1.0); }
+        if (b.did === 1 && b.summon && b.stT > 0.75) { b.did = 2; summonAdds(b, b.kit.add || 'yarasa', b.summon); nextWave(b); }
+        if (b.stT >= 1.6) { bossPhase(b, 'idle', 1); b.wait = frand(0.6, 1.0); }
         break;
       }
       case 'idle': {
         b.face = dampAngle(b.face, faceP, 3, dt);
-        if (d > 8.5) stepToward(b, ux, uz, b.speed, dt);
+        if (d > 8.5) bossWalk(b, ux, uz, b.speed, dt);
         b.wait -= dt;
         if (b.wait <= 0) {
-          if (b.summon) { bossPhase(b, 'roar'); say('ejderha_yarasa', 2); break; }
-          const r = Math.random();
-          let ph;
-          if (d < b.r + 2.6) ph = r < 0.55 ? 'bite' : 'stomp';
-          else if (d < 7) ph = r < 0.45 ? 'stomp' : r < 0.8 ? 'breath' : 'fireball';
-          else if (d < 11) ph = r < 0.5 ? 'breath' : 'fireball';
-          else ph = 'fireball';
-          if (ph === b.last && b.last2 === ph) ph = ph === 'fireball' ? 'breath' : 'fireball';
-          b.last2 = b.last; b.last = ph;
-          bossPhase(b, ph);
+          if (b.summon) { bossPhase(b, 'roar', 1.6); const k = b.kit.lines.add; if (k && hasLine(k)) say(k, 2); break; }
+          // by distance; never the same move three times in a row — the swap stays in the same distance band (up close
+          // that meant a point-blank 3-bubble volley before)
+          const ph = pickPhase(b, d < b.r + 2.6 ? [['bite', 0.45], ['stomp', 0.3], ['breath', 0.25]]
+            : d < 7 ? [['stomp', 0.45], ['breath', 0.35], ['fireball', 0.2]]
+            : d < 11 ? [['breath', 0.5], ['fireball', 0.5]] : [['fireball', 1]]);
+          bossPhase(b, ph, { fireball: 2.0, stomp: 1.8, breath: 2.6, bite: 1.25 }[ph]);
           if (ph === 'stomp') { b.tele = fx('telegraph', b.x, b.z, 5.2, 1.1, '#ff4a3a'); }
           if (ph === 'breath') { b.face = faceP; b.tele = fx('telegraphCone', b.x, b.z, b.face, 1.0, 8.5, 0.9, '#b46bff'); }
           if (ph === 'bite') { b.face = faceP; b.tele = fx('telegraphCone', b.x, b.z, b.face, 1.4, b.r + 2.7, 0.65, '#ff5a44'); }
@@ -1148,7 +1821,7 @@ const GAME = (() => {
             owner: 'enemy', kind: 'dragonfire', life: 5, color: SHOT_COL.dragonfire });
           sfx('bubble', { x: b.x, z: b.z, pitch: 0.65 }); b.did++;   // big glittery pink bubbles (not fire)
         }
-        if (b.stT >= D) { bossPhase(b, 'idle'); b.wait = frand(1.1, 1.7); }
+        if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.1, 1.7); }
         break;
       }
       case 'stomp': {
@@ -1161,7 +1834,7 @@ const GAME = (() => {
           shake(0.45); sfx('slam', { x: b.x, z: b.z });
           if (d < 5.2 + T.heroR * 0.5) hurtPlayer(b.dmg * 1.1, b.x, b.z, 2.5);
         }
-        if (b.stT >= D) { bossPhase(b, 'idle'); b.wait = frand(1.1, 1.6); }
+        if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.1, 1.6); }
         break;
       }
       case 'breath': {
@@ -1196,7 +1869,7 @@ const GAME = (() => {
             if (d < 8.5 + T.heroR && Math.abs(angDiff(b.face, faceP)) < 0.5) hurtPlayer(b.dmg * 0.4, b.x, b.z, 0.5);
           }
         }
-        if (b.stT >= D) { bossPhase(b, 'idle'); b.wait = frand(1.2, 1.8); }
+        if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.2, 1.8); }
         break;
       }
       case 'bite': {
@@ -1207,33 +1880,13 @@ const GAME = (() => {
           moveE(b, Math.sin(b.face) * 0.5, Math.cos(b.face) * 0.5);
           if (d < b.r + 2.7 && Math.abs(angDiff(b.face, faceP)) < 0.75) hurtPlayer(b.dmg, b.x, b.z, 1.4);
         }
-        if (b.stT >= D) { bossPhase(b, 'idle'); b.wait = frand(1.0, 1.5); }
+        if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.0, 1.5); }
         break;
       }
+      default: bossPhase(b, 'idle', 1); b.wait = 0.5;   // (a phase of another boss type: start over)
     }
   }
-  function chargeFxAt(m, col, k) {
-    if (Math.random() > 0.6) return;
-    const a = frand(0, TAU), r = 1.1 * (1 - k * 0.6);
-    emitP(m.x + Math.sin(a) * r, m.y + frand(-0.4, 0.4), m.z + Math.cos(a) * r, -Math.sin(a) * r * 2.5, 0, -Math.cos(a) * r * 2.5, 0.3, 0.2, 0.5, col, '#ffffff', 0);
-  }
-  function summonBats(b, n) {
-    for (let i = 0; i < n; i++) {
-      const a = b.face + (i - (n - 1) / 2) * 0.9, x = b.x + Math.sin(a) * (b.r + 2.2), z = b.z + Math.cos(a) * (b.r + 2.2);
-      if (!isFloor(x, z)) continue;
-      const e = makeEnemy({ type: 'yarasa', x, z, elite: false, pack: 'bossbats', face: a });
-      e.xp *= 0.5; e.gold *= 0.5; setAggro(e, false);
-      burst('magic', x, 1, z, { color: '#c77dff', count: 16 });
-      burst('shadowPuff', x, 0.8, z, {});
-    }
-    sfx('bat', { x: b.x, z: b.z });
-  }
-  function bossThresholds(b) {
-    const f = b.hp / b.maxHp;
-    if (!b.s66 && f <= 0.66) { b.s66 = true; b.summon = 3; }
-    if (!b.s33 && f <= 0.33) { b.s33 = true; b.summon = 4; }
-    if (!b.s50 && f <= 0.25) { b.s50 = true; say('ejderha_yarim', 2); }   // 'çok az kaldı' must be true
-  }
+  const BOSS_AI = { kraljole: kraljoleStep, kostebekusta: kostebekustaStep, lavkaplumbaga: lavkaplumbagaStep, ejderha: dragonStep };
 
   // ── Damage ──
   function damage(e, amount, o = {}) {
@@ -1242,9 +1895,11 @@ const GAME = (() => {
     const x = e.x, z = e.z;
     amount = Math.round(amount || 0);
     if (amount > 0) {
-      e.hp -= amount; e.flash = 1; e.hurt = 1; e.bar.delay = 0.45;
-      e.flashCol = o.kind === 'sword' ? saberFlashCol() : o.freeze ? '#cfefff' : '#ffffff';   // a lightsaber hit glows in its colour
-      if (e.m.flash) e.m.flash(1, e.flashCol);
+      // A lightsaber hit glows in its colour. A boss is hit all the time up close: its flash is softer, shorter and warm
+      // (a full white flash on every swing turned the brown mole / the turtle's shell grey-white for a third of the fight).
+      e.hp -= amount; e.flash = e.boss ? 0.5 : 1; e.hurt = 1; e.bar.delay = 0.45;
+      e.flashCol = e.boss ? bossFlashCol(o.kind === 'sword') : o.kind === 'sword' ? saberFlashCol() : o.freeze ? '#cfefff' : '#ffffff';
+      if (e.m.flash) e.m.flash(e.flash, e.flashCol);
       if (!o.silent) {
         ftext(x, e.y + e.height + 0.25, z, String(amount), o.crit ? 'crit' : 'dmg');
         if (o.kind && o.kind !== 'sword' && gt - lastSoft > 0.06) { lastSoft = gt; sfx('hitSoft', { x, z, vol: 0.6, pitch: frand(0.9, 1.2) }); }
@@ -1258,7 +1913,7 @@ const GAME = (() => {
       if (d > 1e-3) { dx /= d; dz /= d; } else { dx = Math.sin(P.face); dz = Math.cos(P.face); }
       e.kvx += dx * o.kb * 9 * mass; e.kvz += dz * o.kb * 9 * mass;
     }
-    if (o.stun) { e.stun = Math.max(e.stun, e.boss ? o.stun * 0.3 : o.stun); if (!e.boss) cancelWindup(e); burst('star', x, e.y + e.height + 0.1, z, { count: 4, color: '#fff3a0' }); }
+    if (o.stun && !e.boss) { e.stun = Math.max(e.stun, o.stun); cancelWindup(e); burst('star', x, e.y + e.height + 0.1, z, { count: 4, color: '#fff3a0' }); }
     if (o.freeze) freeze(e, o.freeze);
     if (o.crit && !e.boss && e.kind !== 'slam') cancelWindup(e);
     if (e.hp <= 0) { makeHappy(e, o); return true; }
@@ -1266,7 +1921,9 @@ const GAME = (() => {
   }
   function makeHappy(e, o = {}) {
     e.dead = true; e.hp = 0;
-    if (e.boss) finale = true;   // before its xp: no level-up line may queue in front of the ending
+    // before its xp: no level-up line may queue in front of the ending (dragon) or the boss's happy line (mid-zone boss)
+    // (a new skill's line waits for the boss's happy line, its goodbye and the UI's look at the portal (≈7.5 s), see skillLine)
+    if (e.boss) { if (e.final) finale = true; else { storyUntil = gt + 10; skillAt = gt + 7.5; } }
     const i = enemies.indexOf(e); if (i >= 0) enemies.splice(i, 1);
     remove(e.tele); e.tele = null;
     if (e.ice) { remove(e.ice); e.ice = null; }
@@ -1277,6 +1934,7 @@ const GAME = (() => {
     if (e.m.setMood) e.m.setMood('happy');
     if (e.m.flash) e.m.flash(0);
     e.dieT = 0; e.dieDur = e.boss ? 3.2 : 1.15;
+    if (e.boss) { e.st.phase = 'idle'; e.st.phaseT = 0; e.st.air = 0; }
     dying.push(e);
     const cy = e.y + e.height * 0.7;
     burst('cheer', e.x, cy, e.z, { scale: e.boss ? 3 : e.elite ? 1.6 : 1 });
@@ -1287,27 +1945,27 @@ const GAME = (() => {
     const xp = Math.round(e.xp);
     // the XP bar's star (no letters to read) — only for the big ones: every cheered enemy showing it was just clutter
     if (e.elite || e.boss) later(0.25, () => ftext(e.x, e.y + e.height + 0.4, e.z, '+' + xp + ' ⭐', 'xp'));
+    if (e.boss) bossDown(e);   // its happy line first: level-up / new skill lines queue behind it
     gainXp(xp);
     dropLoot(e);
     if (C.targetE === e) C.targetE = null;
-    emit('happy', { type: e.type, x: e.x, z: e.z, elite: e.elite, boss: e.boss });
+    emit('happy', { type: e.type, x: e.x, z: e.z, elite: e.elite, boss: e.boss, final: !!(e.boss && e.final) });
     cheers.push(gt);
     while (cheers.length && gt - cheers[0] > 2) cheers.shift();
     if ((cheers.length >= 3 || e.elite) && gt - lastPraise > 25) praise();
-    if (e.boss) bossDefeated(e);
   }
   let lastPraiseKey = '';
   function praise() {
-    if (finale || (boss && boss.aggro)) return;
+    if (finale || (boss && boss.aggro && !boss.dead) || gt < storyUntil) return;
     lastPraise = gt;
     let k; do { k = 'ovgu' + (1 + Math.floor(Math.random() * 6)); } while (k === lastPraiseKey);
     lastPraiseKey = k; chat(k, 0);
   }
-  // Non-story narration (praise, items, chest, level, 'kocaman'): at most one line per `gap` s, none during the
-  // dragon fight and none after it (the finale lines must not be buried).
+  // Non-story narration (praise, items, chest, level, 'kocaman'): at most one line per `gap` s, none during a boss
+  // fight, none right after a mid-zone boss cheers up, none after the dragon (the story lines must not be buried).
   let lastChat = -99;
   function chat(key, prio = 1, gap = 15, o) {
-    if (finale || (boss && boss.aggro && !boss.dead)) return 0;
+    if (finale || (boss && boss.aggro && !boss.dead) || gt < storyUntil) return 0;
     if (gt - lastChat < gap) return 0;
     const r = say(key, prio, o);
     if (r) lastChat = gt;
@@ -1325,7 +1983,8 @@ const GAME = (() => {
     sfx('hurt', { pitch: frand(0.95, 1.1) });
     burst('hit', P.pos.x, 0.9, P.pos.z, { color: '#ff8aa0', count: 8 });
     if (fromX !== undefined) {
-      let dx = P.pos.x - fromX, dz = P.pos.z - fromZ; const d = Math.hypot(dx, dz) || 1;
+      let dx = P.pos.x - fromX, dz = P.pos.z - fromZ; let d = Math.hypot(dx, dz);
+      if (d < 1e-3) { dx = 0; dz = 1; d = 1; }   // hit from right where he stands (a mole popping up): pushed toward the camera
       C.kbx = dx / d * kb * 8; C.kbz = dz / d * kb * 8;
     }
     emit('hurt', { amount: a });
@@ -1355,19 +2014,38 @@ const GAME = (() => {
     sfx('saberOff', { vol: 0.7 });   // FEZA retracts the blade while he naps
     burst('zzz', P.pos.x, 1.2, P.pos.z, {});
     if (boss && boss.aggro && !boss.dead) bossTired(boss);
-    for (const e of enemies) if (e.aggro) { if (e.boss) bossCalm(e); else calm(e); }
+    for (const e of enemies) {   // (remember how far the pack's fight got: see respawn)
+      if (!e.boss && dist2(e.x, e.z, C.deathX, C.deathZ) < NAP.r * NAP.r) { e.napHp = e.hp; e.napped = e.aggro; }
+      if (e.aggro) { if (e.boss) bossCalm(e); else calm(e); }
+    }
     const at = gt;
     setTimeout(() => { if (P.dead && gt === at && !GAME.paused) respawn(); }, 4500);   // UI stopped ticking us while dead
   }
+  const NAP = { r: 18, heal: 0.25, calm: 4.5, near: 3 };
   function respawn() {
     if (!P.dead) return;
     P.dead = false; P.hp = P.maxHp; GAME.state = 'play'; C.invuln = 2; C.hurtT = 0; C.kbx = C.kbz = 0;
+    // No nap loop (Round 3 QA: a careless kid napped 10× in a row on one pack that came back fully healed each time): the
+    // pack nearby goes home, but keeps what Feza already did (at most +25 % hp back), is tired like a boss after a nap
+    // (DIFF.bossNap: hits ×0.75, down to ×0.55; an elite that won twice also loses 30 % hp) and lets him wake up in peace
+    // (no noticing him for NAP.calm s unless he comes within NAP.near m or hits one).
     for (const e of enemies) {
-      if (e.boss || dist2(e.x, e.z, C.deathX, C.deathZ) > 18 * 18) continue;
-      e.hp = e.maxHp; e.x = e.homeX; e.z = e.homeZ; e.aggro = false; e.token = false; e.walking = false; e.returning = false;
-      cancelWindup(e); e.state = 'idle'; e.kvx = e.kvz = 0; e.bar.trail = 1; e.bur = 0; e.upT = 99; place(e);
+      if (e.boss || (e.napHp === undefined && dist2(e.x, e.z, C.deathX, C.deathZ) > NAP.r * NAP.r)) continue;   // (napHp: it was there)
+      const was = e.napHp !== undefined ? e.napHp : e.hp;
+      e.hp = Math.max(1, Math.min(e.maxHp, Math.round(was + e.maxHp * NAP.heal)));
+      if (e.napped) {
+        const N = DIFF.bossNap;
+        e.naps = (e.naps || 0) + 1; e.dmgBase = e.dmgBase || e.dmg;
+        e.dmg = Math.max(e.dmgBase * N.dmgMin, e.dmg * N.dmg);
+        if (e.elite && e.naps >= 2) e.hp = Math.min(e.hp, Math.round(e.maxHp * 0.7));
+      }
+      e.napHp = undefined; e.napped = false; e.calmT = gt + NAP.calm;
+      e.x = e.homeX; e.z = e.homeZ; e.aggro = false; e.token = false; e.walking = false; e.returning = false;
+      cancelWindup(e); e.state = 'idle'; e.kvx = e.kvz = 0; e.bar.trail = e.hp / e.maxHp; e.bur = 0; e.upT = 99; place(e);
     }
     for (let i = projectiles.length - 1; i >= 0; i--) if (projectiles[i].owner === 'enemy') killProjectile(i, false);
+    for (const m of mortars) { killProjectileObj(m); remove(m.tele); }
+    mortars.length = 0;
     const cp = P.checkpoint;
     placeHero(cp.x, cp.z, 0);
     burst('magic', cp.x, 0.8, cp.z, { count: 24 }); burst('sparkle', cp.x, 1.2, cp.z, { count: 16 });
@@ -1390,6 +2068,8 @@ const GAME = (() => {
   const _hsl = new THREE.Color();
   const _fc = new THREE.Color(), _fw = new THREE.Color(1, 1, 1);
   function saberFlashCol() { return '#' + _fc.set(bladeColor()).lerp(_fw, 0.4).getHexString(); }
+  const _fwarm = new THREE.Color('#fff0d6');
+  function bossFlashCol(sword) { return sword ? '#' + _fc.set(bladeColor()).lerp(_fwarm, 0.65).getHexString() : '#fff0d6'; }
   function bladeColor(w = P.equip.weapon) {
     if (typeof ITEMS !== 'undefined' && ITEMS && typeof ITEMS.bladeColor === 'function') {
       try { const c = ITEMS.bladeColor(w); if (typeof c === 'string' && c) return c; } catch (err) { warnOnce('ITEMS.bladeColor', err); }
@@ -1483,6 +2163,86 @@ const GAME = (() => {
     }
     moveXZ(P.pos, dx, dz, T.heroR);
   }
+  // Tap-to-walk round a bush or a wall corner: when the straight walk to a tapped point gets stuck, a small grid search
+  // (4-neighbour BFS over cells Feza fits in) finds a way round, string-pulled to a few corners. Too far round (another
+  // room behind a wall) or no way: he simply stops instead of walking into the wall forever. Dragging is left as it is.
+  const ROUTE = { cells: 3000, len: 45 };
+  const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  function walkable(x0, z0, x1, z1) {   // a straight stretch he fits through
+    const l = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(l / 0.3));
+    for (let i = 1; i <= n; i++) { const k = i / n; if (!circleFree(x0 + (x1 - x0) * k, z0 + (z1 - z0) * k, T.heroR * 0.95)) return false; }
+    return true;
+  }
+  function routeTo(tx, tz) {
+    if (!L || !L.grid || !L.W || !L.H) return null;
+    const W = L.W, H = L.H;
+    const cell = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i >= 0 && j >= 0 && i < W && j < H ? j * W + i : -1; };
+    const fits = c => c >= 0 && L.grid[c] === 1 && circleFree((c % W) + 0.5, Math.floor(c / W) + 0.5, T.heroR);
+    const s = cell(P.pos.x, P.pos.z);
+    let g = cell(tx, tz);
+    if (s < 0 || g < 0) return null;
+    if (!fits(g)) {   // the tapped spot itself is taken (a bush): the free cell next to it closest to the tap
+      let best = -1, bd = 1e9;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const i = (g % W) + di, j = Math.floor(g / W) + dj, c = i >= 0 && j >= 0 && i < W && j < H ? j * W + i : -1;
+        if (c >= 0 && fits(c)) { const d = dist2(i + 0.5, j + 0.5, tx, tz); if (d < bd) { bd = d; best = c; } }
+      }
+      if (best < 0) return null;
+      g = best;
+    }
+    const prev = new Map([[s, -1]]), q = [s];
+    let head = 0, found = s === g;
+    while (!found && head < q.length && q.length < ROUTE.cells) {
+      const c = q[head++], i = c % W, j = (c - i) / W;
+      for (const nb of NB4) {
+        const ni = i + nb[0], nj = j + nb[1];
+        if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
+        const n = nj * W + ni;
+        if (prev.has(n) || !fits(n)) continue;
+        prev.set(n, c); q.push(n);
+        if (n === g) { found = true; break; }
+      }
+    }
+    if (!found) return null;
+    const pts = [];
+    for (let c = g; c !== s && c !== -1 && c !== undefined; c = prev.get(c)) pts.push({ x: (c % W) + 0.5, z: Math.floor(c / W) + 0.5 });
+    if (pts.length > ROUTE.len) return null;
+    pts.reverse();
+    const out = [];
+    let cx = P.pos.x, cz = P.pos.z, k = 0;
+    while (k < pts.length) {   // string-pull: straight to the farthest cell he can walk to directly
+      let far = k;
+      for (let m = pts.length - 1; m > k; m--) if (walkable(cx, cz, pts[m].x, pts[m].z)) { far = m; break; }
+      out.push(pts[far]); cx = pts[far].x; cz = pts[far].z; k = far + 1;
+    }
+    return out;
+  }
+  // Tap-walk net-progress watchdog. LEVEL's sliding can ping-pong Feza between two solids (a pillar corner and a round
+  // vase) or in and out of a flat wall: every frame "moves", so the per-frame blockT never grows, yet he gets nowhere and
+  // the kid sees him running in place. Every PROG.win s the distance to the current goal (the next route corner or the
+  // tapped point) must shrink by PROG.min m. If it doesn't: a vase touching him on the way → he swings at it (kid-friendly,
+  // at most PROG.brk per tap); otherwise blockT is set, so updatePlayer tries a way round once, or stops if it already did.
+  const PROG = { win: 0.4, min: 0.3, brk: 2, brkGap: 0.8, brkArc: 100 * Math.PI / 180 };
+  function tapWalkProgress(gx, gz, d, mx, mz, dt) {
+    if (C.swing || C.lunge.t > 0 || C.kbx || C.kbz) { C.progT = 0; C.progD = d; return; }   // slowed or pushed on purpose: not stuck
+    if (gx !== C.progGx || gz !== C.progGz) { C.progGx = gx; C.progGz = gz; C.progT = 0; C.progD = d; return; }   // new tap / next corner
+    if ((C.progT += dt) < PROG.win) return;
+    const d0 = C.progD;
+    C.progT = 0; C.progD = d;
+    if (d0 - d >= Math.min(PROG.min, (d0 - 0.2) * 0.5)) return;   // getting there (near the goal he slows down: ask less)
+    if (C.autoBrk < PROG.brk && P.spin <= 0 && L && L.breakObjs) {
+      const mf = Math.atan2(mx, mz);
+      let best = null, bd = PROG.brkGap;
+      for (const b of L.breakObjs) {
+        if (b.broken) continue;
+        const bx = b.x - P.pos.x, bz = b.z - P.pos.z, bl = Math.hypot(bx, bz), gap = bl - (b.r || 0.4) - T.heroR;
+        if (gap >= bd || (bl > 1e-3 && Math.abs(angDiff(mf, Math.atan2(bx, bz))) > PROG.brkArc)) continue;
+        bd = gap; best = b;
+      }
+      if (best) { C.autoBrk++; startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z)); return; }
+    }
+    C.blockT = Math.max(C.blockT, 0.31);
+  }
   const skillsOwnTimers = () => typeof SKILLS_update === 'function';
 
   function updatePlayer(dt) {
@@ -1551,9 +2311,22 @@ const GAME = (() => {
           else { mx = dx / d; mz = dz / d; want = P.speed; }
         }
       } else if (C.hasT) {
-        const dx = C.tx - P.pos.x, dz = C.tz - P.pos.z, d = Math.hypot(dx, dz);
-        if (d > (C.drag ? 0.4 : 0.2)) { mx = dx / d; mz = dz / d; want = P.speed * clamp(d / 0.8, 0.35, 1); }
+        let gx = C.tx, gz = C.tz;
+        if (C.drag) { C.route = null; C.routeTried = false; C.progGx = NaN; C.autoBrk = 0; }
+        else if (C.route) {   // walking round an obstacle to a tapped point, corner by corner
+          while (C.route.length && Math.hypot(C.route[0].x - P.pos.x, C.route[0].z - P.pos.z) < 0.45) C.route.shift();
+          if (C.route.length) { gx = C.route[0].x; gz = C.route[0].z; } else C.route = null;
+        }
+        const dx = gx - P.pos.x, dz = gz - P.pos.z, d = Math.hypot(dx, dz);
+        if (d > (C.drag ? 0.4 : 0.2)) { mx = dx / d; mz = dz / d; want = P.speed * (C.route ? 1 : clamp(d / 0.8, 0.35, 1)); }
         else if (!C.drag) C.hasT = false;
+        if (!C.drag && C.hasT) tapWalkProgress(gx, gz, d, mx, mz, dt);
+        if (!C.drag && C.hasT && C.blockT > 0.3) {   // stuck on the way: find a way round once, else stop trying
+          C.blockT = 0;
+          const r = C.routeTried ? null : routeTo(C.tx, C.tz);
+          C.routeTried = true;
+          if (r && r.length) C.route = r; else { C.hasT = false; C.route = null; }
+        }
       }
     }
     // Auto-attack: face a grumpy one and swing. Finger up: anything within T.autoR. Finger held (or keys): only one he
@@ -1645,14 +2418,20 @@ const GAME = (() => {
     }
     const po = L.portalObj;
     if (po && po.active !== false) {
+      // A portal that just woke up does not swallow Feza standing on/next to it (the boss fight often ends there): he
+      // walks in once it has been open PORTAL.wait s (the boss has waved goodbye, its treasure flew to him) and he has
+      // been more than PORTAL.arm m away since it opened. A tap on the portal always works.
+      // (a kid who just keeps standing in it goes through once the boss's story is over, PORTAL.stay s after it opened)
       const d2 = dist2(po.x, po.z, x, z);
-      if (d2 < 1.35 * 1.35) enterPortal();
+      if (po.armed === false && d2 > PORTAL.arm * PORTAL.arm) po.armed = true;
+      if (d2 < 1.35 * 1.35) { if ((po.armed !== false || gt - po.openT > PORTAL.stay) && !(gt - po.openT < PORTAL.wait)) enterPortal(); }
       else if (d2 < 9 * 9 && !F.kapi[P.zone]) { F.kapi[P.zone] = true; say('kapi', 1); }
     }
     if (L.npcObj && !F.baykus && dist2(L.npcObj.x, L.npcObj.z, x, z) < 3.6 * 3.6) talkNpc(false);
     if (crystal && crystal.ready && dist2(crystal.x, crystal.z, x, z) < 2.0 * 2.0) victory();
     if (P.zone === 0 && !F.zl[0] && L.start && dist2(L.start.x, L.start.z, x, z) > 14 * 14) {
-      F.zl[0] = true; const Z = zdef(0); if (Z.line) say(Z.line, 2, { wait: 40 });   // may wait behind the intro, the owl and the first skill
+      // (Round 3 QA: the opening talked 30 s straight; the forest's name is dropped if the intro/owl/first skill still go on)
+      F.zl[0] = true; const Z = zdef(0); if (Z.line) say(Z.line, 2, { wait: 10 });
     }
   }
   function openChest(c) {
@@ -1724,8 +2503,12 @@ const GAME = (() => {
     if (cur && typeof cur === 'object') return cur.key === 'baykus';
     return cur === undefined && gt < npcTalkUntil;
   }
+  const PORTAL = { wait: 2.5, arm: 2.5, stay: 6.5, pocket: 24 };
   function enterPortal() {
     if (GAME.state !== 'play') return;
+    if (L && L.portalObj && !L.portalObj.active) return;   // shut until the zone's boss cheers up: it does nothing
+    pocketLoot(PORTAL.pocket);   // the boss's coins, hearts and treasure still lying around go with him (never lost)
+    aud('stopVoice');            // nothing from this zone ('kapi'…) may play in the next one
     GAME.state = 'transition'; C.transT = 0;
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.vel = 0;
     sfx('portal');
@@ -1763,7 +2546,9 @@ const GAME = (() => {
   }
   function killProjectile(i, poof) {
     const p = projectiles[i];
+    const end = p.owner === 'enemy' && SHOT_END[p.kind];
     if (isBubble(p)) bubblePop(p);
+    else if (end) { burst(end[0], p.x, Math.max(0.1, p.y), p.z, { color: p.kind === 'rock' ? DIRT : p.color, count: 8 }); if (end[1]) sfx(end[1], { x: p.x, z: p.z, vol: 0.6 }); }
     else if (poof) burst(p.owner === 'feza' ? (p.kind === 'star' ? 'star' : 'sparkle') : 'smoke', p.x, p.y, p.z, { color: p.color, count: 6 });
     killProjectileObj(p);
     projectiles.splice(i, 1);
@@ -1774,6 +2559,7 @@ const GAME = (() => {
       p.t += dt; p.life -= dt;
       p.x += p.vx * dt; p.z += p.vz * dt;
       if (p.kind === 'bubble') { p.by = damp(p.by === undefined ? p.y : p.by, 0.95, 2.5, dt); p.y = p.by + 0.13 * Math.sin(p.t * 5.5); }   // floats and bobs
+      else if (p.kind === 'jelly') { p.by = damp(p.by === undefined ? p.y : p.by, 0.35, 3, dt); p.y = p.by + 0.75 * Math.abs(Math.sin(p.t * 4.6)); }   // a jelly blob bounces along
       else if (p.owner === 'enemy') p.y = damp(p.y, 0.85, 2.5, dt);
       p.obj.position.set(p.x, p.y, p.z);
       if (p.vx || p.vz) p.obj.rotation.y = Math.atan2(p.vx, p.vz);
@@ -1821,10 +2607,10 @@ const GAME = (() => {
   // wear it (stronger than what he wears in that slot) — otherwise it just looks like the same thing dropping again.
   const upgradeOf = (item, have) => replaces(item, have) && ((item.rarity | 0) > (have.rarity | 0) || item.power >= have.power * DROP.upgrade) &&
     item.power > ((P.equip[item.slot] && P.equip[item.slot].power) || 0);
-  function rollItem(bias) {
+  function rollItem(bias, tries = DROP.tries) {
     if (typeof ITEMS === 'undefined' || !ITEMS.roll) return null;
     let up = null;
-    for (let i = 0; i < DROP.tries; i++) {
+    for (let i = 0; i < tries; i++) {
       let it = null;
       try { it = ITEMS.roll(ilvlNow(), clamp(bias, 0, 2)); } catch (err) { warnOnce('ITEMS.roll', err); return null; }
       if (!it || groundLook(it)) continue;        // never two of the same look at once
@@ -1835,17 +2621,17 @@ const GAME = (() => {
     return up;
   }
   // An item drop; when nothing new or better came up, a little gold instead.
-  function dropItem(bias, x, z) {
-    const it = rollItem(bias);
+  function dropItem(bias, x, z, tries) {
+    const it = rollItem(bias, tries);
     if (it) return spawnItem(it, x, z);
     spawnCoins(x, z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
     return null;
   }
   function dropLoot(e) {
     const gold = Math.round(e.gold * frand(0.8, 1.25));
-    if (e.boss) {
+    if (e.boss) {   // every boss: lots of coins, a treasure (the DROP rules, looking harder for something new), hearts
       spawnCoins(e.x, e.z, gold, 40, 3.5);
-      dropItem(2, e.x, e.z);
+      dropItem(2, e.x, e.z, DROP.tries * 3);
       for (let i = 0; i < 3; i++) spawnLoot('heart', e.x, e.z);
       return;
     }
@@ -1947,7 +2733,8 @@ const GAME = (() => {
     const o = spawnLoot('item', x, z, item);
     const r = item.rarity || 0;
     sfx(r >= 3 ? 'dropLegend' : r >= 2 ? 'dropRare' : 'drop', { x, z });
-    if (r >= 3) later(0.4, () => { if (!finale) say('efsane', 2); burst('confetti', x, 1.5, z, {}); });
+    // (from a boss: behind its happy line, and dropped if it cannot follow soon — never in the next zone)
+    if (r >= 3) later(0.4, () => { if (!finale) say('efsane', 2, gt < storyUntil ? { wait: 5 } : undefined); burst('confetti', x, 1.5, z, {}); });
     return o;
   }
   function updateLoot(dt) {
@@ -2002,6 +2789,23 @@ const GAME = (() => {
       burst('sparkle', P.pos.x, 1, P.pos.z, { color: rarCol(o.item.rarity), count: 16 });
       sfx('star', { pitch: 1.1 });
       addItem(o.item);
+    }
+  }
+  // A boss's reward flies to Feza after it waved goodbye (its coins spread wide, the magnet only reaches 2.5 m).
+  function lootToFeza(x, z, r) {
+    for (const c of coins) if (dist2(c.x, c.z, x, z) < r * r) c.mag = true;
+    for (const o of loot) if (dist2(o.x, o.z, x, z) < r * r && (o.kind !== 'potion' || P.potions < P.maxPotions)) o.mag = true;
+  }
+  // Straight into his pockets (walking into the portal): coins as one '+N', hearts, potions (if there is room), treasure.
+  function pocketLoot(r) {
+    const x = P.pos.x, z = P.pos.z;
+    let g = 0;
+    for (let i = coins.length - 1; i >= 0; i--) { const c = coins[i]; if (dist2(c.x, c.z, x, z) < r * r) { g += c.value; coins.splice(i, 1); } }
+    if (g) { P.gold += g; ftext(x, 2.1, z, '+' + g, 'gold'); sfx('coin', { vol: 0.7 }); emit('gold', { amount: g }); }
+    for (let i = loot.length - 1; i >= 0; i--) {
+      const o = loot[i];
+      if (dist2(o.x, o.z, x, z) >= r * r || (o.kind === 'potion' && P.potions >= P.maxPotions)) continue;
+      loot.splice(i, 1); pickLoot(o);
     }
   }
   function addItem(item, force) {
@@ -2074,8 +2878,21 @@ const GAME = (() => {
     GAME.skills.forEach((s, i) => {
       if (!canUnlock(s, i)) return;
       s.unlocked = true; s.cd = 0;
-      if (announce) { later(0.3 + i * 0.05, () => sfx('unlock')); if (!finale && s.def.line) say(s.def.line, 2, { wait: 40 }); emit('skill', { index: i }); }   // teaches the new button: never dropped
+      if (announce) { later(0.3 + i * 0.05, () => sfx('unlock')); if (!finale && s.def.line) skillLine(s.def.line); emit('skill', { index: i }); }   // teaches the new button: never dropped
     });
+  }
+  // The meteor comes with Kral Jöle's cheer (its xp is a level-up): its line must not push the boss's goodbye and the door
+  // behind it — nor play inside the next zone before that zone's name. Held until skillAt (boss +7.5 s, or right after the
+  // next zone's line), then queued as usual.
+  function skillLine(k) {
+    if (gt < storyUntil || gt < skillAt) { if (skillQ.indexOf(k) < 0) skillQ.push(k); }
+    else say(k, 2, { wait: 40 });
+  }
+  function flushSkillLines() {
+    if (!skillQ.length) return;
+    if (finale) { skillQ.length = 0; return; }
+    if (GAME.state !== 'play' || gt < skillAt) return;
+    for (const k of skillQ.splice(0)) say(k, 2, { wait: 40 });
   }
   function introFirstSkill() {
     if (F.intro0) return;
@@ -2083,23 +2900,47 @@ const GAME = (() => {
     later(1.2, () => checkUnlocks(true));
   }
 
-  // ── Dragon's end, crystal, victory ──
-  function bossDefeated(b) {
-    emit('boss', { on: false });
-    finale = true;
+  // ── A boss cheers up: the dragon's crystal finale, or (mid-zone boss) treasure + the portal opens ──
+  function bossDown(b) {
+    emit('boss', { on: false, type: b.type });
+    remove(b.tele); b.tele = null;
     aud('stopVoice');   // drop stale fight lines ('çok az kaldı', level-ups…): the story lines come next
-    say('ejderha_bitti', 3);
+    const k = b.kit.lines.bitti; if (k && hasLine(k)) say(k, 3);
     shake(0.4); C.cheerT = 2.5;
     burst('confetti', b.x, 3, b.z, {}); burst('confetti', P.pos.x, 2.5, P.pos.z, {});
+    if (!b.final) sfx('cheer', { vol: 0.7 });
     // everyone nearby cheers up too (directly: damage() would wake them and announce elites 'geliyor!')
     for (const e of enemies.slice()) if (!e.dead && dist2(e.x, e.z, b.x, b.z) < 30 * 30) makeHappy(e, { silent: true });   // (makeHappy directly: hidden() never blocks it)
+    for (const m of mortars) { killProjectileObj(m); remove(m.tele); }
+    mortars.length = 0;
+    // shots already flying pop with their little end burst (they must not hurt Feza during the cheer)
+    for (let i = projectiles.length - 1; i >= 0; i--) if (projectiles[i].owner === 'enemy') killProjectile(i, true);
     aud('music', zdef().music || 'kale');
+    if (!b.final) later(1.5, openPortal);   // its line says the magic door opened: it opens while the boss waves goodbye
   }
-  function bossTransformed(b) {
-    burst('magic', b.x, 1.5, b.z, { count: 40, color: '#ffb0f0' }); burst('sparkle', b.x, 1.5, b.z, { count: 30 });
+  function bossGone(b) {   // it waved and vanished in sparkles
+    burst('magic', b.x, 1.5, b.z, { count: 40, color: b.kit.col || '#ffb0f0' }); burst('sparkle', b.x, 1.5, b.z, { count: 30 });
     fx('lightFlash', b.x, b.z, '#ffc0f0', 6, 0.6);
+    lootToFeza(b.x, b.z, 26);   // its coins, hearts and treasure fly to Feza
     // Parent's wish: the dragon cheers up and goes on its way — no little dragon following Feza around afterwards.
-    later(0.6, spawnCrystal);
+    if (b.final) later(0.6, spawnCrystal);
+  }
+  function openPortal() {
+    const po = L && L.portalObj;
+    if (!po) { later(3.5, () => { if (GAME.state === 'play') enterPortal(); }); return; }   // (a level without a portal object: go on anyway)
+    if (!po.active) { try { if (po.setActive) po.setActive(true); } catch (err) { warnOnce('portal.setActive', err); } po.active = true; }
+    burst('portal', po.x, 1.2, po.z, { count: 40 }); burst('sparkle', po.x, 1.5, po.z, { count: 24, color: '#d9c2ff' });
+    fx('ring', po.x, po.z, { r0: 0.5, r1: 4, dur: 0.7, color: '#c7a0ff', width: 0.5 });
+    fx('lightFlash', po.x, po.z, '#c7a0ff', 5, 0.7);
+    sfx('portal', { x: po.x, z: po.z }); later(0.3, () => sfx('unlock'));
+    po.openT = gt;   // (Feza standing on it is not swallowed right away: see proximity)
+    po.armed = dist2(po.x, po.z, P.pos.x, P.pos.z) > PORTAL.arm * PORTAL.arm;
+    F.kapi[P.zone] = true;   // (the walk-up line must not repeat it)
+    // 'Sihirli kapı! İçine gir…' — not when the boss's happy line already said the door opened (kraljole, usta), and
+    // dropped if it cannot start soon (it used to play 10–13 s later, often inside the next zone)
+    const bk = boss && boss.kit && boss.kit.lines && boss.kit.lines.bitti, bt = bk && hasLine(bk) ? String(AUD.LINES[bk]) : '';
+    if (hasLine('kapi') && !/kap[ıi]/i.test(bt)) say('kapi', 2, { wait: 6 });
+    emit('portalOpen', { x: po.x, z: po.z });
   }
   function spawnCrystal() {
     if (crystal || !L) return;
@@ -2201,8 +3042,9 @@ const GAME = (() => {
         fx('ring', o.x, o.z, { r0: 0.4, r1: 1.4, dur: 0.35, color: '#ffd84a', width: 0.2 });
         return 'object';
       }
-      C.drag = true; C.mode = 'move'; C.targetE = null; C.targetObj = null;
-      const g = typeof groundFromScreen === 'function' ? groundFromScreen(sx, sy, 0) : null;
+      C.drag = true; C.mode = 'move'; C.targetE = null; C.targetObj = null; C.route = null; C.routeTried = false;
+      C.progGx = NaN; C.autoBrk = 0;   // a fresh net-progress window (tapWalkProgress)
+      const g =typeof groundFromScreen === 'function' ? groundFromScreen(sx, sy, 0) : null;
       if (g) { C.tx = g.x; C.tz = g.z; C.hasT = true; fx('ring', g.x, g.z, { r0: 0.1, r1: 0.75, dur: 0.3, color: '#8fe8ff', width: 0.14 }); }
       return 'move';
     },
@@ -2230,13 +3072,26 @@ const GAME = (() => {
     return o;
   }
   function snapshot() {
+    const first = {};   // the once-per-game first-sight lines (ilk_kostebek, ilk_kaplumbaga…)
+    for (const t in FIRST_LINE) first[FIRST_LINE[t]] = !!F[FIRST_LINE[t]];
+    // Kaydet right after a boss cheered up (the parent's natural moment to stop) must keep that win: a mid-zone boss →
+    // Devam Et starts in the next zone (as if through its portal); the dragon → the castle again with its crystal waiting.
+    const won = !!(boss && boss.dead) || !!crystal, ZL = zones();
+    let zone = P.zone, bossDone = -1, gold = P.gold;
+    const bag = P.bag.map(plainItem);
+    if (won && !finalZone() && ZL && P.zone < ZL.length - 1) {
+      zone = P.zone + 1;
+      // (saved a moment after the cheer: its coins and treasure still flying to him go into the save, as through the portal)
+      const bx = boss ? boss.x : P.pos.x, bz = boss ? boss.z : P.pos.z, R2 = 26 * 26;
+      for (const c of coins) if (dist2(c.x, c.z, bx, bz) < R2) gold += c.value;
+      for (const o of loot) if (o.kind === 'item' && o.item && dist2(o.x, o.z, bx, bz) < R2) bag.push(plainItem(o.item));
+    } else if (won && finalZone()) bossDone = P.zone;
     return {
-      v: 1, t: Date.now(), zone: P.zone, lvl: P.lvl, xp: P.xp, gold: P.gold, potions: P.potions, ng: P.ng,
-      bag: P.bag.map(plainItem),
+      v: 1, sv: SAVE_V, t: Date.now(), zone, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
+      bag,
       equip: { weapon: P.bag.indexOf(P.equip.weapon), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
-      flags: { intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]),
-        ilk_kostebek: !!F.ilk_kostebek, ilk_salyangoz: !!F.ilk_salyangoz },
+      flags: Object.assign({ intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]), bossDone }, first),
     };
   }
   // Parent's wish: nothing is saved by itself — every launch starts a new game, and progress is kept only when the
@@ -2288,9 +3143,13 @@ const GAME = (() => {
     bag.forEach((c, k) => { if (re[k] < 0) re[k] = re[best.get(lookKey(c))]; });
     for (const slot of ['weapon', 'hat', 'cape']) if (equip[slot] >= 0) equip[slot] = re[equip[slot]];
     const L1 = clamp(Math.floor(lvl), 1, 99);
+    // Round 3 put the volcano (zone 2) before the castle: a save from before (no sv, or sv < 3) in the castle moves on to 3.
+    let zn = Math.max(0, Math.floor(zone));
+    if (!(typeof s.sv === 'number' && s.sv >= 3) && zn >= 2) zn += 1;
+    const ZL = zones(); if (ZL) zn = Math.min(zn, ZL.length - 1);
     return Object.assign({}, s, {
-      lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
-      ng: clamp(Math.floor(ng), 0, 99), zone: Math.max(0, Math.floor(zone)), bag: slim, equip,
+      sv: SAVE_V, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
+      ng: clamp(Math.floor(ng), 0, 99), zone: zn, bag: slim, equip,
       skills: Array.isArray(s.skills) ? s.skills : [], flags: s.flags && typeof s.flags === 'object' ? s.flags : {},
     });
   }
@@ -2304,7 +3163,9 @@ const GAME = (() => {
     // Skills come from the level (saves by index are unreliable: the skill list changed from 6 to 3).
     GAME.skills.forEach((sk, i) => { sk.cd = 0; sk.unlocked = i === 0 ? !!(fl.intro0 || P.lvl >= 2 || (s.skills && s.skills[0])) : P.lvl >= (sk.def.lvl || 1); });
     F = { zl: { 0: !!fl.zl0 }, kapi: {}, intro0: !!fl.intro0, baykus: !!fl.baykus, sandik: !!fl.sandik, nese: !!fl.nese, canta: !!fl.canta,
-      ilk_kostebek: !!fl.ilk_kostebek, ilk_salyangoz: !!fl.ilk_salyangoz };
+      bossDone: typeof fl.bossDone === 'number' ? fl.bossDone : -1 };
+    skillQ.length = 0;
+    for (const t in FIRST_LINE) F[FIRST_LINE[t]] = !!fl[FIRST_LINE[t]];
     P.dead = false; P.spin = 0; P.shield = 0;
     recalcStats(); P.hp = P.maxHp;
     if (H) H.setEquip(P.equip);
@@ -2329,7 +3190,7 @@ const GAME = (() => {
     if (plus) {
       P.ng++; P.dead = false; P.potions = Math.max(P.potions, DIFF.potions);
       for (const s of GAME.skills) s.cd = 0;
-      F.zl = {}; F.kapi = {};
+      F.zl = {}; F.kapi = {}; F.bossDone = -1; skillQ.length = 0;
       recalcStats(); P.hp = P.maxHp;
     } else resetPlayer();
     C.playT = 0; C.lastHurt = gt - 99;
@@ -2415,7 +3276,7 @@ const GAME = (() => {
       let cover = false;
       if (e.dist < 9) {
         if (showBar) cover = coversFeza(e.x, by, e.z, e.elite ? 0.75 : 0.52, 0.12);
-        if (!cover && e.tag && e.tag.visible) cover = coversFeza(e.x, e.y + e.height + 0.78, e.z, 1.1, 0.24);
+        if (!cover && e.tag && e.tag.visible) cover = coversFeza(e.x, e.y + e.height + 0.78, e.z, e.tag.scale.x * 0.42, 0.24);
       }
       e.fade = damp(e.fade, cover ? 0.25 : 1, 10, dt);
       if (e.tag) {   // name while it is idle nearby and for 3 s after it notices Feza; then only the bar
@@ -2455,7 +3316,18 @@ const GAME = (() => {
   function bladeLight(dt) {
     if (typeof LIGHTS === 'undefined' || !LIGHTS.feza) return;
     const l = LIGHTS.feza;
-    l.position.set(P.pos.x, 2.4, P.pos.z + 0.6);   // hero light (dark levels)
+    // Hero light (dark levels) at head height. A boss (or another big one) right against Feza: that spot is inside its face
+    // and blew it out white → the light slides to Feza's far side from it, lower, and dims a little the closer it is.
+    let nk = 0, nx = 0, nz = 0;
+    for (const e of enemies) {
+      if (!(e.boss || e.r >= 1) || !e.m.root.visible) continue;
+      const dx = e.x - P.pos.x, dz = e.z - P.pos.z, d = Math.hypot(dx, dz), k = clamp((e.r + 2.2 - d) / 1.0, 0, 1);
+      if (k > nk) { nk = k; nx = d > 1e-3 ? dx / d : 0; nz = d > 1e-3 ? dz / d : -1; }
+    }
+    R.lightNear = damp(R.lightNear || 0, nk, 8, dt);
+    if (nk > 0) { R.lightNx = nx; R.lightNz = nz; }
+    const q = R.lightNear, ax = R.lightNx || 0, az = R.lightNz || 0;
+    l.position.set(P.pos.x - ax * 1.3 * q, lerp(2.4, 1.4, q), P.pos.z + lerp(0.6, 0.5, q) - az * 1.3 * q);
     const base = R.fezaBase;
     if (!base) return;
     const on = !P.dead && GAME.state !== 'transition' && H && H.bladeOn !== false && !!P.equip.weapon;
@@ -2466,6 +3338,7 @@ const GAME = (() => {
     l.color.copy(base.c).lerp(_lbc, (dark ? 0.6 : 1) * k);
     if (dark) { l.intensity = base.i * (1 + 0.12 * k + 0.3 * R.pulse) + (1.0 + 1.2 * R.pulse) * k; l.distance = base.d; l.decay = base.k; }
     else { l.intensity = (0.7 + 1.4 * R.pulse) * k; l.distance = 5; l.decay = 1.6; }
+    l.intensity *= 1 - 0.4 * R.lightNear;
   }
   function igniteSaber(delay = 0) {
     const go = () => {
@@ -2484,6 +3357,7 @@ const GAME = (() => {
     GAME.time = gt;
     runTimers();
     const st = GAME.state;
+    flushSkillLines();
     if (st === 'play') updatePlayer(dt);
     else {
       C.hurtT = Math.max(0, C.hurtT - dt * 3); C.vel = damp(C.vel, 0, 10, dt); C.swing = null;
@@ -2509,17 +3383,22 @@ const GAME = (() => {
       const e = dying[i], s = e.st;
       e.dieT += dt / e.dieDur; e.t += dt;
       s.dying = Math.min(1, e.dieT); s.t = e.t; s.move = 0; s.windup = -1; s.attack = -1; s.frozen = false; s.hurt = 0;
-      if (e.boss) s.breath = s.stomp = s.roar = s.fireball = -1;
+      if (e.boss) {   // the overjoyed boss turns its happy face to the camera for its goodbye (it kept any facing before)
+        s.breath = s.stomp = s.roar = s.fireball = -1;
+        e.face = dampAngle(e.face, CAM.yaw || 0, 5, dt);
+      }
       if (e.fly) e.y = Math.max(0.1, e.y - dt * 0.4);
+      else if (e.y > 0) e.y = Math.max(0, e.y - dt * 6);   // (a jelly king cheered up in mid-hop lands first)
       if (e.bur > 0) e.bur = Math.max(0, e.bur - dt / riseT(e));   // a happy köstebek pops out of the ground to celebrate
       place(e); anim(e, dt);
       if (e.dieT >= 1) {
         burst('sparkle', e.x, e.y + e.height * 0.4, e.z, { count: e.boss ? 40 : 12 });
         dying.splice(i, 1); dropEnemy(e);
-        if (e.boss) bossTransformed(e);
+        if (e.boss) bossGone(e);
       }
     }
     updateProjectiles(dt);
+    updateMortars(dt);
     updateCoins(dt);
     updateLoot(dt);
     updateCrystal(dt);
@@ -2559,7 +3438,11 @@ const GAME = (() => {
   }
 
   // ── Debug hooks (always on) ──
-  function bossZone() { const Z = zones(); if (!Z) return 0; const i = Z.findIndex(z => z.boss); return i >= 0 ? i : Z.length - 1; }
+  function bossZone() {   // the dragon's zone (the last one)
+    const Z = zones(); if (!Z) return 0;
+    let i = Z.findIndex(z => z.final); if (i < 0) i = Z.findIndex(z => z.boss === 'ejderha');
+    return i >= 0 ? i : Z.length - 1;
+  }
   window.__T = {
     god(onv = true) { P.god = !!onv; return P.god; },
     tp(x, z) {
@@ -2582,13 +3465,15 @@ const GAME = (() => {
       addItem(it, true);
       return it;
     },
-    boss() {
-      const bz = bossZone();
-      if (P.zone !== bz || GAME.state === 'title') { if (GAME.state === 'title') resetPlayer(); loadZone(bz); }
+    boss(zi) {   // jump to zone zi's boss (default: the dragon), a few metres south of it (outside its reach)
+      const Z = zones(), bz = zi === undefined || zi === null ? bossZone() : clamp(zi | 0, 0, Z ? Z.length - 1 : 0);
+      if (P.zone !== bz || GAME.state === 'title' || !boss || boss.dead) { if (GAME.state === 'title') resetPlayer(); loadZone(bz); }
       if (!boss) return null;
       window.__T.tp(boss.x, boss.z + boss.r + 8);
       return boss;
     },
+    bossCfg(type) { return Object.assign({}, bossCfg(type || (boss && boss.type) || 'ejderha')); },   // {per, lo, hi, dmg}
+    bossHit(frac = 0.1) { if (boss && !boss.dead) damage(boss, Math.max(1, Math.round(boss.maxHp * frac)), { silent: true, force: true }); return boss ? boss.hp : null; },
     // extras for tests
     spawn(type = 'jole', x = P.pos.x, z = P.pos.z - 4, elite = false) { return makeEnemy({ type, x, z, elite: !!elite, pack: 'dbg', face: Math.atan2(P.pos.x - x, P.pos.z - z) }); },
     blade() { return bladeColor(); },
@@ -2596,7 +3481,7 @@ const GAME = (() => {
     stats() { return Object.assign({}, STATS); },
     fr() { return Object.assign({}, FR); },
     hurt(n = 10) { const g = P.god; P.god = false; C.invuln = 0; const r = hurtPlayer(n); P.god = g; return r; },
-    win() { if (boss && !boss.dead) damage(boss, boss.hp + 1, { silent: true }); return !!boss; },
+    win() { if (boss && !boss.dead) damage(boss, boss.hp + 1, { silent: true, force: true }); return !!boss; },
     victory() { victory(); },
     loot(x = P.pos.x, z = P.pos.z, what = 'all') {
       const all = what === 'all', mk = (sl, id, r) => (typeof ITEMS !== 'undefined' && ITEMS.make ? ITEMS.make(sl, id, r, ilvlNow()) : null);
@@ -2609,7 +3494,8 @@ const GAME = (() => {
     state() {
       return { state: GAME.state, zone: P.zone, lvl: P.lvl, xp: P.xp, hp: Math.round(P.hp), maxHp: P.maxHp, gold: P.gold, potions: P.potions,
         dmg: P.dmg, enemies: enemies.length, sleepers: sleepers.length, dying: dying.length, proj: projectiles.length, coins: coins.length,
-        loot: loot.length, crystal: crystal ? (crystal.ready ? 'ready' : 'rising') : null, boss: boss ? Math.round(boss.hp) + '/' + boss.maxHp + ' ' + boss.ph : null, pos: [+P.pos.x.toFixed(2), +P.pos.z.toFixed(2)] };
+        loot: loot.length, crystal: crystal ? (crystal.ready ? 'ready' : 'rising') : null, boss: boss ? Math.round(boss.hp) + '/' + boss.maxHp + ' ' + boss.ph : null,
+        bossType: boss ? boss.type : null, portal: L && L.portalObj ? !!L.portalObj.active : null, mortars: mortars.length, pos: [+P.pos.x.toFixed(2), +P.pos.z.toFixed(2)] };
     },
   };
 

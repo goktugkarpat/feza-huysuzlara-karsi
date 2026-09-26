@@ -33,11 +33,16 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 ## Bölgeler
 
+Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza bir hazine kazanır.
+
 1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
+   Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
 2. **Köstebek ve Salyangoz Mağarası:** parlayan kristallerle aydınlanan mağara. Toprağın altından "pıt" diye çıkan madenci köstebekler,
-   baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri.
-3. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde kaybolur,
-   neşe kristali köye döner. Sonra istenirse macera biraz daha güçlü huysuzlarla yeniden başlar.
+   baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri. Sonunda **Usta Köstebek**: matkap baretli dev köstebek.
+3. **Lav Yanardağı:** parlak lav gölleri, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
+   Sonunda **Koca Lav Kaplumbağası**: kabuğu küçük bir yanardağ; lav topları fışkırtır (düşecekleri yer kırmızı daireyle görünür).
+4. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
+   kaybolur, neşe kristali köye döner. İstenirse macera en baştan yeniden başlar.
 
 ## Dosyalar
 

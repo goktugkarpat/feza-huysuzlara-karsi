@@ -4,7 +4,10 @@
    için iki geometri), bütün örnekler paylaşır; her örneğin kendi malzemesi var (vuruş parlaması, buz rengi).
    Feza'nın isteği: hepsi sevimli ve gülümseyen. 'grumpy' yüz = haylaz-oyuncu (kocaman gözler, kalkık kaş, yamuk sırıtış,
    dil ucu), 'happy' yüz = çok mutlu (^ ^ gözler, kocaman gülüş, pembe yanak, kalpler). Örümcek yok; mağarada köstebek
-   (toprağa dalar: st.burrow) ve salyangoz (baloncuk üfler, canı yanınca kabuğuna saklanır) var. */
+   (toprağa dalar: st.burrow) ve salyangoz (baloncuk üfler, canı yanınca kabuğuna saklanır) var.
+   3. tur (Feza'nın isteği): yanardağda minik lav kaplumbağası (kabuğunda tüten minik yanardağ, kabuğuna girip yuvarlanır),
+   ateş kuşu (alev tepeli tombul civciv), lav jölesi ve magma kaya devi; her bölümün sonunda bir boss: Kral Jöle, Usta Köstebek,
+   Koca Lav Kaplumbağası (hepsi st.phase + st.phaseT ile oynar; mutlu olunca el sallayıp parıltıyla kaybolur). */
 
 // Base stats (zone 1 scale; GAME multiplies by zone and its DIFF table). hover = flying height of the model origin.
 // Feza's request: no spiders any more (orumcek removed); the cave has moles (kostebek) and snails (salyangoz).
@@ -20,7 +23,24 @@ const EDEF = {
   golem:   { ad: 'Kaya Devi', hp: 140, dmg: 14, speed: 1.5, r: 1.1, height: 2.45, xp: 45, gold: 12, kind: 'slam', atkRange: 2.6, atkCd: 2.8, windup: 1.0, fly: false, aggro: 9, slamR: 2.2 },
   asker:   { ad: 'Teneke Asker', hp: 55, dmg: 10, speed: 2.6, r: 0.55, height: 1.6, xp: 22, gold: 6, kind: 'melee', atkRange: 1.2, atkCd: 1.9, windup: 0.7, fly: false, aggro: 9 },
   atescik: { ad: 'Ateşçik', hp: 32, dmg: 8, speed: 2.4, r: 0.5, height: 0.95, xp: 16, gold: 4, kind: 'ranged', atkRange: 7, atkCd: 2.5, windup: 0.7, fly: true, hover: 0.3, aggro: 9, shot: { kind: 'fire', speed: 5.5, r: 0.32 } },
-  ejderha: { ad: 'Huysuz Ejderha', hp: 1600, dmg: 16, speed: 1.6, r: 2.2, height: 4.6, xp: 600, gold: 150, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, fly: false, aggro: 14, shot: { kind: 'dragonfire', speed: 5.5, r: 0.55 } },
+  ejderha: { ad: 'Huysuz Ejderha', hp: 1600, dmg: 16, speed: 1.6, r: 2.2, height: 4.6, xp: 600, gold: 150, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, fly: false, aggro: 14, shot: { kind: 'dragonfire', speed: 5.5, r: 0.55 },
+    final: true, lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim' } },
+  // ── Round 3: volcano creatures (zone 2 'yanardag'; the volcano also uses jole variant 'lava' and golem variant 'magma') ──
+  // kaplumbaga: melee — the wind-up tucks it into its shell, the attack is a forward roll along a lane (GAME moves it; st.attack =
+  // share of the lane rolled, then 1 while it recovers: the model tumbles in whole turns and pops out only after it stops).
+  kaplumbaga: { ad: 'Minik Lav Kaplumbağası', eliteAd: 'Kocaman Lav Kaplumbağası', hp: 46, dmg: 8, speed: 2.3, r: 0.55, height: 0.8, xp: 18, gold: 4, kind: 'melee', atkRange: 1.1, atkCd: 1.9, windup: 0.7, fly: false, aggro: 9 },
+  ateskusu: { ad: 'Ateş Kuşu', eliteAd: 'Kocaman Ateş Kuşu', hp: 30, dmg: 7, speed: 2.8, r: 0.45, height: 0.78, xp: 16, gold: 4, kind: 'ranged', atkRange: 7, range: 7, atkCd: 2.5, windup: 0.7, fly: true, hover: 0.7, aggro: 9.5, shot: { kind: 'ember', speed: 5, r: 0.3 } },
+  // ── Round 3: a boss at the end of every zone (kind 'boss'; GAME sizes their hp to Feza's damage). They animate from
+  // st.phase + st.phaseT (0..1); the lists are the phases each model knows. summon/slamR/rollSpeed are suggestions for GAME. ──
+  kraljole: { ad: 'Kral Jöle', hp: 700, dmg: 8, speed: 2.2, r: 1.45, height: 2.8, xp: 220, gold: 60, kind: 'boss', atkRange: 2.6, atkCd: 1.6, windup: 0.8, fly: false, aggro: 13,
+    shot: { kind: 'jelly', speed: 4.5, r: 0.45 }, lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' },
+    phases: ['idle', 'move', 'hop', 'spit', 'summon', 'roar'], summon: { type: 'jole', n: 3, at: [0.66, 0.33] }, slamR: 3.2 },
+  kostebekusta: { ad: 'Usta Köstebek', hp: 1000, dmg: 11, speed: 2.4, r: 1.25, height: 2.6, xp: 330, gold: 90, kind: 'boss', atkRange: 2.4, atkCd: 1.6, windup: 0.8, fly: false, aggro: 13,
+    shot: { kind: 'rock', speed: 5, r: 0.45 }, lines: { giris: 'usta_giris', bitti: 'usta_bitti' },
+    phases: ['idle', 'move', 'burrow', 'emerge', 'throw', 'drill', 'summon', 'roar'], summon: { type: 'kostebek', n: 3, at: [0.66, 0.33] }, slamR: 3.0, burrowIn: 0.8, burrowOut: 0.45 },
+  lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', hp: 1300, dmg: 14, speed: 1.5, r: 1.65, height: 2.8, xp: 450, gold: 120, kind: 'boss', atkRange: 3, atkCd: 1.6, windup: 0.8, fly: false, aggro: 14,
+    shot: { kind: 'lavaball', speed: 5, r: 0.5 }, lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' },
+    phases: ['idle', 'move', 'erupt', 'hide', 'roll', 'stomp', 'summon', 'roar'], summon: { type: 'kaplumbaga', n: 2, at: [0.5] }, slamR: 4.2, rollSpeed: 7 },
 };
 
 const EMODEL = (function (G0) {
@@ -29,7 +49,9 @@ const EMODEL = (function (G0) {
 
   // ── Level of detail: builders ask for segment counts; they are scaled by LODK (set per character type while it is
   // built) so a character stays about 5-8k triangles (dragon about 20k). The shared core cache G0 keeps every variant. ──
-  const LOD = { ejderha: 0.72, baby: 0.7, owl: 1 };
+  // (the little volcano creatures come in packs inside the sun's shadow box, skinned twice: a leaner LOD keeps the volcano's
+  // shadow pass in line with the other zones)
+  const LOD = { ejderha: 0.72, baby: 0.7, owl: 1, kraljole: 0.85, kostebekusta: 0.8, lavkaplumbaga: 0.8, kaplumbaga: 0.45, ateskusu: 0.5 };
   let LODK = 1;
   const sN = (n, min) => Math.max(min, Math.round(n * LODK));
   const G = {
@@ -45,20 +67,27 @@ const EMODEL = (function (G0) {
     box: G0.box, octa: G0.octa, ico: G0.ico, dodeca: G0.dodeca, capsule: G0.capsule,
   };
 
-  // ── Surface patch: per-vertex flags aFx = (unlit 0..1, gloss 0..1 | 2 = metal, texture mask, wobble weight) ──
+  // ── Surface patch: per-vertex flags aFx = (unlit 0..1, gloss 0..1 | 2 = metal, texture mask, wobble weight);
+  // unlit, gloss and wobble may also be functions (x, y, z) of the model-space position (glowing lava veins). ──
   const V_DECL = 'attribute vec4 aFx; varying vec4 vFx; uniform float uT; uniform vec4 uWob;';
   const V_BEGIN = `vFx = aFx;
     if (aFx.w > 0.0) {
       float wp = uT * uWob.z + uWob.w; vec3 wq = position * uWob.y;
       transformed += vec3(sin(wp + wq.y + wq.z * 0.7), 0.35 * sin(wp * 0.83 + wq.x * 1.3 + wq.y), cos(wp * 1.13 + wq.y * 0.9 + wq.x * 0.8)) * (uWob.x * aFx.w);
     }`;
-  const F_DECL = 'varying vec4 vFx; uniform vec3 uSss; uniform vec4 uFl;';
+  const F_DECL = 'varying vec4 vFx; uniform vec3 uSss; uniform vec4 uFl; uniform vec4 uLava;';
   // Hit flash (uFl = colour, amount): lift the albedo toward the flash colour and add a little warm light. It stays lit, so
   // form and texture remain readable and nothing blooms; very dark albedo (pupils, brows, lash lines) is masked out so the
   // face stays readable too.
   const F_FLASH = `float flM = uFl.a * smoothstep(0.008, 0.06, dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)));
     diffuseColor.rgb = mix(diffuseColor.rgb, uFl.rgb, flM * 0.3 * (1.0 - vFx.x));`;
-  const F_MAP = '#ifdef USE_MAP\n diffuseColor *= mix(vec4(1.0), texture2D(map, vMapUv), vFx.z);\n#endif';
+  // uLava (rgb, amount): molten glow in the dark crevices of the texture (magma golem's cracks); 0 = off for everyone else.
+  const F_MAP = `float lavaM = 0.0;
+#ifdef USE_MAP
+  vec4 eTex = texture2D(map, vMapUv);
+  diffuseColor *= mix(vec4(1.0), eTex, vFx.z);
+  lavaM = uLava.a * vFx.z * smoothstep(0.3, 0.12, dot(eTex.rgb, vec3(0.3, 0.59, 0.11)));
+#endif`;
   const F_ROUGH = `{ float gl = min(vFx.y, 1.0), mt = step(1.5, vFx.y);
     roughnessFactor = mix(roughnessFactor, mix(0.1, 0.28, mt), gl); metalnessFactor = max(metalnessFactor, mt); }`;
   const F_NORM = THREE.ShaderChunk.normal_fragment_maps.replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * vFx.z;');
@@ -66,6 +95,7 @@ const EMODEL = (function (G0) {
   const F_OUT = `outgoingLight += uSss * diffuseColor.rgb * pow(saturate(dot(normal, normalize(vViewPosition))), 1.6);
     outgoingLight -= rimColor * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), rimPow) * (0.75 * uFl.a);
     outgoingLight = mix(outgoingLight, diffuseColor.rgb + totalEmissiveRadiance, vFx.x);
+    outgoingLight += uLava.rgb * lavaM;
     outgoingLight += uFl.rgb * vec3(1.0, 0.9, 0.78) * (flM * 0.16);`;
   function surfPatch(mat, U) {
     const prev = mat.onBeforeCompile;
@@ -99,6 +129,7 @@ const EMODEL = (function (G0) {
       uWob: { value: new THREE.Vector4(o.wob || 0, o.wobF || 3, o.wobS || 3, Math.random() * 20) },
       uSss: { value: new THREE.Color(o.sss ?? 0) },
       uFl: { value: new THREE.Vector4(1, 1, 1, 0) },
+      uLava: { value: new THREE.Vector4(0, 0, 0, 0) },
     };
     surfPatch(mat, U);
     rimify(mat, o.rim ?? 0xffffff, o.rimK ?? 0.26, o.rimP ?? 2.6);
@@ -314,8 +345,11 @@ const EMODEL = (function (G0) {
       let vo = 0;
       for (let i = 0; i < parts.length; i++) {
         const cnt = parts[i].geo.attributes.position.count, mm = metas[i], f = mm.fx, wf = typeof f[3] === 'function' ? f[3] : null;
+        const uf = typeof f[0] === 'function' ? f[0] : null, gf = typeof f[1] === 'function' ? f[1] : null;
         for (let v = vo; v < vo + cnt; v++) {
-          fx[v * 4] = f[0]; fx[v * 4 + 1] = f[1]; fx[v * 4 + 2] = f[2];
+          fx[v * 4] = uf ? uf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[0];
+          fx[v * 4 + 1] = gf ? gf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[1];
+          fx[v * 4 + 2] = f[2];
           fx[v * 4 + 3] = wf ? wf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[3];
           si[v * 4] = mm.b; sw[v * 4] = 1;
           if (mm.uv) { U[v * 2] *= mm.uv[0]; U[v * 2 + 1] *= mm.uv[1]; }
@@ -407,7 +441,7 @@ const EMODEL = (function (G0) {
   // Full face on a roughly spherical head (centre c, radius R): mischievous (mood 1) + overjoyed (mood 2) parts,
   // plus 'eyes' (blink / giggle squint), 'brow' and 'joy' (hearts) bones.
   // o: bone, tilt, ex, ey, er, iris, skin, browCol, browY, browW, browRaise, browSide, mouthY, mouthW, mc/mR/mTilt (mouth
-  //    sphere), mouthBone, smirk, noTongue, buck, blushX/blushY, heartX/heartY/heartS…
+  //    sphere), mouthBone, smirk, noTongue, buck, noMouth (the builder adds its own, e.g. a beak), blushX/blushY, heartX/heartY/heartS…
   function face(r, c, R, o) {
     const er = o.er, ex = o.ex, ey = o.ey, tilt = o.tilt ?? 0.25, eu = new THREE.Euler(-tilt, 0, 0), C = new THREE.Vector3(...c);
     const inset = o.inset ?? er * 0.3;
@@ -440,18 +474,22 @@ const EMODEL = (function (G0) {
       r.pop();
     }
     if (!o.noBlush) { r.on(o.bone).push(c, [-tilt, 0, 0]); blushAt(0.8); r.pop(); }
-    r.on(mBone).push(mc, [-mt, 0, 0]);
-    { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); smirk(r, mw, o); r.pop(); }
-    r.pop();
+    if (!o.noMouth) {
+      r.on(mBone).push(mc, [-mt, 0, 0]);
+      { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); smirk(r, mw, o); r.pop(); }
+      r.pop();
+    }
     // ── overjoyed ──
     r.mood = 2;
     r.on('eyes').push(c, [-tilt, 0, 0]);
     for (const s of [-1, 1]) { const [p, q] = onSphere(s * ex, ey + er * 0.08, R, er * 0.05); r.push(p, q); eyeClosed(r, o); r.pop(); }
     if (!o.noBlush) blushAt(1.1);
     r.pop();
-    r.on(mBone).push(mc, [-mt, 0, 0]);
-    { const [p, q] = onSphere(0, my + mw * 0.08, mR, o.mInset ?? 0); r.push(p, q); smile(r, mw * (o.smileK ?? 1.5), o); r.pop(); }
-    r.pop();
+    if (!o.noMouth) {
+      r.on(mBone).push(mc, [-mt, 0, 0]);
+      { const [p, q] = onSphere(0, my + mw * 0.08, mR, o.mInset ?? 0); r.push(p, q); smile(r, mw * (o.smileK ?? 1.5), o); r.pop(); }
+      r.pop();
+    }
     if (!o.noHearts) {   // two little hearts floating beside the head (bob + pulse in m.anim)
       r.on('joy').push(c, [-tilt, 0, 0]).fx(0.5, 0.6);
       for (const s of [-1, 1]) {
@@ -496,31 +534,57 @@ const EMODEL = (function (G0) {
     green: ['#45c963', '#b0eb98', '#168a50'], pink: ['#e85aa3', '#f7b3d8', '#b8266f'],
     blue: ['#3f94ec', '#a6d4f7', '#1f4fc4'], purple: ['#9466ec', '#d2bdf7', '#5a31bf'],
   };
+  // (JOLE.lava: glowing magma jelly of the volcano — hot yellow core at the bottom, floating dark basalt flakes, ember bubbles)
+  JOLE.lava = ['#ff8a1c', '#ffd84a', '#e8401a'];
+  const JOLE_GP = [[0, 0], [0.39, 0], [0.5, 0.035], [0.545, 0.12], [0.535, 0.24], [0.49, 0.34], [0.462, 0.45], [0.428, 0.55], [0.37, 0.65], [0.298, 0.72], [0.2, 0.79], [0.09, 0.835], [0, 0.86]];
   function buildJole(r, o) {
+    const lava = o.variant === 'lava';
     let [base, light, deep] = (JOLE[o.variant] || JOLE.green).map(col);
     if (o.elite) { base = rich(base, 1.3, 0.9); deep = rich(deep, 1.3, 0.8); light = rich(light, 1.2, 0.95); }
     const H = 0.86 * 0.9;
     r.bone('body', 'root', [0, 0, 0]);
     r.push([0, 0, 0], null, [1.08, 0.9, 1.08]);
     const wob = (x, y) => smooth01((y - 0.05) / 0.62);
-    const GP = [[0, 0], [0.39, 0], [0.5, 0.035], [0.545, 0.12], [0.535, 0.24], [0.49, 0.34], [0.462, 0.45], [0.428, 0.55], [0.37, 0.65], [0.298, 0.72], [0.2, 0.79], [0.09, 0.835], [0, 0.86]];
+    const GP = JOLE_GP;
     const body = lathe('gumdrop', GP, 48);
-    r.fx(0, 0, 0, wob).add(body, vgrad(0, 0.8, [[0, deep], [0.45, base], [1, mixc(base, light, 0.4)]]));
+    if (lava) {   // molten: partly self-lit, white-hot at the bottom, deep orange-red on top
+      // self-lit amount per vertex: glowing hot at the bottom, a glossy lit skin on top (keeps it saturated, not pastel)
+      r.fx((x, y) => 0.55 + 0.35 * smooth01((0.45 - y) / 0.4), 0, 0, wob).add(body, vgrad(0, 0.8, [[0, hdr('#ffbc24', 1.4)], [0.3, hdr('#ff9616', 1.12)], [0.65, hdr('#ff7a16', 0.98)], [1, hdr('#ff6a1a', 0.9)]]));
+    } else r.fx(0, 0, 0, wob).add(body, vgrad(0, 0.8, [[0, deep], [0.45, base], [1, mixc(base, light, 0.4)]]));
     // painted gloss highlights + tiny bubbles (they wobble with the surface)
     r.fx(1, 0, 0, wob);
-    { const [p, n] = onLathe(GP, 0.6, -0.72, 0.004); r.add(G.sphere(14, 10), hdr('#ffffff', 1.3), p, qz(...n, 0.9), [0.13, 0.045, 0.015]); }
+    { const [p, n] = onLathe(GP, 0.6, -0.72, 0.004); r.add(G.sphere(14, 10), hdr(lava ? '#fff4d8' : '#ffffff', 1.3), p, qz(...n, 0.9), [0.13, 0.045, 0.015]); }
     { const [p, n] = onLathe(GP, 0.45, -0.98, 0.004); r.add(G.sphere(10, 8), hdr('#ffffff', 1.25), p, qz(...n), [0.03, 0.03, 0.01]); }
-    r.fx(0, 1, 0, wob);
-    for (const b of [[0.16, 1.1, 0.035], [0.26, 1.9, 0.028], [0.13, -2.4, 0.03], [0.34, 0.9, 0.022], [0.22, -1.5, 0.025]]) {
-      const [p, n] = onLathe(GP, b[0], b[1], -b[2] * 0.3);
-      r.add(G.sphere(10, 8), mixc(light, '#ffffff', 0.35), p, qz(...n), [b[2], b[2], b[2] * 0.6]);
+    if (lava) {
+      r.fx(1, 0, 0, wob);   // ember bubbles glowing just under the skin
+      for (const b of [[0.16, 1.1, 0.035], [0.26, 1.9, 0.028], [0.13, -2.4, 0.03], [0.34, 0.9, 0.022], [0.22, -1.5, 0.025], [0.52, 2.6, 0.022]]) {
+        const [p, n] = onLathe(GP, b[0], b[1], -b[2] * 0.3);
+        r.add(G.sphere(10, 8), hdr('#fff0a0', 1.9), p, qz(...n), [b[2], b[2], b[2] * 0.6]);
+      }
+      // a little flickering flame tuft on top (like a birthday candle)
+      const fw = (x, y) => smooth01((y - 0.72) / 0.25);
+      r.fx(1, 0, 0, fw);
+      const fl = vgrad(0.7, 1.05, [[0, hdr('#fff4c0', 2.0)], [0.35, hdr('#ffc23a', 1.6)], [0.7, hdr('#ff7a1c', 1.35)], [1, hdr('#ff4a2a', 1.2)]]);
+      r.add(lathe('flame', FLAME_P, 28, 3), fl, [0, 0.7, -0.03], [-0.25, 0, 0.12], [0.2, 0.4, 0.2]);
+      r.add(lathe('flame', FLAME_P, 28, 3), fl, [0.08, 0.7, -0.05], [-0.3, 0, -0.55], [0.11, 0.22, 0.11]);
+      r.add(lathe('flame', FLAME_P, 28, 3), fl, [-0.07, 0.7, -0.06], [-0.35, 0, 0.6], [0.09, 0.18, 0.09]);
+    } else {
+      r.fx(0, 1, 0, wob);
+      for (const b of [[0.16, 1.1, 0.035], [0.26, 1.9, 0.028], [0.13, -2.4, 0.03], [0.34, 0.9, 0.022], [0.22, -1.5, 0.025]]) {
+        const [p, n] = onLathe(GP, b[0], b[1], -b[2] * 0.3);
+        r.add(G.sphere(10, 8), mixc(light, '#ffffff', 0.35), p, qz(...n), [b[2], b[2], b[2] * 0.6]);
+      }
     }
-    const iris = mixc(deep, '#1a0f24', 0.55), brow = mixc(deep, '#150a1c', 0.72);
+    const iris = lava ? col('#4a1606') : mixc(deep, '#1a0f24', 0.55), brow = lava ? col('#3a0e04') : mixc(deep, '#150a1c', 0.72);
     r.fx(0, 0, 0, wob);
-    face(r, [0, 0.36, 0], 0.47, { bone: 'body', tilt: 0.42, ex: 0.16, ey: 0.04, er: 0.132, iris, skin: mixc(base, light, 0.08), browCol: brow, browY: 1.36, mouthY: -0.14, mouthW: 0.15, heartY: 0.75 });
+    face(r, [0, 0.36, 0], 0.47, {
+      bone: 'body', tilt: 0.42, ex: 0.16, ey: 0.04, er: 0.132, iris, browCol: brow, browY: 1.36, mouthY: -0.14, mouthW: 0.15, heartY: 0.75,
+      skin: lava ? hdr('#ff7c16', 1.05) : mixc(base, light, 0.08), skinFx: lava ? 0.6 : 0, mouthCol: lava ? '#4a1004' : undefined, blushCol: lava ? '#ff4f86' : undefined,
+    });
     if (o.elite) crown(r.on('body').fx(0, 0, 0, wob), [0, 0.8, -0.04], 0.72);
     r.mark('muzzle', [0, 0.38, 0.5]);
     r.pop();
+    if (lava) return { height: H, glowC: col('#ffe27a'), mat: { rough: 0.24, sss: col('#ff9040').multiplyScalar(0.1), rim: '#ffb870', rimK: 0.24, rimP: 2.4, wob: 0.014, wobF: 2.2, wobS: 4 } };
     return { height: H, glowC: col('#ff5a3a'), mat: { rough: 0.2, sss: mixc(base, '#ffffff', 0.2).multiplyScalar(0.06), rim: mixc(light, '#ffffff', 0.4), rimK: 0.24, rimP: 2.6, wob: 0.012, wobF: 2.2, wobS: 5 } };
   }
   function animJole(m, dt, st, s) {
@@ -1063,11 +1127,18 @@ const EMODEL = (function (G0) {
     m.U.uWob.value.x = wob;
   }
 
+  // Glowing lava veins of the magma golem (model space; also its per-vertex unlit amount, so they glow in the dark).
+  function magmaVein(x, y, z) {
+    const n = fbm3(x * 1.25 + 11, y * 1.25, z * 1.25 - 4), d = Math.abs(n - 0.5);
+    return smooth01((0.05 - d) / 0.035) * (0.55 + 0.45 * smooth01((1.9 - y) / 1.6));
+  }
   function buildGolem(r, o) {
-    const E = o.elite;
-    const rock = E ? '#b3a595' : '#a89c90', rockD = E ? '#7d6f62' : '#7b7169', moss = E ? '#6cb238' : '#72ad3e', cry = E ? '#ffd23f' : '#56eeff';
-    const cK = E ? 0.8 : 1;   // gold crystals bloom more than cyan ones
-    const rt = texOf('rock');
+    const E = o.elite, MAG = o.variant === 'magma';
+    // magma: dark warm basalt, glowing orange cracks, ember crystals, light ash brows (readable on the dark stone)
+    const rock = MAG ? '#6e5c56' : E ? '#b3a595' : '#a89c90', rockD = MAG ? '#33282a' : E ? '#7d6f62' : '#7b7169';
+    const moss = MAG ? '#9a8c84' : E ? '#6cb238' : '#72ad3e', cry = MAG ? '#ff9a2a' : E ? '#ffd23f' : '#56eeff';
+    const cK = MAG ? 0.85 : E ? 0.8 : 1;   // gold crystals bloom more than cyan ones
+    const rt = texOf('rock'), hot = hdr('#ff8a24', 2.1);
     r.bone('hips', 'root', [0, 0.85, 0]);
     r.bone('torso', 'hips', [0, 1.1, 0]);
     r.bone('head', 'torso', [0, 1.95, 0.25]);
@@ -1085,6 +1156,12 @@ const EMODEL = (function (G0) {
       };
     }
     const R = (bone, seed, fine, p, s, rot, mossy) => {
+      if (MAG) {   // no moss on hot rock; the cracks glow (vertex colour + unlit amount follow the same vein field)
+        const rc = rcol(p[0], p[1], p[2], s[1], false);
+        r.on(bone).fx(0, 0.15, 1).uv(fine ? 3 : 2, fine ? 1.5 : 1)
+          .add(rockGeo(seed, fine), rc, p, rot || null, s);
+        return;
+      }
       r.on(bone).fx(0, 0, 1).uv(fine ? 3 : 2, fine ? 1.5 : 1)
         .add(rockGeo(seed, fine), rcol(p[0], p[1], p[2], s[1], mossy), p, rot || null, s);
     };
@@ -1107,6 +1184,17 @@ const EMODEL = (function (G0) {
       }
       r.fx(0, 0);
     }
+    if (MAG) {   // molten core glowing in the gaps between the boulders (neck, shoulders, elbows, waist, hips)
+      r.uv(null).fx(1, 0);
+      const mc = hdr('#ff7a1c', 2.2);
+      r.on('torso').add(G.sphere(16, 12), mc, [0, 1.12, 0.02], null, [0.42, 0.26, 0.36]).add(G.sphere(14, 10), mc, [0, 1.86, 0.18], null, 0.26);
+      for (const sd of [-1, 1]) {
+        r.on(sd > 0 ? 'armL' : 'armR').add(G.sphere(14, 10), mc, [0.74 * sd, 1.66, -0.02], null, 0.24);
+        r.on(sd > 0 ? 'foreL' : 'foreR').add(G.sphere(14, 10), mc, [1.0 * sd, 1.18, 0.08], null, 0.17);
+        r.on('hips').add(G.sphere(14, 10), mc, [0.36 * sd, 0.66, 0.0], null, 0.2);
+      }
+      r.fx(0, 0);
+    }
     // crystals on the back + one on the head
     r.on('torso').uv(null).fx(1, 0);
     for (const c of [[0.25, 1.95, -0.55, 0.35, [0.3, 0.8, -0.8]], [-0.2, 1.85, -0.62, 0.28, [-0.4, 0.6, -0.9]], [0.05, 1.6, -0.72, 0.22, [0, 0.3, -1]]]) {
@@ -1116,12 +1204,13 @@ const EMODEL = (function (G0) {
     r.fx(0, 0);
     face(r, [0, 2.06, 0.28], 0.4, {   // gentle smiling rock giant: warm friendly eye glow, mossy arched brows, soft smile
       bone: 'head', tilt: 0.3, ex: 0.16, ey: 0.03, er: 0.11, glowEye: E ? '#ffe7a0' : '#ffcf6a', browCol: moss, browT: 0.5, browW: 1.2, browH: 1.25, browY: 1.5,
-      mouthY: -0.17, mouthW: 0.17, mouthCol: '#3a2a22', smirk: 0.12, noTongue: true, blushCol: '#ff9aa8', heartY: 0.8, heartX: 1.1,
+      mouthY: -0.17, mouthW: 0.17, mouthCol: MAG ? '#1c0e0a' : '#3a2a22', smirk: 0.12, noTongue: true, blushCol: MAG ? '#ff8a9a' : '#ff9aa8', heartY: 0.8, heartX: 1.1,
     });
     r.on('foreR').mark('muzzle', [-1.04, 0.86, 0.3]);
+    if (MAG) return { height: 2.45, glowK: 0.6, glowC: col('#ff7a2a'), tex: rt, lava: { color: '#ff6a1a', k: 2.6 }, mat: { rough: 0.8, ns: 1.3, rim: '#ffc890', rimK: 0.3 }, eliteRim: { rimK: 0.24, rimP: 3.2 } };
     return { height: 2.45, glowK: 0.6, glowC: col(E ? '#ffb13a' : '#ff8a4a'), tex: rt, mat: { rough: 0.85, ns: 1.2, rim: '#dff6ff', rimK: 0.3 }, eliteRim: { rimK: 0.24, rimP: 3.2 } };   // bumpy rock catches a lot of rim
   }
-  const _gc = new THREE.Color(), _w3 = new THREE.Color(3, 3, 3);
+  const _gc = new THREE.Color(), _w3 = new THREE.Color(3, 3, 3), _dk = new THREE.Color();
   function animGolem(m, dt, st, s) {
     const B = m.B;
     if (s.mv > 0.03) s.walk += dt * (3.2 + 2.2 * s.mv);
@@ -1502,16 +1591,875 @@ const EMODEL = (function (G0) {
     B.glow.scale.setScalar(gs);
   }
 
+  // ════════════════ Round 3: volcano creatures (kaplumbaga, ateskusu) ════════════════
+  // Soft six-sided turtle scute (a hexagonal dome cap; local +y = out of the shell, radius 1).
+  function hexCap() {
+    // (small characters, LODK < 0.7: a leaner dome without the hidden flat bottom — the flange sits inside the shell anyway)
+    const lo = LODK < 0.7;
+    return gx('hexCap' + (lo ? 'L' : ''), () => {
+      const pts = (lo ? [[0.93, -0.12], [1, 0.02], [0.9, 0.22], [0.6, 0.4], [0.3, 0.48], [0, 0.49]] : [[0, -0.12], [0.93, -0.12], [1, 0.02], [0.93, 0.2], [0.66, 0.38], [0.32, 0.47], [0, 0.49]]).map(p => new THREE.Vector2(p[0], p[1]));
+      return seamNormals(new THREE.LatheGeometry(new THREE.SplineCurve(pts).getPoints(lo ? 5 : 8), 6, 0));   // corners at ±z
+    });
+  }
+  // Turtle carapace: a glowing lava cap (it only shows in the thin gaps → molten seams) covered by rows of basalt scutes,
+  // a marginal rim and a warm tan plastron underneath. C centre, A radii; phis = scute rows (polar angle from the top);
+  // counts per row; o: {scute, scuteD, seam, seamK, rim, plastron, plates (belly plates with dark seams: the little turtle
+  // shows its belly while it tumbles), rot (row offsets)}. Returns {edgeY, rx, rz}.
+  const SHELL_TH = PI * 0.56;
+  function turtleShell(r, C, A, phis, counts, o) {
+    const w = sN(44, 18), h = sN(22, 10);
+    const cap = gx('shellCap@' + w, () => new THREE.SphereGeometry(1, w, h, 0, TAU, 0, SHELL_TH));
+    r.fx(1, 0).add(cap, hdr(o.seam, o.seamK ?? 1.0), C, null, A);   // (≈ 1: glows without blooming over the plates)
+    const sc = col(o.scute), sd = col(o.scuteD), out = new THREE.Color();
+    const avgR = Math.sqrt((A[0] * A[0] + A[2] * A[2]) / 2);
+    r.fx(0, 0.08);   // matte stone plates (glossy ones mirror the bright sky at the gameplay camera's grazing angle)
+    phis.forEach((phi, i) => {
+      const n = counts[i], lo = i > 0 ? (phi - phis[i - 1]) : (phis[1] - phi), hi = i < phis.length - 1 ? (phis[i + 1] - phi) : lo;
+      const mer = Math.hypot(avgR * Math.cos(phi), A[1] * Math.sin(phi)) * (lo + hi) / 2;   // spacing along the meridian
+      const tan = TAU * Math.sin(phi) * avgR / n;                                               // spacing around the row
+      // honeycomb: corners along the meridian, rows offset by half a plate (width √3·R, row step 1.5·R); fill < 1 = seams
+      const fill = o.fill ?? 0.97, sx = fill * tan / Math.sqrt(3), sz = fill * 1.12 * mer / 1.5, ss = Math.min(sx, sz);
+      for (let j = 0; j < n; j++) {
+        const th = (j + (i % 2) * 0.5 + (o.rot || 0)) / n * TAU;
+        const [p, nn] = onEll(C, A, phi, th), nl = Math.hypot(...nn);
+        const tg = [A[0] * Math.cos(phi) * Math.sin(th), -A[1] * Math.sin(phi), A[2] * Math.cos(phi) * Math.cos(th)];
+        const P0 = new THREE.Vector3(...p), rr = Math.max(sx, sz);
+        const cf = (x, y, z) => out.copy(sc).lerp(sd, smooth01(Math.hypot(x - P0.x, y - P0.y, z - P0.z) / rr) * 0.9);
+        r.add(hexCap(), cf, [p[0] - nn[0] / nl * ss * 0.06, p[1] - nn[1] / nl * ss * 0.06, p[2] - nn[2] / nl * ss * 0.06], qb(nn, tg), [sx, ss * 0.42, sz]);
+      }
+    });
+    const edgeY = C[1] + A[1] * Math.cos(SHELL_TH), rx = A[0] * Math.sin(SHELL_TH), rz = A[2] * Math.sin(SHELL_TH);
+    r.fx(0, 0.12).add(G.torus(TAU, 0.16, 40), o.rim, [C[0], edgeY, C[2]], [PI / 2, 0, 0], [rx * 1.02, rz * 1.02, avgR * 0.5]);
+    const PC = [C[0], edgeY - A[1] * 0.1, C[2]], PA = [rx * 0.94, A[1] * 0.26, rz * 0.94];
+    if (!o.plates) {
+      r.fx(0, 0.06).add(G.sphere(40, 16), vgrad(edgeY - A[1] * 0.3, edgeY, [[0, mixc(o.plastron, '#8a6034', 0.35)], [1, o.plastron]]), PC, null, PA);
+    } else {
+      // Belly (seen while the little turtle tumbles): a dark seam base covered by 2 × 3 rounded matte tan plates, so it reads
+      // as a turtle's plastron (not a bright blank disc that blooms toward the camera).
+      r.fx(0, 0).add(G.sphere(40, 16), mixc(o.plastron, '#2e1c10', 0.8), PC, null, PA);
+      const pc = col(o.plastron), pd = mixc(o.plastron, '#7a5230', 0.5), out = new THREE.Color();
+      for (const [uc, hu, vc, hv] of [[0.31, 0.28, -0.6, 0.27], [0.4, 0.37, 0, 0.3], [0.31, 0.28, 0.6, 0.27]]) for (const sd of [-1, 1]) {
+        const u = uc * sd, w = Math.sqrt(Math.max(0.02, 1 - u * u - vc * vc)), p = [PC[0] + PA[0] * u, PC[1] - PA[1] * w, PC[2] + PA[2] * vc];
+        const n = [-u / PA[0], w / PA[1], -vc / PA[2]], hw = PA[0] * hu, hl = PA[2] * hv, P0 = new THREE.Vector3(...p);
+        const cf = (x, y, z) => out.copy(pc).lerp(pd, smooth01((Math.max(Math.abs(x - P0.x) / hw, Math.abs(z - P0.z) / hl) - 0.55) / 0.45));
+        r.add(G.rbox(2), cf, p, qb(n, [0, 0, 1]), [hw * 2, PA[1] * 0.3, hl * 2]);   // (local +y = into the belly: a flat slab)
+      }
+    }
+    r.fx(0, 0);
+    return { edgeY, rx, rz };
+  }
+  // Little volcano on base point B: base radius br, height h; crater with a glowing lava pool, lava drips down the sides.
+  // o: {key, rock, rockD, ash, crater, drips: n}. Returns the crater top [x, y, z].
+  function volcano(r, B, br, h, o) {
+    const cr = br * 0.42;
+    const pts = [[0, 0], [br, 0], [br * 0.96, h * 0.1], [br * 0.8, h * 0.34], [br * 0.6, h * 0.62], [cr * 1.2, h * 0.9], [cr * 1.08, h], [cr * 0.9, h * 0.985], [cr * 0.72, h * 0.9], [0, h * 0.84]];
+    const out = new THREE.Color(), a = col(o.rockD), b = col(o.rock), c = col(o.ash), cw = col(o.crater || '#9a3a1a');
+    r.fx(0, 0.2).add(lathe('volc' + o.key, pts, 30, 4), (x, y, z) => {
+      const t = (y - B[1]) / h, rr = Math.hypot(x - B[0], z - B[2]);
+      if (rr < cr * 0.98 && t > 0.8) return out.copy(cw);
+      const n = fbm3(x * 7 / h + 3, y * 7 / h, z * 7 / h);
+      return out.copy(a).lerp(b, clamp(smooth01(t * 1.2) * (0.6 + 0.6 * n), 0, 1)).lerp(c, smooth01((t - 0.72) / 0.22) * 0.75);
+    }, B);
+    // lava pool (a flattened glowing dome in the crater)
+    r.fx(1, 0).add(G.sphere(20, 10), hdr('#ffd04a', 2.1), [B[0], B[1] + h * 0.86, B[2]], null, [cr * 0.94, h * 0.07, cr * 0.94]);
+    r.add(G.sphere(12, 8), hdr('#fff2b0', 2.4), [B[0] + cr * 0.2, B[1] + h * 0.9, B[2] + cr * 0.15], null, [cr * 0.3, h * 0.04, cr * 0.3]);
+    // lava drips running down the cone from the rim
+    const nd = o.drips ?? 3;
+    for (let i = 0; i < nd; i++) {
+      const az = (i / nd) * TAU + 0.5 + (i & 1) * 0.4, len = 0.55 + 0.25 * ((i * 7) % 3) / 2;
+      for (let k = 0; k < 3; k++) {
+        const tt = 0.93 - k * 0.2 * len, [p, n] = onLathe(pts, h * tt, az, h * 0.005);
+        const nr = Math.hypot(n[0], n[2]), tg = [Math.sin(az) * (-n[1]), nr, Math.cos(az) * (-n[1])];
+        const wd = br * (0.11 - k * 0.025);
+        r.add(G.sphere(12, 8), hdr(k ? '#ff8a24' : '#ffc23a', k ? 1.7 : 2), [B[0] + p[0], B[1] + p[1], B[2] + p[2]], qb(tg, n), [wd, h * 0.12 * len, wd * 0.45]);
+      }
+    }
+    r.fx(0, 0);
+    return [B[0], B[1] + h, B[2]];
+  }
+  // Steam puffs over a crater: three soft balls on bones 'puff0..2' (animated by puffAnim; they rise, grow and fade out).
+  function puffs(r, parent, top, size) {
+    for (let i = 0; i < 3; i++) {   // each puff = a tiny cloud of three soft balls
+      r.bone('puff' + i, parent, top);
+      const s0 = size * (1 - i * 0.1), c = i === 1 ? '#fff6ee' : '#f2e8e0';
+      r.fx(0.45, 0).add(G.sphere(14, 10), c, top, null, s0);
+      r.add(G.sphere(12, 8), c, [top[0] + s0 * 0.85, top[1] - s0 * 0.25, top[2] + s0 * 0.1], null, s0 * 0.7);
+      r.add(G.sphere(12, 8), c, [top[0] - s0 * 0.8, top[1] - s0 * 0.2, top[2] - s0 * 0.15], null, s0 * 0.62);
+    }
+    r.fx(0, 0);
+  }
+  function puffAnim(m, s, dt, rate, rise, on = 1) {
+    s.puffT = (s.puffT || 0) + dt * rate;
+    for (let i = 0; i < 3; i++) {
+      const b = m.B['puff' + i]; if (!b) continue;
+      const u = (s.puffT + i / 3) % 1, k = Math.pow(Math.sin(PI * u), 0.8) * (0.55 + 0.9 * u) * on;
+      b.position.y += u * rise; b.position.x += Math.sin(u * 5 + i * 2) * rise * 0.12; b.position.z -= u * rise * 0.15;
+      b.scale.setScalar(Math.max(0.0001, k));
+    }
+  }
+
+  // ── Minik Lav Kaplumbağası: chubby mint turtle; its shell is basalt plates with glowing seams and a tiny smoking volcano.
+  // Attack: tucks into the shell (wind-up) and rolls forward (attack). ──
+  const TURTLE = { skin: '#62d3a4', skinL: '#b8f5d8', skinD: '#2f9c7a', spot: '#3fb489', nail: '#fff1cf', plastron: '#c49454' };
+  function buildKaplumbaga(r, o) {
+    const E = o.elite;
+    const skin = E ? '#3fc28e' : TURTLE.skin, skinL = TURTLE.skinL, skinD = E ? '#1f8a66' : TURTLE.skinD;
+    const C = [0, 0.3, -0.03], A = [0.44, 0.3, 0.48];
+    r.bone('body', 'root', [0, 0.3, 0]);
+    r.bone('head', 'body', [0, 0.25, 0.3]);
+    const LEG = [['legFL', 1, 1], ['legFR', -1, 1], ['legBL', 1, -1], ['legBR', -1, -1]];
+    for (const [n, sx, sz] of LEG) r.bone(n, 'body', [0.25 * sx, 0.2, 0.2 * sz]);
+    r.bone('tail', 'body', [0, 0.2, -0.4]);
+    const sk = vgrad(0.02, 0.5, [[0, skinD], [0.45, skin], [1, mixc(skin, skinL, 0.35)]]);
+    // legs: stubby with round toe nubs
+    for (const [n, sx, sz] of LEG) {
+      r.on(n).fx(0, 0.3).seg([0.25 * sx, 0.22, 0.2 * sz], [0.3 * sx, 0.07, 0.24 * sz], 0.075, sk, 0.07, 12);
+      r.add(G.sphere(16, 12), sk, [0.3 * sx, 0.055, 0.25 * sz + 0.02], null, [0.085, 0.06, 0.1]);
+      r.fx(0, 0.5);
+      for (let k = -1; k <= 1; k++) r.add(G.sphere(8, 6), TURTLE.nail, [0.3 * sx + k * 0.035, 0.035, 0.25 * sz + 0.1 * (sz > 0 ? 1 : 0.4)], null, [0.022, 0.018, 0.022]);
+      r.fx(0, 0);
+    }
+    r.on('tail'); cone(r, [0, 0.2, -0.4], [0, -0.25, -1], 0.13, 0.05, skin, 10);
+    // shell with glowing seams + tiny volcano on top
+    r.on('body');
+    turtleShell(r, C, A, [0.62, 0.96, 1.26, 1.52], [6, 8, 10, 12], {
+      scute: E ? '#5e4238' : '#56463f', scuteD: E ? '#2e1c18' : '#2c221f', seam: '#ff7018', rim: E ? '#3a2620' : '#3a2e2a', plastron: TURTLE.plastron, plates: true,
+    });
+    const top = volcano(r, [0, 0.5, -0.03], 0.21, 0.3, { key: 'S', rock: '#5e4c46', rockD: '#33262a', ash: '#c4b6ac', drips: 3 });
+    puffs(r, 'body', [top[0], top[1] + 0.03, top[2]], 0.05);
+    // head + neck, little spots, face
+    const HC = [0, 0.35, 0.5], HR = 0.17;
+    r.on('head').fx(0, 0.3).seg([0, 0.24, 0.3], [0, 0.31, 0.45], 0.085, sk, 0.09, 12);
+    r.add(G.sphere(32, 24), vgrad(0.2, 0.52, [[0, skin], [1, mixc(skin, skinL, 0.45)]]), HC, null, [HR * 1.05, HR, HR]);
+    r.fx(0, 0.3);
+    for (const sp of [[0.08, 0.14, 0.022], [-0.05, 0.155, 0.018], [0.13, 0.05, 0.015], [-0.12, 0.08, 0.017]]) {
+      const [p, q] = onSphere(sp[0], sp[1], HR, -0.002); r.push(HC).add(G.sphere(10, 6), TURTLE.spot, p, q, [sp[2], sp[2], sp[2] * 0.3]).pop();
+    }
+    r.fx(0, 0);
+    face(r, HC, HR, { bone: 'head', tilt: 0.3, ex: 0.072, ey: 0.035, er: 0.058, iris: '#3a2412', skin: mixc(skin, skinL, 0.3), browCol: '#1f5a44', browY: 1.38, mouthY: -0.085, mouthW: 0.06, heartY: 0.85, heartX: 1.25, blushX: 0.35 });
+    if (E) crown(r.on('head'), [0, 0.5, 0.46], 0.42);
+    r.on('head').mark('muzzle', [0, 0.32, 0.66]);
+    return { height: 0.8, glowC: col('#ff9a3a'), mat: { rough: 0.8, sss: col('#c8ffe0').multiplyScalar(0.04), rim: '#fff0d0', rimK: 0.26 } };
+  }
+  // Roll (GAME's rollStep): st.attack = distance rolled / lane length while GAME carries it along the lane (st.move 1), then
+  // st.attack = 1 for the dizzy recover. The shell tumbles about as fast as it really rolls (whole turns over the lane, so it
+  // ends upright), stays tucked all the way and only pops out once it has stopped — a little dizzy. A roll cut short (bump)
+  // rocks back upright first.
+  const TK_ROLL_R = 0.42, TK_N = 72;   // rolling radius of the tucked shell (m, before the elite scale); lift table steps
+  // How high the body must ride so the tumbling shell (rim, plates, belly and its little volcano) stays on the ground: the
+  // lowest point of everything on the 'body' bone per tumble angle (from the shared geometry, once per type/elite).
+  function tkTable(def) {
+    const g = def.g[0], P = g.attributes.position, SI = g.attributes.skinIndex, bi = def.bones.findIndex(b => b.name === 'body');
+    const by = def.bones[bi].pos[1], bz = def.bones[bi].pos[2], tab = new Float32Array(TK_N + 1).fill(1e9);
+    const cs = [], sn = [];
+    for (let k = 0; k < TK_N; k++) { cs.push(Math.cos(k / TK_N * TAU)); sn.push(Math.sin(k / TK_N * TAU)); }
+    for (let i = 0; i < P.count; i++) {
+      if (SI.getX(i) !== bi) continue;
+      const y = P.getY(i) - by, z = P.getZ(i) - bz;
+      for (let k = 0; k < TK_N; k++) { const v = y * cs[k] - z * sn[k]; if (v < tab[k]) tab[k] = v; }
+    }
+    tab[TK_N] = tab[0];
+    return tab;
+  }
+  function tkLift(def, a) {
+    const tab = def.rollTab || (def.rollTab = tkTable(def));
+    const u = (((a / TAU) % 1) + 1) % 1 * TK_N, i = Math.floor(u);
+    return tab[0] - lerp(tab[i], tab[i + 1], u - i);
+  }
+  function animKaplumbaga(m, dt, st, s) {
+    const B = m.B, R = m.root.position;
+    if (s.mv > 0.03) s.walk += dt * (7 + 4 * s.mv);
+    const ph = s.walk, k = Math.min(1, s.mv * 1.4), br = Math.sin(s.t * 2.2 + s.ph);
+    const rolling = st.attack >= 0 && st.attack < 0.999, rec = st.attack >= 0.999 && st.dying < 0;
+    if (st.windup >= 0) { s.rx0 = R.x; s.rz0 = R.z; }
+    s.recT = rec ? (s.recT || 0) + dt : 0;
+    // tumble angle (whole turns: the lane length is the distance so far / st.attack, since GAME moves the root)
+    if (rolling && st.dying < 0) {
+      if (!s.rollN) {
+        const d = s.rx0 !== undefined ? Math.hypot(R.x - s.rx0, R.z - s.rz0) : 0, sc = m.mesh.scale.x || 1;
+        s.rollN = d > 0.03 && st.attack > 0.004 ? clamp(Math.round(d / st.attack / (TAU * TK_ROLL_R * sc)), 1, 3) : 1;
+      }
+      s.rollA = TAU * s.rollN * st.attack;
+    } else {
+      s.rollN = 0;
+      const up = Math.round((s.rollA || 0) / TAU) * TAU;
+      s.rollA = damp(s.rollA || 0, up, 9, dt);
+      if (Math.abs(s.rollA - up) < 0.003) s.rollA = 0;
+    }
+    const tilt = Math.abs(s.rollA - Math.round(s.rollA / TAU) * TAU);   // how far from upright
+    let tuck = 0;
+    if (st.windup >= 0) tuck = smooth01(st.windup * 1.7);
+    if (rolling) tuck = 1;
+    else if (rec) tuck = Math.max(1 - smooth01((s.recT - 0.1) / 0.3), smooth01(tilt / 0.5));
+    s.duck = Math.max(damp(s.duck || 0, 0, 6, dt), st.hurt > 0.5 ? 0.6 : 0);
+    tuck = st.dying >= 0 ? 0 : Math.max(tuck, s.duck);
+    s.tk = (st.windup >= 0 || st.attack >= 0) ? tuck : damp(s.tk ?? 0, tuck, 12, dt);
+    const T = s.tk, out = 1 - T;
+    // waddle: diagonal leg pairs, shell sway, head bob; idle: looks around
+    B.body.position.y += Math.abs(Math.sin(ph)) * 0.025 * k * out + br * 0.004 - 0.1 * T;
+    B.body.rotation.z = Math.sin(ph) * 0.06 * k * out;
+    const lg = Math.sin(ph) * 0.6 * k * out;
+    B.legFL.rotation.x = lg; B.legBR.rotation.x = lg; B.legFR.rotation.x = -lg; B.legBL.rotation.x = -lg;
+    B.head.rotation.x = Math.sin(ph * 2) * 0.05 * k + Math.sin(s.t * 1.3 + s.ph) * 0.05;
+    B.head.rotation.y = Math.sin(s.t * 0.6 + s.ph) * 0.28 * (1 - k) * out;
+    B.tail.rotation.y = Math.sin(s.t * 3 + s.ph) * 0.35;
+    // tuck: head, legs and tail slide into the shell
+    if (T > 0.001) {
+      B.head.position.z -= 0.24 * T; B.head.position.y -= 0.03 * T; B.head.scale.setScalar(1 - 0.62 * T);
+      for (const n of ['legFL', 'legFR', 'legBL', 'legBR']) { const b = B[n]; b.scale.setScalar(1 - 0.7 * T); b.position.y += 0.05 * T; b.position.x *= 1 - 0.3 * T; }
+      B.tail.scale.setScalar(1 - 0.8 * T);
+    }
+    if (st.windup >= 0) {   // trembling in the shell, the little volcano puffs faster
+      const w = st.windup;
+      B.body.rotation.z += Math.sin(s.t * 60) * 0.05 * w; B.body.rotation.x = -0.12 * smooth01(w);
+      B.body.scale.set(1 + 0.05 * w, 1 - 0.06 * w, 1 + 0.05 * w);
+    }
+    if (s.rollA) { B.body.rotation.x += s.rollA; B.body.position.y += tkLift(m.def, s.rollA); }
+    if (rec && s.recT < 1) {   // popped out after the roll: a little dizzy head wobble
+      const dz = out * (1 - smooth01((s.recT - 0.5) / 0.45));
+      B.head.rotation.z += Math.sin(s.t * 9) * 0.26 * dz; B.head.rotation.y += Math.cos(s.t * 9) * 0.2 * dz;
+      B.body.rotation.z += Math.sin(s.t * 9 + 1) * 0.05 * dz;
+    }
+    // the little volcano stops puffing while the shell tumbles (its puffs would roll with it)
+    s.pk = damp(s.pk ?? 1, rolling ? 0 : 1, rolling ? 24 : 3, dt);
+    puffAnim(m, s, dt, st.windup >= 0 ? 1.4 : 0.5, 0.3, s.pk);
+  }
+
+  // ── Ateş Kuşu: round fluffy fire chick with a glowing flame crest, flame tail, tiny fluttering wings, a little beak.
+  // Flies (EDEF hover); ranged: flicks slow embers. ──
+  const FLAME_P = [[0, 0.02], [0.17, 0.035], [0.29, 0.12], [0.35, 0.27], [0.34, 0.42], [0.27, 0.57], [0.17, 0.71], [0.08, 0.84], [0, 0.95]];
+  function buildAteskusu(r, o) {
+    const E = o.elite;
+    // a golden-orange chick (reads apart from the glowing Ateşçik) with a red-orange flame crest and tail. The feathers stay
+    // a deep gold (red channel ≤ ~#e8): lit by the volcano's strong warm light, brighter tones went over the bloom threshold
+    // and the whole chick glowed out to a pale peach-pink.
+    const feat = E ? '#d4600a' : '#dc6e0a', featL = E ? '#dc7a0c' : '#e4860e', featT = E ? '#e28e12' : '#e89a14', belly = E ? '#e4a650' : '#e8b458';
+    const beak = '#ff7412', beakD = '#d8480e', cy = 0.36;
+    r.bone('body', 'root', [0, cy, 0]);
+    r.bone('crest', 'body', [0, cy + 0.24, 0.02]);
+    r.bone('wingL', 'body', [0.26, cy + 0.02, -0.02]); r.bone('wingR', 'body', [-0.26, cy + 0.02, -0.02]);
+    r.bone('tail', 'body', [0, cy - 0.06, -0.25]);
+    r.bone('feet', 'body', [0, cy - 0.24, 0.04]);
+    r.bone('beak', 'body', [0, cy - 0.03, 0.27]);
+    const fcol = (() => { const out = new THREE.Color(), a = col(feat), b = col(featL), c = col(featT), bl = col(belly); return (x, y, z) => {
+      out.copy(a).lerp(b, smooth01((y - (cy - 0.3)) / 0.36)).lerp(c, smooth01((y - (cy + 0.08)) / 0.2) * 0.65);
+      const bel = smooth01((z - 0.08) / 0.16) * smooth01((cy + 0.02 - y) / 0.18);
+      return out.lerp(bl, bel * 0.9);
+    }; })();
+    const flame = lathe('flame', FLAME_P, 24, 0);   // (unlit: the raw 9-point profile is enough for these small flames)
+    // (flames: bright enough to glow, but capped so their bloom doesn't wash over the chick's face)
+    const fl = (y0, y1, k = 0.58) => vgrad(y0, y1, [[0, hdr('#fff0b0', Math.min(1.4, 1.9 * k))], [0.3, hdr('#ffc23a', 1.55 * k)], [0.62, hdr('#ff7a1c', 1.3 * k)], [1, hdr('#ff3d2e', 1.15 * k)]]);
+    // fluffy round body (a few soft fluff bumps on the chest and the head top)
+    r.on('body').fx(0, 0).add(G.sphere(36, 28), fcol, [0, cy, 0], null, [0.3, 0.29, 0.29]);
+    for (const t of [[0.07, cy - 0.12, 0.25, 0.06], [-0.07, cy - 0.13, 0.25, 0.055], [0, cy - 0.17, 0.235, 0.055]]) r.add(G.sphere(12, 8), belly, [t[0], t[1], t[2]], null, [t[3], t[3] * 0.8, t[3] * 0.5]);
+    // flame crest (glows; wobbles in the shader)
+    const wobF = (x, y) => smooth01((y - (cy + 0.2)) / 0.3);
+    r.on('crest').fx(1, 0, 0, wobF);
+    r.add(flame, fl(cy + 0.2, cy + 0.7), [0, cy + 0.19, 0.03], [-0.25, 0, 0], [0.3, 0.52, 0.3]);
+    r.add(flame, fl(cy + 0.2, cy + 0.56), [0.09, cy + 0.19, -0.03], [-0.45, 0, -0.5], [0.22, 0.38, 0.22]);
+    r.add(flame, fl(cy + 0.2, cy + 0.56), [-0.09, cy + 0.19, -0.03], [-0.45, 0, 0.5], [0.22, 0.38, 0.22]);
+    r.add(flame, fl(cy + 0.18, cy + 0.5), [0, cy + 0.17, -0.11], [-0.95, 0, 0], [0.2, 0.36, 0.2]);
+    // flame tail feathers
+    r.on('tail').fx(1, 0, 0, 0.6);
+    for (const t of [[0, -1.2, 0, 0.2, 0.34], [0.07, -1.35, -0.35, 0.15, 0.26], [-0.07, -1.35, 0.35, 0.15, 0.26]]) r.add(flame, fl(cy - 0.2, cy + 0.2), [t[0], cy - 0.06, -0.24], [t[1], 0, t[2]], [t[3], t[4], t[3]]);
+    // tiny wings: rounded feathers with glowing flame tips
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'wingL' : 'wingR').fx(0, 0);
+      r.add(G.sphere(20, 14), vgrad(cy - 0.16, cy + 0.1, [[0, '#e0701a'], [1, feat]]), [0.31 * sd, cy - 0.02, -0.03], [0.15, 0, sd * 0.35], [0.055, 0.15, 0.12]);
+      r.fx(0, 0.03);   // rounded feather tips fanned at the wing's end (red-orange)
+      for (const f of [[0.34, cy - 0.13, 0.04, 0.3], [0.345, cy - 0.14, -0.04, 0], [0.335, cy - 0.12, -0.11, -0.35]]) {
+        r.add(G.sphere(12, 8), vgrad(cy - 0.22, cy - 0.05, [[0, '#dc4a16'], [1, '#e2701a']]), [f[0] * sd, f[1], f[2]], [f[3], 0, sd * 0.3], [0.035, 0.08, 0.045]);
+      }
+      r.fx(0, 0);
+    }
+    // little feet tucked under while flying
+    r.on('feet').fx(0, 0.4);
+    for (const sd of [-1, 1]) {
+      r.add(G.sphere(10, 8), beak, [0.08 * sd, cy - 0.28, 0.06], null, [0.035, 0.03, 0.045]);
+      for (let k = -1; k <= 1; k++) r.add(G.sphere(8, 6), beakD, [0.08 * sd + k * 0.025, cy - 0.3, 0.1], null, [0.014, 0.012, 0.03]);
+    }
+    r.fx(0, 0);
+    face(r, [0, cy + 0.02, 0], 0.29, { bone: 'body', tilt: 0.36, ex: 0.122, ey: 0.07, er: 0.104, iris: '#5a2408', skin: mixc(featL, featT, 0.5), browCol: '#b8480e', browY: 1.32, noMouth: true, blushCol: '#ff5f86', blushX: 0.45, blushY: 0.95, heartY: 0.95, heartX: 1.18 });
+    // beak: mischievous = closed, a little crooked (grin); overjoyed = wide open "cheep!" with a pink tongue
+    const BK = [0, cy - 0.035, 0.275];
+    r.on('beak');
+    r.mood = 1; r.fx(0, 0.7);
+    r.add(G.cone(14), beak, [BK[0], BK[1] + 0.005, BK[2] + 0.04], [PI / 2 + 0.2, 0, 0.14], [0.058, 0.1, 0.042]);
+    r.add(G.cone(12), beakD, [BK[0], BK[1] - 0.03, BK[2] + 0.02], [PI / 2 + 0.55, 0, 0.14], [0.04, 0.06, 0.028]);
+    r.mood = 2;
+    r.add(G.cone(14), beak, [BK[0], BK[1] + 0.03, BK[2] + 0.035], [PI / 2 - 0.3, 0, 0], [0.058, 0.1, 0.042]);
+    r.add(G.cone(12), beakD, [BK[0], BK[1] - 0.055, BK[2] + 0.025], [PI / 2 + 0.85, 0, 0], [0.045, 0.075, 0.03]);
+    r.fx(0, 0.4).add(G.sphere(12, 8), '#7a1f30', [BK[0], BK[1] - 0.01, BK[2] + 0.01], null, [0.04, 0.035, 0.03]);
+    r.add(G.sphere(10, 8), '#ff7fa4', [BK[0], BK[1] - 0.03, BK[2] + 0.03], null, [0.028, 0.014, 0.022]);
+    r.mood = 0; r.fx(0, 0);
+    if (E) crown(r.on('crest'), [0, cy + 0.26, 0.1], 0.38);
+    r.on('beak').mark('muzzle', [0, cy - 0.04, 0.4]);
+    // (matte, fluffy feathers: a glossier coat mirrored the environment's big softbox as a pale peach-pink sheen)
+    return { height: 0.78, glowC: col('#ffd23f'), mat: { rough: 0.88, sss: col('#ffb060').multiplyScalar(0.02), rim: '#ffc070', rimK: 0.1, wob: 0.03, wobF: 6, wobS: 9 } };
+  }
+  function animAteskusu(m, dt, st, s) {
+    const B = m.B;
+    s.flap += dt * (17 + 6 * s.mv + (st.attack >= 0 ? 8 : 0));
+    const f = Math.sin(s.flap), fl = Math.sin(s.t * 13 + s.ph) * 0.5 + Math.sin(s.t * 21.7) * 0.3 + Math.sin(s.t * 7.3) * 0.2;
+    let wb = 0.35, wa = 0.6, wob = 0.03 + 0.012 * s.mv;
+    B.body.position.y += Math.sin(s.flap * 0.5) * 0.015;
+    B.body.rotation.x = 0.16 * s.mv;
+    B.crest.scale.set(1 - 0.05 * fl, 1 + 0.1 * fl, 1 - 0.05 * fl);
+    B.crest.rotation.x = -0.12 * s.mv + Math.sin(s.t * 2.3) * 0.06; B.crest.rotation.z = Math.sin(s.t * 3.1 + s.ph) * 0.08;
+    B.tail.rotation.y = Math.sin(s.t * 4 + s.ph) * 0.22; B.tail.rotation.x = Math.sin(s.t * 3.1) * 0.1 - 0.15 * s.mv;
+    B.feet.rotation.x = 0.35 * s.mv + Math.sin(s.t * 2.4) * 0.08;
+    B.beak.rotation.x = Math.max(0, Math.sin(s.t * 1.7 + s.ph) - 0.93) * 3;   // an occasional little "cheep"
+    if (st.windup >= 0) {   // puffs up, leans back, crest flares, wings back
+      const w = smooth01(st.windup);
+      B.body.scale.set(1 + 0.12 * w, 1 + 0.1 * w, 1 + 0.12 * w); B.body.rotation.x -= 0.32 * w;
+      B.crest.scale.multiplyScalar(1 + 0.35 * w); wb += 0.7 * w; wa *= 1 - 0.5 * w; wob += 0.03 * w;
+      B.body.position.x += Math.sin(s.t * 55) * 0.01 * st.windup;
+    }
+    if (st.attack >= 0) {   // flick! the head (and crest) snap forward
+      const k2 = Math.sin(PI * st.attack);
+      B.body.rotation.x += 0.5 * k2; B.body.position.z += 0.16 * k2; B.beak.rotation.x -= 0.25 * k2;
+      B.crest.rotation.x += 0.4 * k2;
+    }
+    B.wingL.rotation.z = wb + f * wa; B.wingR.rotation.z = -(wb + f * wa);
+    B.wingL.rotation.y = -0.2 * f; B.wingR.rotation.y = 0.2 * f;
+    m.U.uWob.value.x = wob;
+  }
+
+  // ════════════════ Round 3: zone bosses (kraljole, kostebekusta, lavkaplumbaga) ════════════════
+  // They animate from st.phase (string) + st.phaseT (0..1) (+ st.move, st.hurt, st.dying, st.burrow for the mole).
+  // Unknown / missing phase = 'idle'; while st.dying ≥ 0 (overjoyed) the phase is ignored: they cheer and wave goodbye.
+  const bph = st => (st.dying >= 0 ? 'dying' : (st.phase || 'idle'));
+  const bpt = st => clamp(+st.phaseT || 0, 0, 1);
+  const bump = (x, w) => (x > 0 && x < w ? Math.sin(PI * x / w) : 0);   // one soft pulse of width w
+  function star5Geo() {   // (same shape + key as the toy soldier's shako star)
+    return extrude('star5', () => { const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU, rr = i & 1 ? 0.2 : 0.5; s[i ? 'lineTo' : 'moveTo'](Math.sin(a) * rr, Math.cos(a) * rr); } return s; }, 0.08, 0.04, 4, 0.3);
+  }
+
+  // ── Kral Jöle: a big glossy turquoise royal jelly (~2.8 m with its crown): golden crown with gems and pearls, royal purple
+  // cape with an ermine collar, tiny jelly arms, a heart sceptre. Hops, spits jelly blobs, summons little jellies. ──
+  const KJ_S = [2.72, 2.34, 2.72], KJ_CAPE = [[1.64, 0.03], [1.63, 0.3], [1.53, 0.75], [1.35, 1.15], [1.14, 1.46], [1.06, 1.55]];
+  function capeGeo(inner) {
+    const sg = sN(40, 16);
+    return gx('kjCape' + (inner ? 'i' : 'o') + '@' + sg, () => {
+      let v = new THREE.SplineCurve(KJ_CAPE.map(p => new THREE.Vector2(p[0] * (inner ? 0.975 : 1), p[1]))).getPoints(30);
+      if (inner) v = v.reverse();   // reversed profile → normals face the body (the lining)
+      return new THREE.LatheGeometry(v, sg, PI - 1.3, 2.6);
+    });
+  }
+  function buildKraljole(r, o) {
+    const base = col('#27c6d6'), light = col('#b8f6f0'), deep = col('#0c7aa4');
+    const TOP = 0.86 * KJ_S[1];
+    r.bone('body', 'root', [0, 0, 0]);
+    r.bone('crown', 'body', [0, TOP - 0.06, -0.12]);
+    r.bone('armL', 'body', [1.28, 0.95, 0.3]); r.bone('armR', 'body', [-1.28, 0.95, 0.3]);
+    r.bone('scep', 'armR', [-1.74, 0.48, 0.45]);   // the sceptre stays upright while the arm moves (counter-rotated in anim)
+    r.bone('gem', 'scep', [-1.86, 1.74, 0.56]);
+    r.bone('cape', 'body', [0, 1.58, -0.9]);
+    const wob = (x, y) => smooth01((y - 0.1) / 1.5);
+    // jelly body (same gumdrop as the little jellies, royal size) + painted gloss + tiny bubbles
+    r.on('body').push([0, 0, 0], null, KJ_S);
+    r.fx(0, 0, 0, wob).add(lathe('gumdrop', JOLE_GP, 64), vgrad(0, 1.9, [[0, deep], [0.45, base], [1, mixc(base, light, 0.45)]]));
+    r.fx(1, 0, 0, wob);
+    { const [p, n] = onLathe(JOLE_GP, 0.66, -1.15, 0.003); r.add(G.sphere(16, 12), hdr('#ffffff', 1.3), p, qz(...n, 0.9), [0.1, 0.035, 0.012]); }
+    { const [p, n] = onLathe(JOLE_GP, 0.55, -1.42, 0.003); r.add(G.sphere(10, 8), hdr('#ffffff', 1.25), p, qz(...n), [0.022, 0.022, 0.008]); }
+    { const [p, n] = onLathe(JOLE_GP, 0.28, 0.95, 0.003); r.add(G.sphere(12, 8), hdr('#ffffff', 1.15), p, qz(...n, -0.4), [0.06, 0.02, 0.008]); }
+    r.fx(0, 1, 0, wob);
+    for (const b of [[0.16, 1.1, 0.03], [0.26, 1.9, 0.022], [0.13, -2.4, 0.026], [0.34, 0.75, 0.018], [0.22, -1.5, 0.02], [0.44, 2.4, 0.016], [0.12, 2.8, 0.02], [0.3, -2.9, 0.018]]) {
+      const [p, n] = onLathe(JOLE_GP, b[0], b[1], -b[2] * 0.3);
+      r.add(G.sphere(12, 8), mixc(light, '#ffffff', 0.35), p, qz(...n), [b[2], b[2], b[2] * 0.6]);
+    }
+    r.pop().fx(0, 0);
+    // tiny jelly arms (the right one holds a golden sceptre with a pink heart)
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'armL' : 'armR').fx(0, 1, 0, 0.5);
+      r.add(G.sphere(24, 18), vgrad(0.4, 1.2, [[0, deep], [1, mixc(base, light, 0.25)]]), [1.5 * sd, 0.8, 0.36], [0, 0, 0.55 * sd], [0.25, 0.4, 0.25]);
+      r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.3), [1.43 * sd, 0.98, 0.58], null, [0.05, 0.03, 0.015]);
+    }
+    r.on('scep').fx(0, 2).seg([-1.73, 0.3, 0.44], [-1.85, 1.6, 0.55], 0.045, GOLD, 0.04, 12);
+    r.add(G.sphere(12, 8), GOLD, [-1.73, 0.28, 0.44], null, 0.075).add(G.sphere(12, 8), GOLD, [-1.85, 1.62, 0.55], null, 0.085);
+    r.on('gem').fx(0.55, 1).add(heartGeo(), hdr('#ff5aa8', 1.35), [-1.86, 1.8, 0.57], [-0.1, 0, 0], 0.3);
+    r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 2), [-1.91, 1.86, 0.6], null, 0.025);
+    r.fx(0, 0);
+    // royal cape (velvet outside, golden lining), gold hem, ermine collar with little black tails and gold clasps
+    r.on('cape').fx(0, 0.1, 1).uv(8, 3).add(capeGeo(false), vgrad(0, 1.6, [[0, '#4a1a8e'], [0.6, '#6a2cc0'], [1, '#7e3ad4']]));
+    r.uv(null).fx(0, 0.6).add(capeGeo(true), vgrad(0, 1.6, [[0, '#e8a832'], [1, '#ffd66a']]));
+    r.fx(0, 2).add(G.torus(2.62, 0.035, 48), GOLD, [0, 0.05, 0], [PI / 2, 0, -PI / 2 - 1.31], [1.64, 1.64, 1.4]);
+    r.fx(0, 0).add(G.torus(2.9, 0.11, 48), '#fbf7ef', [0, 1.58, 0], [PI / 2, 0, -PI / 2 - 1.45], [1.03, 1.03, 1.0]);
+    for (let i = 0; i < 7; i++) {
+      const a = -PI / 2 - 1.3 + (i + 0.5) / 7 * 2.6, x = Math.cos(a) * 1.13, z = Math.sin(a) * 1.13;
+      r.add(G.sphere(8, 6), '#2a1e28', [x, 1.6 + (i & 1) * 0.03, z], null, [0.03, 0.05, 0.03]);
+    }
+    r.fx(0, 2);
+    for (const sd of [-1, 1]) { const a = -PI / 2 + sd * 1.45; r.add(G.sphere(14, 10), GOLD, [Math.cos(a) * 1.03, 1.58, Math.sin(a) * 1.03], null, 0.1); }
+    r.fx(0, 0);
+    // big golden crown: band with gems, velvet cap, six points with pearls, a heart on top
+    r.on('crown').push([0, TOP - 0.1, -0.12], [-0.22, 0, 0]);
+    r.fx(0, 0.15).add(G.hemi(24), '#d8264a', [0, 0.2, 0], null, [0.5, 0.38, 0.5]);
+    r.fx(0, 2).add(G.cyl(1, 0.94, 36, true), GOLD, [0, 0.14, 0], null, [0.56, 0.28, 0.56]);
+    r.add(G.cyl(0.94, 0.9, 36, true), mixc(GOLD, '#b07a18', 0.4), [0, 0.14, 0], null, [0.545, 0.27, 0.545]);
+    r.add(G.torus(TAU, 0.12, 40), GOLD, [0, 0.01, 0], [PI / 2, 0, 0], [0.53, 0.53, 0.35]);
+    r.add(G.torus(TAU, 0.1, 40), GOLD, [0, 0.28, 0], [PI / 2, 0, 0], [0.565, 0.565, 0.3]);
+    for (let i = 0; i < 6; i++) {
+      const a = (i + 0.5) / 6 * TAU, sx = Math.sin(a), cz = Math.cos(a);
+      r.fx(0, 2).add(G.cone(10), GOLD, [sx * 0.53, 0.44, cz * 0.53], qy(sx * 0.2, 1, cz * 0.2), [0.12, 0.32, 0.12]);
+      r.fx(0, 1).add(G.sphere(12, 8), '#fffaf2', [sx * 0.57, 0.63, cz * 0.57], null, 0.07);
+      const g = ['#ff3a6a', '#3a8aff', '#3ade8a'][i % 3];
+      r.fx(0.45, 1).add(G.sphere(14, 10), hdr(g, 1.2), [Math.sin(a + PI / 6) * 0.57, 0.14, Math.cos(a + PI / 6) * 0.57], qz(Math.sin(a + PI / 6), 0, Math.cos(a + PI / 6)), [0.075, 0.09, 0.04]);
+    }
+    r.fx(0, 2).add(G.sphere(14, 10), GOLD, [0, 0.58, 0], null, 0.1);
+    r.fx(0.5, 1).add(heartGeo(), hdr('#ff4f93', 1.3), [0, 0.76, 0], null, 0.22);
+    r.pop().fx(0, 0);
+    // face (model space on the front of the jelly)
+    face(r, [0, 0.86, 0], 1.3, {
+      bone: 'body', tilt: 0.42, ex: 0.4, ey: 0.1, er: 0.31, iris: mixc(deep, '#081a2a', 0.6), skin: mixc(base, light, 0.1), browCol: mixc(deep, '#06121c', 0.72),
+      browY: 1.36, mouthY: -0.34, mouthW: 0.36, heartY: 0.72, heartX: 1.05, heartS: 0.28,
+    });
+    r.on('body').mark('muzzle', [0, 0.52, 1.42]);
+    return { height: 2.8, glowC: col('#7ef0ff'), tex: texOf('fabric'), dieHop: 0.14,
+      mat: { rough: 0.2, ns: 0.6, sss: mixc(base, '#ffffff', 0.2).multiplyScalar(0.06), rim: mixc(light, '#ffffff', 0.4), rimK: 0.24, rimP: 2.4, wob: 0.03, wobF: 1.0, wobS: 3.5 } };
+  }
+  function animKraljole(m, dt, st, s) {
+    const B = m.B, ph = bph(st), t = bpt(st);
+    const br = Math.sin(s.t * 2.2 + s.ph);
+    let sy = 1 + 0.03 * br, sxz = 1 - 0.018 * br, y = 0, z = 0, rx = 0, rz = 0, armUp = 0, wave = 0, crownL = 0, gem = 0, air = 0, hopY = 0;
+    // travelling hops (phase 'move', or walking while idle)
+    s.hopK = damp(s.hopK || 0, ph === 'move' || (ph === 'idle' && st.move > 0.05) ? 1 : 0, 5, dt);
+    if (s.hopK > 0.02 || (s.hop % 1) > 0.03) s.hop += dt * (1.3 + 0.4 * s.mv);
+    {
+      const u = s.hop % 1, A = s.hopK;
+      if (u < 0.2) { const k = Math.sin(PI * u / 0.2); sy -= 0.16 * k * A; sxz += 0.1 * k * A; }
+      else if (u < 0.82) { const k = (u - 0.2) / 0.62; y += Math.sin(PI * k) * 0.45 * A; const e = Math.abs(Math.cos(PI * k)); sy += 0.1 * e * A; sxz -= 0.05 * e * A; air = Math.sin(PI * k) * A * 0.4; crownL -= Math.cos(PI * k) * 0.5 * A; }
+      else { const k = Math.sin(PI * (u - 0.82) / 0.18); sy -= 0.2 * k * A; sxz += 0.12 * k * A; if (!s.landed && A > 0.3) { s.landed = true; s.wobA = 0.06; } }
+      if (u < 0.5) s.landed = false;
+    }
+    switch (ph) {
+      case 'hop': {   // big hop toward Feza: crouch 0–0.2, airborne 0.2–0.8 (peak ≈ 1.7 m), lands at 0.8 (slam ring), wobble
+        if (t < 0.2) { const k = smooth01(t / 0.2); sy *= 1 - 0.3 * k; sxz *= 1 + 0.18 * k; armUp = 0.5 * k; rx = -0.1 * k; }
+        else if (t < 0.8) {
+          const u = (t - 0.2) / 0.6, e = Math.abs(Math.cos(PI * u));
+          hopY = Math.sin(PI * u) * 1.7; sy *= 1 + 0.2 * e; sxz *= 1 - 0.09 * e; armUp = 0.5 + 0.5 * Math.sin(PI * u); air = Math.sin(PI * u);
+          crownL = -Math.cos(PI * u); rx = 0.12 * Math.sin(PI * u);
+        } else {
+          const u = (t - 0.8) / 0.2, k = Math.sin(PI * Math.min(1, u * 1.3)) * (1 - 0.5 * u);
+          sy *= 1 - 0.36 * k; sxz *= 1 + 0.22 * k; crownL = -0.6 * k;
+          if (!s.slam) { s.slam = true; s.wobA = 0.08; }
+        }
+        if (t < 0.8) s.slam = false;
+        break;
+      }
+      case 'spit': {   // puffs up (0–0.35), then spits three slow jelly blobs (pulses at 0.42 / 0.6 / 0.78)
+        const k = smooth01(t / 0.35) * (1 - smooth01((t - 0.86) / 0.14));
+        sxz *= 1 + 0.12 * k; sy *= 1 + 0.05 * k; rx = -0.14 * k;
+        for (const c of [0.42, 0.6, 0.78]) { const p = bump(t - c, 0.12); rx += 0.3 * p; z += 0.16 * p; sy *= 1 - 0.1 * p; sxz *= 1 + 0.06 * p; }
+        armUp = 0.25 * k;
+        break;
+      }
+      case 'summon': {   // bounces three times with the heart sceptre held high (it glows)
+        const k = smooth01(t / 0.18) * (1 - smooth01((t - 0.84) / 0.16));
+        const b = Math.abs(Math.sin(t * PI * 3));
+        y += b * 0.4 * k; sy *= 1 + 0.08 * (b - 0.5) * k; armUp = k; wave = Math.sin(t * PI * 8) * k; gem = k; crownL = Math.sin(t * PI * 6) * 0.4 * k;
+        s.wobA = Math.max(s.wobA || 0, 0.04 * k);
+        break;
+      }
+      case 'roar': {   // playful royal shout: stretches up tall, arms up, jiggles
+        const k = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
+        sy *= 1 + 0.15 * k; sxz *= 1 - 0.06 * k; armUp = k; wave = Math.sin(s.t * 14) * 0.5 * k; rz = Math.sin(s.t * 9) * 0.06 * k; rx = -0.12 * k;
+        crownL = Math.abs(Math.sin(s.t * 12)) * 0.5 * k; s.wobA = Math.max(s.wobA || 0, 0.05 * k);
+        break;
+      }
+      case 'dying': armUp = 0.95; wave = Math.sin(s.t * 11); gem = 0.6; break;   // overjoyed: waves goodbye with both arms
+    }
+    // The big hop's height is kept in s.airY: when the hop is cut short in the air (cheered up → 'dying', Feza napped → the
+    // boss calms to 'idle'), the king falls down with gravity and lands with a squash instead of snapping to the ground.
+    if (ph === 'hop') {
+      if (dt > 0) s.airV = clamp(((s.airY || 0) - hopY) / dt, -8, 8);   // (+ = falling)
+      s.airY = hopY;
+    } else if (s.airY > 0) {
+      s.airV = (s.airV || 0) + 16 * dt;
+      s.airY = Math.max(0, s.airY - s.airV * dt);
+      const k = Math.min(1, s.airY / 1.7);
+      air = Math.max(air, k); armUp = Math.max(armUp, 0.5 + 0.5 * k); crownL -= 0.8 * k;
+      if (s.airY <= 0) { s.airV = 0; s.landT = 1; s.wobA = Math.max(s.wobA || 0, 0.08); }
+    }
+    y += s.airY || 0;
+    if (s.landT > 0) {   // (only after such a cut-short hop; the normal hop lands inside its own phase)
+      const k = Math.sin(PI * (1 - s.landT));
+      sy *= 1 - 0.3 * k; sxz *= 1 + 0.18 * k; crownL -= 0.6 * k;
+      s.landT = Math.max(0, s.landT - dt / 0.32);
+    }
+    B.body.position.set(B.body.position.x, B.body.position.y + y, B.body.position.z + z);
+    B.body.scale.set(sxz, sy, sxz); B.body.rotation.x = rx; B.body.rotation.z = rz;
+    B.crown.scale.set(1 / sxz, 1 / sy, 1 / sxz);   // the crown stays rigid on the squashy jelly
+    B.crown.position.y += crownL * 0.12; B.crown.rotation.z = Math.sin(s.t * 1.1 + s.ph) * 0.04 + crownL * 0.05; B.crown.rotation.x = -0.05 * crownL;
+    const sw = Math.sin(s.t * 1.8 + s.ph) * 0.08;
+    B.armL.rotation.z = 0.1 + sw + 1.9 * armUp + 0.35 * wave; B.armR.rotation.z = -(0.1 + sw + 1.7 * armUp - 0.35 * wave);
+    B.armL.rotation.x = -0.3 * armUp; B.armR.rotation.x = -0.3 * armUp;
+    B.scep.rotation.z = -B.armR.rotation.z * 0.92; B.scep.rotation.x = 0.3 * armUp;
+    B.gem.scale.setScalar(1 + 0.45 * gem + 0.12 * gem * Math.sin(s.t * 20));
+    B.cape.rotation.x = 0.35 * air + 0.03 * Math.sin(s.t * 1.5 + s.ph);
+    s.wobA = damp(s.wobA ?? 0.022, 0.022, 3, dt);
+    if (st.hurt > 0.5) s.wobA = Math.max(s.wobA, 0.05 * st.hurt);
+    m.U.uWob.value.x = s.wobA;
+  }
+
+  // ── Usta Köstebek: the master mole (~2.6 m): yellow hard hat with a spinning drill, goggles and a headlamp, blue overalls
+  // with a star patch and a wrench, big pink paws. Burrows (st.burrow, travelling mound), pops up, throws dirt clods. ──
+  const DRILL_TILT = -0.62, DRILL_AX = new THREE.Vector3(0, Math.cos(DRILL_TILT), Math.sin(DRILL_TILT));
+  function drillGeo() {
+    const rs = sN(22, 12);
+    return gx('drill@' + rs, () => {
+      const g = new THREE.ConeGeometry(1, 1, rs, 16, true); g.translate(0, 0.5, 0);
+      const p = g.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {   // two spiral flutes
+        v.fromBufferAttribute(p, i);
+        const a = Math.atan2(v.x, v.z), k = 1 + 0.2 * Math.sin(2 * a + v.y * 15) * smooth01((1 - v.y) / 0.2);
+        p.setXYZ(i, v.x * k, v.y, v.z * k);
+      }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
+  function sphPart(key, phi0, phiL, th0, thL) {
+    const w = sN(40, 14), h = sN(24, 8);
+    return gx('sp' + key + '@' + w, () => new THREE.SphereGeometry(1, w, h, phi0, phiL, th0, thL));
+  }
+  function buildKostebekusta(r, o) {
+    const fur = '#8a5a38', furD = '#5a3720', furL = '#b3825a', pink = '#ee8aa6', pinkD = '#d06284', nose = '#ff5a90', snout = '#d8a088';
+    const hat = '#f0b41c', hatD = '#c97a0a', denim = '#4274dc', denimD = '#2a50a8', steel = '#c9d3e2', brass = '#d8a84a';
+    const dirt = '#7a5234', dirtD = '#4e321f', dirtL = '#a47650';
+    const BC = [0, 0.84, 0], BA = [0.92, 0.8, 0.84], HC = [0, 1.62, 0.14];
+    r.bone('body', 'root', [0, 0.05, 0]);
+    r.bone('head', 'body', [0, 1.3, 0.12]);
+    r.bone('armL', 'body', [0.8, 1.22, 0.18]); r.bone('armR', 'body', [-0.8, 1.22, 0.18]);
+    r.bone('clod', 'armR', [-1.05, 0.86, 0.88]);
+    r.bone('footL', 'body', [0.38, 0.1, 0.3]); r.bone('footR', 'body', [-0.38, 0.1, 0.3]);
+    const HP = [0, 2.04, -0.1], HS = 1.1, hatTop = [0, HP[1] + 0.34 * HS * Math.cos(DRILL_TILT), HP[2] + 0.34 * HS * Math.sin(DRILL_TILT)];
+    r.bone('drill', 'head', hatTop);
+    r.bone('mound', 'root', [0, 0, 0]);
+    // chubby body with blue overalls (lower half, bib with a star patch pocket, straps, gold buttons, a wrench)
+    r.on('body').add(G.sphere(40, 30), vgrad(0.05, 1.6, [[0, furD], [0.4, fur], [1, mixc(fur, furL, 0.5)]]), BC, null, BA);
+    r.add(G.sphere(10, 8), pink, [0, 0.4, -0.84], null, [0.1, 0.08, 0.12]);   // tiny tail
+    r.fx(0, 0.05, 1).uv(6, 3);
+    const dn = vgrad(0.05, 1.3, [[0, denimD], [0.55, denim], [1, mixc(denim, '#7aa2f0', 0.3)]]);
+    r.add(sphPart('lowH', 0, TAU, PI * 0.44, PI * 0.56), dn, BC, null, [BA[0] * 1.02, BA[1] * 1.02, BA[2] * 1.02]);
+    r.add(sphPart('bib', PI / 2 - 0.5, 1.0, 0.3 * PI, 0.2 * PI + 0.02), dn, BC, null, [BA[0] * 1.03, BA[1] * 1.03, BA[2] * 1.03]);
+    r.add(sphPart('pocket', PI / 2 - 0.2, 0.4, 0.36 * PI, 0.08 * PI), denimD, BC, null, [BA[0] * 1.045, BA[1] * 1.045, BA[2] * 1.045]);
+    { const wy = BC[1] + BA[1] * Math.cos(PI * 0.47), wk = Math.sin(PI * 0.47) * 1.03;   // slim stitched waistband
+      r.uv(null).fx(0, 0.3).add(G.torus(TAU, 0.035, 48), denimD, [0, wy, 0], [PI / 2, 0, 0], [BA[0] * wk, BA[2] * wk, 0.9]); }
+    {
+      const [p, n] = onEll(BC, [BA[0] * 1.06, BA[1] * 1.06, BA[2] * 1.06], 0.4 * PI, 0);
+      r.fx(0, 0.5).add(star5Geo(), '#ffd23f', p, qz(...n), [0.26, 0.26, 0.3]);
+    }
+    r.fx(0, 0.2);
+    for (const sd of [-1, 1]) {   // straps from the bib corners over the shoulders
+      const pts = [[0.3 * PI, 0.46], [0.19 * PI, 0.6], [0.09 * PI, 1.0]].map(([ph, az]) => onEll(BC, [BA[0] * 1.03, BA[1] * 1.03, BA[2] * 1.03], ph, az * sd)[0]);
+      r.seg(pts[0], pts[1], 0.055, denim, 0.055, 10).seg(pts[1], pts[2], 0.055, denim, 0.055, 10);
+      r.fx(0, 2).add(G.sphere(14, 10), GOLD, pts[0], null, [0.07, 0.07, 0.04]).fx(0, 0.2);
+    }
+    r.fx(0, 2).seg([0.74, 0.84, 0.42], [0.82, 0.5, 0.5], 0.032, steel, 0.032, 8);   // a wrench hanging from the waistband
+    r.add(G.torus(PI * 1.35, 0.3, 16), steel, [0.83, 0.45, 0.51], [0, 0.5, PI + 0.4], 0.075);
+    r.fx(0, 0);
+    // head: fur, pink-tan snout, big glossy nose
+    r.on('head').add(G.sphere(40, 30), vgrad(1.1, 2.25, [[0, fur], [1, mixc(fur, furL, 0.6)]]), HC, null, [0.66, 0.61, 0.63]);
+    r.add(G.sphere(28, 20), snout, [0, 1.45, 0.64], null, [0.3, 0.25, 0.29]);
+    r.fx(0, 1).add(G.sphere(24, 16), nose, [0, 1.58, 0.9], null, [0.17, 0.14, 0.14]);
+    r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.5), [-0.05, 1.64, 1.0], null, [0.045, 0.032, 0.02]);
+    r.fx(0, 0.4);
+    for (const sd of [-1, 1]) r.add(G.sphere(8, 6), '#b83a64', [0.055 * sd, 1.55, 1.02], null, [0.026, 0.02, 0.014]);
+    r.fx(0, 0);
+    // hard hat (tilted back so the eyes stay visible) with goggles, headlamp and the drill on top
+    r.push(HP, [DRILL_TILT, 0, 0], HS);
+    r.fx(0, 0.35).add(G.hemi(32), vgrad(HP[1] - 0.05, HP[1] + 0.42, [[0, hatD], [0.35, hat], [1, mixc(hat, '#fff0b0', 0.3)]]), [0, 0, 0], null, [0.5, 0.36, 0.52]);
+    r.add(G.cyl(1, 1, 36), hatD, [0, 0.01, 0.05], null, [0.58, 0.05, 0.62]);
+    r.add(G.torus(PI, 0.2, 24), mixc(hat, '#fff6c8', 0.3), [0, 0.0, 0], [0, PI / 2, 0], [0.51, 0.365, 0.16]);
+    r.fx(0, 0.3).add(G.torus(TAU, 0.13, 40), '#5a3a28', [0, 0.07, 0], [PI / 2, 0, 0], [0.505, 0.525, 0.35]);
+    const HAT_E = [0.5, 0.36, 0.52];
+    for (const sd of [-1, 1]) {   // goggles strapped on the hat
+      const [p, n] = onEll([0, 0, 0], HAT_E, 1.28, 0.42 * sd);
+      r.push(p, qz(...n));
+      r.fx(0, 2).add(G.torus(TAU, 0.28, 24), brass, [0, 0, 0.01], null, [0.1, 0.1, 0.1]);
+      r.fx(0.25, 1).add(G.sphere(16, 10), '#8fdcff', [0, 0, 0.02], null, [0.085, 0.085, 0.03]);
+      r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.6), [-0.03, 0.03, 0.045], null, [0.022, 0.016, 0.01]);
+      r.pop();
+    }
+    {   // headlamp between the goggles, a little higher
+      const [p, n] = onEll([0, 0, 0], HAT_E, 0.95, 0);
+      r.push(p, qz(...n));
+      r.fx(0, 2).add(G.cyl(1, 1, 18), '#aab4c4', [0, 0, 0.03], [PI / 2, 0, 0], [0.085, 0.08, 0.085]);
+      r.fx(1, 0).add(G.sphere(16, 10), hdr('#fff0a8', 1.8), [0, 0, 0.075], null, [0.07, 0.07, 0.025]);
+      r.pop();
+    }
+    r.on('drill').fx(0, 2).add(G.cyl(1, 1, 20), '#8a93a4', [0, 0.36, 0], null, [0.21, 0.08, 0.21]);
+    r.add(G.torus(TAU, 0.3, 20), brass, [0, 0.33, 0], [PI / 2, 0, 0], [0.215, 0.215, 0.1]);
+    r.add(drillGeo(), (x, y, z) => _gc.set(steel).lerp(_dk.set('#7e8a9e'), 0.5 + 0.5 * Math.sin(2 * Math.atan2(x, z - hatTop[2]) + (y - hatTop[1]) * 34)), [0, 0.39, 0], null, [0.2, 0.44, 0.2]);
+    r.pop().fx(0, 0);
+    // arms with big pink paws (rounded claws); a dirt clod in the right paw (only shown while throwing)
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'armL' : 'armR').seg([0.8 * sd, 1.22, 0.18], [0.99 * sd, 0.87, 0.55], 0.2, fur, 0.17, 14);
+      r.add(G.sphere(20, 14), fur, [0.8 * sd, 1.22, 0.18], null, 0.205).add(G.sphere(18, 12), fur, [0.99 * sd, 0.87, 0.55], null, 0.17);
+      r.fx(0, 0.2).add(G.sphere(22, 14), pink, [1.02 * sd, 0.8, 0.62], [0.3, 0, 0], [0.23, 0.14, 0.25]);
+      for (let i = 0; i < 4; i++) r.add(G.sphere(10, 8), pinkD, [1.02 * sd + (i - 1.5) * 0.09, 0.78, 0.84], null, [0.055, 0.05, 0.07]);
+      r.fx(0, 0);
+      r.on(sd > 0 ? 'footL' : 'footR').fx(0, 0.2).add(G.sphere(20, 12), pink, [0.4 * sd, 0.09, 0.42], null, [0.22, 0.1, 0.28]);
+      for (let i = 0; i < 3; i++) r.add(G.sphere(8, 6), pinkD, [0.4 * sd + (i - 1) * 0.085, 0.07, 0.66], null, 0.05);
+      r.fx(0, 0);
+    }
+    const mcol = (() => { const out = new THREE.Color(), a = col(dirtD), b = col(dirt), c = col(dirtL); return (x, y, z) => {
+      const n = fbm3(x * 3.5, y * 3.5, z * 3.5);
+      return out.copy(a).lerp(b, clamp(smooth01((y + 0.2) / 0.5) * 0.8 + 0.4 * n - 0.1, 0, 1)).lerp(c, smooth01((y - 0.2) / 0.3) * n * 0.8);
+    }; })();
+    r.on('clod').fx(0, 0.1).add(rockGeo(31), mcol, [-1.05, 0.86, 0.88], [0.4, 0.2, 0.1], [0.2, 0.17, 0.19]);
+    r.add(G.sphere(8, 6), dirtL, [-0.98, 0.98, 0.92], null, 0.065);
+    face(r, HC, 0.63, {
+      bone: 'head', tilt: 0.46, ex: 0.23, ey: 0.16, er: 0.155, iris: '#3a2210', skin: mixc(fur, furL, 0.4), browCol: '#3a2212', browY: 1.4, browT: 0.42,
+      mc: [0, 1.45, 0.64], mR: 0.28, mTilt: 0.12, mouthY: -0.1, mouthW: 0.2, buck: true, buckW: 0.22, buckH: 0.3, noTongue: true,
+      blushX: 0.75, blushY: 1.05, heartY: 0.95, heartX: 1.05,
+    });
+    // big dirt mound (only while burrowing)
+    r.on('mound').fx(0, 0).add(moundGeo(), mcol, [0, -0.2, 0], null, [1.45, 0.8, 1.45]);
+    for (let i = 0; i < 11; i++) {
+      const a = i / 11 * TAU + (i % 3) * 0.3, rr = 1.3 + (i % 2) * 0.25, sz = 0.12 + (i % 3) * 0.045;
+      r.add(G.sphere(10, 8), i % 4 === 0 ? dirtL : dirt, [Math.sin(a) * rr, sz * 0.4, Math.cos(a) * rr], null, [sz, sz * 0.75, sz]);
+    }
+    for (const c of [[0.2, 0.5, 0.12, 0.12], [-0.25, 0.45, -0.15, 0.11], [0.05, 0.56, -0.25, 0.1]]) r.add(G.sphere(10, 8), dirtL, [c[0], c[1], c[2]], null, c[3]);
+    r.fx(0, 0.4).add(G.dodeca(), '#9ea6b2', [0.75, 0.25, 0.55], [0.3, 0.5, 0], 0.09).add(G.dodeca(), '#b3aa9c', [-0.7, 0.3, -0.5], [0.8, 0.1, 0.4], 0.08).fx(0, 0);
+    r.on('clod').mark('muzzle', [-1.05, 0.9, 0.92]);
+    return { height: 2.6, glowC: col('#ffb04a'), tex: texOf('fabric'), dieHop: 0.12, portrait: { cx: 0, cy: 2.1, cz: 0.3, rad: 1.22, dy: 0.6 }, mat: { rough: 0.7, ns: 0.8, sss: col('#e8c0a0').multiplyScalar(0.03), rimK: 0.26, rimP: 2.4 } };
+  }
+  function animKostebekusta(m, dt, st, s) {
+    const B = m.B, ph = bph(st), t = bpt(st);
+    s.bd = st.dying >= 0 ? damp(s.bd ?? 0, 0, 10, dt) : clamp(st.burrow || 0, 0, 1);
+    const bur = s.bd, up = 1 - bur;
+    if (s.mv > 0.03) s.walk += dt * (4.5 + 3.5 * s.mv);
+    const wk = s.walk, k = Math.min(1, s.mv * 1.4) * up, br = Math.sin(s.t * 2.1 + s.ph);
+    // waddle + breathing + now and then a happy sniff
+    B.body.position.y += Math.abs(Math.sin(wk)) * 0.08 * k + br * 0.012;
+    B.body.rotation.z = Math.sin(wk) * 0.08 * k;
+    B.body.scale.set(1 + 0.015 * br, 1 - 0.01 * br, 1 + 0.015 * br);
+    B.footL.position.y += Math.max(0, Math.sin(wk)) * 0.12 * k; B.footL.position.z += Math.cos(wk) * 0.12 * k;
+    B.footR.position.y += Math.max(0, -Math.sin(wk)) * 0.12 * k; B.footR.position.z -= Math.cos(wk) * 0.12 * k;
+    let aLx = -Math.sin(wk) * 0.4 * k + Math.sin(s.t * 1.7) * 0.04, aRx = Math.sin(wk) * 0.4 * k - Math.sin(s.t * 1.7 + 1) * 0.04, aLz = 0, aRz = 0;
+    B.head.rotation.z = Math.sin(s.t * 1.2 + s.ph) * 0.05;
+    const sniff = Math.max(0, Math.sin(s.t * 0.7 + s.ph * 2) - 0.86) * 7;
+    B.head.rotation.x = Math.sin(s.t * 20) * 0.025 * sniff - 0.04 * sniff;
+    let spin = 2.5, clod = 0;
+    switch (ph) {
+      case 'burrow': {   // dives in nose first, paws paddling, drill whirring (the sinking itself follows st.burrow)
+        spin = 30; aLx = -1.3 + Math.sin(s.t * 18) * 0.5; aRx = -1.3 - Math.sin(s.t * 18) * 0.5;
+        B.body.rotation.x += 0.35 * smooth01(t * 2);
+        break;
+      }
+      case 'emerge': {   // pops out like a jack-in-the-box (springy stretch, paws up), then sits a bit dizzy (GAME: whack it!)
+        const j = bump(t, 0.42), dz = smooth01((t - 0.3) / 0.15);
+        spin = 20 * (1 - dz) + 4;
+        B.body.position.y += 0.45 * j * up; B.body.scale.y *= 1 + 0.12 * j; B.body.scale.x *= 1 - 0.05 * j; B.body.scale.z *= 1 - 0.05 * j;
+        aLx = -2.3 * j - 0.3 * dz; aRx = -2.3 * j - 0.3 * dz; aLz = 0.5 * j + 0.25 * dz; aRz = -0.5 * j - 0.25 * dz;
+        B.head.rotation.z += Math.sin(s.t * 5.5) * 0.16 * dz; B.head.rotation.x += Math.cos(s.t * 5.5) * 0.08 * dz;
+        B.body.rotation.z += Math.sin(s.t * 5.5 + 1) * 0.06 * dz;
+        break;
+      }
+      case 'throw': {   // winds the right paw back over the head (clod in it), throws at 0.5, follows through
+        const w = smooth01(t / 0.45), rel = smooth01((t - 0.48) / 0.12), back = smooth01((t - 0.7) / 0.3);
+        aRx = lerp(-2.7 * w, 0.5, rel) * (1 - back); aRz = -0.25 * w * (1 - rel);
+        aLx = -0.9 * w * (1 - back) + 0.3 * rel * (1 - back);
+        B.body.rotation.y = (0.3 * w - 0.55 * rel) * (1 - back); B.body.rotation.x = (-0.12 * w + 0.22 * rel) * (1 - back);
+        B.head.rotation.x -= 0.1 * w * (1 - rel);
+        clod = t < 0.52 ? 1 : 0;
+        break;
+      }
+      case 'drill': {   // head down, the hat drill spins super fast, the whole mole buzzes
+        const kk = smooth01(t / 0.2) * (1 - smooth01((t - 0.85) / 0.15));
+        spin = 8 + 34 * kk; B.body.rotation.x += 0.26 * kk; B.head.rotation.x += 0.08 * kk;
+        B.body.position.x += Math.sin(s.t * 70) * 0.025 * kk; B.body.position.z += Math.cos(s.t * 63) * 0.02 * kk;
+        aLx = 0.5 * kk; aRx = 0.5 * kk; aLz = 0.6 * kk; aRz = -0.6 * kk;
+        break;
+      }
+      case 'summon': {   // drums the ground with both paws three times, then paws up ("friends, come out!")
+        const kk = 1 - smooth01((t - 0.86) / 0.14);
+        let pound = 0;
+        for (const c of [0.1, 0.34, 0.58]) { const u = (t - c) / 0.22; if (u > 0 && u < 1) pound = u < 0.6 ? -2.2 * smooth01(u / 0.6) : lerp(-2.2, 0.3, smooth01((u - 0.6) / 0.25)); }
+        const fin = smooth01((t - 0.8) / 0.1);
+        aLx = lerp(pound, -2.4, fin) * kk; aRx = aLx; aLz = 0.3 * fin * kk; aRz = -0.3 * fin * kk;
+        B.body.rotation.x += (pound < -1 ? -0.1 : 0.12) * kk * (1 - fin); spin = 12;
+        break;
+      }
+      case 'roar': {   // happy shout: paws up, head back, drill spinning, a little jump
+        const kk = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
+        aLx = -2.3 * kk; aRx = -2.3 * kk; aLz = 0.45 * kk + Math.sin(s.t * 14) * 0.15 * kk; aRz = -0.45 * kk - Math.sin(s.t * 14) * 0.15 * kk;
+        B.head.rotation.x -= 0.25 * kk; B.head.rotation.z += Math.sin(s.t * 9) * 0.1 * kk; B.body.position.y += Math.abs(Math.sin(t * PI * 2)) * 0.15 * kk;
+        spin = 14;
+        break;
+      }
+      case 'dying': {   // overjoyed: both paws up, the left one waving goodbye
+        aLx = -2.4; aLz = 0.5 + Math.sin(s.t * 11) * 0.35; aRx = -1.6; aRz = -0.4; spin = 10;
+        break;
+      }
+    }
+    B.armL.rotation.x = aLx; B.armR.rotation.x = aRx; B.armL.rotation.z = aLz; B.armR.rotation.z = aRz;
+    s.drill = (s.drill || 0) + dt * spin;
+    B.drill.quaternion.setFromAxisAngle(DRILL_AX, s.drill);
+    B.clod.scale.setScalar(clod ? 1 : 0.0001);
+    // burrowing: sinks with a wiggle; the big dirt mound grows, then bumps along while travelling
+    if (bur > 0.001) {
+      const sink = smooth01(bur);
+      B.body.position.y -= sink * 3.0;
+      B.body.rotation.x += 0.3 * sink;
+      B.body.rotation.z += Math.sin(s.t * 30) * 0.08 * Math.sin(PI * bur);
+      if (bur > 0.97) B.body.scale.setScalar(0.0001);
+      const ms = smooth01(bur / 0.35), mv = Math.max(s.mv, ph === 'burrow' && bur > 0.97 ? 0.6 : 0);
+      B.mound.scale.set(ms * (1 + 0.05 * Math.sin(s.t * 9) * mv), ms * (1 + 0.12 * Math.sin(s.t * 13) * mv), ms * (1 + 0.05 * Math.cos(s.t * 9) * mv));
+      B.mound.position.y += Math.abs(Math.sin(s.t * 11)) * 0.06 * mv * ms;
+      B.mound.rotation.y = Math.sin(s.t * 4 + s.ph) * 0.2;
+      if (ph === 'emerge' || st.windup >= 0) {   // about to pop up: the mound trembles and swells
+        const w = ph === 'emerge' ? 1 - t : st.windup;
+        B.mound.position.x += Math.sin(s.t * 57) * 0.06 * w; B.mound.position.z += Math.cos(s.t * 49) * 0.05 * w;
+        B.mound.scale.multiplyScalar(1 + 0.12 * w);
+      }
+    } else B.mound.scale.setScalar(0.0001);
+  }
+
+  // ── Koca Lav Kaplumbağası: big mint turtle (~2.8 m) whose shell is a little volcano (glowing crater, lava drips, steam
+  // puffs, fire flowers between the plates). Erupts lava balls, hides and rolls (spins like a top), stomps. ──
+  function buildLavkaplumbaga(r, o) {
+    const skin = '#56cc9c', skinL = '#b4f2d4', skinD = '#2a8e6c';
+    const C = [0, 0.98, -0.05], A = [1.5, 1.0, 1.66];
+    r.bone('body', 'root', [0, 1.0, 0]);
+    r.bone('head', 'body', [0, 0.95, 1.3]);
+    const LEG = [['legFL', 1, 1], ['legFR', -1, 1], ['legBL', 1, -1], ['legBR', -1, -1]];
+    for (const [n, sx, sz] of LEG) r.bone(n, 'body', [0.98 * sx, 0.72, 0.95 * sz]);
+    r.bone('tail', 'body', [0, 0.7, -1.55]);
+    const sk = vgrad(0.05, 1.8, [[0, skinD], [0.4, skin], [1, mixc(skin, skinL, 0.35)]]);
+    for (const [n, sx, sz] of LEG) {
+      r.on(n).fx(0, 0.3).seg([0.98 * sx, 0.74, 0.95 * sz], [1.2 * sx, 0.24, 1.06 * sz], 0.31, sk, 0.27, 16);
+      r.add(G.sphere(24, 16), sk, [1.22 * sx, 0.2, 1.08 * sz + 0.06], null, [0.33, 0.2, 0.38]);
+      r.fx(0, 0.5);
+      for (let k = -1; k <= 1; k++) r.add(G.sphere(10, 8), TURTLE.nail, [1.22 * sx + k * 0.13, 0.12, 1.08 * sz + (sz > 0 ? 0.4 : 0.2)], null, [0.075, 0.06, 0.075]);
+      r.fx(0, 0);
+    }
+    r.on('tail'); cone(r, [0, 0.7, -1.55], [0, -0.3, -1], 0.45, 0.2, skin, 14);
+    r.on('body');
+    turtleShell(r, C, A, [0.66, 0.9, 1.13, 1.35, 1.56], [7, 10, 12, 14, 17], { scute: '#6a5850', scuteD: '#35292a', seam: '#ff6a18', rim: '#3a2e2a', plastron: TURTLE.plastron });
+    const top = volcano(r, [0, 1.5, -0.05], 1.0, 1.25, { key: 'B', rock: '#72605a', rockD: '#3e302c', ash: '#c2b4aa', drips: 5 });
+    // fire flowers growing between the plates (cheerful, glowing a little)
+    for (const f of [[1.05, 0.4], [1.12, 2.5], [1.34, -1.2], [1.0, -2.6]]) {
+      const [p, n] = onEll(C, [A[0] * 1.07, A[1] * 1.07, A[2] * 1.07], f[0], f[1]), q = qy(...n);
+      r.push(p, q);
+      r.fx(0.5, 0.3);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; r.add(G.sphere(10, 6), hdr(i & 1 ? '#ff8a2a' : '#ffa23a', 1.25), [Math.sin(a) * 0.07, 0.02, Math.cos(a) * 0.07], [0, a, 0], [0.05, 0.02, 0.085]); }
+      r.fx(1, 0).add(G.sphere(10, 8), hdr('#ffe27a', 1.8), [0, 0.035, 0], null, [0.04, 0.03, 0.04]);
+      r.pop();
+    }
+    r.fx(0, 0);
+    r.bone('lava', 'body', [0, top[1] - 0.14, top[2]]);
+    r.fx(1, 0).add(G.sphere(20, 14), hdr('#ffe07a', 2.3), [0, top[1] - 0.14, top[2]], null, 0.2);
+    r.fx(0, 0);
+    puffs(r, 'body', [top[0], top[1] + 0.08, top[2]], 0.22);
+    // head on a chunky neck, spots, cute snout
+    const HC = [0, 1.32, 1.85], HR = 0.56;
+    r.on('head').fx(0, 0.3).seg([0, 0.95, 1.3], [0, 1.22, 1.72], 0.3, sk, 0.3, 16);
+    r.add(G.sphere(40, 30), vgrad(0.85, 1.9, [[0, skin], [1, mixc(skin, skinL, 0.45)]]), HC, null, [HR * 1.04, HR * 0.97, HR]);
+    r.add(G.sphere(28, 20), mixc(skin, skinL, 0.5), [0, 1.16, 2.2], null, [0.34, 0.24, 0.26]);
+    r.fx(0, 0.2);
+    for (const sp of [[0.2, 0.44, 0.06], [-0.16, 0.48, 0.05], [0.4, 0.2, 0.045], [-0.38, 0.26, 0.05], [0.04, 0.52, 0.035]]) {
+      const [p, q] = onSphere(sp[0], sp[1], HR, -0.004); r.push(HC).add(G.sphere(10, 6), TURTLE.spot, p, q, [sp[2], sp[2], sp[2] * 0.3]).pop();
+    }
+    r.fx(0, 0);
+    face(r, HC, HR, {
+      bone: 'head', tilt: 0.34, ex: 0.225, ey: 0.13, er: 0.18, iris: '#2e1a0c', skin: mixc(skin, skinL, 0.3), browCol: '#1f5a44', browY: 1.38,
+      mc: [0, 1.16, 2.2], mR: 0.25, mTilt: 0.1, mouthY: -0.05, mouthW: 0.2, heartY: 0.8, heartX: 1.15, blushX: 0.4, blushY: 1.0,
+    });
+    r.on('body').mark('muzzle', [top[0], top[1] + 0.1, top[2]]);
+    return { height: 2.8, glowC: col('#ffb03a'), dieHop: 0.08, mat: { rough: 0.8, sss: col('#c8ffe0').multiplyScalar(0.03), rim: '#fff0d0', rimK: 0.22 } };
+  }
+  function animLavkaplumbaga(m, dt, st, s) {
+    const B = m.B, ph = bph(st), t = bpt(st);
+    if (s.mv > 0.03) s.walk += dt * (3.2 + 2.5 * s.mv);
+    const wk = s.walk, k = Math.min(1, s.mv * 1.4), br = Math.sin(s.t * 1.7 + s.ph);
+    // hidden in the shell: 'hide' tucks in over the phase, 'roll' stays tucked
+    if (ph === 'hide') s.tk = Math.max(s.tk || 0, smooth01(t * 1.25));
+    else s.tk = damp(s.tk || 0, ph === 'roll' ? 1 : 0, ph === 'roll' ? 14 : 6, dt);
+    const T = s.tk, out = 1 - T;
+    let lava = 0, puffR = 0.45, flLx = 0, flRx = 0, lift = 0;
+    B.body.position.y += Math.abs(Math.sin(wk)) * 0.05 * k * out + br * 0.012 - 0.42 * T;
+    B.body.rotation.z = Math.sin(wk) * 0.04 * k * out;
+    B.body.scale.set(1 + 0.012 * br, 1 + 0.015 * br, 1 + 0.012 * br);
+    const lg = Math.sin(wk) * 0.45 * k;
+    B.head.rotation.x = Math.sin(wk * 2) * 0.04 * k + Math.sin(s.t * 1.1 + s.ph) * 0.04;
+    B.head.rotation.y = Math.sin(s.t * 0.5 + s.ph) * 0.22 * (1 - k) * out;
+    B.tail.rotation.y = Math.sin(s.t * 2.4 + s.ph) * 0.3;
+    switch (ph) {
+      case 'erupt': {   // crouches and trembles (0–0.3), then the volcano puffs out lava balls (pulses 0.36 … 0.78)
+        const c0 = smooth01(t / 0.3) * (1 - smooth01((t - 0.88) / 0.12));
+        B.body.position.y -= 0.12 * c0; B.body.rotation.z += Math.sin(s.t * 48) * 0.02 * c0 * (t < 0.34 ? 1 : 0.3);
+        B.head.rotation.x -= 0.25 * c0; lava = 0.4 * c0; puffR = 1.6;
+        // GAME lobs 3–5 balls evenly over 0.36 … 0.78: five soft puffs cover every count
+        for (const c of [0.36, 0.465, 0.57, 0.675, 0.78]) { const p = bump(t - c + 0.02, 0.09); B.body.position.y += 0.1 * p; B.body.scale.y *= 1 + 0.06 * p; lava += 0.7 * p; B.head.rotation.x -= 0.1 * p; }
+        break;
+      }
+      case 'roll': {   // spins like a top along its lane, wobbling and bouncing
+        s.spinV = damp(s.spinV || 0, 15, 4, dt);
+        B.body.position.y += Math.abs(Math.sin(s.t * 9)) * 0.08;
+        B.body.rotation.x = Math.sin(s.t * 5) * 0.07; B.body.rotation.z = Math.cos(s.t * 5) * 0.07;
+        puffR = 1.2;
+        break;
+      }
+      case 'stomp': {   // rears up on its back legs (0–0.55) and slams down (0.62) → ring
+        const up = smooth01(t / 0.5), hit = smooth01((t - 0.55) / 0.07), rec = smooth01((t - 0.7) / 0.3);
+        lift = up * (1 - hit);
+        B.body.rotation.x = -0.32 * lift; B.body.position.y += 0.35 * lift; flLx = flRx = -0.9 * lift;
+        const sq = hit * (1 - rec);
+        B.body.scale.set(1 + 0.06 * sq, 1 - 0.08 * sq, 1 + 0.06 * sq); B.head.rotation.x += 0.15 * sq - 0.2 * lift; lava = 0.5 * sq;
+        break;
+      }
+      case 'summon': {   // happy call: head up, front feet stamping in turn, the volcano puffs quickly
+        const kk = smooth01(t / 0.15) * (1 - smooth01((t - 0.85) / 0.15));
+        flLx = -0.7 * Math.max(0, Math.sin(t * PI * 6)) * kk; flRx = -0.7 * Math.max(0, -Math.sin(t * PI * 6)) * kk;
+        B.head.rotation.x -= 0.3 * kk; B.head.rotation.z += Math.sin(s.t * 8) * 0.12 * kk; puffR = 2; lava = 0.3 * kk;
+        break;
+      }
+      case 'roar': {   // "rawr!": neck stretched up, head wiggle, the crater flares
+        const kk = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
+        B.head.rotation.x -= 0.42 * kk; B.head.position.z += 0.15 * kk; B.head.position.y += 0.1 * kk; B.head.rotation.z += Math.sin(s.t * 9) * 0.14 * kk;
+        flLx = flRx = -0.35 * kk; lava = 0.8 * kk; puffR = 2;
+        break;
+      }
+      case 'dying': {   // overjoyed: head up, waves a front foot
+        B.head.rotation.x -= 0.3; flLx = -1.1 + Math.sin(s.t * 10) * 0.35; lava = 0.2;
+        break;
+      }
+    }
+    if (ph !== 'roll') s.spinV = damp(s.spinV || 0, 0, 6, dt);
+    s.spin = (s.spin || 0) + dt * (s.spinV || 0);
+    if (ph !== 'roll' && s.spinV < 1.5) s.spin = dampAngle(s.spin, 0, 5, dt);
+    B.body.rotation.y = s.spin;
+    B.legFL.rotation.x = lg + flLx; B.legBR.rotation.x = lg; B.legFR.rotation.x = -lg + flRx; B.legBL.rotation.x = -lg + 0.3 * lift;
+    B.legBR.rotation.x += 0.3 * lift;
+    if (T > 0.001) {   // head, legs and tail slide into the shell
+      B.head.position.z -= 0.9 * T; B.head.position.y -= 0.1 * T; B.head.scale.setScalar(1 - 0.65 * T);
+      for (const n of ['legFL', 'legFR', 'legBL', 'legBR']) { const b = B[n]; b.scale.setScalar(1 - 0.72 * T); b.position.y += 0.15 * T; b.position.x *= 1 - 0.25 * T; b.position.z *= 1 - 0.2 * T; }
+      B.tail.scale.setScalar(1 - 0.85 * T);
+    }
+    const lp = Math.sin(s.t * 2 + s.ph);
+    B.lava.position.y += -0.06 + 0.03 * lp + 0.28 * lava; B.lava.scale.setScalar(0.6 + 0.08 * lp + 0.7 * lava);
+    puffAnim(m, s, dt, puffR * 0.5, 1.1, ph === 'roll' ? 0.4 : 1);
+  }
+
   // ════════════════ Instances ════════════════
   const TYPES = {
     jole: [buildJole, animJole], mantar: [buildMantar, animMantar], yarasa: [buildYarasa, animYarasa], goblin: [buildGoblin, animGoblin],
     kostebek: [buildKostebek, animKostebek], salyangoz: [buildSalyangoz, animSalyangoz], hayalet: [buildHayalet, animHayalet], golem: [buildGolem, animGolem], asker: [buildAsker, animAsker],
     atescik: [buildAtescik, animAtescik], ejderha: [buildEjderha, animEjderha],
+    kaplumbaga: [buildKaplumbaga, animKaplumbaga], ateskusu: [buildAteskusu, animAteskusu],
+    kraljole: [buildKraljole, animKraljole], kostebekusta: [buildKostebekusta, animKostebekusta], lavkaplumbaga: [buildLavkaplumbaga, animLavkaplumbaga],
   };
+  // Model variants per type (first = default). ZONES[i].variants picks among them (volcano: jole 'lava', golem 'magma').
+  const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple', 'lava'], golem: ['rock', 'magma'] };
+  const isBossType = t => !!(EDEF[t] && EDEF[t].kind === 'boss');
   const DEFS = {};
   function getDef(type, variant, elite) {
-    const T = TYPES[type] || TYPES.jole, v = type === 'jole' ? (JOLE[variant] ? variant : 'green') : '';
-    const key = (TYPES[type] ? type : 'jole') + '|' + v + '|' + (elite ? 1 : 0);
+    if (!TYPES[type]) type = 'jole';
+    const T = TYPES[type], vs = VARIANTS[type], v = vs ? (vs.includes(variant) ? variant : vs[0]) : '';
+    const key = type + '|' + v + '|' + (elite ? 1 : 0);
     let d = DEFS[key];
     if (!d) { d = DEFS[key] = lodBuild(LOD[type] ?? 0.6, r => T[0](r, { variant: v, elite }) || {}); d.key = key; }
     return d;
@@ -1552,18 +2500,22 @@ const EMODEL = (function (G0) {
 
   function build(type, o = {}) {
     if (!TYPES[type]) type = 'jole';
-    const elite = !!o.elite && type !== 'ejderha', def = getDef(type, o.variant, elite), anim = TYPES[type][1];
+    const boss = isBossType(type), elite = !!o.elite && !boss, def = getDef(type, o.variant, elite), anim = TYPES[type][1];
     const mo = def.mat || {};
     const mat = eMat(Object.assign({ tex: def.tex }, mo, elite ? ELITE_RIM : {}, elite ? def.eliteRim : {}));
+    if (def.lava) { const lc = col(def.lava.color); mat.userData.U.uLava.value.set(lc.r, lc.g, lc.b, def.lava.k); }
     const I = skinned(def, mat), sc = elite ? 1.4 : 1;
     I.mesh.scale.setScalar(sc);
     if (I.B.mound) I.B.mound.scale.setScalar(0.0001);   // the mole's dirt mound only shows while it burrows
+    if (I.B.clod) I.B.clod.scale.setScalar(0.0001);     // the master mole's dirt clod only shows while throwing
+    for (let i = 0; i < 3; i++) if (I.B['puff' + i]) I.B['puff' + i].scale.setScalar(0.0001);
     const root = new THREE.Group(); root.name = 'enemy_' + type; root.add(I.mesh);
     const base = EDEF[type] || {};
     const s = { t: frand(0, 10), ph: frand(0, TAU), mv: 0, walk: frand(0, TAU), hop: 0, flap: frand(0, 10), key: 0, bt: frand(0.5, 3), gg: frand(1, 6),
       mood: 'grumpy', fa: 0, fc: new THREE.Color(1, 1, 1), tint: null, glow: 0, wobA: mo.wob || 0, mz: new THREE.Vector3() };
     const m = {
-      type, root, def, mat, U: mat.userData.U, B: I.B, bones: I.bones, mesh: I.mesh, s,
+      type, variant: def.key.split('|')[1] || undefined, boss, root, def, mat, U: mat.userData.U, B: I.B, bones: I.bones, mesh: I.mesh, s,
+      portrait: def.portrait || undefined,   // UI boss badge framing hint {cx, cy, cz, rad} (model metres), where the default misses
       height: (def.height || base.height || 1) * sc, radius: (base.r || 0.5) * sc,
       anim(dt, st) {
         st = st || ST0;
@@ -1575,10 +2527,11 @@ const EMODEL = (function (G0) {
         resetPose(I.bones);
         anim(m, dt, st, s);
         const R = I.B.root;
-        if (st.hurt > 0 && !dying) {
-          const h = st.hurt * st.hurt;
+        if (st.hurt > 0 && !dying) {   // (bosses: a smaller squash — they are big and get hit a lot)
+          const h = st.hurt * st.hurt * (boss ? 0.45 : 1);
           R.scale.set(1 + 0.2 * h, 1 - 0.2 * h, 1 + 0.2 * h); R.rotation.x -= 0.22 * h; R.position.z -= 0.08 * h;
         }
+        if (def.lava) m.U.uLava.value.w = def.lava.k * (0.82 + 0.18 * Math.sin(s.t * 2.1 + s.ph));   // molten cracks breathe
         if (I.B.eyes && s.mood !== 'happy') {   // blink, playful giggles, squint-giggle wind-up
           s.bt -= dt; let bl = 1;
           if (s.bt < 0) { const u = -s.bt / 0.14; if (u >= 1) s.bt = frand(1.6, 4.5); else bl = 1 - Math.sin(u * PI) * 0.9; }
@@ -1600,7 +2553,15 @@ const EMODEL = (function (G0) {
           I.B.joy.scale.setScalar(1 + 0.18 * p);
           I.B.joy.position.y += (0.03 + 0.03 * Math.sin(s.t * 5)) * (m.height / sc);
         }
-        if (dying) {
+        if (dying && boss && type !== 'ejderha') {
+          // zone bosses: overjoyed happy hops while waving goodbye (their own anim waves), then a twirl into sparkles
+          const d = st.dying, H = m.height / sc, landed = 1 - smooth01((s.airY || 0) / 0.4);   // (cheered up mid-hop: land first)
+          R.position.y += Math.abs(Math.sin(d * PI * 4.5)) * H * (def.dieHop ?? 0.12) * (1 - smooth01((d - 0.5) / 0.25)) * landed;
+          R.rotation.y += smooth01((d - 0.62) / 0.38) * TAU;
+          R.rotation.z += Math.sin(d * 30) * 0.05 * (1 - d);
+          const k = d < 0.7 ? 1 + 0.05 * Math.sin(d * PI * 9) : Math.max(0.0001, 1 - smooth01((d - 0.7) / 0.3));
+          R.scale.multiplyScalar(k);
+        } else if (dying) {
           const d = st.dying, H = m.height / sc;
           const hop = Math.abs(Math.sin(d * PI * 2.2)) * H * 0.32 * (1 - smooth01(d)) * (type === 'ejderha' ? 0.35 : 1);
           R.position.y += hop;
@@ -1863,14 +2824,17 @@ const EMODEL = (function (G0) {
 
   // Build geometry caches (and optionally compile the shader programs against the live scene's lights) ahead of time,
   // e.g. right after a zone loads, so the first spawn of a type never hitches. Warm instances stay alive (programs persist).
+  // types: ['jole', 'golem:magma', …] ('type:variant' builds just that variant); variants: optional {type: [ids]} (the shape
+  // of ZONES[i].variants). Without either, jole builds its four forest colours and every other type its default look.
   const WARM = {};
-  function warm(types, compile = true) {
+  function warm(types, compile = true, variants) {
     const fresh = [];
-    for (const t of types || Object.keys(TYPES)) {
+    for (const tv of types || Object.keys(TYPES)) {
+      const [t, v1] = String(tv).split(':');
       if (!TYPES[t]) continue;
-      if (t === 'jole') for (const v of Object.keys(JOLE)) getDef('jole', v, false);
-      else getDef(t, undefined, false);
-      if (compile && !WARM[t]) fresh.push(WARM[t] = build(t, { variant: 'green' }));
+      const vs = v1 ? [v1] : (variants && variants[t] && variants[t].length) ? variants[t] : t === 'jole' ? ['green', 'pink', 'blue', 'purple'] : [undefined];
+      for (const v of vs) getDef(t, v, false);
+      if (compile && !WARM[t]) fresh.push(WARM[t] = build(t, { variant: vs[0] }));
     }
     if (fresh.length && typeof renderer !== 'undefined' && renderer.compile) {
       const tmp = new THREE.Scene();
@@ -1881,5 +2845,5 @@ const EMODEL = (function (G0) {
   }
   function stats() { const out = {}; for (const k in DEFS) out[k] = DEFS[k].verts; return out; }
 
-  return { build, owl, babyDragon, crystal, warm, stats, TYPES: Object.keys(TYPES) };
+  return { build, owl, babyDragon, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS };
 })(G);

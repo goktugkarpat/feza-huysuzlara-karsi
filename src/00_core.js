@@ -165,28 +165,41 @@ function setLighting(o) {
 // A soft gradient sky + two bright "softbox" panels, pre-filtered with PMREM: gives metals, jelly and eyes real highlights.
 const pmrem = ENV_OK ? new THREE.PMREMGenerator(renderer) : null;
 let envRT = null, envArgs = null;
-function setEnvironment(sky, horizon, ground, intensity = 1) {
-  envArgs = [sky, horizon, ground, intensity];   // re-rendered after a WebGL context loss
-  if (!pmrem) { scene.environment = null; return; }
+// The little env scene is built once and kept. (It used to be rebuilt and disposed on every call, so each zone load
+// re-linked its shader programs: ~30–100 ms more black screen per portal on an iPad.) A call now only changes 3 colours.
+const ENV_SCENE = pmrem && (() => {
   const s = new THREE.Scene();
-  const geo = new THREE.SphereGeometry(50, 32, 16);
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false,
-    uniforms: { a: { value: new THREE.Color(sky) }, b: { value: new THREE.Color(horizon) }, c: { value: new THREE.Color(ground) } },
+    uniforms: { a: { value: new THREE.Color() }, b: { value: new THREE.Color() }, c: { value: new THREE.Color() } },
     vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform vec3 a, b, c; varying vec3 vP; void main(){ float y = vP.y; vec3 col = y > 0.0 ? mix(b, a, pow(y, 0.6)) : mix(b, c, pow(-y, 0.5)); gl_FragColor = vec4(col, 1.0); }',
   });
-  s.add(new THREE.Mesh(geo, mat));
+  s.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), mat));
+  // Panels: BackSide and turned away from the centre, so the centre still sees them. That makes their shader the same as
+  // the MeshBasicMaterial box PMREMGenerator makes (and disposes) inside every fromScene, which then reuses this kept
+  // program instead of linking its own again. (If a three.js update breaks the match, it only costs that one link.)
   const pg = new THREE.PlaneGeometry(1, 1);
-  const key = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.7, 4.2), side: THREE.DoubleSide }));
-  key.scale.set(26, 18, 1); key.position.set(-22, 32, 18); key.lookAt(0, 0, 0); s.add(key);
-  const back = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.8, 2.4), side: THREE.DoubleSide }));
-  back.scale.set(30, 10, 1); back.position.set(18, 14, -30); back.lookAt(0, 0, 0); s.add(back);
-  if (envRT) envRT.dispose();
-  envRT = pmrem.fromScene(s, 0.02);
+  const panel = (color, sx, sy, x, y, z) => {
+    const m = new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color, side: THREE.BackSide }));
+    m.scale.set(sx, sy, 1); m.position.set(x, y, z); m.lookAt(x * 2, y * 2, z * 2); s.add(m);
+  };
+  panel(new THREE.Color(5, 4.7, 4.2), 26, 18, -22, 32, 18);    // key softbox
+  panel(new THREE.Color(1.6, 1.8, 2.4), 30, 10, 18, 14, -30);  // cool back light
+  return { s, u: mat.uniforms };
+})();
+function setEnvironment(sky, horizon, ground, intensity = 1) {
+  const same = envRT && envArgs && envArgs[0] === sky && envArgs[1] === horizon && envArgs[2] === ground;
+  envArgs = [sky, horizon, ground, intensity];   // re-rendered after a WebGL context loss
+  if (!pmrem) { scene.environment = null; return; }
+  if (!same) {   // same colours as the current map (e.g. the zone is loaded again): keep it, no GPU work
+    const u = ENV_SCENE.u;
+    u.a.value.set(sky); u.b.value.set(horizon); u.c.value.set(ground);
+    if (envRT) envRT.dispose();
+    envRT = pmrem.fromScene(ENV_SCENE.s, 0.02);
+  }
   scene.environment = envRT.texture;
   scene.environmentIntensity = intensity;
-  geo.dispose(); pg.dispose(); mat.dispose(); key.material.dispose(); back.material.dispose();
 }
 setEnvironment(0x8fc4ff, 0xf3e6d0, 0x5a4a3a, 1);
 

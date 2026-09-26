@@ -1,6 +1,6 @@
 // İnternetsiz çalışma: ilk açılıştan sonra oyun (kod, 3D kütüphanesi, gömülü sesler) cihazda saklanır.
 // Dosya eklenirse CORE listesine ekle; önemli değişiklikte CACHE sürümünü artır.
-const CACHE = 'feza-kotulere-karsi-v4';
+const CACHE = 'feza-kotulere-karsi-v5';
 const SRC = ['00_core', '01_textures', '02_audio', '03_fx', '04_feza', '05_enemies', '06_level', '07_game', '08_skills', '09_ui'];
 const CORE = ['./', './index.html', './vendor/three.js', './sesler.js', './manifest.webmanifest', './src/ui.css',
   ...SRC.map(n => './src/' + n + '.js')];

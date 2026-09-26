@@ -392,6 +392,76 @@ const AUD = (() => {
       N(m, o, t, 0.03, 0.08, { type: 'highpass', f: 3000, a: 0.001 });
       B(m, o, t + 0.02, 2637 * p, 0.3, 0.04, 3.5, 0.7); B(m, o, t + 0.07, 3136 * p, 0.3, 0.03, 3.5, 0.7); return 0.35;
     },
+    // ── Round 3: the volcano and the zone bosses. Warm, round and bubbly; nothing hissy or scary.
+    lava(m, o, t, p) {   // lava pool bubbling: two or three thick, soft "blup"s rising from below, a tiny crust plop after each
+      const n = Math.random() < 0.5 ? 3 : 2;
+      for (let i = 0; i < n; i++) {
+        const tt = t + i * rnd(0.1, 0.15), f = rnd(165, 215) * p * (1 + i * 0.1);
+        T(m, o, tt, f, 0.14, 0.3 - i * 0.06, { f1: f * 2.3, glide: 0.1, a: 0.01 });
+        T(m, o, tt, f * 2, 0.08, 0.05, { f1: f * 4.2, glide: 0.07, type: 'triangle', a: 0.008 });
+        N(m, o, tt + 0.09, 0.045, 0.06, { type: 'lowpass', f: 750, a: 0.003 });
+      }
+      return 0.5;
+    },
+    erupt(m, o, t, p) {   // volcano puff: a round soft "whoomp", warm air rushing up, then a gentle fizzy sizzle with little pops
+      T(m, o, t, 210 * p, 0.45, 0.5, { f1: 62 * p, a: 0.012 });
+      T(m, o, t, 330 * p, 0.25, 0.12, { f1: 125 * p, type: 'triangle', a: 0.008 });
+      N(m, o, t, 0.55, 0.3, { type: 'lowpass', fs: [[0, 280 * p], [0.12, 1500 * p], [0.55, 330 * p]], q: 0.7, a: 0.02 });
+      N(m, o, t + 0.12, 0.85, 0.04, { f: 4600, q: 0.9, a: 0.15, am: [21, 0.7] });   // soft fizz, bandpassed well below "hiss"
+      crackle(m, o, t + 0.16, 9, 0.65, 0.07, p * 0.8);
+      for (let i = 0; i < 4; i++) { const f = rnd(650, 1150) * p; T(m, o, t + 0.22 + rnd(0, 0.55), f, 0.045, 0.06, { f1: f * 1.6, a: 0.002 }); }
+      return 1.05;
+    },
+    drill(m, o, t, p) {   // Usta Köstebek's hard-hat drill: a friendly toy "brrrrrr" that revs up, dirt and pebbles spraying
+      const c = m.c, os = c.createOscillator(), g = gainNode(c, 0), lp = c.createBiquadFilter(), d = 0.72, end = t + d + 0.03;
+      const am = gainNode(c, 0.55), l = c.createOscillator(), lg = gainNode(c, 0.45);
+      os.setPeriodicWave(m.waves.sq);
+      curve(os.frequency, t, [[0, 118 * p], [0.16, 188 * p], [0.56, 206 * p], [0.72, 150 * p]]);
+      curve(l.frequency, t, [[0, 16], [0.2, 32], [0.72, 24]]);   // the rate of the "rrr"
+      l.connect(lg); lg.connect(am.gain);
+      lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 1.4;
+      os.connect(lp); lp.connect(am); am.connect(g);
+      env(g.gain, t, 0.05, 0.3, d, 1, 0.16); g.connect(o);
+      os.start(t); os.stop(end); l.start(t); l.stop(end);
+      N(m, o, t + 0.05, 0.62, 0.11, { f: 850 * p, q: 1, a: 0.06, hold: 1, rel: 0.2, am: [28, 0.8] });
+      for (let i = 0; i < 6; i++) N(m, o, t + 0.1 + rnd(0, 0.55), 0.015, rnd(0.05, 0.1), { f: rnd(1400, 2600) * p, q: 2.5, a: 0.001 });
+      return 0.78;
+    },
+    roll(m, o, t, p) {   // turtle tucks into its shell ("fwip") and rolls: a bumpy "rrrolll" with soft shell "tok"s
+      T(m, o, t, 300 * p, 0.1, 0.18, { f1: 720 * p, glide: 0.07, a: 0.004 });
+      N(m, o, t + 0.06, 0.95, 0.32, { fs: [[0, 320 * p], [0.35, 720 * p], [0.95, 360 * p]], q: 1.3, a: 0.1, hold: 1, rel: 0.32, am: [12, 0.8] });   // bandpass: no boomy sub-bass
+      T(m, o, t + 0.06, 135 * p, 0.95, 0.1, { type: 'triangle', fs: [[0, 130 * p], [0.35, 205 * p], [0.95, 140 * p]], hold: 1, a: 0.1, rel: 0.3, vib: [12, 45, 0.02] });
+      for (let i = 0; i < 7; i++) { const tt = t + 0.12 + i * 0.12 + rnd(0, 0.02); T(m, o, tt, rnd(400, 540) * p, 0.045, 0.08 * (1 - i * 0.08), { f1: 210 * p, a: 0.001 }); }
+      return 1.05;
+    },
+    bounce(m, o, t, p) {   // big jelly hop: a squishy squeeze, then a springy "boi-oi-oing"
+      N(m, o, t, 0.08, 0.13, { type: 'lowpass', f: 900, a: 0.01 });
+      T(m, o, t + 0.03, 150 * p, 0.5, 0.42, { f1: 430 * p, glide: 0.15, a: 0.006, vib: [13, 60, 0.08] });
+      T(m, o, t + 0.03, 300 * p, 0.34, 0.08, { f1: 860 * p, glide: 0.15, type: 'triangle', a: 0.006, vib: [13, 60, 0.08] });
+      return 0.56;
+    },
+    chirp(m, o, t, p) {   // fire chick "cip-cip!": quick little up-and-down peeps
+      const n = Math.random() < 0.35 ? 3 : 2;
+      for (let i = 0; i < n; i++) {
+        const tt = t + i * 0.1, f = 2000 * p * (i === n - 1 ? 1.1 : 1);
+        T(m, o, tt, f, 0.075, 0.16, { fs: [[0, f * 0.8], [0.028, f * 1.12], [0.075, f * 0.92]], a: 0.004 });
+        T(m, o, tt, f * 2, 0.05, 0.025, { fs: [[0, f * 1.6], [0.028, f * 2.24], [0.05, f * 1.9]], a: 0.004 });
+      }
+      return 0.1 * n + 0.06;
+    },
+    splat(m, o, t, p) {   // jelly blob lands: a wet squishy "splotch" and a wobbly low jiggle
+      N(m, o, t, 0.16, 0.32, { fs: [[0, 1600 * p], [0.16, 380 * p]], q: 1.4, a: 0.002 });
+      T(m, o, t, 260 * p, 0.22, 0.3, { f1: 110 * p, a: 0.002, vib: [18, 55, 0.03] });
+      for (let i = 0; i < 3; i++) { const f = rnd(600, 1100) * p; T(m, o, t + rnd(0.04, 0.2), f, 0.04, 0.07, { f1: f * 1.5, a: 0.002 }); }
+      return 0.32;
+    },
+    rumble(m, o, t, p) {   // gentle ground rumble (a boss about to pop up, the volcano grumbling): soft rolling murmur + pebbles
+      N(m, o, t, 1.3, 0.42, { fs: [[0, 240 * p], [0.5, 460 * p], [1.3, 220 * p]], q: 0.9, a: 0.35, hold: 1, rel: 0.6, am: [7, 0.6] });   // bandpass: soft, not boomy
+      T(m, o, t, 150 * p, 1.3, 0.06, { hold: 1, a: 0.4, rel: 0.6, vib: [5, 30, 0.1] });
+      T(m, o, t, 98 * p, 1.3, 0.05, { type: 'triangle', hold: 1, a: 0.4, rel: 0.6, vib: [6, 30, 0.1] });
+      for (let i = 0; i < 5; i++) N(m, o, t + 0.25 + rnd(0, 0.9), 0.015, rnd(0.03, 0.06), { f: rnd(1300, 2400) * p, q: 2.5, a: 0.001 });
+      return 1.35;
+    },
     // extras
     nope(m, o, t, p) { T(m, o, t, 330 * p, 0.1, 0.14, { type: 'triangle', hold: 1, rel: 0.03 }); T(m, o, t + 0.12, 262 * p, 0.14, 0.14, { type: 'triangle', hold: 1, rel: 0.05 }); return 0.3; },
     open(m, o, t, p) { T(m, o, t, 620 * p, 0.09, 0.13, { f1: 930 * p }); B(m, o, t + 0.05, 1397 * p, 0.3, 0.05, 4, 0.7); return 0.35; },
@@ -407,13 +477,15 @@ const AUD = (() => {
     roar: 0.68, bite: 1.53, spit: 1.95, fireball: 2.39, slam: 0.67, whoosh: 2.05, bat: 5.22, splash: 2.17, cheer: 2.61,
     step: 4.2, nope: 1.13, open: 2.12, close: 1.98, cast: 2.34,
     saberOn: 0.92, saberOff: 0.56, dig: 2.87, emerge: 1.13, bubble: 1.33, bubblePop: 1.83,
+    lava: 0.68, erupt: 0.58, drill: 0.5, roll: 1.43, bounce: 0.61, chirp: 2.14, splat: 0.91, rumble: 1.36,
   };
   // Random pitch spread (semitones, default 0.45), min retrigger gap (s) and "droppable when busy".
   const SVAR = { levelup: 0.05, unlock: 0.05, checkpoint: 0.05, chest: 0.1, dropLegend: 0.05, dropRare: 0.15, portal: 0.1, click: 0.15, coin: 0.05, pop: 0.08,
-    saberOn: 0.1, saberOff: 0.1 };
+    saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3 };
   const SGAP = { step: 0.07, hit: 0.035, hitSoft: 0.035, coin: 0.035, pop: 0.05, swing: 0.06, bat: 0.12, spit: 0.05, drop: 0.05, zap: 0.04, boom: 0.05, heart: 0.05,
-    saberOn: 0.2, saberOff: 0.2, dig: 0.14, emerge: 0.08, bubble: 0.08, bubblePop: 0.04 };
-  const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1 };
+    saberOn: 0.2, saberOff: 0.2, dig: 0.14, emerge: 0.08, bubble: 0.08, bubblePop: 0.04,
+    lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7 };
+  const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1 };
   const STREAK = [0, 2, 4, 7, 9, 12, 14, 16];   // coins picked up / enemies cheered up in a row climb a pentatonic scale
 
   function playRecipe(m, name, o, t) {
@@ -469,6 +541,14 @@ const AUD = (() => {
     brass(m, out, t, f, d, v) { d = Math.max(d, 0.12); T(m, out, t, f, d, v, { wave: 'brass', hold: 1, a: 0.025, rel: 0.09, lp: [[0, f * 1.5], [0.05, f * 5], [0.25, f * 3]], q: 1, vib: [5.5, 9, 0.22] }); },
     chip(m, out, t, f, d, v) { T(m, out, t, f, Math.max(d, 0.08), v, { wave: 'sq', lp: 3500, hold: 1, a: 0.005, rel: 0.04, vib: [6, 8, 0.15] }); },
     pluck(m, out, t, f, d, v) { T(m, out, t, f, cl(d * 2, 0.25, 0.6), v, { wave: 'saw', lp: [[0, f * 8], [0.1, f * 2]], a: 0.002 }); },
+    // steel pan: round sine body (starts a hair sharp), strong octave, a little twelfth and a bright stick "ping" that mellows fast
+    steel(m, out, t, f, d, v) {
+      const dd = cl(d * 2.2, 0.45, 1.0);
+      T(m, out, t, f, dd, v, { fs: [[0, f * 1.012], [0.03, f]], a: 0.003 });
+      T(m, out, t, f * 2, dd * 0.6, v * 0.5, { det: 3, a: 0.002 });
+      T(m, out, t, f * 3, dd * 0.28, v * 0.2, { det: -5, a: 0.001 });
+      T(m, out, t, f * 4.02, 0.06, v * 0.1, { a: 0.001 });
+    },
   };
   const DRUM = {
     kick(m, o, t, v) { T(m, o, t, 150, 0.22, v, { fs: [[0, 150], [0.09, 50]], a: 0.002 }); N(m, o, t, 0.012, v * 0.2, { type: 'lowpass', f: 1800 }); },
@@ -482,6 +562,8 @@ const AUD = (() => {
     crash(m, o, t, v) { N(m, o, t, 1.4, v, { type: 'highpass', f: 5000, q: 0.5, a: 0.005 }); },
     swell(m, o, t, v, d = 1) { N(m, o, t, d, v, { type: 'highpass', f: 4000, q: 0.5, a: d * 0.9, hold: 1, rel: 0.05 }); },
     timp(m, o, t, v, f = 98) { T(m, o, t, f * 1.4, 0.6, v, { f1: f, glide: 0.05, a: 0.003 }); N(m, o, t, 0.1, v * 0.3, { type: 'lowpass', f: 300 }); },
+    conga(m, o, t, v, f = 196) { T(m, o, t, f * 1.35, 0.26, v, { f1: f, glide: 0.03, a: 0.002 }); N(m, o, t, 0.02, v * 0.3, { f: 1800, q: 1.2, a: 0.001 }); },
+    bongo(m, o, t, v, f = 392) { T(m, o, t, f * 1.3, 0.13, v, { f1: f, glide: 0.02, a: 0.001 }); N(m, o, t, 0.012, v * 0.3, { f: 3000, q: 1.5, a: 0.001 }); },
   };
 
   // ───────────────────────── music: themes ─────────────────────────
@@ -522,6 +604,21 @@ const AUD = (() => {
       extra(p, t, bar) {
         if (Math.random() < 0.6) { const tt = t + p.beat * rnd(0, 3.5), f = rnd(1000, 1500); T(p.M, p.out, tt, f, 0.06, 0.018, { f1: f * 2.1 }); T(p.M, p.out, tt + p.beat * 0.75, f, 0.06, 0.007, { f1: f * 2.1 }); }
         if (Math.random() < 0.5) B(p.M, p.out, t + p.beat * pick([0.5, 1.5, 2.5, 3.5]), pick([2349, 2637, 2794, 3136, 3520]), 0.8, 0.012, 3.5, 0.9);
+      },
+    },
+    yanardag: {   // warm, bouncy volcano adventure: calypso steel-pan tune, marimba comping, congas + clave, a lava "blup" now and then
+      bpm: 120, key: 7, scale: MAJ, vol: 0.94, swing: 0.1,
+      prog: form(C(43, 'M'), C(48, 'M'), C(45, 'm7'), C(50, 's4'), C(50, 'D7'), [C(40, 'm'), C(48, 'M'), C(45, 'm7'), C(50, 'D7')]),
+      pad: { vol: 0.018, lo: 60, n: 3, cut: 1500 },
+      bass: { inst: 'pbass', pat: ['r..5r.5.', 'r..5r.3o'], vol: 0.085 },
+      stab: { inst: 'marimba', pos: [2, 5, 6], lo: 64, n: 2, vol: 0.022 },
+      lead: { inst: 'steel', alt: 'marimba', lo: 67, hi: 84, vol: 0.05, cells: 'mid', plan: [1, 1, 2, 1] },
+      kit: { kick: ['x.......x.......', 0.12], conga: ['......x...o.x...', 0.05], bongo: ['..o.......x...o.', 0.035],
+        wood: ['x..x..x...x.x...', 0.02], shaker: ['o.x.o.x.o.x.o.x.', 0.013] }, crash: 0.02,
+      fill(p, t) { for (let i = 8; i < 16; i++) p.drum(i & 1 ? 'bongo' : 'conga', t + i * p.beat / 4, 0.03 + (i - 8) * 0.004); },
+      extra(p, t, bar, ch) {
+        if (Math.random() < 0.35) { const tt = t + p.beat * pick([0.5, 1.5, 2.5, 3.5]), f = rnd(170, 230); T(p.M, p.out, tt, f, 0.12, 0.03, { f1: f * 2.3, glide: 0.08, a: 0.006 }); }
+        if (bar % 4 === 3 && Math.random() < 0.6) voice(ch, 79, 3).forEach((mm, i) => p.note('steel', t + p.beat * (3 + i / 6), mm, 0.2, 0.017));   // pan twinkle
       },
     },
     kale: {   // heroic, bouncy march: brass tune, oom-pah, snare
@@ -762,7 +859,7 @@ const AUD = (() => {
     const g = M.duck.gain, t = ctx.currentTime;
     g.cancelScheduledValues(t); g.setTargetAtTime(on ? DUCK : 1, t, on ? 0.06 : 0.35);
   }
-  function show(it) { if (it.sub) { it.shown = true; sub(it.text); } A.current = it.key; }
+  function show(it) { A.current = it.key; if (it.sub) { it.shown = true; sub(it.text); } }   // current first: onSubtitle may read it
   function startLine(it) {
     vcur = it; clearTimeout(vgap); vgap = null;
     it.end = wallNow() + it.dur;
@@ -940,6 +1037,9 @@ AUD.LINES = /*SESLER*/{
   "magara": "Köstebek ve Salyangoz Mağarası! Burası biraz karanlık ama sen çok cesursun.",
   "ilk_kostebek": "Bak bak! Köstebekler toprağın altından çıkıyor!",
   "ilk_salyangoz": "Salyangozlar baloncuk üflüyor, dikkat et!",
+  "yanardag": "Lav Yanardağı! Lavlar çok sıcak, yoldan ayrılma!",
+  "ilk_kaplumbaga": "Bak bak! Minik lav kaplumbağaları!",
+  "ilk_ateskusu": "Ateş kuşları uçuyor, kıvılcımlara dikkat!",
   "kale": "Ejderhanın Kalesi! Neşe kristali burada bir yerde.",
   "yetenek_yildiz": "Yeni yetenek: Yıldız Atışı! Yıldızlı düğmeye bas, uzaktaki huysuzlara yıldız fırlat!",
   "yetenek_kasirga": "Yeni yetenek: Kasırga! Parlayan yeni düğmeye bas, fırıl fırıl dön!",
@@ -958,13 +1058,19 @@ AUD.LINES = /*SESLER*/{
   "nese_tasi": "Neşe taşı parladı! Yorulursan buradan devam edeceksin.",
   "kapi": "Sihirli kapı! İçine gir, yeni bir yere gidelim!",
   "kocaman": "Dikkat! Kocaman bir huysuz geliyor!",
+  "kraljole_giris": "İşte Kral Jöle! Zıplayınca yere dikkat et!",
+  "kraljole_bitti": "Kral Jöle çok mutlu! Sihirli kapı açıldı!",
+  "usta_giris": "Usta Köstebek geldi! Topraktan çıkınca hemen vur!",
+  "usta_bitti": "Usta Köstebek kocaman gülümsüyor! Sihirli kapı açıldı!",
+  "kaplumbaga_giris": "Koca Lav Kaplumbağası! Yerde parlayan dairelerden uzak dur!",
+  "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Hadi kaleye gidelim!",
   "ejderha_giris": "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!",
   "ejderha_yarim": "Ejderha yoruluyor! Devam et, çok az kaldı!",
   "ejderha_yarasa": "Ejderha yarasalarını çağırdı!",
   "ejderha_bitti": "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş.",
   "kristal": "Neşe kristali! Ona dokun, köye neşe geri dönsün!",
   "son": "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!",
-  "tekrar": "Yeni macera! Huysuzlar bu sefer biraz daha güçlü.",
+  "tekrar": "Yeni macera başlıyor! Hadi Feza, huysuzları yine neşelendirelim!",
   "hos_geldin": "Tekrar hoş geldin Feza! Macera kaldığın yerden devam ediyor.",
   "canta": "Çantana bak! Hangi kıyafeti giymek istersin?",
   "ovgu1": "Harika!",

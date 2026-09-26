@@ -1,16 +1,17 @@
 /* ── Dokular: prosedürel, döşenebilir yüzey dokuları (renk + normal haritası) ──
-   TEX.init() ortak ve orman yüzeylerini üretir; mağara/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir.
+   TEX.init() ortak ve orman yüzeylerini üretir; mağara/yanardağ/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir.
    Her yüzey: TEX.<ad> = { map, normalMap } (init'ten sonra hepsi var); TEX.M.<ad> = bir karonun metre boyu.
    normalMap'in alfa kanalı yüksekliği (0..1) taşır (zemin karışımlarında "yüksekliğe göre geçiş" için). */
 const TEX = (function () {
   'use strict';
   // Metres covered by one texture tile.
   const M = { grass: 4, dirt: 3, cobble: 3, caveFloor: 4, caveSand: 3, castleFloor: 4, carpet: 2, brick: 2, rock: 3, wood: 1,
-    bark: 1, roof: 2, plaster: 1, leaves: 2, fabric: 0.5, metal: 0.5, moss: 2 };
+    bark: 1, roof: 2, plaster: 1, leaves: 2, fabric: 0.5, metal: 0.5, moss: 2, basalt: 4, ash: 3, lava: 6 };
   // Suggested material settings (TEX.mat): roughness, normalScale, metalness.
   const HINT = { grass: [0.9, 1], dirt: [0.95, 1], cobble: [0.8, 1], caveFloor: [0.75, 1], caveSand: [0.95, 1], castleFloor: [0.32, 0.8],
     carpet: [0.95, 0.8], brick: [0.85, 1], rock: [0.85, 1], wood: [0.7, 1], bark: [0.9, 1], roof: [0.55, 1], plaster: [0.9, 1],
-    leaves: [0.7, 0.9], fabric: [0.9, 0.8], metal: [0.35, 0.6, 1], moss: [0.95, 1], shirt: [0.85, 0.6] };
+    leaves: [0.7, 0.9], fabric: [0.9, 0.8], metal: [0.35, 0.6, 1], moss: [0.95, 1], shirt: [0.85, 0.6],
+    basalt: [0.78, 1], ash: [0.96, 1], lava: [0.55, 0.7] };
 
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const fract = x => x - Math.floor(x);
@@ -79,12 +80,13 @@ const TEX = (function () {
   }
 
   // ── Periodic Voronoi: E = distance to the nearest cell border (uniform grooves), F1, C = cell index, ID = random per cell ──
-  // sk > 0: smooth-min over the borders → rounded cell corners (pebbly cobbles).
-  function voronoi(S, N, seed, jit, sk = 0) {
+  // sk > 0: smooth-min over the borders → rounded cell corners (pebbly cobbles). hex (N even): odd rows shifted half a cell →
+  // mostly 6-sided cells (basalt columns).
+  function voronoi(S, N, seed, jit, sk = 0, hex = false) {
     const c = S / N, r = mulberry32(seed * 131 + N), nc = N * N, W = N + 4, nw = W * W;
     const PX = new Float32Array(nc), PY = new Float32Array(nc), ID = new Float32Array(nc);
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-      const k = j * N + i; PX[k] = (i + 0.5 + (r() - 0.5) * jit) * c; PY[k] = (j + 0.5 + (r() - 0.5) * jit) * c; ID[k] = r();
+      const k = j * N + i; PX[k] = (i + 0.5 + (hex ? (j & 1 ? 0.25 : -0.25) : 0) + (r() - 0.5) * jit) * c; PY[k] = (j + 0.5 + (r() - 0.5) * jit) * c; ID[k] = r();
     }
     // padded grid (cells -2..N+1) with wrapped points already offset → no wrap logic in the pixel loop
     const EX = new Float32Array(nw), EY = new Float32Array(nw), EK = new Int32Array(nw);
@@ -125,18 +127,19 @@ const TEX = (function () {
     return { F1, E, C, ID, N, c };
   }
 
-  // Separable wrap-around box blur (run twice ≈ gaussian)
+  // Separable wrap-around box blur (run twice ≈ gaussian). The vertical pass walks rows with one running sum per column
+  // (cache-friendly; same sums in the same order as a column-by-column pass, so the result is identical).
   function blur(src, S, r) {
-    const n = S * S, m = S - 1, tmp = new Float32Array(n), out = new Float32Array(n), inv = 1 / (2 * r + 1);
+    const n = S * S, m = S - 1, tmp = new Float32Array(n), out = new Float32Array(n), inv = 1 / (2 * r + 1), col = new Float64Array(S);
     for (let y = 0; y < S; y++) {
       const o = y * S; let acc = 0;
       for (let k = -r; k <= r; k++) acc += src[o + (k & m)];
       for (let x = 0; x < S; x++) { tmp[o + x] = acc * inv; acc += src[o + ((x + r + 1) & m)] - src[o + ((x - r) & m)]; }
     }
-    for (let x = 0; x < S; x++) {
-      let acc = 0;
-      for (let k = -r; k <= r; k++) acc += tmp[(k & m) * S + x];
-      for (let y = 0; y < S; y++) { out[y * S + x] = acc * inv; acc += tmp[((y + r + 1) & m) * S + x] - tmp[((y - r) & m) * S + x]; }
+    for (let k = -r; k <= r; k++) { const o = (k & m) * S; for (let x = 0; x < S; x++) col[x] += tmp[o + x]; }
+    for (let y = 0; y < S; y++) {
+      const o = y * S, a = ((y + r + 1) & m) * S, b = ((y - r) & m) * S;
+      for (let x = 0; x < S; x++) { out[o + x] = col[x] * inv; col[x] += tmp[a + x] - tmp[b + x]; }
     }
     return out;
   }
@@ -462,7 +465,8 @@ const TEX = (function () {
       const k = V.C[i], id = V.ID[k], e = V.E[i] + (wob[i] - 0.5) * 8;
       const fm = ss(0.5, 0.62, msk[i]), fr = fm * (1 - ss(0.2, 1.8, e));    // fractures along some borders only
       const an = id * TAU, cxp = x - (k % V.N + 0.5) * V.c, cyp = y - ((k / V.N | 0) + 0.5) * V.c;
-      const wx = cxp - Math.round(cxp / S) * S, wy = cyp - Math.round(cyp / S) * S, tilt = (Math.cos(an) * wx + Math.sin(an) * wy) / V.c;
+      // floor(v + 0.5), not Math.round: same result, but in Safari's JavaScriptCore Math.round here made every later blur ~6× slower
+      const wx = cxp - Math.floor(cxp / S + 0.5) * S, wy = cyp - Math.floor(cyp / S + 0.5) * S, tilt = (Math.cos(an) * wx + Math.sin(an) * wy) / V.c;
       const r1 = 1 - Math.abs(rg[i] * 2 - 1), ridge = r1 * r1;
       H[i] = a[i] * 0.5 + ridge * 0.3 + tilt * 0.12 * ss(0, 10, e) + fine[i] * 0.05 - fr * 0.18;
       const g = clamp(0.26 + a[i] * 0.4 + ridge * 0.06 + (big[i] - 0.5) * 0.25 + (fine[i] - 0.5) * 0.12 + tilt * 0.05, 0, 1);
@@ -747,6 +751,119 @@ const TEX = (function () {
     return surf(A, H, S, 3);
   }
 
+  // ───────────────────── Volcano surfaces (generated by TEX.ensure('volcano') or on first use) ─────────────────────
+  // Walkable volcano floor: tops of basalt columns (mostly 6-sided slabs, ~0.67 m) at slightly different heights, bevelled with
+  // worn light edges and a few chips, hairline cracks and small vesicle pits. Warm grey-brown slabs, each a touch warmer (red-brown)
+  // or greyer than the next and a faint warm tint in a few cracks; the joints are deep warm-dark gaps, about half of them filled
+  // with soft light ash (plus ash drifts and specks on the slabs) so it reads friendly and clear, not gloomy.
+  // No slab may stand out (no orange accent slabs): the tile repeats every 4 m and on the iPad nothing hides the repeat but LEVEL's
+  // soft macro tint, so any eye-catching slab would mark a visible grid across the whole volcano.
+  function genBasalt() {
+    const S = 512, n = S * S, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const V = voronoi(S, 6, 201, 0.5, 0, true), wob = fbm(S, 16, 3, 202), mot = fbm(S, 8, 4, 203), crk = fbm(S, 6, 3, 204), crm = fbm(S, 4, 3, 205);
+    const fine = fbm(S, 48, 3, 206), grit = fbm(S, 128, 1, 7), pit = fbm(S, 64, 2, 8), dust = fbm(S, 8, 4, 207), fuzz = fbm(S, 32, 3, 208), jw = fbm(S, 12, 3, 209);
+    const pal = [0x74675f, 0x6b5f59, 0x7e7067, 0x71655f, 0x837368, 0x6a605c, 0x786b63, 0x6e6561].map(hex3);
+    // per slab (looked up per pixel): colour (× brightness × warmth), pit depth, crack tint
+    const nc = V.ID.length, SR = new Float32Array(nc), SG = new Float32Array(nc), SB = new Float32Array(nc),
+      SP = new Float32Array(nc), SH = new Float32Array(nc);
+    let mr = 0, mg = 0, mb = 0;
+    for (let k = 0; k < nc; k++) {
+      const c = pal[(hash(k, 11) * pal.length) | 0], sb = 0.9 + hash(k, 12) * 0.2, w = hash(k, 13), wm = w * w;   // most slabs only faintly warm
+      SR[k] = c[0] * sb * (1 + 0.08 * wm); SG[k] = c[1] * sb * (1 - 0.03 * wm); SB[k] = c[2] * sb * (1 - 0.12 * wm);   // soft red-brown
+      SP[k] = 0.3 + hash(k, 14) * 0.8; SH[k] = ss(0.6, 0.9, hash(k, 15)) * 0.2;
+      mr += SR[k] / nc; mg += SG[k] / nc; mb += SB[k] / nc;
+    }
+    const soft = (v, lim) => (Math.abs(v) > 1e-3 ? lim * Math.tanh(v / lim) / v : 1);
+    for (let k = 0; k < nc; k++) {   // soft-limit how far any slab strays from the average in brightness and in tint → no beacon slabs
+      const l = (SR[k] + SG[k] + SB[k] - mr - mg - mb) / 3, cr = SR[k] - mr - l, cg = SG[k] - mg - l, cb = SB[k] - mb - l;
+      const fl = soft(l, 13), fc = soft(Math.sqrt(cr * cr + cg * cg + cb * cb), 8), L = l * fl;
+      SR[k] = mr + L + cr * fc; SG[k] = mg + L + cg * fc; SB[k] = mb + L + cb * fc;
+    }
+    for (let i = 0; i < n; i++) {
+      const k = V.C[i], id = V.ID[k], e = V.E[i] + (wob[i] - 0.5) * 4 - ss(0.74, 0.92, wob[i]) * 3;   // chipped edges here and there
+      const j0 = 1.5 + jw[i] * 2.6, t = ss(0, 1, (e - j0) / 9), cov = clamp(e - j0 + 0.5, 0, 1);       // joint width varies
+      const cl = (1 - ss(0.005, 0.022, Math.abs(crk[i] - 0.5))) * ss(0.56, 0.72, crm[i]) * t;             // hairline cracks
+      const pk = ss(0.77, 0.9, pit[i]) * t * SP[k];                                                        // vesicle pits
+      const hs = 0.16 + t * (0.5 + id * 0.3) + (fine[i] - 0.5) * 0.08 * t - cl * 0.3 - pk * 0.1 + (grit[i] - 0.5) * 0.02;
+      const br = (0.86 + mot[i] * 0.24 + (fine[i] - 0.5) * 0.12) * (1 - cl * 0.42) * (1 - pk * 0.32)
+        * (0.84 + 0.16 * t) * (1 + (1 - ss(0.12, 0.55, t)) * 0.12);                                          // worn, lighter edges
+      let r = SR[k] * br, g = SG[k] * br, b = SB[k] * br;
+      const hc = cl * SH[k];                                                                               // faint warm tint in some cracks
+      r += (168 - r) * hc; g += (94 - g) * hc; b += (60 - b) * hc;
+      // joints: deep warm-dark gaps; soft light ash fills about half of them
+      const ak = 0.84 + grit[i] * 0.22 + (fuzz[i] - 0.5) * 0.18, ar = 168 * ak, ag = 155 * ak, ab = 143 * ak;
+      const fill = ss(0.4, 0.6, dust[i] * 0.65 + fuzz[i] * 0.35), gk = (0.8 + grit[i] * 0.35) * (0.8 + 0.2 * clamp(e / j0, 0, 1));
+      const jr = 70 * gk + (ar - 70 * gk) * fill, jg = 57 * gk + (ag - 57 * gk) * fill, jb = 52 * gk + (ab - 52 * gk) * fill;
+      const hm = 0.02 + fuzz[i] * 0.03 + fill * (0.09 + fuzz[i] * 0.05);
+      r = jr + (r - jr) * cov; g = jg + (g - jg) * cov; b = jb + (b - jb) * cov;
+      // soft ash drifts over parts of some slabs + fine ash specks
+      const da = clamp(ss(0.62, 0.86, dust[i]) * ss(0.35, 0.7, fuzz[i]) * (1 - t * 0.55) * 0.75 + ss(0.8, 0.93, grit[i]) * t * 0.22, 0, 0.6);
+      r += (ar - r) * da; g += (ag - g) * da; b += (ab - b) * da;
+      const o = i * 4; A[o] = r; A[o + 1] = g; A[o + 2] = b; A[o + 3] = 255;
+      H[i] = hm + (Math.max(hs, hm) - hm) * cov + da * 0.04;
+    }
+    cavity(A, H, S, 4, 0.9, 0.7, 1.08);
+    return surf(A, H, S, 4);
+  }
+
+  // Volcano path: light warm-grey ash/sand with soft wind ripples, dark basalt + red scoria pebbles and a few tiny glowing ember chips.
+  function genAsh() {
+    const S = 512, n = S * S, m = S - 1, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const big = fbm(S, 5, 4, 211), mid = fbm(S, 16, 3, 212), fine = fbm(S, 128, 1, 7), grain = fbm(S, 64, 2, 8), wv = fbm(S, 3, 3, 213), rp = fbm(S, 4, 2, 214);
+    const pal = ramp([[0, 0x897a6f], [0.45, 0xab9c8e], [1, 0xcbbdac]]);
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
+      const rip = Math.sin((y / S * 14 + x / S * 2 + wv[i] * 2.2) * TAU), ra = ss(0.35, 0.75, rp[i]);   // ripples in some areas only
+      const t = 0.1 + big[i] * 0.45 + mid[i] * 0.38;
+      paint(A, i, pal, t + (grain[i] - 0.5) * 0.15 + (fine[i] - 0.5) * 0.1 + rip * ra * 0.035, 1);
+      H[i] = big[i] * 0.3 + mid[i] * 0.22 + fine[i] * 0.12 + grain[i] * 0.05 + rip * ra * 0.05;
+    }
+    pebbles(A, H, S, 215, 300, 1.6, 9, [0x564a46, 0x645852, 0x4a4240, 0x72665e, 0x8c5842, 0x7c4a3a, 0x9a8a7e], 0.5, 2.4);
+    cavity(A, H, S, 3, 1.4, 0.6, 1.08);
+    // tiny ember chips: hot yellow core, orange rim and a soft warm halo on the ash
+    const R = mulberry32(217);
+    for (let q = 0; q < 12; q++) {
+      const cx = R() * S, cy = R() * S, rr = 2.4 + R() * 2.2, hot = 0.65 + R() * 0.35, hr = rr * 4, an = R() * Math.PI, asp = 0.6 + R() * 0.35;
+      const ca = Math.cos(an), sa = Math.sin(an);
+      for (let py = Math.floor(cy - hr); py <= cy + hr; py++) for (let px = Math.floor(cx - hr); px <= cx + hr; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, i = (py & m) * S + (px & m), hl = clamp(1 - hyp(qx, qy) / hr, 0, 1);
+        blend(A, i, 240, 150, 92, hl * hl * 0.36 * hot);
+        const u = (qx * ca + qy * sa) / rr, v = (-qx * sa + qy * ca) / (rr * asp), d = Math.sqrt(u * u + v * v);
+        const cov = clamp((1 - d) * rr * asp + 0.5, 0, 1); if (cov <= 0) continue;
+        const core = clamp(1 - d * 1.25, 0, 1) * hot;
+        blend(A, i, 255, 116 + 124 * core, 34 + 96 * core, cov);
+        H[i] += 0.1 * Math.sqrt(Math.max(0, 1 - d * d)) * cov;
+      }
+    }
+    return surf(A, H, S, 3.2);
+  }
+
+  // Lava albedo for LEVEL's emissive lava shader (it scrolls this and wobbles it with TEX.noise). Bright yellow-orange molten
+  // rivers swirl between warm red crust plates with glowing hairline cracks; the whole pattern is domain-warped so it looks like it
+  // flows. Brightness = heat (crust darkest). normalMap: plates raised; its alpha (height) ≈ 0 in the molten channels, ≈ 1 on crust.
+  function genLava() {
+    const S = 512, n = S * S, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const V = voronoi(S, 5, 221, 0.95, 5), wob = fbm(S, 12, 3, 222), sw = fbm(S, 4, 4, 223), fine = fbm(S, 64, 2, 224), crk = fbm(S, 8, 3, 225);
+    const grit = fbm(S, 128, 1, 7), wx = fbm(S, 3, 3, 226), wy = fbm(S, 3, 3, 227), band = fbm(S, 8, 3, 228);
+    const pal = ramp([[0, 0x74261a], [0.14, 0x8e3016], [0.3, 0xbc3e14], [0.5, 0xea5a1a], [0.68, 0xff8c1e], [0.85, 0xffbf38], [1, 0xffea8c]]);
+    const Qh = new Float32Array(n), Qz = new Float32Array(n), CH = V.ID.map((_, k) => hash(k, 3) * 0.7);   // per plate (not per pixel)
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
+      const k = V.C[i], id = V.ID[k], thr = id < 0.2 ? 1e9 : 5 + (1 - id) * 9;   // 1 cell in 5 has no crust plate; the others differ in size
+      const e = V.E[i] + (wob[i] - 0.5) * 8, crust = ss(thr, thr + 6, e), top = ss(thr + 4, thr + 22, e);
+      const cr = (1 - ss(0.006, 0.026, Math.abs(crk[i] - 0.5))) * top * ss(0.35, 0.65, CH[k] + band[i] * 0.5);
+      const flow = Math.sin((y / S * 6 + sw[i] * 2.5) * TAU) * 0.06;            // faint streaks along the flow (tileable)
+      const molten = clamp(0.64 + (sw[i] - 0.5) * 0.5 + (fine[i] - 0.5) * 0.12 + flow - ss(0, 1, crust * 3) * 0.14, 0.45, 1);
+      const cool = 0.05 + (fine[i] - 0.5) * 0.08 + (grit[i] - 0.5) * 0.06 + (1 - top) * 0.2;
+      Qh[i] = Math.max(molten + (cool - molten) * crust, cr * 0.82);
+      Qz[i] = crust * (0.55 + top * 0.3 + (fine[i] - 0.5) * 0.1 + (grit[i] - 0.5) * 0.04) - cr * 0.12 + (1 - crust) * (0.04 + sw[i] * 0.06 + flow * 0.2);
+    }
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {   // domain warp (tileable offsets) → flowing shapes
+      const X = x + 0.5 + (wx[i] - 0.5) * 26, Y = y + 0.5 + (wy[i] - 0.5) * 26;
+      paint(A, i, pal, samp(Qh, S, X, Y), 1);
+      H[i] = samp(Qz, S, X, Y);
+    }
+    return surf(A, H, S, 3);
+  }
+
   // ── Feza's T-shirt: canvas print (clouds, pastel planes, stars on off-white) + ribbed-knit normal map ──
   function genShirt() {
     const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
@@ -851,10 +968,15 @@ const TEX = (function () {
 
   const GEN = { grass: genGrass, dirt: genDirt, cobble: genCobble, caveFloor: genCaveFloor, caveSand: genCaveSand, castleFloor: genCastleFloor,
     carpet: genCarpet, brick: genBrick, rock: genRock, wood: genWood, bark: genBark, roof: genRoof, plaster: genPlaster, leaves: genLeaves,
-    fabric: genFabric, metal: genMetal, moss: genMoss, shirt: genShirt };
-  // Surfaces only the cave/castle need: TEX.init() gives them placeholder textures (real, shareable Texture objects) whose pixels
-  // are generated by TEX.ensure(theme) — or automatically the first time anything reads image.data (GPU upload, canvas copy).
-  const THEME = { forest: [], cave: ['caveFloor', 'caveSand'], castle: ['castleFloor', 'carpet', 'brick'] };
+    fabric: genFabric, metal: genMetal, moss: genMoss, shirt: genShirt, basalt: genBasalt, ash: genAsh, lava: genLava };
+  // Surfaces only the cave/volcano/castle need: TEX.init() gives them placeholder textures (real, shareable Texture objects) whose
+  // pixels are generated by TEX.ensure(theme) — or automatically the first time anything reads image.data (GPU upload, canvas copy).
+  const THEME = { forest: [], cave: ['caveFloor', 'caveSand'], volcano: ['basalt', 'ash', 'lava'], castle: ['castleFloor', 'carpet', 'brick'] };
+  // Zone index → theme: ZONES (06_level.js) when it is there, else the Round 3 order.
+  function themeOf(i) {
+    try { if (typeof ZONES !== 'undefined' && ZONES && ZONES[i] && ZONES[i].theme) return ZONES[i].theme; } catch (e) { /* not loaded yet */ }
+    return ['forest', 'cave', 'volcano', 'castle'][i];
+  }
   const LAZY = {}, PEND = {};
   for (const th in THEME) for (const k of THEME[th]) LAZY[k] = 512;
   let batch = 0;
@@ -898,7 +1020,7 @@ const TEX = (function () {
 
   const TEX = {
     M, HINT, ready: false, times: {},
-    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Cave/castle surfaces get placeholders
+    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Cave/volcano/castle surfaces get placeholders
     // (see TEX.ensure). Safe to call twice.
     init() {
       if (TEX.ready) return TEX;
@@ -920,11 +1042,12 @@ const TEX = (function () {
       console.log('TEX ' + log.join(', ') + ' | upload ' + TEX.times.upload + ' | total ' + TEX.times.total + ' ms (later: ' + Object.keys(PEND).join(', ') + ')');
       return TEX;
     },
-    // Generate the surfaces a zone theme needs ('forest' | 'cave' | 'castle', or zone index 0..2; no argument = all) and upload
-    // them. Call it while the screen is faded (LEVEL.build). Cheap no-op when they already exist.
+    // Generate the surfaces a zone theme needs ('forest' | 'cave' | 'volcano' | 'castle', or a zone index 0..3 → ZONES[i].theme;
+    // a surface name also works; no argument = all) and upload them. Call it while the screen is faded (LEVEL.build).
+    // Cheap no-op when they already exist.
     ensure(theme) {
       if (!TEX.ready) TEX.init();
-      if (typeof theme === 'number') theme = ['forest', 'cave', 'castle'][theme];
+      if (typeof theme === 'number') theme = themeOf(theme);
       const todo = (theme == null || theme === 'all' ? Object.keys(PEND) : THEME[theme] || (LAZY[theme] ? [theme] : [])).filter(k => PEND[k]);
       if (!todo.length) return TEX;
       const t0 = now(), log = [];
