@@ -40,11 +40,10 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   wands, Bulut Beresi/Orman Gezgini Başlığı, Deniz Dalgası/Güneş capes. `FEZA.setEquip` accepts offhand; `H.wandTip` tracks it.
 - Manual saves during boss endings include pending treasures, including the kefir gift and final dragon reward. Invalid hand indices
   recover an existing matching weapon before creating a starter, preserving the one-piece-per-look inventory rule.
-- Automatic render target: 120FPS on PC, Mac, phones and iPad; no FPS setting in menus. Browser/display refresh can limit actual rate.
-- **Steady 120 on tablets (latest):** QUALITY.tablet (iPad incl. its Mac-UA mode, Android, phones; ?tablet / ?pc force it) gets a
-  point-light `if (directLight.visible)` ShaderChunk patch (same picture). perfHz(rawDt) (UI frame(), every drawn frame) detects a >60 Hz
-  screen → PERF.hz120 → tablet120On(): fixed dpr 1.0 and MSAA 2 (parent's choice; the 1.25/1.125 ladder still micro-stuttered), full bloom
-  and 2048² shadows, perfTick off (PERF.t120). PC/Mac and 60 Hz tablets unchanged; ?hd skips it. The "." FPS meter (or ?fps) shows it.
+- Automatic render target: 120 FPS on PC and Mac; 60 FPS on tablets and phones (QUALITY.tablet: iPad incl. its Mac-UA mode, Android,
+  phones; ?tablet / ?pc force it), evenly every 2nd refresh on a 120 Hz iPad. No FPS setting in menus. Tablets: QUALITY.dpr ≤ 1.25, MSAA 4×
+  and a point-light `if (directLight.visible)` ShaderChunk patch (same picture). Parent's choice after a steady 120 failed on an M1 iPad
+  Pro even at 1.0× (and 90 can't be even on 120 Hz).
 
 ## Breakables and class balance (latest)
 - Hybrid uses its sword for targeted breakables, attack-button breakables and obstacle-clearing swings; wizard keeps wand attacks.
@@ -97,9 +96,8 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
 - **Difficulty (parent: "a bit harder"):** GAME's `DIFF` table scales enemy hp/damage/cooldowns/xp (the dragon's hp is set when the fight starts
   from Feza's damage). Hearts heal 10 %, regen after 5 s (1.2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
   Auto-attack also works while dragging (gap < 1.1 m, within ±80° of the walking direction). Comic words limited by GAME.wordOK().
-- **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (2 on touch devices);
-  original graphics values restored: QUALITY.dpr ≤ 1.5 and sun shadow map 2048². iPad uses the original native rAF pacing;
-  other devices retain a120 FPS ceiling. perfTick(rawDt, active) counts only gameplay frames and uses the original
+- **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (4; 2 on non-tablet touch devices);
+  QUALITY.dpr ≤ 1.5 (tablets 1.25) and sun shadow map 2048². UI frame() caps at 120 FPS (tablets 60). perfTick(rawDt, active) counts only gameplay frames and uses the original
   below42/above57 FPS quality thresholds, avoiding quality-target reallocations while aiming at120 FPS; perfReset; precompile(obj, async) and
   renderer.compile compile against rtMain; CTX_HOOKS run after a WebGL context restore (env map restored); SHADOW + viewRadius size the sun shadow
   box from the camera; PLAIN / ENV_OK for the no-float-render-target fallback. While POST.on the canvas has no depth/stencil, so all 3D goes through renderFrame.
@@ -250,7 +248,7 @@ smooth01, angDiff, dampAngle, dist2, $, mulberry32, RNG {seed,r,range,int,pick,c
 frand, fpick (Math.random, for fx), TIME {t, dt, u: shared time uniform}, UP, ZERO3, renderer, scene, camera, CAM,
 LIGHTS {hemi, sun, sunOffset, feza, torches[4]}, lightsFollow(x,z), setLighting({...}), setEnvironment(sky,horizon,ground,int),
 POST {on, strength, threshold, exposure, saturation, vignette, tint, tintAmt}, renderFrame(), resizeRenderer(), RESIZE_HOOKS,
-QUALITY {dpr, minDpr, msaa, tablet}, PERF, perfTick(rawDt), perfHz(rawDt), tablet120On(), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
+QUALITY {dpr, minDpr, msaa, tablet}, PERF, perfTick(rawDt), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
 toScreen(v3, out) → {x,y,vis}, G {sphere,hemi,cyl,cone,box,rbox,torus,capsule,ico,dodeca,octa} (cached unit geometries —
 never dispose them), Kit (add/push/pop/seg/build), mergeParts, tmat, onSphere(x,y,R,inset) → [pos, quat], col3, mixCol,
 stdMat(o), vcMat(o), glowMat(color,int,o), patchMat(mat,o), rimify(mat,color,strength,power), disposeTree(obj), shadows(obj,cast,recv),

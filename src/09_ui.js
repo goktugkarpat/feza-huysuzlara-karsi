@@ -2436,10 +2436,8 @@ const UI = (() => {
 
   // ───────────────────────── Main loop ─────────────────────────
   function renderNow() { safe('renderNow', () => { updateCamera(0.016, true); camera.updateMatrixWorld(); renderFrame(); }); }
-  // iPad keeps the original, display-driven requestAnimationFrame pacing; the limiter could skip a 120 Hz callback.
-  // Other devices retain the requested 120 FPS ceiling.
-  const nativeIPadRaf = /iPad/i.test(navigator.userAgent) || (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
-  const frameRate = 120;
+  // PC/Mac: at most 120 FPS. Tablets and phones: 60 FPS (QUALITY.tablet) — on a 120 Hz iPad every 2nd display refresh, evenly spaced.
+  const frameRate = QUALITY.tablet ? 60 : 120;
   // FPS meter for the parent: the "." key toggles it (no button; ?fps on the address starts it on, handy on an iPad).
   // Counts the frames really drawn, the average frame time, the automatic quality level and the longest frame of the window.
   const FPSM = { el: null, n: 0, t0: 0, worst: 0 };
@@ -2464,18 +2462,15 @@ const UI = (() => {
   }
   function frame(ts) {
     requestAnimationFrame(frame);
-    if (!nativeIPadRaf) {
-      const interval = 1000 / frameRate;
-      S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
-      if (S.frameAcc < interval - 2) return;
-      // Keep timing debt/fractions, but discard whole missed frames after a loading stall.
-      S.frameAcc -= interval;
-      if (S.frameAcc >= interval) S.frameAcc %= interval;
-    }
+    const interval = 1000 / frameRate;
+    S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
+    if (S.frameAcc < interval - 2) return;
+    // Keep timing debt/fractions, but discard whole missed frames after a loading stall.
+    S.frameAcc -= interval;
+    if (S.frameAcc >= interval) S.frameAcc %= interval;
     const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / frameRate;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);
-    try { perfHz(raw); } catch (e) { warn('perfHz', e); }   // tablets: a 120 Hz screen switches on the 120 FPS profile
     fpsTick(ts, raw);
   }
   // One frame; every module call is isolated so a failing module never stops the loop (no per-frame closures).

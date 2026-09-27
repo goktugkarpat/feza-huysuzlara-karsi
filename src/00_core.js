@@ -58,18 +58,23 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = PLAIN ? THREE.NeutralToneMapping : THREE.NoToneMapping;   // with post-processing the final pass tone-maps
 const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-// msaa = samples of the HDR scene target, the biggest GPU cost on an iPad: 2× on touch devices, 4× on desktop (?msaa=N overrides).
+// msaa = samples of the HDR scene target: 4× on desktop and tablets, 2× on other touch devices (?msaa=N overrides).
+// tablet: iPad (also in its "Mac" desktop mode), Android, phones — not PCs (a Windows touch laptop stays a PC); ?tablet / ?pc force it.
+// Tablets run at 60 FPS (UI frame()) with MSAA 4× and resolution 1.25× (parent's choice). A ProMotion iPad could not hold a steady 120
+// even at 1.0×, and 90 FPS can't be shown evenly on a 120 Hz screen; 60 is even. PC/Mac: resolution 1.5×, 120 FPS as before.
 // perfTick may lower msaa, then dpr, and raises them again when the device keeps up.
-const QUALITY = {
-  dpr: Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : 1.5), minDpr: 1,
-  msaa: Q.has('msaa') ? clamp(parseInt(Q.get('msaa'), 10) || 0, 0, 8) : (Q.has('hd') || !(navigator.maxTouchPoints > 1) ? 4 : 2),
-  // tablet: iPad (also in its "Mac" desktop mode), Android, phones — not PCs (a Windows touch laptop stays a PC). ?tablet / ?pc force it.
-  tablet: Q.has('tablet') || (!Q.has('pc') && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-    (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1))),
-};
+const QUALITY = (() => {
+  const tablet = Q.has('tablet') || (!Q.has('pc') && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+    (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1)));
+  return {
+    tablet,
+    dpr: Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : tablet ? 1.25 : 1.5), minDpr: 1,
+    msaa: Q.has('msaa') ? clamp(parseInt(Q.get('msaa'), 10) || 0, 0, 8) : (Q.has('hd') || tablet || !(navigator.maxTouchPoints > 1) ? 4 : 2),
+  };
+})();
 // Tablets: a point light that doesn't reach a pixel skips its lighting maths (Feza's light and the 2 pooled torches exist in every zone,
-// mostly at intensity 0 or out of range) — the same picture for less GPU work. Patched before the first shader is built: three.js caches
-// programs by their parameters, not by the chunk text. A three.js update that changes the chunk just leaves it as it is.
+// mostly at intensity 0 or out of range) — the same picture for less GPU work (and battery). Patched before the first shader is built:
+// three.js caches programs by their parameters, not by the chunk text. A three.js update that changes the chunk just leaves it as it is.
 if (QUALITY.tablet) {
   const s = THREE.ShaderChunk.lights_fragment_begin, a = s.indexOf('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )');
   const call = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
@@ -363,8 +368,7 @@ function renderFrame() {
 // Frame-rate watchdog with a quality ladder: MSAA first, then resolution; steps back up after ~10 s of smooth play.
 // perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
 // doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
-const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false,
-  hz: { n: 0, fast: 0 }, hz120: false, t120: false };
+const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false };
 function perfLadder() {
   const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
   L.push({ dpr: d0, msaa: m0 });
@@ -387,7 +391,6 @@ function perfActive() {
   return true;
 }
 function perfTick(rawDt, active) {
-  if (PERF.t120) return;   // 120 Hz tablet: fixed settings (tablet120On)
   if (active === undefined) active = perfActive();
   if (!active || !(rawDt > 0)) { PERF.was = false; return; }
   if (!PERF.was || rawDt > 0.25) { PERF.was = true; perfReset(1); return; }   // play (re)starts, zone load, tab was hidden
@@ -415,32 +418,6 @@ function perfTick(rawDt, active) {
   if (fps < 57) { PERF.good = 0; return; }
   PERF.capFps = 0; PERF.good += win;
   if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
-}
-
-// ── 120 Hz tablets (parent: "tablette sabit 120 olsun"; then "çözünürlüğü 1.00×'e sabitlesek ve MSAA 2 yapsak") ──
-// On a ProMotion iPad (Safari's "Prefer Page Rendering Updates near 60fps" off) the full picture ran ~95 FPS: GPU-bound, ~80 % per-pixel.
-// A resolution ladder (1.25× → 1.125×) still stuttered, so a 120 Hz tablet gets fixed settings instead: resolution 1.0× (−45 % GPU time,
-// measured at iPad size) and MSAA 2×, full bloom and shadows, no automatic changes. PC and Mac never get here; a tablet whose
-// screen/browser gives 60 Hz keeps its full picture and the normal watchdog.
-function tablet120On() {
-  if (PERF.t120 || !QUALITY.tablet || Q.has('hd')) return;   // ?hd: full quality for screenshots
-  PERF.t120 = true;
-  QUALITY.dpr = Math.min(QUALITY.dpr, 1); QUALITY.minDpr = QUALITY.dpr;
-  if (!Q.has('msaa')) QUALITY.msaa = 2;
-  PERF.level = 0; PERF.ladder = [{ dpr: QUALITY.dpr, msaa: QUALITY.msaa }]; PERF.probe = null;
-  try { localStorage.removeItem('fezaKotulereKarsi.t120'); } catch (e) {}   // the earlier ladder's saved level
-  resizeRenderer(); perfReset(1);
-  if (DEBUG) console.log('tablet 120: dpr ' + QUALITY.dpr + ' msaa ' + QUALITY.msaa);
-}
-// Does the screen/browser deliver more than 60 frames per second? Every drawn frame (title too); 90 frames with ≥ 14 under 11.5 ms
-// (a 60 Hz screen never has them) → tablet120On. The answer sticks for the session.
-function perfHz(rawDt) {
-  if (PERF.hz120 || !QUALITY.tablet || document.hidden) return;
-  const h = PERF.hz; h.n++;
-  if (rawDt > 0.004 && rawDt < 0.0115) h.fast++;
-  if (h.n < 90) return;
-  if (h.fast >= 14) { PERF.hz120 = true; tablet120On(); }
-  h.n = 0; h.fast = 0;
 }
 
 // ── Kamera ──
