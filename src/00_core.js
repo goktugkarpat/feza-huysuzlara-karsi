@@ -367,7 +367,8 @@ function renderFrame() {
 // perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
 // doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
 const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false,
-  slow: 0, bad: 0, hz: { n: 0, fast: 0 }, hz120: false, t120: false };
+  slow: 0, bad: 0, top: 0, playT: 0, hz: { n: 0, fast: 0 }, hz120: false, t120: false };
+const PERF_KEY = 'fezaKotulereKarsi.t120';   // the 120 Hz tablet level this device holds: {l, top} (saved in the first 5 min of play, before heat)
 function perfLadder() {
   const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
   L.push({ dpr: d0, msaa: m0 });
@@ -385,6 +386,7 @@ function perfSet(i) {
   const q = PERF.ladder[i];
   PERF.level = i; QUALITY.dpr = q.dpr; QUALITY.msaa = q.msaa;
   resizeRenderer();
+  if (PERF.t120 && PERF.playT < 300) { try { localStorage.setItem(PERF_KEY, JSON.stringify({ l: i, top: PERF.top })); } catch (e) {} }
   if (DEBUG) console.log('quality ' + i + ': dpr ' + q.dpr + ' msaa ' + q.msaa + ' (' + PERF.fps.toFixed(1) + ' fps)');
 }
 function perfReset(grace = 1) { PERF.acc = 0; PERF.n = 0; PERF.slow = 0; PERF.grace = grace; }
@@ -398,6 +400,7 @@ function perfTick(rawDt, active) {
   if (active === undefined) active = perfActive();
   if (!active || !(rawDt > 0)) { PERF.was = false; return; }
   if (!PERF.was || rawDt > 0.25) { PERF.was = true; perfReset(1); return; }   // play (re)starts, zone load, tab was hidden
+  PERF.playT += rawDt;
   if (PERF.grace > 0) { PERF.grace -= rawDt; return; }                        // let shader warm-up hitches pass
   PERF.acc += rawDt; PERF.n++;
   if (rawDt > 0.0125) PERF.slow++;   // missed a 120 Hz deadline (8.3 ms)
@@ -440,7 +443,14 @@ function tablet120On() {
   sh.mapSize.set(1536, 1536);
   if (sh.map) { sh.map.dispose(); sh.map = null; }   // three.js makes the new map at the next shadow pass
   PERF.level = 0; PERF.ladder = perfLadder(); PERF.probe = null; PERF.capFps = 0; PERF.good = 0; PERF.bad = 0;
-  PERF.upWait = 20; PERF.upJust = false;
+  PERF.upWait = 30; PERF.upJust = false; PERF.top = 0;
+  // start at the level this tablet held last time (no stutter while it finds it again)
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(PERF_KEY) || 'null'); } catch (e) {}
+  const n = PERF.ladder.length - 1;
+  if (saved && saved.l >= 0) {
+    PERF.top = clamp(saved.top | 0, 0, n);
+    const q = PERF.ladder[PERF.level = clamp(saved.l | 0, PERF.top, n)]; QUALITY.dpr = q.dpr; QUALITY.msaa = q.msaa;
+  }
   resizeRenderer(); perfReset(1);
   if (DEBUG) console.log('tablet 120: dpr ' + QUALITY.dpr + ' msaa ' + QUALITY.msaa);
 }
@@ -454,18 +464,19 @@ function perfHz(rawDt) {
   if (h.fast >= 14) { PERF.hz120 = true; tablet120On(); }
   h.n = 0; h.fast = 0;
 }
-// One 2.5 s window at 120 Hz. slow = share of frames that missed the deadline. Steps down after 2 bad windows in a row (at once when a
-// quarter miss), undoes a step that didn't help (then something else caps the rate: Low Power Mode 30 fps, heat), steps back up after
-// upWait s of clean frames (doubling after a failed try), never above the tablet120On start.
+// One 2.5 s window at 120 Hz. slow = share of frames that missed the deadline. Steps down after 2 windows in a row with > 1.5 % (a 115 FPS
+// average is ~4 %: steady micro-stutter; at once when a quarter miss), undoes a step that didn't help (then something else caps the rate:
+// Low Power Mode 30 fps), steps back up after upWait s of clean frames (≤ 0.4 % missed), never above the start. A step up that fails sets
+// PERF.top: that level is not tried again (saved per device) — no up-and-down.
 function perfWin120(win, fps, slow) {
   if (PERF.probe) {
     const pr = PERF.probe; PERF.probe = null;
-    if (slow > 0.05 && slow > pr.slow * 0.7 && fps < pr.fps * 1.05) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no better → undo
+    if (slow > 0.015 && slow > pr.slow * 0.7 && fps < pr.fps * 1.05) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no better → undo
   }
   if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;   // the cap is gone
-  if (slow > 0.05) {
+  if (slow > 0.015) {
     PERF.good = 0;
-    if (PERF.upJust) { PERF.upWait = Math.min(PERF.upWait * 2, 320); PERF.bad = 2; } else PERF.bad++;   // a failed step up goes back at once
+    if (PERF.upJust) { PERF.top = PERF.level + 1; PERF.bad = 2; } else PERF.bad++;   // a failed step up goes back at once, for good
     PERF.upJust = false;
     if (PERF.capFps && fps > PERF.capFps * 0.9) return;   // still the known cap
     if ((PERF.bad >= 2 || slow > 0.25) && PERF.level < PERF.ladder.length - 1) {
@@ -474,9 +485,9 @@ function perfWin120(win, fps, slow) {
     return;
   }
   PERF.bad = 0; PERF.upJust = false;
-  if (slow > 0.01) { PERF.good = 0; return; }
+  if (slow > 0.004) { PERF.good = 0; return; }
   PERF.capFps = 0; PERF.good += win;
-  if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
+  if (PERF.level > PERF.top && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
 }
 
 // ── Kamera ──

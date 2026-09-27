@@ -44,8 +44,9 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
 - **Steady 120 on tablets (latest):** QUALITY.tablet (iPad incl. its Mac-UA mode, Android, phones; ?tablet / ?pc force it) gets a
   point-light `if (directLight.visible)` ShaderChunk patch (same picture). perfHz(rawDt) (UI frame(), every drawn frame) detects a >60 Hz
   screen → PERF.hz120 → tablet120On(): dpr ≤ 1.25, bloom from 1/4 res with 4 levels (QUALITY.bloomFrom/bloomLevels/bloomGain 2/4/1.12;
-  PC 1/5/1), sun shadow 1536²; perfWin120 counts frames > 12.5 ms per 2.5 s window and steps dpr down by 0.125 (then MSAA 0) until < 5 %
-  miss, undoes steps that don't help (capFps), steps back up after clean upWait, never above the start. PC/Mac and 60 Hz tablets unchanged;
+  PC 1/5/1), sun shadow 1536²; perfWin120 counts frames > 12.5 ms per 2.5 s window and steps dpr down by 0.125 (then MSAA 0) while > 1.5 %
+  miss (2 windows), undoes steps that don't help (capFps), steps back up after 30 s clean, never above the start; a failed step up
+  sets PERF.top (not tried again). Level + top saved in localStorage 'fezaKotulereKarsi.t120' → the next start uses them. PC/Mac and 60 Hz tablets unchanged;
   ?hd skips it. The "." FPS meter (or ?fps) shows the resolution the ladder chose.
 
 ## Breakables and class balance (latest)
