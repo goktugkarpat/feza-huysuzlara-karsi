@@ -426,8 +426,9 @@ const UI = (() => {
     D.orb = el('div', 'u-orb', bl);
     el('div', 'u-orbglow', D.orb);
     D.orbCv = el('canvas', '', D.orb);
-    D.pot = el('button', 'u-potion', bl, SVG.potion + '<span class="u-badge">3</span>');
-    D.potN = D.pot.querySelector('.u-badge');
+    // count as a "×3" tag on the bottom rim; the keyboard key (Q) sits top-right like the skills' 1 2 3, so they never mix up
+    D.pot = el('button', 'u-potion', bl, SVG.potion + '<span class="u-badge u-potn">×3</span><span class="u-key">Q</span>');
+    D.potN = D.pot.querySelector('.u-potn');
 
     // bottom-right: attack + one button per skill on the arc around it
     const pad = D.pad = el('div', 'u-pad', hud);
@@ -614,7 +615,7 @@ const UI = (() => {
     };
     addEventListener('keydown', e => {
       const c = e.code;
-      if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills
+      if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills, Q on the potion
       if (DIRS[c]) { K[DIRS[c]] = true; sendKeys(); e.preventDefault(); return; }
       if (e.repeat) { if (c === 'Space') e.preventDefault(); return; }
       if (c === 'Escape') { if (S.menu) closeMenu(); else if (S.mode === 'play') openPause(); return; }
@@ -1071,7 +1072,7 @@ const UI = (() => {
     goldShown = P.gold - goldShown < 1 ? P.gold : damp(goldShown, P.gold, 9, dt);
     const gi = Math.floor(goldShown);
     if (gi !== last.gold) { last.gold = gi; D.goldB.textContent = D.goldI.textContent = gi; }
-    if (P.potions !== last.pot) { last.pot = P.potions; D.potN.textContent = P.potions; }
+    if (P.potions !== last.pot) { last.pot = P.potions; D.potN.textContent = '×' + P.potions; }
     const empty = P.potions <= 0;
     if (empty !== last.empty) { last.empty = empty; D.pot.classList.toggle('empty', empty); }
     const hint = low && !empty;
@@ -1515,7 +1516,7 @@ const UI = (() => {
   function stars(item) {
     const I = M.ITEMS;
     let n = I && I.stars ? safe('ITEMS.stars', () => I.stars(item)) : 0;
-    if (!n) n = clamp(1 + (item.rarity || 0) + ((item.power || 0) > 20 ? 1 : 0), 1, 5);
+    if (!n) { const p = item.power || 0; n = p >= 34 ? 5 : p >= 24 ? 4 : p >= 16 ? 3 : p >= 10 ? 2 : 1; }   // same power-only rule as ITEMS.stars
     n = clamp(n | 0, 1, 5);
     return '★'.repeat(n) + `<span class="e">${'★'.repeat(5 - n)}</span>`;
   }

@@ -2081,7 +2081,9 @@ const { FEZA, ITEMS } = (function () {
     make, roll, model, thumb, prebake, nameOf,
     bladeColor,   // ITEMS.bladeColor(item | baseId) → '#rrggbb' (rainbow blade: its current colour)
     starter: () => ({ weapon: make('weapon', 'tahta', 0, 1), hat: null, cape: null }),
-    stars: it => clamp(1 + (it ? it.rarity | 0 : 0) + (it && it.power >= 18 ? 1 : 0), 1, 5),
+    // Stars show only how strong a piece is (its power), never its rarity (that is the colour/glow): a stronger item
+    // never shows fewer stars (parent: a stronger castle drop with fewer stars than a shiny forest one confused Feza).
+    stars: it => { const p = it ? it.power || 0 : 0; return p >= 34 ? 5 : p >= 24 ? 4 : p >= 16 ? 3 : p >= 10 ? 2 : 1; },
   };
   const FEZA = { create, portrait, warm, bodyStats: () => BODY && { ms: BODY.ms, skinVerts: BODY.skin.attributes.position.count, clothVerts: BODY.cloth.attributes.position.count,
     hairVerts: BODY.hair.attributes.position.count, bake: { warm: BAKE.warmQ.length + (BAKE.cur ? 1 : 0), queue: BAKE.q.length + (RB.pic ? 1 : 0), reading: RB.pic ? 1 : 0, async: !RB.off, thumbs: Object.keys(THUMBS).length, portraits: Object.keys(PORTRAITS).length, portraitKeys: Object.keys(PORTRAITS) } } };

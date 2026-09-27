@@ -1201,7 +1201,7 @@ AUD.LINES = /*SESLER*/{
   "ovgu2": "Süpersin!",
   "ovgu3": "Çok güçlüsün Feza!",
   "ovgu4": "İşte bu!",
-  "ovgu5": "Bravo!",
+  "ovgu5": "Aferin sana!",
   "ovgu6": "Muhteşem!",
   "basla": "Oyna düğmesine bas, maceraya başlayalım!",
   "devam": "Devam Et düğmesine bas, macera kaldığın yerden sürsün!"

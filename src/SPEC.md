@@ -330,7 +330,7 @@ ITEMS.roll(ilvl, bias=0, rnd=Math.random) → item   slot 40/30/30; rarity weigh
 ITEMS.starter() → {weapon: tahta rarity 0 ilvl 1, hat: null, cape: null}
 ITEMS.model(item) → Object3D standalone model (for ground display + thumbnails). Rarity ≥ 2 glows a bit more.
 ITEMS.thumb(item) → dataURL 128px (rendered once per base+rarity with a small offscreen render target; cached)
-ITEMS.stars(item) → 1..5 (for the kid-readable UI) 
+ITEMS.stars(item) → 1..5 by POWER only (parent): <10 ★, 10–15 ★★, 16–23 ★★★, 24–33 ★★★★, ≥34 ★★★★★; rarity is shown by colour/glow 
 ```
 Stats meaning (GAME applies): weapon.power → +damage; hat.power → +5×power max HP; cape.power → armour % = min(45, power),
 cape rarity → +4% move speed per rarity.
