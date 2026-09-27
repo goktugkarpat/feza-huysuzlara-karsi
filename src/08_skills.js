@@ -183,7 +183,7 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   const GARDEN = { grp: null, petals: null, stars: [], flowers: [], mats: [] };
   const HYBRID = { guard: null, blades: [], seal: null, cross: null, mats: [], t: 0, tick: 0, n: 0, dmg: 0, sealT: 0, sealTick: 0, sealN: 0, sealDmg: 0, x: 0, z: 0, shield: null };
   const SPIN = { t: 0, dur: SPIN_T, tick: 0, n: 0, emitT: 0, ang: 0, grp: null, inner: null, outer: null, floor: null };
-  const MET = { cx: 0, cz: 0, aimed: [], spots: [], first: true };
+  const MET = { cx: 0, cz: 0, fx: 0, fz: 0, aimed: [], spots: [], first: true };   // fx, fz: where Feza cast it
   let starMat = null;
 
   function ensure() {
@@ -478,13 +478,15 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   function castMeteor(c) {
     castPose(c, 'meteor', true);
     let cx = c.x + c.aim.x * 5, cz = c.z + c.aim.z * 5;
-    if (c.target) {   // centre on the crowd around the target
+    if (c.target) {   // centre on the crowd around the target (the ones Feza can see: not a group behind the wall)
       const cl = near(c.target.x, c.target.z, 4.5);
       let sx = c.target.x * 2, sz = c.target.z * 2, n = 2;
-      for (let i = 0; i < cl.length; i++) { sx += cl[i].x; sz += cl[i].z; n++; }
+      for (let i = 0; i < cl.length; i++) if (inSight(c.x, c.z, cl[i])) { sx += cl[i].x; sz += cl[i].z; n++; }
       cx = sx / n; cz = sz / n;
     }
-    MET.cx = cx; MET.cz = cz; MET.aimed.length = 0; MET.spots.length = 0; MET.first = true;
+    // (an empty cast toward a wall rains on the nearest floor he can see, like the garden and the seal)
+    for (let i = 0; i < 12 && (!isFloor(cx, cz) || !inSight(c.x, c.z, { x: cx, z: cz })); i++) { cx = lerp(cx, c.x, 0.3); cz = lerp(cz, c.z, 0.3); }
+    MET.cx = cx; MET.cz = cz; MET.fx = c.x; MET.fz = c.z; MET.aimed.length = 0; MET.spots.length = 0; MET.first = true;
     let k = 0;
     for (let i = 0; i < METS.length && k < MET_N; i++) {
       const m = METS[i];
@@ -502,7 +504,7 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     let best = null, bs = 1e9;
     for (let i = 0; i < cand.length; i++) {
       const e = cand[i];
-      if (!alive(e)) continue;
+      if (!alive(e) || !inSight(MET.fx, MET.fz, e)) continue;   // (seen from where Feza cast it)
       let n = 0;
       for (let j = 0; j < MET.aimed.length; j++) if (MET.aimed[j] === e) n++;
       const s = n * 3 + Math.sqrt(dist2(MET.cx, MET.cz, e.x, e.z)) * 0.25 + frand(0, 1.2);
@@ -513,13 +515,15 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
       MET.aimed.push(best);
       x = best.x + frand(-0.35, 0.35); z = best.z + frand(-0.35, 0.35);
     } else {
-      for (let tries = 0; tries < 12; tries++) {
+      let found = false;
+      for (let tries = 0; tries < 12 && !found; tries++) {
         const a = frand(0, TAU), r = Math.sqrt(frand()) * 3.6;
         x = MET.cx + Math.sin(a) * r; z = MET.cz + Math.cos(a) * r;
-        let ok = isFloor(x, z);
+        let ok = isFloor(x, z) && inSight(MET.fx, MET.fz, { x, z });   // (floor Feza can see: not the room behind the wall)
         for (let j = Math.max(0, MET.spots.length - 6); ok && j < MET.spots.length; j += 2) if (dist2(x, z, MET.spots[j], MET.spots[j + 1]) < 2.2) ok = false;
-        if (ok) break;
+        found = ok;
       }
+      if (!found) { x = MET.cx; z = MET.cz; }   // (castMeteor made the centre visible floor)
     }
     MET.spots.push(x, z);
     m.x = x; m.z = z;
@@ -570,7 +574,11 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   function meteorBoom(m) {
     m.st = 0; m.grp.visible = false;
     const x = m.x, z = m.z, list = near(x, z, MET_R);
-    for (let i = 0; i < list.length; i++) hurt(list[i], Math.max(1, Math.round(2 * sword())), { kb: 1.2, fromX: x, fromZ: z, kind: 'meteor' });
+    // walls stop the blast, as for the frost flower and the seal (seen from the landing spot; a stone aimed at a huysuz by a
+    // wall may land a hair inside the wall cell → from the visible centre instead)
+    const fl = isFloor(x, z), sx = fl ? x : MET.cx, sz = fl ? z : MET.cz;
+    for (let i = 0; i < list.length; i++) if (inSight(sx, sz, list[i]))
+      hurt(list[i], Math.max(1, Math.round(2 * sword())), { kb: 1.2, fromX: x, fromZ: z, kind: 'meteor' });
     smash(x, z, MET_R);
     fxRing(x, z, { r0: 0.4, r1: MET_R + 0.5, dur: 0.4, color: m.col, width: 0.5 });
     burst('hit', x, 0.6, z, { color: m.col, scale: 1.4 });

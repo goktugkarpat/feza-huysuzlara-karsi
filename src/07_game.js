@@ -169,7 +169,7 @@ const GAME = (() => {
     lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c' },
     // Round 4: gift = it hands Feza a glass of kefir when it cheers up (see GIFT); roarSfx: its happy "fizz!" instead of a roar
     kefirdev:      { lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' }, add: 'kopuk', at: [0.66, 0.33], n: [2, 3], roar: 1.1, col: '#bfe9ff', gift: true, roarSfx: 'fizz' },
-    ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yarasa' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
+    ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yumurta' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
   };
   // Fallback enemy stats (EDEF overrides every field it defines).
   const DEF0 = {
@@ -864,7 +864,7 @@ const GAME = (() => {
     let m = null;
     if (sp.whelp && typeof EMODEL !== 'undefined' && EMODEL.babyDragon) {
       const baby = EMODEL.babyDragon();
-      m = { ...baby, radius: 0.42, height: 0.95, anim(dt, st) { baby.anim(dt, st.move > 0.05, st.attack >= 0); } };
+      m = { ...baby, radius: 0.42, height: 0.95, anim(dt, st) { baby.anim(dt, st.move > 0.05, st.attack >= 0, st); } };   // (st: hurt, frozen, happy goodbye)
     } else if (typeof EMODEL !== 'undefined' && EMODEL.build) { try { m = EMODEL.build(type, { variant, elite }); } catch (err) { warnOnce('EMODEL.build ' + type, err); } }
     if (!m || !m.root) m = fallbackEnemy(type, elite);
     scene.add(m.root);
@@ -1706,12 +1706,15 @@ const GAME = (() => {
     b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true };
     if (b.type === 'ejderha') { layEggs(b, 3); ftext(b.x, 1.7, b.z, 'Yumurtalara dikkat!', 'word'); }
   }
-  function clearEncounter(b) {
+  // cheer: the boss itself just cheered up — its playmates stay so bossDown can cheer them up with everyone else
+  // (and the ones already cheering finish their happy goodbye); otherwise (nap, calm, zone change) they just go.
+  function clearEncounter(b, cheer) {
     const q = b && b.encounter;
     if (q) {
       for (const egg of q.eggs) { removeObj(egg.pool.root); egg.pool.used = false; }
       clearRaidMove(q); b.encounter = null;
     }
+    if (cheer) return;
     for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].arenaChild === b) {
       const e = enemies[i]; if (C.targetE === e) C.targetE = null; e.dead = true; dropEnemy(e); enemies.splice(i, 1);
     }
@@ -1723,10 +1726,11 @@ const GAME = (() => {
     for (const o of q.move.meshes) { removeObj(o); if (o.userData.raidPool) o.userData.raidUsed = false; }
     q.move = null;
   }
-  function layEggs(b, n) {
+  function layEggs(b, n) {   // → how many eggs appeared
     const q = b.encounter, rm = bossRoom();
-    if (!q || !rm) return;
+    if (!q || !rm) return 0;
     const rx = (rm.hw || rm.r || 10) * 0.72, rz = (rm.hh || rm.r || 10) * 0.72;
+    let laid = 0;
     for (let k = 0; k < n && q.eggs.length < ENCOUNTER.eggs; k++) {
       let spot = null;
       for (let j = 0; j < 30; j++) {
@@ -1737,8 +1741,9 @@ const GAME = (() => {
       if (!spot) break;
       const pool = eggPool().find(e => !e.used); if (!pool) break;
       pool.used = true; pool.root.position.set(spot.x, 0, spot.z); pool.root.rotation.set(0, q.serial, 0); scene.add(pool.root);
-      q.eggs.push({ ...spot, pool, t: 0 }); burst('sparkle', spot.x, 0.7, spot.z, { color: '#e1b1ff', count: 7 });
+      q.eggs.push({ ...spot, pool, t: 0 }); burst('sparkle', spot.x, 0.7, spot.z, { color: '#e1b1ff', count: 7 }); laid++;
     }
+    return laid;
   }
   function hatchEgg(b, q, i) {
     if (enemies.filter(e => e.arenaChild === b && e.whelp && !e.dead).length >= ENCOUNTER.whelps) return;
@@ -2462,7 +2467,13 @@ const GAME = (() => {
           b.did = 1; sfx('roar', { x: b.x, z: b.z }); shake(0.35);
           fx('ring', b.x, b.z, { r0: 1, r1: 9, dur: 0.7, color: '#ffb0f0', width: 0.6 });
         }
-        if (b.did === 1 && b.summon && b.stT > 0.75) { b.did = 2; layEggs(b, 2); nextWave(b); }
+        if (b.did === 1 && b.summon && b.stT > 0.75) {
+          b.did = 2;
+          // its line only when new eggs really appeared (none once the egg pool or the free spots are used up)
+          const k = b.kit.lines.add;
+          if (layEggs(b, 2) && k && hasLine(k)) say(k, 2);
+          nextWave(b);
+        }
         if (b.stT >= 1.6) { bossPhase(b, 'idle', 1); b.wait = frand(0.6, 1.0); }
         break;
       }
@@ -2471,7 +2482,7 @@ const GAME = (() => {
         if (d > 8.5) bossWalk(b, ux, uz, b.speed, dt);
         b.wait -= dt / (hardcore ? HC.cd : 1);
         if (b.wait <= 0) {
-          if (b.summon) { bossPhase(b, 'roar', 1.6); const k = b.kit.lines.add; if (k && hasLine(k)) say(k, 2); break; }
+          if (b.summon) { bossPhase(b, 'roar', 1.6); break; }   // (its line comes with the eggs, see 'roar')
           // by distance; never the same move three times in a row — the swap stays in the same distance band (up close
           // that meant a point-blank 3-bubble volley before)
           const ph = pickPhase(b, d < b.r + 2.6 ? [['bite', 0.45], ['stomp', 0.3], ['breath', 0.25]]
@@ -2597,7 +2608,7 @@ const GAME = (() => {
   }
   function makeHappy(e, o = {}) {
     e.dead = true; e.hp = 0;
-    if (e.boss) clearEncounter(e);
+    if (e.boss) clearEncounter(e, true);
     // before its xp: no level-up line may queue in front of the ending (dragon) or the boss's happy line (mid-zone boss)
     // (a new skill's line waits for the boss's happy line, its goodbye and the UI's look at the portal (≈7.5 s), see skillLine)
     const gift = !!(e.boss && !e.final && e.kit && e.kit.gift);   // Round 4: the kefir giant hands Feza a glass of kefir first (GIFT)
@@ -2868,7 +2879,9 @@ const GAME = (() => {
   function cast(i) {
     const s = GAME.skills[i];
     if (!s || !s.unlocked || s.cd > 0 || P.dead || GAME.state !== 'play' || C.lockT > 0 || giftBusy()) return false;
-    const target = nearestEnemy(P.pos.x, P.pos.z, 12);
+    // the nearest one Feza can SEE: one behind a wall (next room) stole the aim, and the stars/crescents/meteors hit the wall
+    // while the huysuz in the open kept playing; nobody in sight → along his facing
+    const target = nearestEnemy(P.pos.x, P.pos.z, 12, true);
     let ax = Math.sin(P.face), az = Math.cos(P.face);
     if (target) { const dx = target.x - P.pos.x, dz = target.z - P.pos.z, d = Math.hypot(dx, dz) || 1; ax = dx / d; az = dz / d; }
     let ok = false;
@@ -3333,7 +3346,9 @@ const GAME = (() => {
     if (first || tapped) {
       sfx('checkpoint', { x: cp.x, z: cp.z });
       burst('magic', cp.x, 1.2, cp.z, { count: 20, color: '#ff9ae0' });
-      heal(1, !first);
+      // Hardcore: a neşe taşı heals only when it first lights up — tapping it again (e.g. stepping out of a boss arena
+      // to its stone) must not refill Feza over and over (there is no combat regen there either)
+      if (first || !hardcore) heal(1, !first);
       if (!F.nese) { F.nese = true; say('nese_tasi', 2); }
       emit('checkpoint', {});
     }
@@ -3798,7 +3813,8 @@ const GAME = (() => {
     burst('confetti', b.x, 3, b.z, {}); burst('confetti', P.pos.x, 2.5, P.pos.z, {});
     if (!b.final) sfx('cheer', { vol: 0.7 });
     // everyone nearby cheers up too (directly: damage() would wake them and announce elites 'geliyor!')
-    for (const e of enemies.slice()) if (!e.dead && dist2(e.x, e.z, b.x, b.z) < 30 * 30) makeHappy(e, { silent: true });   // (makeHappy directly: hidden() never blocks it)
+    // (its arena playmates — whelps, split jellies — always: clearEncounter(b, true) left them for this)
+    for (const e of enemies.slice()) if (!e.dead && (e.arenaChild === b || dist2(e.x, e.z, b.x, b.z) < 30 * 30)) makeHappy(e, { silent: true });   // (makeHappy directly: hidden() never blocks it)
     for (const m of mortars) { killProjectileObj(m); remove(m.tele); }
     mortars.length = 0;
     // shots already flying pop with their little end burst (they must not hurt Feza during the cheer)
@@ -4110,12 +4126,12 @@ const GAME = (() => {
     for (const e of enemies) { const rr = r + e.r * 0.5; if (dist2(e.x, e.z, x, z) <= rr * rr && e.m.root.visible && !hidden(e)) out.push(e); }
     return out;
   }
-  function nearestEnemy(x, z, maxR) {
+  function nearestEnemy(x, z, maxR, sight) {   // sight: only one with a clear line (no wall between) from x, z
     let best = null, bd = maxR * maxR;
     for (const e of enemies) {
       if (!e.m.root.visible || hidden(e)) continue;
       const d = dist2(e.x, e.z, x, z);
-      if (d < bd) { bd = d; best = e; }
+      if (d < bd && (!sight || los(x, z, e.x, e.z))) { bd = d; best = e; }
     }
     return best;
   }

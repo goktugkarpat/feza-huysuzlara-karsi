@@ -1856,6 +1856,8 @@ const UI = (() => {
         showScreen(D.choice, false); setPaused(false);
         newGameWithIntro(g, { heroClass: heroClass === 'hybrid' ? 'hybrid' : heroClass === 'wizard' ? 'wizard' : 'warrior', plus: false });
         setMode('play'); refreshAllSkills(); portraitSoon(0);
+        // Baştan Başla while Feza napped: the nap's dim layer takes the touches — lift it, or he could not walk at all
+        if (D.fade.style.pointerEvents === 'auto' || parseFloat(D.fade.style.opacity) > 0) fade(0, 0.35, null);
         startHint();   // first-run "tap the ground" finger
       }
     } finally { S.busy = false; }

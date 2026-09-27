@@ -337,7 +337,7 @@ kapi    "Sihirli kapı! İçine gir, yeni bir yere gidelim!"
 kocaman "Dikkat! Kocaman bir huysuz geliyor!"
 ejderha_giris "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!"
 ejderha_yarim "Ejderha yoruluyor! Devam et, çok az kaldı!"
-ejderha_yarasa "Ejderha yarasalarını çağırdı!"
+ejderha_yumurta "Ejderha yeni yumurtalar bıraktı! Dokununca içinden minik ejderhalar çıkıyor."   (said only when new eggs appeared)
 ejderha_bitti "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş."
 kristal "Neşe kristali! Ona dokun, köye neşe geri dönsün!"
 son     "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!"
@@ -435,7 +435,8 @@ EMODEL.build(type, {variant, elite}) → m
   m.dispose()
   Elite: 1.4× scale + golden rim light + slightly different colours (GAME adds aura/name).
 EMODEL.owl() → {root, anim(dt, talking:bool)}          Bilge Baykuş NPC (cute owl, big eyes, glasses? optional) sits on a stump
-EMODEL.babyDragon() → {root, anim(dt, moving:bool, attacking:bool), muzzle()}   friendly baby dragon (≈0.9 m) — unused since the parent's 2nd round (no pet)
+EMODEL.babyDragon() → {root, anim(dt, moving:bool, attacking:bool, st?), muzzle(), flash(a, c), setTint(c), setMood()}   friendly baby dragon (≈0.9 m) — no pet; it is the
+     dragon-arena whelp (ejderyavru). st = GAME's enemy state: hurt squash, frozen = no motion, dying = happy hops + twirl + shrink.
 EMODEL.crystal() → Object3D                           the big pink "neşe kristali" (glowing, for the ending)
 Share geometries across instances (cache per type+variant+mood). Target ≤ 3 draw calls per normal enemy.
 Enemy material: vcMat + rimify; jelly glossy (roughness .15), golem uses TEX.rock map, flame/ghost use glow.
@@ -525,7 +526,7 @@ Loot: coins (instanced, magnet within 2.5 m), hearts, potions, items (beam colou
 auto-equip when power > equipped power, else keep in bag; one piece per look, see GAME's DROP). Elites: item 50 %; chests: coins + item (small 60 %) (+potion);
 breakables: coins sometimes. Praise lines ('ovguN') only occasionally (e.g. 3+ enemies cheered within 2 s, ≥ 25 s since last).
 Boss: arena aggro → 'ejderha_giris', boss bar; attacks: fireball volley (3 slow orbs), stomp (ring telegraph), fire breath (cone
-telegraph then purple flames), bite; summons bats at 66% and 33% ('ejderha_yarasa'); at 50% 'ejderha_yarim'. Defeat → happy,
+telegraph then purple flames), bite; lays 2 more eggs at 66% and 33% ('ejderha_yumurta', only if eggs appeared); at 50% 'ejderha_yarim'. Defeat → happy,
 vanishes in sparkles (no pet), crystal appears ('kristal'), touching it
 → 'victory' ('son' line). Continue → new game+ (ng+1, zone 0, enemies stronger, keep level/items, 'tekrar').
 Save to localStorage 'fezaKotulereKarsi.v3' ONLY when the parent presses Pause › Kaydet (parent's wish: every launch is a new game;

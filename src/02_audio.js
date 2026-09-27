@@ -1044,14 +1044,16 @@ const AUD = (() => {
   }
 
   // ───────────────────────── public API ─────────────────────────
-  let listenersOn = false, waking = null, needsWake = false, pageAway = false;
+  // everRan: the context has played at least once. Only such a context can come back with a stale clock/line to reset —
+  // the very first resume (iOS: on the release of the first touch) must keep the line that touch just started ('kahraman_sec').
+  let listenersOn = false, waking = null, needsWake = false, pageAway = false, everRan = false;
   function resetMusic() {
     for (const p of players) { try { p.lfo.stop(); } catch (e) { /* already stopped */ } try { p.out.disconnect(); } catch (e) { /* already gone */ } }
     players = []; curP = null; clearInterval(pumpTimer); pumpTimer = null;
   }
   function awake(c) {
     if (c !== ctx || c.state !== 'running' || document.hidden || pageAway) return;
-    waking = null;
+    waking = null; everRan = true;
     if (needsWake) {
       needsWake = false;
       // Timers and the audio clock may have advanced differently while the screen was locked. Start the current
@@ -1090,7 +1092,7 @@ const AUD = (() => {
       c.onstatechange = () => {
         if (c !== ctx) return;
         if (c.state === 'running') awake(c);
-        else needsWake = true;   // the next real gesture retries even if an earlier resume is still pending
+        else if (everRan) needsWake = true;   // the next real gesture retries even if an earlier resume is still pending
       };
     }
     if (!unlocked) {
@@ -1110,7 +1112,7 @@ const AUD = (() => {
     }
     if (ctx.state === 'running') awake(ctx);
     else {
-      needsWake = true;
+      if (everRan) needsWake = true;
       const c = ctx;
       // Do not gate retries on a pending promise: iOS may leave resume() unresolved until a later touchend.
       try {
@@ -1257,7 +1259,7 @@ AUD.LINES = /*SESLER*/{
   "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Sihirli kapı kaleye açıldı!",
   "ejderha_giris": "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!",
   "ejderha_yarim": "Ejderha yoruluyor! Devam et, çok az kaldı!",
-  "ejderha_yarasa": "Ejderha yarasalarını çağırdı!",
+  "ejderha_yumurta": "Ejderha yeni yumurtalar bıraktı! Dokununca içinden minik ejderhalar çıkıyor.",
   "ejderha_bitti": "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş.",
   "kristal": "Neşe kristali! Ona dokun, köye neşe geri dönsün!",
   "son": "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!",

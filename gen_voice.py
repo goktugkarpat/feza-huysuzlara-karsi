@@ -140,7 +140,7 @@ async def main():
         flag = "   <-- check (unusual speed: maybe read as an abbreviation?)" if cps < 9.5 or cps > 21 else ""
         print(f"  {k:16s} {d:5.2f} s  {cps:4.1f} chr/s{flag}")
 
-    with open(OUT, "w", encoding="utf-8") as f:
+    with open(OUT, "w", encoding="utf-8", newline="\n") as f:   # LF also on Windows (the Mac commits it)
         f.write("// Narrator voice lines for \"Feza Huysuzlara Karşı\" – Emel (tr-TR-EmelNeural), trimmed mono mp3 as base64.\n"
                 "// Bu dosya gen_voice.py ile üretildi; elle değiştirmeyin. Keys follow AUD.LINES order.\n")
         f.write("window.VOICE_MP3 = {\n")

@@ -3760,11 +3760,15 @@ const EMODEL = (function (G0) {
     const def = DEFS.baby || (DEFS.baby = lodBuild(LOD.baby, buildBaby));
     const mat = eMat({ rough: 0.42, rimK: 0.22, sss: col('#d8b8ff').multiplyScalar(0.04) });
     const I = skinned(def, mat), root = new THREE.Group(); root.name = 'babyDragon'; root.add(I.mesh);
-    const s = { t: 0, flap: 0, atk: 0, mv: 0, bt: 1, mz: new THREE.Vector3() };
+    const s = { t: 0, flap: 0, atk: 0, mv: 0, bt: 1, mz: new THREE.Vector3(), fa: 0, fc: new THREE.Color(1, 1, 1), tint: null, glow: 0 };
+    const em = { s, U: mat.userData.U, mat, def: {} };   // (what applyEm reads: hit flash + ice tint like every creature)
     return {
       root,
-      anim(dt, moving, attacking) {
-        const B = I.B; s.t += dt;
+      // st (optional, GAME's enemy state for the dragon-arena whelps): hurt squash, frozen = no motion, dying = the happy goodbye
+      anim(dt, moving, attacking, st) {
+        const B = I.B, dying = !!st && st.dying >= 0;
+        if (st && st.frozen && !dying) { applyEm(em); return; }
+        s.t += dt;
         s.mv = damp(s.mv, moving ? 1 : 0, 5, dt); s.atk = damp(s.atk, attacking ? 1 : 0, attacking ? 20 : 8, dt);
         resetPose(I.bones);
         s.flap += dt * (9 + 5 * s.mv);
@@ -3780,7 +3784,24 @@ const EMODEL = (function (G0) {
         s.bt -= dt; let bl = 1;
         if (s.bt < 0) { const u = -s.bt / 0.14; if (u >= 1) s.bt = frand(1.5, 4); else bl = 1 - Math.sin(u * PI) * 0.9; }
         B.eyes.scale.y = bl;
+        const R = B.root;
+        if (st && st.hurt > 0 && !dying) { const h = st.hurt * st.hurt; R.scale.set(1 + 0.2 * h, 1 - 0.2 * h, 1 + 0.2 * h); R.rotation.x -= 0.22 * h; }
+        if (dying) {   // (as the other creatures: two happy hops facing Feza, then one twirl while it shrinks into sparkles)
+          const d = st.dying;
+          R.position.y += Math.abs(Math.sin(d * PI * 2.2)) * 0.9 * 0.32 * (1 - smooth01(d));
+          R.rotation.y += smooth01((d - 0.5) / 0.5) * TAU;
+          R.rotation.z += Math.sin(d * 26) * 0.12 * (1 - d);
+          R.scale.multiplyScalar(d < 0.55 ? 1 + 0.12 * Math.sin(PI * d / 0.55) : Math.max(0.0001, 1 - smooth01((d - 0.55) / 0.45)));
+        }
+        applyEm(em);
       },
+      flash(a, c = '#ffffff') { s.fa = clamp(a || 0, 0, 1); s.fc.set(c); applyEm(em); },
+      setTint(c) {
+        s.tint = c ? new THREE.Color(c) : null;
+        if (c) mat.color.copy(_ice.set(0xffffff).lerp(s.tint, 0.6)); else mat.color.set(0xffffff);
+        applyEm(em);
+      },
+      setMood() { /* always happy: open sparkly eyes and a smile */ },
       muzzle() { root.updateMatrixWorld(true); return I.marks.muzzle.getWorldPosition(s.mz); },
       dispose() { if (root.parent) root.parent.remove(root); mat.dispose(); I.mesh.skeleton.dispose(); },
     };
