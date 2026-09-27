@@ -351,7 +351,8 @@ function renderFrame() {
 
 // Frame-rate watchdog with a quality ladder: MSAA first, then resolution; steps back up after ~10 s of smooth play.
 // perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
-// doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
+// does not make the game faster is undone: a browser/display limit or CPU bottleneck should not blur the picture.
+// Match the120fps game loop; probe at sustained<102fps, restore detail only above114fps.
 const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false };
 function perfLadder() {
   const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
@@ -387,10 +388,10 @@ function perfTick(rawDt, active) {
   if (PERF.level === 0 && (!L.length || L[0].dpr !== QUALITY.dpr || L[0].msaa !== QUALITY.msaa)) PERF.ladder = perfLadder();
   if (PERF.probe) {
     const pr = PERF.probe; PERF.probe = null;
-    if (fps < 50 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
+    if (fps < 114 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
   }
   if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;          // the cap is gone
-  if (fps < 42) {
+  if (fps < 102) {
     PERF.good = 0;
     if (PERF.upJust) PERF.upWait = Math.min(PERF.upWait * 2, 160);   // the last step up was too much: wait longer next time
     PERF.upJust = false;
@@ -399,7 +400,7 @@ function perfTick(rawDt, active) {
     return;
   }
   PERF.upJust = false;
-  if (fps < 57) { PERF.good = 0; return; }
+  if (fps < 114) { PERF.good = 0; return; }
   PERF.capFps = 0; PERF.good += win;
   if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
 }

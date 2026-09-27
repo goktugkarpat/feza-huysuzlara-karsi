@@ -40,7 +40,7 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   wands, Bulut Beresi/Orman Gezgini Başlığı, Deniz Dalgası/Güneş capes. `FEZA.setEquip` accepts offhand; `H.wandTip` tracks it.
 - Manual saves during boss endings include pending treasures, including the kefir gift and final dragon reward. Invalid hand indices
   recover an existing matching weapon before creating a starter, preserving the one-piece-per-look inventory rule.
-- Automatic render target: PC/Mac120FPS, phones/iPad60FPS; no FPS setting in menus. Browser/display refresh can limit actual rate.
+- Automatic render target: 120FPS on PC, Mac, phones and iPad; no FPS setting in menus. Browser/display refresh can limit actual rate.
 
 ## Breakables and class balance (latest)
 - Hybrid uses its sword for targeted breakables, attack-button breakables and obstacle-clearing swings; wizard keeps wand attacks.
@@ -94,8 +94,9 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   from Feza's damage). Hearts heal 10 %, regen after 5 s (1.2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
   Auto-attack also works while dragging (gap < 1.1 m, within ±80° of the walking direction). Comic words limited by GAME.wordOK().
 - **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (2 on touch devices);
-  battery (parent): QUALITY.dpr ≤ 1.25, sun shadow map 1536², and UI's frame() runs at most 60 frames/s (120 Hz iPads);
-  perfTick(rawDt, active) only counts gameplay frames, steps MSAA then DPR down and back up; perfReset; precompile(obj, async) and
+  battery (parent): QUALITY.dpr ≤ 1.25, sun shadow map 1536², and UI's frame() runs at most120 frames/s on all devices;
+  perfTick(rawDt, active) only counts gameplay frames, probes MSAA then DPR reductions below102fps and restores detail above114fps;
+  reductions without a12% gain are reverted below114fps, preserving quality on60Hz/browser/CPU limits; perfReset; precompile(obj, async) and
   renderer.compile compile against rtMain; CTX_HOOKS run after a WebGL context restore (env map restored); SHADOW + viewRadius size the sun shadow
   box from the camera; PLAIN / ENV_OK for the no-float-render-target fallback. While POST.on the canvas has no depth/stencil, so all 3D goes through renderFrame.
 - **TEX:** TEX.init() builds common + forest surfaces; cave/volcano/castle ones (caveFloor, caveSand, basalt, ash, lava, castleFloor, carpet, brick)
