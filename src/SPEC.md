@@ -19,7 +19,7 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   Restoration does not rewrite the checkpoint. Starting a fresh Hardcore clears its previous checkpoint.
 - HC multipliers: mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
   ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; existing readable boss windups remain.
-  Raid special damage has another1.35 multiplier (1.9575 total). TBC warnings remain2s.
+  Raid special damage has another1.55 multiplier (2.2475 total). TBC warnings remain2s.
   No combat regen, calm regen halved; no death-based enemy weakening or retained boss damage.
 
 ## Character classes and boss treasures (latest; overrides older notes below)
