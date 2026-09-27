@@ -12,7 +12,7 @@
   `/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -e "checkSyntax('src/07_game.js')"`.
 - Hata ayıklama: `window.__T` (god, tp, xp, zone, kill, give, boss, win…), `?tohum=N` (sabit harita), `?kam=uzaklık,eğim` (kamera),
   `?basit` (parlama efekti kapalı), `?hd` (tam çözünürlük), `?ikon` (simge pozu).
-- GitHub'a SADECE kullanıcı "yükle / GitHub'a gönder" dediğinde gönder (depo: github.com/goktugkarpat/feza-kotulere-karsi, `main`'e doğrudan).
+- GitHub'a SADECE kullanıcı "yükle / GitHub'a gönder" dediğinde gönder (depo: github.com/goktugkarpat/feza-huysuzlara-karsi, `main`'e doğrudan).
   Kullanıcı `yayinla.command` ile de gönderebilir (ilk seferde depoyu oluşturup GitHub Pages'ı açar).
 - iPad uygulaması: `manifest.webmanifest`, `sw.js` (dosya eklenirse `CORE` listesine ekle; önemli değişiklikte `CACHE` sürümünü artır), `icons/`.
   Simge `index.html?sessiz&ikon` sayfasının 1024x1024 ekran görüntüsünden üretilir.

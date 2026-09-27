@@ -1,6 +1,6 @@
 // İnternetsiz çalışma: ilk açılıştan sonra oyun (kod, 3D kütüphanesi, gömülü sesler) cihazda saklanır.
 // Dosya eklenirse CORE listesine ekle; önemli değişiklikte CACHE sürümünü artır.
-const CACHE = 'feza-kotulere-karsi-v30';
+const CACHE = 'feza-huysuzlara-karsi-v31';
 const SRC = ['00_core', '01_textures', '02_audio', '03_fx', '04_feza', '05_enemies', '06_level', '07_game', '08_skills', '09_ui'];
 const CORE = ['./', './index.html', './vendor/three.js', './sesler.js', './manifest.webmanifest', './src/ui.css',
   ...SRC.map(n => './src/' + n + '.js')];
@@ -14,8 +14,10 @@ self.addEventListener('install', e => e.waitUntil((async () => {
   self.skipWaiting();
 })()));
 self.addEventListener('activate', e => e.waitUntil((async () => {
-  // Only this game's old versions: the other Feza games share the same site (goktugkarpat.github.io) and have their own caches.
-  for (const k of await caches.keys()) if (k.startsWith('feza-kotulere-karsi-') && k !== CACHE) await caches.delete(k);
+  // Only this game's old versions (incl. 'feza-kotulere-karsi-' from before the rename): the other Feza games share the same site
+  // (goktugkarpat.github.io) and have their own caches.
+  const OWN = k => k.startsWith('feza-huysuzlara-karsi-') || k.startsWith('feza-kotulere-karsi-');
+  for (const k of await caches.keys()) if (OWN(k) && k !== CACHE) await caches.delete(k);
   await self.clients.claim();
 })()));
 self.addEventListener('fetch', e => {
