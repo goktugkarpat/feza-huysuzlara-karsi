@@ -562,10 +562,10 @@ const AUD = (() => {
     const dx = x - lx, dz = z - lz, d = Math.sqrt(dx * dx + dz * dz), e = Math.max(0, d - 4) / 7;
     return [1 / (1 + e * e), cl(dx / 14, -0.7, 0.7)];
   }
-  let active = 0, stepAlt = 0;
+  let active = 0, stepAlt = 0, effectEpoch = 0;
   const lastT = {}, streak = { coin: [0, -9], pop: [0, -9] }, warned = {};
   function sfx(name, o) {
-    if (!unlocked || !M || !A.soundOn) return false;
+    if (!unlocked || !M || !A.soundOn || document.hidden || pageAway) return false;
     if (!SFX[name]) { if (!warned[name]) { warned[name] = 1; console.warn('AUD.sfx: unknown sound', name); } return false; }
     if (typeof o === 'number') o = { vol: o };
     o = o || {};
@@ -581,8 +581,8 @@ const AUD = (() => {
     if (s) { s[0] = now - s[1] < 0.5 ? Math.min(s[0] + 1, STREAK.length - 1) : 0; s[1] = now; p *= semi(STREAK[s[0]]); }
     try {
       const r = playRecipe(M, name, { g, p, pan }, now + 0.008);
-      active++;
-      setTimeout(() => { active--; try { r.head.disconnect(); } catch (e) { /* already gone */ } }, (r.len + 0.4) * 1000);
+      active++; const epoch = effectEpoch;
+      setTimeout(() => { if (epoch === effectEpoch) active = Math.max(0, active - 1); try { r.head.disconnect(); } catch (e) { /* already gone */ } }, (r.len + 0.4) * 1000);
     } catch (e) { console.warn('AUD.sfx', name, e); return false; }
     return true;
   }
@@ -851,7 +851,10 @@ const AUD = (() => {
     pump(until) {
       const c = this.m.c;
       // fell behind (e.g. main thread stalled): skip ahead instead of piling notes into the past
-      while (c.currentTime > 0 && this.t < c.currentTime - 0.05 && this.t < this.stopAt) { this.t += this.beat * 4; this.bar++; }
+      if (c.currentTime > 0 && this.t < c.currentTime - 0.05 && this.t < this.stopAt) {
+        const bars = Math.ceil((Math.min(c.currentTime - 0.05, this.stopAt) - this.t) / (this.beat * 4));
+        this.t += bars * this.beat * 4; this.bar += bars;
+      }
       while (this.t < until && this.t < this.stopAt) { this.arrange(this.t, this.bar); this.t += this.beat * 4; this.bar++; }
     }
     leadBar(bar) {
@@ -918,7 +921,7 @@ const AUD = (() => {
 
   let players = [], curP = null, pumpTimer = null;
   function pumpAll() {
-    if (!ctx) return;
+    if (!ctx || document.hidden || pageAway) return;
     const now = ctx.currentTime;
     players = players.filter(p => {
       if (now > p.stopAt + 0.3) { try { p.out.disconnect(); } catch (e) { /* ignore */ } return false; }
@@ -979,10 +982,10 @@ const AUD = (() => {
     vcur = it; clearTimeout(vgap); vgap = null;
     it.end = wallNow() + it.dur;
     const subOnly = () => { if (vcur !== it) return; show(it); it.end = wallNow() + it.dur; it.timer = setTimeout(() => endLine(it), it.dur * 1000); };
-    if (ctx && unlocked && A.voiceOn && mp3(it.key)) {
+    if (ctx && unlocked && A.voiceOn && !document.hidden && !pageAway && mp3(it.key)) {
       getBuf(it.key).then(buf => {
         if (vcur !== it) return;
-        if (!buf) return subOnly();
+        if (!buf || document.hidden || pageAway) return subOnly();
         const src = ctx.createBufferSource();
         src.buffer = buf; src.connect(M.voice); src.onended = () => endLine(it);
         src.start(ctx.currentTime + 0.02);
@@ -1041,31 +1044,79 @@ const AUD = (() => {
   }
 
   // ───────────────────────── public API ─────────────────────────
-  let listenersOn = false;
+  let listenersOn = false, waking = null, needsWake = false, pageAway = false;
+  function resetMusic() {
+    for (const p of players) { try { p.lfo.stop(); } catch (e) { /* already stopped */ } try { p.out.disconnect(); } catch (e) { /* already gone */ } }
+    players = []; curP = null; clearInterval(pumpTimer); pumpTimer = null;
+  }
+  function awake(c) {
+    if (c !== ctx || c.state !== 'running' || document.hidden || pageAway) return;
+    waking = null;
+    if (needsWake) {
+      needsWake = false;
+      // Timers and the audio clock may have advanced differently while the screen was locked. Start the current
+      // theme at today's clock, and drop an old spoken line rather than leave its ducking gain stuck forever.
+      A.stopVoice(); resetMusic();
+      Object.keys(lastT).forEach(k => delete lastT[k]); active = 0; effectEpoch++;
+      for (const k of Object.keys(streak)) { streak[k][0] = 0; streak[k][1] = -9; }
+      ramp(M.sfx.gain, A.soundOn ? SFX_VOL : 0, 0.05);
+      ramp(M.voice.gain, A.voiceOn ? VOICE_VOL : 0, 0.05);
+      ramp(M.music.gain, musicLevel(), 0.05);
+    }
+    if (want && A.musicOn) startMusic(want);
+  }
+  function suspendAudio() {
+    if (!ctx || ctx.state === 'closed') return;
+    needsWake = true; waking = null;
+    const c = ctx;
+    try {
+      const p = c.suspend();
+      // A quick hide/show can finish suspend after resume. Reconcile that race once the promise settles.
+      if (p && p.then) p.then(() => { if (c === ctx && !document.hidden && !pageAway) A.unlock(); }, () => {});
+    } catch (e) { /* interrupted by the operating system */ }
+  }
   A.unlock = function () {
-    if (QUIET) return false;
+    if (QUIET || document.hidden || pageAway) return false;
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+    if (ctx && ctx.state === 'closed') {
+      A.stopVoice(); resetMusic(); ctx = M = null; unlocked = false; waking = null; needsWake = true;
+    }
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return false;
       try { ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { try { ctx = new AC(); } catch (e2) { return false; } }
       M = makeMix(ctx);
+      const c = ctx;
+      c.onstatechange = () => {
+        if (c !== ctx) return;
+        if (c.state === 'running') awake(c);
+        else needsWake = true;   // the next real gesture retries even if an earlier resume is still pending
+      };
     }
-    if (ctx.state !== 'running') { try { const r = ctx.resume(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignore */ } }
     if (!unlocked) {
       try { const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0); } catch (e) { /* ignore */ }
       unlocked = true;
-      if (!listenersOn) {
-        listenersOn = true;
-        // iOS may leave the context 'interrupted'/'suspended' (calls, app switch): resume on the next touch.
-        addEventListener('pointerdown', () => { if (ctx && ctx.state !== 'running' && !document.hidden) ctx.resume().catch(() => {}); }, true);
-        document.addEventListener('visibilitychange', () => {
-          if (!ctx) return;
-          if (document.hidden) ctx.suspend().catch(() => {}); else ctx.resume().catch(() => {});
-        });
-      }
-      if (want && A.musicOn) startMusic(want);
       prefetch();
+    }
+    if (!listenersOn) {
+      listenersOn = true;
+      // Safari can require the *release* gesture after a screen lock. Keep these listeners after first unlock:
+      // the UI's initial unlock listeners are intentionally removed as soon as sound first works.
+      for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventListener(ev, () => A.unlock(), true);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) suspendAudio(); else A.unlock(); });
+      addEventListener('pagehide', () => { pageAway = true; suspendAudio(); });
+      addEventListener('pageshow', () => { pageAway = false; A.unlock(); });
+      addEventListener('focus', () => A.unlock());
+    }
+    if (ctx.state === 'running') awake(ctx);
+    else {
+      needsWake = true;
+      const c = ctx;
+      // Do not gate retries on a pending promise: iOS may leave resume() unresolved until a later touchend.
+      try {
+        const p = waking = c.resume();
+        if (p && p.then) p.then(() => { if (c === ctx) awake(c); }, () => { if (waking === p) waking = null; });
+      } catch (e) { waking = null; }
     }
     return true;
   };
@@ -1079,6 +1130,7 @@ const AUD = (() => {
   function ramp(g, v, tc) { const t = ctx.currentTime; g.cancelScheduledValues(t); g.setTargetAtTime(v, t, tc); }
   A.setMusic = function (on) {
     A.musicOn = !!on;
+    if (on && unlocked) A.unlock();
     if (!ctx) return;
     if (A.musicOn) { ramp(M.music.gain, musicLevel(), 0.05); startMusic(want); }   // the bus may have been built at 0 (saved "off")
     else { if (curP) curP.stop(ctx.currentTime, 0.6); curP = null; }
@@ -1086,16 +1138,19 @@ const AUD = (() => {
   // Sound effects only; the narrator keeps talking (see voiceOn).
   A.setSound = function (on) {
     A.soundOn = !!on;
+    if (on && unlocked) A.unlock();
     if (M) ramp(M.sfx.gain, A.soundOn ? SFX_VOL : 0, 0.05);
   };
   // Narrator voice (parent/debug only; subtitles keep running when off).
   A.setVoice = function (on) {
     A.voiceOn = !!on;
+    if (on && unlocked) A.unlock();
     if (M) ramp(M.voice.gain, A.voiceOn ? VOICE_VOL : 0, 0.05);
   };
   // Pause / wardrobe: music dips to ~35% and comes back on resume. Only a flag while silent or before unlock.
   A.dim = function (on) {
     dimmed = !!on;
+    if (!on && unlocked) A.unlock();
     if (M && A.musicOn) ramp(M.music.gain, musicLevel(), 0.25);
   };
   A.say = say;
@@ -1146,6 +1201,18 @@ const AUD = (() => {
 
 AUD.LINES = /*SESLER*/{
   "giris1": "Merhaba Feza! Huysuz Ejderha köyün neşe kristalini aldı ve herkesi huysuz yaptı.",
+  "kahraman_sec": "Bugün hangi Feza olacaksın? Savaşçı, büyücü ya da hem kılıç hem değnek kullanan büyülü şövalyeyi seç!",
+  "seviye_buyu": "Seviye atladın! Sihirli değneğin artık daha güçlü!",
+  "giris_hibrit": "Bir elinde ışın kılıcı, bir elinde sihirli değnek! Yakındaki huysuzlara kılıcınla dokun, uzaktakilere büyü gönder!",
+  "seviye_hibrit": "Seviye atladın! Kılıcın ve sihirli değneğin artık daha güçlü!",
+  "hibrit1": "Hilal Dalgası hazır! Kılıcından sihirli bir hilal gönder, önündeki huysuzlar neşelensin!",
+  "hibrit2": "Işık Bağı açıldı! Çevrende dönen sihirli kılıçlar seni korusun, yakınındaki huysuzlara ışık göndersin!",
+  "hibrit3": "Gökkuşağı Mührü hazır! Kılıcınla değneğini birleştir, rengarenk sihir dalgaları yayılsın!",
+  "giris_buyu": "Sihirli değneğinle uzaktan ışık gönder, huysuzlar neşelensin! Gitmek istediğin yere parmağını bas.",
+  "degnek": "Yeni bir sihirli değnek buldun!",
+  "buyu1": "Işık Okları hazır! Mor düğmeye bas, değneğinden üç sihirli ok uçsun!",
+  "buyu2": "Buz Çiçeği açıldı! Mavi düğmeyle huysuzları biraz dondur, sihirli kalkanın seni korusun!",
+  "buyu3": "Yıldız Bahçesi hazır! Pembe düğmeye bas, yıldızlar bir çember olup huysuzları neşelendirsin!",
   "giris2": "Işın kılıcınla huysuzlara dokun, yeniden neşelensinler! Gitmek istediğin yere parmağını bas.",
   "yolculuk": "Kristali geri almaya gidiyoruz: önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ ve en sonunda ejderhanın kalesi!",
   "baykus": "Hu hu! Ben Bilge Baykuş. Toprak yolu takip et, ormana varırsın! Canın azalırsa kırmızı iksiri iç!",

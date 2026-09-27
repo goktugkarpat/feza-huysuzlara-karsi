@@ -1,6 +1,6 @@
 /* ── Feza: kahraman modeli + canlı animasyon, ekipman modelleri (ışın kılıcı / şapka / pelerin), eşya tanımları, küçük resimler ──
    FEZA.create() → H · FEZA.portrait(H) → dataURL · ITEMS (bkz. src/SPEC.md "FEZA + ITEMS").
-   Every weapon is a lightsaber (Feza's request): ITEMS.bladeColor(item), H.ignite(), H.bladeOn; the blade retracts while
+   Warriors carry lightsabers; wizards carry wooden wands: ITEMS.bladeColor(item), H.ignite(), H.bladeOn; the blade retracts while
    he sleeps and re-ignites when he wakes. Extra: H.retract(), ITEMS.nameOf(item) (current name, for old saves).
    Body = one skeleton + three SkinnedMeshes (skin, clothes, shoes) with rigid + blended weights, so knees, elbows, waist and
    neck bend smoothly; hair sits on the head bone. Eyes, lashes, brows, mouth and blush are drawn by the skin shader from a
@@ -739,6 +739,32 @@ const { FEZA, ITEMS } = (function () {
     yildiz: { col: '#9b45ff', L: 0.75, metal: 0xe4e0ea, grip: 0x251d31, shroud: 'crown', core: 1.7, shell: 2.3, halo: 0.6, btn: '#d49bff' },
     gokkusagi: { col: '#ff5fd0', L: 0.78, metal: 0xf6f2ff, grip: 0x6f5fa6, shroud: 'crown', rainbow: true, core: 1.7, shell: 2.1, halo: 0.55, btn: '#ffffff' },
   };
+  SABER.lavkilic = { col: '#ff762b', L: 0.78, metal: 0x302d38, grip: 0x201f2b, shroud: 'round', core: 1.7, shell: 2.1, halo: 0.55, btn: '#ffbc49' };
+  SABER.ejderkilic = { col: '#c77aff', L: 0.82, metal: 0xe7bd59, grip: 0x3d2355, shroud: 'crown', core: 1.7, shell: 2.1, halo: 0.55, btn: '#e4beff' };
+  for (const [id, col, shroud, metal, motif] of [
+    ['buzkilic', '#7defff', 'round', 0xb1d9ed, 'ice'], ['guniskilic', '#ffd651', 'crown', 0xe4b95c, 'sun'],
+    ['dalga', '#41e8cb', 'classic', 0x84d6c8, 'wave'], ['joleikiz', '#b0ff76', 'round', 0xdab750, 'jelly'],
+    ['lavikiz', '#ffac4e', 'crown', 0x4b435b, 'lava'],
+  ]) SABER[id] = { ...SABER.demir, col, shroud, metal, L: 0.78, motif };
+  const WAND = {
+    findik: { wood: '#855137', col: '#a1cfff', L: 0.48, band: '#c9a16b' },
+    mese: { wood: '#533c2c', col: '#79dbbd', L: 0.53, band: '#b8ca9b' },
+    ay: { wood: '#6d506d', col: '#bfa7ff', L: 0.56, band: '#dfe6fa' },
+    kor: { wood: '#472b2b', col: '#ff9a54', L: 0.56, band: '#d79657' },
+    yildizdegnek: { wood: '#443c67', col: '#efbcff', L: 0.59, band: '#ffe4a1' },
+    gokdegnek: { wood: '#ddd1ba', col: '#ff93dc', L: 0.61, band: '#e2bc65' },
+    lavdegnek: { wood: '#322c36', col: '#ff762b', L: 0.6, band: '#ffad46', boss: 'lava' },
+    ejderdegnek: { wood: '#472645', col: '#c77aff', L: 0.64, band: '#e7bd59', boss: 'dragon' },
+  };
+  Object.assign(WAND, {
+    mercan: { wood: '#935149', col: '#ffb6b3', L: 0.63, band: '#ffd6ad', motif: 'coral' },
+    bulut: { wood: '#b8a17c', col: '#aeefff', L: 0.65, band: '#eefaff', motif: 'cloud' },
+    cicek: { wood: '#53643c', col: '#ff9dd5', L: 0.64, band: '#dbce77', motif: 'flower' },
+    jolesihir: { wood: '#594676', col: '#c29aff', L: 0.67, band: '#b5ff82', motif: 'jelly' },
+    kefirikiz: { wood: '#438677', col: '#c4fff1', L: 0.69, band: '#fff2bb', motif: 'cloud' },
+    magaraikiz: { wood: '#584474', col: '#8bdcff', L: 0.7, band: '#e2b569', motif: 'ice' },
+    ejderikiz: { wood: '#315665', col: '#62ffda', L: 0.73, band: '#f4cf71', boss: 'dragon', motif: 'dragon' },
+  });
   const saberDef = id => SABER[id] || SABER.demir;
   // rainbow blade: hue = fract(t * RB_SPEED + y * RB_GRAD) (y along the blade in metres), HSV saturation RB_SAT
   const RB_SPEED = 0.11, RB_GRAD = 0.3, RB_SAT = 0.8, RB_Y = 0.35;
@@ -751,7 +777,7 @@ const { FEZA, ITEMS } = (function () {
   const nowT = () => (typeof TIME !== 'undefined' && TIME.u ? TIME.u.value : performance.now() / 1000);
   // ITEMS.bladeColor(item | baseId) → '#rrggbb' (the rainbow blade: its colour right now, at mid-blade)
   function bladeColor(item) {
-    const d = saberDef(typeof item === 'string' ? item : item ? baseId(item) : 'tahta');
+    const id = typeof item === 'string' ? item : item ? baseId(item) : 'tahta', d = WAND[id] || saberDef(id);
     return d.rainbow ? hsvHex(fract(nowT() * RB_SPEED + RB_Y * RB_GRAD), RB_SAT, 1) : d.col;
   }
   const SABER_VS = `varying vec3 vN; varying vec3 vV; varying float vY;
@@ -866,8 +892,63 @@ const { FEZA, ITEMS } = (function () {
       if (r >= 3) k.add(G.sphere(16), 0xffffff, [0, -0.104, 0], 0, [0.011, 0.006, 0.011]);
     });
   }
+  // Small wooden wands share the hand socket with sabers, but never grow a luminous blade.
+  function bossGrip(id) {
+    const lava = id === 'lavkilic' || id === 'lavdegnek' || id === 'lavikiz';
+    return geoC('bossGrip:' + (lava ? 'lava' : 'dragon'), () => kitGeo(k => {
+      if (lava) {
+        k.add(G.sphere(12), '#302d38', [0, 0.1, 0], 0, [0.068, 0.074, 0.045]);
+        for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.seg([0, 0.1, 0.046], [Math.sin(a) * 0.06, 0.1 + Math.cos(a) * 0.065, 0.022], 0.004, '#ff9e36', 0.003, 6); }
+      } else {
+        for (const side of [-1, 1]) {
+          k.seg([0, 0.07, 0], [side * 0.105, 0.17, 0], 0.012, '#e7bd59', 0.007, 8);
+          for (let i = 0; i < 3; i++) k.seg([side * 0.025, 0.08, 0], [side * (0.05 + i * 0.028), 0.17 - i * 0.026, 0], 0.019, '#9358b6', 0.004, 8);
+        }
+        k.add(G.sphere(12), '#d3a1ff', [0, 0.08, 0.03], 0, [0.017, 0.026, 0.012]);
+      }
+    }));
+  }
+  // Decorations are merged into one mesh, keeping even the dual-wielding hero inexpensive.
+  function weaponOrnament(motif, band, col, y) {
+    return geoC('ornament:' + motif + ':' + band + ':' + col + ':' + y, () => kitGeo(k => {
+      if (motif === 'cloud' || motif === 'jelly') {
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; k.add(G.sphere(12), i & 1 ? band : col, [Math.sin(a) * 0.045, y + Math.cos(a) * 0.042, 0], 0, [0.035, 0.039, 0.027]); }
+      } else if (motif === 'ice') {
+        for (const side of [-1, 1]) k.add(G.cone(5), col, [side * 0.044, y, 0], [0, 0, side * -0.32], [0.024, 0.13, 0.024]);
+      } else if (motif === 'sun' || motif === 'flower') {
+        for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; k.add(G.sphere(10), col, [Math.sin(a) * 0.06, y + Math.cos(a) * 0.06, 0], [0, 0, -a], [0.021, 0.035, 0.013]); }
+        k.add(G.sphere(12), band, [0, y, 0.015], 0, [0.033, 0.033, 0.015]);
+      } else {
+        for (const side of [-1, 1]) {
+          k.seg([0, y - 0.11, 0], [side * 0.057, y - 0.01, 0], 0.012, band, 0.009, 8);
+          k.seg([side * 0.057, y - 0.01, 0], [side * 0.035, y + 0.047, 0], 0.009, band, 0.004, 8);
+          if (motif === 'coral' || motif === 'dragon') k.seg([side * 0.05, y - 0.02, 0], [side * 0.09, y + 0.025, 0], 0.01, col, 0.005, 8);
+        }
+      }
+    }));
+  }
+  function buildWand(id, r) {
+    const d = WAND[id], g = new THREE.Group();
+    const wood = geoC('wand:' + id, () => kitGeo(k => {
+      kcyl(k, -0.085, 0.055, 0.038, 0.032, d.wood, 12);
+      kcyl(k, 0.055, d.L, 0.029, 0.013, d.wood, 12);
+      k.add(G.sphere(12), d.wood, [0, -0.081, 0], 0, [0.038, 0.022, 0.038]);
+      for (let i = 0; i < 4; i++) kcyl(k, -0.065 + i * 0.027, -0.06 + i * 0.027, 0.039, 0.039, d.band, 12);
+      for (let i = 0; i < 3; i++) k.seg([0.012, 0.1 + i * 0.1, 0.008], [-0.009, 0.14 + i * 0.1, 0.01], 0.003, d.band, 0.002, 6);
+    }));
+    g.add(new THREE.Mesh(wood, vcM('wandWood', { roughness: 0.65, metalness: 0.05 })));
+    if (d.boss) g.add(new THREE.Mesh(bossGrip(id), glowVC('bossGrip', 0.25, { roughness: 0.38, metalness: 0.45 })));
+    const light = new THREE.Mesh(G.sphere(12), mat('wandTip:' + id, () => glowMat(d.col, 1.8)));
+    light.position.y = d.L; light.scale.set(0.031 + r * 0.002, 0.063, 0.031 + r * 0.002); light.userData.noShadow = true; g.add(light);
+    g.add(new THREE.Mesh(weaponOrnament(d.motif || 'vine', d.band, d.col, d.L - 0.045), glowVC('wandInlay', 0.3, { roughness: 0.45, metalness: 0.2 })));
+    const tip = new THREE.Object3D(); tip.position.y = d.L; g.add(tip); g.fzTip = tip;
+    return g;
+  }
   function buildSword(id, r) {   // (name kept: "sword" = the weapon slot's model)
+    if (WAND[id]) return buildWand(id, r);
     const d = saberDef(id), L = d.L, g = new THREE.Group();
+    if (d.motif) g.add(new THREE.Mesh(weaponOrnament(d.motif, '#' + d.metal.toString(16).padStart(6, '0'), d.col, 0.1), glowVC('saberInlay', 0.2, { roughness: 0.35, metalness: 0.6 })));
+    if (id === 'lavkilic' || id === 'ejderkilic') g.add(new THREE.Mesh(bossGrip(id), glowVC('bossGrip', 0.25, { roughness: 0.38, metalness: 0.45 })));
     g.add(new THREE.Mesh(geoC('sbHilt:' + id, () => hiltGeo(id)), mat('sbMetal|' + (r >= 2 ? r : 0), () => {
       const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.26, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.35, 0.35), envMapIntensity: 1.0 });
       return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.55 : 0.4, 2.4) : rimify(m, 0xffffff, 0.14);
@@ -913,7 +994,33 @@ const { FEZA, ITEMS } = (function () {
   function buildHat(id, r) {
     const g = new THREE.Group(), h = new THREE.Group(); g.add(h);
     const add = (geo, m, pos, rot) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(...pos); if (rot) o.rotation.set(...rot); h.add(o); return o; };
-    if (id === 'migfer') {
+    if (id === 'bulutbere' || id === 'yaprakbaslik' || id === 'magarasihir') {
+      h.position.set(0, 0.19, 0);
+      const cloud = id === 'bulutbere', crystal = id === 'magarasihir', col = cloud ? '#c1e9ff' : crystal ? '#7764c7' : '#67aa68';
+      add(geoC('newHat:' + id, () => kitGeo(k => {
+        k.add(G.sphere(20), col, [0, 0.02, -0.01], 0, [0.29, 0.12, 0.29]);
+        k.add(G.torus(TAU, 0.1, 40), crystal ? '#e5c46c' : '#fff2c4', [0, -0.015, 0], [Math.PI / 2, 0, 0], 0.28);
+        if (cloud) for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; k.add(G.sphere(12), '#eefbff', [Math.sin(a) * 0.23, 0.07, Math.cos(a) * 0.23], 0, [0.1, 0.08, 0.09]); }
+        else if (crystal) for (let i = -2; i <= 2; i++) k.add(G.cone(5), '#a0edff', [i * 0.088, 0.1 + (2 - Math.abs(i)) * 0.04, 0.21], [0, 0, -i * 0.2], [0.045, 0.19, 0.045]);
+        else for (const side of [-1, 1]) for (let i = 0; i < 3; i++) k.add(G.sphere(12), i & 1 ? '#a5db6c' : '#3b8854', [side * (0.15 + i * 0.03), 0.09 + i * 0.05, 0.02], [0, 0, side * -0.6], [0.05, 0.14, 0.024]);
+      })), glowVC('newHat', 0.13, { roughness: 0.65 }));
+    } else if (id === 'joletac') {
+      h.position.set(0, 0.24, 0); h.rotation.z = -0.08;
+      add(geoC('jellyCrown', () => kitGeo(k => {
+        k.add(G.torus(TAU, 0.18, 40), '#73d84e', [0, 0.015, 0], [Math.PI / 2, 0, 0], 0.225);
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; k.add(G.sphere(16), '#8aef67', [Math.sin(a) * 0.2, 0.095, Math.cos(a) * 0.2], 0, [0.057, 0.115, 0.057]); }
+      })), glowVC('jellyCrown', 0.24, { roughness: 0.12, metalness: 0.12 }));
+      add(geoC('jellyGem', () => starGeo(0.058, 0.018)), goldM(r), [0, 0.08, 0.239]);
+    } else if (id === 'kostebekfener') {
+      h.position.set(0, 0.1, -0.02);
+      add(geoC('minerDome', () => { const o = new THREE.SphereGeometry(1, 32, 16, 0, TAU, 0, Math.PI * 0.53); o.scale(0.33, 0.28, 0.34); return o; }), metalMat('minerCopper', 0xc47e45, 0.5, r));
+      add(geoC('minerRim', () => kitGeo(k => {
+        k.add(G.torus(TAU, 0.09, 40), '#5a4031', [0, -0.025, 0], [Math.PI / 2, 0, 0], [0.345, 0.355, 0.3]);
+        k.add(G.cyl(1, 1, 20), '#564739', [0, 0.12, 0.315], [Math.PI / 2, 0, 0], [0.077, 0.065, 0.077]);
+        for (const side of [-1, 1]) k.add(G.sphere(12), '#9cc5df', [side * 0.19, 0.2, 0.1], 0, [0.035, 0.07, 0.035]);
+      })), vcM('minerParts', { roughness: 0.4, metalness: 0.5 }));
+      const lamp = add(G.sphere(20), mat('minerLamp', () => glowMat('#fff3ac', 1.6)), [0, 0.12, 0.354]); lamp.scale.set(0.059, 0.059, 0.017);
+    } else if (id === 'migfer') {
       h.position.set(0, 0.075, -0.03); h.rotation.x = -0.3;
       add(geoC('helm', () => { const s = new THREE.SphereGeometry(1, 44, 22, 0, TAU, 0, Math.PI * 0.56); s.scale(0.335, 0.31, 0.345); return s; }), steelM(r));
       add(geoC('helmGold', () => kitGeo(k => {
@@ -1003,7 +1110,7 @@ const { FEZA, ITEMS } = (function () {
       })), glowVC('gems', 0.9, { roughness: 0.08, metalness: 0.1 }));
     }
     // inner volume (ellipsoid centre, radii, band height, fade — hat-local metres): hair above the band is kept inside it
-    const IN = { migfer: [[0, 0, 0], [0.335, 0.31, 0.345], -0.035, 0.09], sihirbaz: [[0, -0.01, 0], [0.2, 0.24, 0.2], 0, 0.06],
+    const IN = { kostebekfener: [[0, 0, 0], [0.33, 0.28, 0.34], -0.025, 0.08], migfer: [[0, 0, 0], [0.335, 0.31, 0.345], -0.035, 0.09], sihirbaz: [[0, -0.01, 0], [0.2, 0.24, 0.2], 0, 0.06],
       kovboy: [[0, 0, 0], [0.195, 0.21, 0.21], 0, 0.06], korsan: [[0, 0, 0], [0.195, 0.15, 0.205], 0, 0.06] }[id];
     if (IN) g.fzHatIn = { h, c: IN[0], r: IN[1], y0: IN[2], fade: IN[3] };
     return g;
@@ -1011,12 +1118,18 @@ const { FEZA, ITEMS } = (function () {
 
   // ── Capes: hanging cloth sheet bent in the vertex shader (flows back when running, ripples, flares in the spin) ──
   const CAPE_DEF = {
+    kefirkopuk: { base: '#fff9dd', dark: '#9edfd2', trim: '#40baaa', edge: 'wave' },
     kirmizi: { base: '#dc3b3b', dark: '#961d2a', trim: '#ffcf4a', edge: 'straight' },
     mavi: { base: '#3266dc', dark: '#1a348c', trim: '#e2ebff', edge: 'wave' },
     yesil: { base: '#46b24d', dark: '#23772f', trim: '#b5e86a', edge: 'leaf' },
     mor: { base: '#8a47d6', dark: '#4a1f8e', trim: '#ffcf4a', edge: 'points' },
     gokkusagi: { base: '#ffffff', dark: '#ffffff', trim: '#ffffff', edge: 'straight' },
   };
+  Object.assign(CAPE_DEF, {
+    deniz: { base: '#43babc', dark: '#216292', trim: '#d1fff3', edge: 'wave', motif: 'wave' },
+    gunes: { base: '#ffa348', dark: '#a74243', trim: '#ffe7a0', edge: 'points', motif: 'sun' },
+    kefirsihir: { base: '#8b7bc9', dark: '#544790', trim: '#fff0bb', edge: 'wave', motif: 'foam' },
+  });
   const CAPE_TEX = {};
   function capeTex(id) {
     if (CAPE_TEX[id]) return CAPE_TEX[id];
@@ -1040,7 +1153,20 @@ const { FEZA, ITEMS } = (function () {
       for (let i = 0; i < 26; i++) { const x = R() * S, y = R() * S * 0.9; g.fillStyle = '#fff'; star(g, x, y, 3 + R() * 4, R()); ge.fillStyle = '#fff'; star(ge, x, y, 3 + R() * 4, R()); }
     } else {
       const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, d.base); gr.addColorStop(1, d.dark); g.fillStyle = gr; g.fillRect(0, 0, S, S);
-      if (id === 'mavi') {
+      if (d.motif) {
+        for (const c of [g, ge]) {
+          c.strokeStyle = d.trim; c.fillStyle = d.trim; c.lineWidth = 4;
+          if (d.motif === 'wave') for (let row = 0; row < 6; row++) { c.beginPath(); for (let x = 0; x <= S; x += 3) c.lineTo(x, 32 + row * 31 + Math.sin(x / 27) * 10); c.stroke(); }
+          else if (d.motif === 'sun') { c.beginPath(); c.arc(128, 107, 30, 0, TAU); c.fill(); for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; c.beginPath(); c.moveTo(128 + Math.sin(a) * 40, 107 + Math.cos(a) * 40); c.lineTo(128 + Math.sin(a) * 62, 107 + Math.cos(a) * 62); c.stroke(); } }
+          else { for (let i = 0; i < 15; i++) { const a = i * 2.4, rr = 14 + i * 4; c.beginPath(); c.arc(128 + Math.cos(a) * rr, 120 + Math.sin(a) * rr, 6 + i % 4, 0, TAU); c.stroke(); } star(c, 128, 120, 23, 0); }
+        }
+      } else if (id === 'kefirkopuk') {
+        for (let i = 0; i < 22; i++) { const x = 12 + R() * 232, y = 12 + R() * 208, rr = 5 + R() * 14; g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.stroke(); }
+        // A turquoise cup and creamy foam make the giant's gift recognisable even on the small card.
+        g.fillStyle = '#2ba795'; g.fillRect(89, 77, 78, 94); g.fillStyle = '#e7fff4'; g.fillRect(100, 86, 56, 73);
+        g.strokeStyle = '#2ba795'; g.lineWidth = 10; g.beginPath(); g.arc(169, 117, 24, -Math.PI / 2, Math.PI / 2); g.stroke();
+        for (let i = 0; i < 5; i++) { g.fillStyle = '#fffdf0'; g.beginPath(); g.arc(97 + i * 16, 80, 13, 0, TAU); g.fill(); }
+      } else if (id === 'mavi') {
         for (let i = 0; i < 30; i++) {
           const x = R() * S, y = 12 + R() * S * 0.8, rr = 4 + R() * 7, a = R();
           g.fillStyle = '#ffe066'; star(g, x, y, rr, a); ge.fillStyle = '#ffd84a'; star(ge, x, y, rr, a);
@@ -1429,6 +1555,7 @@ const { FEZA, ITEMS } = (function () {
     hair.castShadow = true; hair.frustumCulled = false; hair.customDepthMaterial = hairMat.userData.depth; hairG.add(hair);
     const hatSlot = new THREE.Group(); hatSlot.position.copy(HC); hairG.add(hatSlot);
     const wSlot = new THREE.Group(); wSlot.position.set(0, -0.18, 0.012); wSlot.rotation.order = 'ZXY'; B.foreR.add(wSlot);
+    const offSlot = new THREE.Group(); offSlot.position.set(0, -0.18, 0.012); offSlot.rotation.order = 'ZXY'; B.foreL.add(offSlot);
     const capeSlot = new THREE.Group(); capeSlot.position.set(0, 0.205, -0.01); B.chest.add(capeSlot);
     const handR = new THREE.Object3D(); handR.position.set(0, -0.18, 0.01); B.foreR.add(handR);
     const tip0 = new THREE.Object3D(); tip0.position.set(0, 0.35, 0); wSlot.add(tip0);
@@ -1441,7 +1568,7 @@ const { FEZA, ITEMS } = (function () {
       fidW: 0, fidI: -1, fidU: 0, zzzT: 0, prevYaw: null, yawRate: 0,
       eyeW: v3(1, 0, 0), mouth: new THREE.Vector4(1, 0, 0, 0), brow: v3(), squint: 0,
       hOff: v3(), hVel: v3(), hPrev: null, hPrevV: v3(), flow: 0, side: 0,
-      eq: { weapon: null, hat: null, cape: null }, cache: {}, xray: false, capeU: null, fixed: null,
+      eq: { weapon: null, offhand: null, hat: null, cape: null }, cache: {}, xray: false, capeU: null, fixed: null,
       bl: { e: 1, tgt: 1, t: 9, fx: false, sleep: false, dead: false },   // lightsaber blade: extension 0..1 → target
     };
     const U = skinMat.userData.fz, HU = hairMat.userData.fz;
@@ -1458,6 +1585,7 @@ const { FEZA, ITEMS } = (function () {
       B.armL.rotation.set(p[C.aLX], p[C.aLY], p[C.aLZ]); B.foreL.rotation.set(p[C.fL], 0, p[C.fLZ]);
       B.armR.rotation.set(p[C.aRX], p[C.aRY], p[C.aRZ]); B.foreR.rotation.set(p[C.fR], 0, p[C.fRZ]);
       wSlot.rotation.set(p[C.wX], p[C.wY], p[C.wZ]);
+      offSlot.rotation.set(p[C.wX], -p[C.wY], -p[C.wZ]);
       B.thighL.rotation.set(p[C.tLX], 0, p[C.tLZ]); B.shinL.rotation.set(p[C.sL], 0, 0);
       B.thighR.rotation.set(p[C.tRX], 0, p[C.tRZ]); B.shinR.rotation.set(p[C.sR], 0, 0);
     }
@@ -1586,6 +1714,12 @@ const { FEZA, ITEMS } = (function () {
           if (typeof FX !== 'undefined' && FX.burst) { headC.getWorldPosition(_v); try { FX.burst('zzz', _v.x, _v.y + 0.25, _v.z, {}); } catch (e) { /* optional */ } }
         }
       }
+      // The spellblade casts with his left hand; the sword stays ready at his right side.
+      if (S.eq.offhand && S.castW > 0.01 && !dead) {
+        const w = S.castW * (1 - sstep(0.72, 1, S.castK));
+        P[C.aLX] = lerp(P[C.aLX], -1.55, w); P[C.aLY] = lerp(P[C.aLY], -0.12, w); P[C.fL] = lerp(P[C.fL], -0.08, w);
+        P[C.aRX] = lerp(P[C.aRX], -0.15, w); P[C.aRY] = lerp(P[C.aRY], 0, w); P[C.fR] = lerp(P[C.fR], -0.35, w);
+      }
       if (S.fixed) S.fixed(P, face);
       applyPose(P);
 
@@ -1656,6 +1790,7 @@ const { FEZA, ITEMS } = (function () {
       if (S.capeU) { S.capeU.cpFlow.value = S.flow; S.capeU.cpSide.value = S.side; S.capeU.cpTime.value = t; }
 
       handR.getWorldPosition(H.hand);
+      (S.eq.offhand && S.eq.offhand.tip ? S.eq.offhand.tip : S.eq.weapon && S.eq.weapon.tip ? S.eq.weapon.tip : tip0).getWorldPosition(H.wandTip);
       (S.eq.weapon && S.eq.weapon.tip ? S.eq.weapon.tip : tip0).getWorldPosition(H.tip);
       if (sb.fx && dt > 0) {   // ignition flash: a few sparkles in the blade's colour at the emitter
         sb.fx = false;
@@ -1693,9 +1828,9 @@ const { FEZA, ITEMS } = (function () {
       const key = itemKey(item);
       let e = S.cache[key];
       if (!e) {
-        const obj = buildItem(slot, baseId(item), item.rarity | 0, true);
+        const obj = buildItem(slot === 'offhand' ? 'weapon' : slot, baseId(item), item.rarity | 0, true);
         obj.traverse(o => { if (o.isMesh) { o.renderOrder = HERO_ORDER; o.frustumCulled = false; } });
-        e = S.cache[key] = { key, xkey: slot + ':' + baseId(item), item: plainItem(slot, baseId(item), item.rarity | 0), obj, tip: obj.fzTip || null, capeU: obj.fzCapeU || null };
+        e = S.cache[key] = { key, xkey: slot + ':' + baseId(item), item: plainItem(slot === 'offhand' ? 'weapon' : slot, baseId(item), item.rarity | 0), obj, tip: obj.fzTip || null, capeU: obj.fzCapeU || null };
       }
       return e;
     }
@@ -1731,7 +1866,7 @@ const { FEZA, ITEMS } = (function () {
     function setTwins(obj, on) { obj.traverse(o => { if (o.userData.xrayTwin) o.visible = on; }); }
 
     const H = {
-      root, tip: v3(), hand: v3(), bones: B, skeleton: skel, slots: { weapon: wSlot, hat: hatSlot, cape: capeSlot },
+      root, tip: v3(), wandTip: v3(), hand: v3(), bones: B, skeleton: skel, slots: { weapon: wSlot, offhand: offSlot, hat: hatSlot, cape: capeSlot },
       update,
       bladeOn: true,       // lightsaber on (or igniting); false while retracted / asleep
       ignite,              // H.ignite(): blade grows out of the hilt (0 → full in 0.3 s) with a small flash
@@ -1739,6 +1874,7 @@ const { FEZA, ITEMS } = (function () {
       setEquip(eq) {
         eq = eq || {};
         swap('weapon', eq.weapon || null, wSlot);
+        swap('offhand', eq.offhand || null, offSlot);
         if (!S.eq.weapon) H.bladeOn = false;
         swap('hat', eq.hat || null, hatSlot);
         swap('cape', eq.cape || null, capeSlot);
@@ -1747,7 +1883,7 @@ const { FEZA, ITEMS } = (function () {
       },
       setXray(on) {
         S.xray = !!on;
-        if (S.xray) for (const k of ['weapon', 'hat', 'cape']) { const e = S.eq[k]; if (e) addXrayItem(e.obj, e.xkey); }
+        if (S.xray) for (const k of ['weapon', 'offhand', 'hat', 'cape']) { const e = S.eq[k]; if (e) addXrayItem(e.obj, e.xkey); }
         setTwins(root, S.xray);
       },
       _S: S, _U: U, _mats: { skin: skinMat, hair: hairMat },
@@ -1755,13 +1891,13 @@ const { FEZA, ITEMS } = (function () {
       _hat(e) { const prev = S.eq.hat; wearHat(e); return () => wearHat(prev); },
       // portrait helpers: neutral pose + face looking at (lx, ly); returns a restore function
       _neutral(lx, ly) {
-        const saved = { bones: bones.map(b => [b.position.clone(), b.rotation.clone()]), w: wSlot.rotation.clone(), eye: U.fzEye.value.clone(), ew: U.fzEyeW.value.clone(),
+        const saved = { bones: bones.map(b => [b.position.clone(), b.rotation.clone()]), w: wSlot.rotation.clone(), ow: offSlot.rotation.clone(), eye: U.fzEye.value.clone(), ew: U.fzEyeW.value.clone(),
           mo: U.fzMouth.value.clone(), br: U.fzBrow.value.clone(), ho: HU.fzHOff.value.clone(), he: HU.fzHExp.value, flow: S.capeU ? S.capeU.cpFlow.value : 0 };
         const p = new Float32Array(NCH); idlePose(p, 0); p[C.kRX] = -0.12; p[C.kRZ] = 0.1; applyPose(p);
         U.fzEye.value.set(0, lx, ly, 0); U.fzEyeW.value.set(1, 0, 0); U.fzMouth.value.set(1, 0, 0, 0); U.fzBrow.value.set(0, 0, 0.3);
         HU.fzHOff.value.set(0, 0, 0); HU.fzHExp.value = 0; if (S.capeU) S.capeU.cpFlow.value = 0;
         return () => {
-          bones.forEach((b, i) => { b.position.copy(saved.bones[i][0]); b.rotation.copy(saved.bones[i][1]); }); wSlot.rotation.copy(saved.w);
+          bones.forEach((b, i) => { b.position.copy(saved.bones[i][0]); b.rotation.copy(saved.bones[i][1]); }); wSlot.rotation.copy(saved.w); offSlot.rotation.copy(saved.ow);
           U.fzEye.value.copy(saved.eye); U.fzEyeW.value.copy(saved.ew); U.fzMouth.value.copy(saved.mo); U.fzBrow.value.copy(saved.br);
           HU.fzHOff.value.copy(saved.ho); HU.fzHExp.value = saved.he; if (S.capeU) S.capeU.cpFlow.value = saved.flow;
         };
@@ -1803,7 +1939,7 @@ const { FEZA, ITEMS } = (function () {
         const restore = H._neutral(0.35, 0.15);
         const hidden = [];
         root.traverse(o => { if (o.userData.xrayTwin && o.visible) { o.visible = false; hidden.push(o); } });
-        const ws = H.slots.weapon, wv = ws.visible, cs = H.slots.cape, cvis = cs.visible; ws.visible = false; cs.visible = false;
+        const ws = H.slots.weapon, wv = ws.visible, cs = H.slots.cape, cvis = cs.visible; const os = H.slots.offhand, ov = os.visible; ws.visible = false; os.visible = false; cs.visible = false;
         try {
           OFF.scene.add(root); root.position.set(0, 0, 0); root.rotation.set(0, -0.32, 0); root.scale.set(1, 1, 1); root.updateMatrixWorld(true);
           const box = new THREE.Box3().setFromObject(H.slots.hat), top = clamp(box.isEmpty() ? 0 : box.max.y, 1.42, 1.62), ex = (top - 1.42) * 0.5;
@@ -1812,7 +1948,7 @@ const { FEZA, ITEMS } = (function () {
           OFF.scene.remove(root);
           if (parent) parent.add(root);
           root.position.copy(pos); root.rotation.copy(rot); root.scale.copy(sc);
-          ws.visible = wv; cs.visible = cvis; for (const o of hidden) o.visible = true;
+          ws.visible = wv; os.visible = ov; cs.visible = cvis; for (const o of hidden) o.visible = true;
           restore(); if (unHat) unHat(); root.updateMatrixWorld(true);
         }
       },
@@ -1878,7 +2014,7 @@ const { FEZA, ITEMS } = (function () {
   function queueOwned(H) {
     const b = bagNow();
     BAKE.scan = BAKE.drawn; BAKE.bag = b; BAKE.bagN = b ? b.length : 0;
-    for (const sl of ['weapon', 'hat', 'cape']) { const e = H._S.eq[sl]; if (e && e.item) queueThumb(e.item); }
+    for (const sl of ['weapon', 'offhand', 'hat', 'cape']) { const e = H._S.eq[sl]; if (e && e.item) queueThumb(e.item); }
     if (b) for (const it of b) if (it && it.slot) queueThumb(it);
     const e = H._S.eq.hat; queuePortraits(e ? e.item : null);
   }
@@ -1988,14 +2124,33 @@ const { FEZA, ITEMS } = (function () {
 
   // ── ITEMS ──
   const BASES = {
-    // every weapon is a lightsaber (ids unchanged for old saves)
+    // Existing saber ids stay unchanged for old saves; wands are wizard-only and boss gifts never enter the random pool.
     weapon: [{ id: 'tahta', ad: 'Eğitim Işın Kılıcı', minLvl: 0 }, { id: 'demir', ad: 'Mavi Işın Kılıcı', minLvl: 1 }, { id: 'kristal', ad: 'Yeşil Işın Kılıcı', minLvl: 3 },
-      { id: 'ates', ad: 'Kırmızı Işın Kılıcı', minLvl: 5 }, { id: 'yildiz', ad: 'Mor Işın Kılıcı', minLvl: 7 }, { id: 'gokkusagi', ad: 'Gökkuşağı Işın Kılıcı', minLvl: 0, legendary: true }],
+      { id: 'ates', ad: 'Kırmızı Işın Kılıcı', minLvl: 5 }, { id: 'yildiz', ad: 'Mor Işın Kılıcı', minLvl: 7 }, { id: 'gokkusagi', ad: 'Gökkuşağı Işın Kılıcı', minLvl: 0, legendary: true },
+      { id: 'findik', ad: 'Fındık Değneği', minLvl: 0, heroClass: 'wizard' }, { id: 'mese', ad: 'Meşe Değneği', minLvl: 1, heroClass: 'wizard' },
+      { id: 'ay', ad: 'Ay Işığı Değneği', minLvl: 3, heroClass: 'wizard' }, { id: 'kor', ad: 'Kor Değneği', minLvl: 5, heroClass: 'wizard' },
+      { id: 'yildizdegnek', ad: 'Yıldız Değneği', minLvl: 7, heroClass: 'wizard' }, { id: 'gokdegnek', ad: 'Gökkuşağı Değneği', minLvl: 0, heroClass: 'wizard', legendary: true },
+      { id: 'lavkilic', ad: 'Lav Kabuğu Işın Kılıcı', minLvl: 0, boss: true }, { id: 'lavdegnek', ad: 'Lav Kabuğu Değneği', minLvl: 0, boss: true, heroClass: 'wizard' },
+      { id: 'ejderkilic', ad: 'Ejderha Kanadı Işın Kılıcı', minLvl: 0, boss: true }, { id: 'ejderdegnek', ad: 'Ejderha Kanadı Değneği', minLvl: 0, boss: true, heroClass: 'wizard' }],
     hat: [{ id: 'migfer', ad: 'Şövalye Miğferi', minLvl: 0 }, { id: 'sihirbaz', ad: 'Sihirbaz Şapkası', minLvl: 2 }, { id: 'kovboy', ad: 'Kovboy Şapkası', minLvl: 3 },
-      { id: 'korsan', ad: 'Korsan Şapkası', minLvl: 4 }, { id: 'tac', ad: 'Altın Taç', minLvl: 0, legendary: true }],
+      { id: 'korsan', ad: 'Korsan Şapkası', minLvl: 4 }, { id: 'tac', ad: 'Altın Taç', minLvl: 0, legendary: true },
+      { id: 'joletac', ad: 'Jöle Kralının Tacı', minLvl: 0, boss: true }, { id: 'kostebekfener', ad: 'Köstebek Ustanın Feneri', minLvl: 0, boss: true }],
     cape: [{ id: 'kirmizi', ad: 'Kırmızı Pelerin', minLvl: 0 }, { id: 'mavi', ad: 'Yıldızlı Pelerin', minLvl: 2 }, { id: 'yesil', ad: 'Yaprak Pelerin', minLvl: 3 },
-      { id: 'mor', ad: 'Sihirli Pelerin', minLvl: 5 }, { id: 'gokkusagi', ad: 'Gökkuşağı Pelerini', minLvl: 0, legendary: true }],
+      { id: 'mor', ad: 'Sihirli Pelerin', minLvl: 5 }, { id: 'gokkusagi', ad: 'Gökkuşağı Pelerini', minLvl: 0, legendary: true },
+      { id: 'kefirkopuk', ad: 'Kefir Köpüğü Pelerini', minLvl: 0, boss: true }],
   };
+  for (const [id, ad, minLvl] of [['buzkilic', 'Buz Kristali Işın Kılıcı', 2], ['guniskilic', 'Güneş Işın Kılıcı', 4], ['dalga', 'Dalga Işın Kılıcı', 6]]) BASES.weapon.push({ id, ad, minLvl });
+  for (const [id, ad, minLvl] of [['mercan', 'Mercan Değneği', 2], ['bulut', 'Bulut Değneği', 4], ['cicek', 'Çiçek Değneği', 6]]) BASES.weapon.push({ id, ad, minLvl, heroClass: 'wizard' });
+  BASES.hat.push({ id: 'bulutbere', ad: 'Bulut Beresi', minLvl: 1 }, { id: 'yaprakbaslik', ad: 'Orman Gezgini Başlığı', minLvl: 4 });
+  BASES.cape.push({ id: 'deniz', ad: 'Deniz Dalgası Pelerini', minLvl: 1 }, { id: 'gunes', ad: 'Güneş Pelerini', minLvl: 4 });
+  for (const slot of Object.keys(BASES)) for (const b of BASES[slot]) if (b.boss) b.classLock = b.heroClass || 'warrior';
+  for (const [slot, id, ad, classLock] of [
+    ['weapon', 'jolesihir', 'Jöle Kralının Köpük Değneği', 'wizard'], ['cape', 'kefirsihir', 'Kefir Devinin Sihirli Pelerini', 'wizard'],
+    ['hat', 'magarasihir', 'Köstebek Ustanın Kristal Tacı', 'wizard'],
+    ['weapon', 'joleikiz', 'Jöle Kralının Neşe Kılıcı', 'hybrid'], ['weapon', 'kefirikiz', 'Kefir Devinin Köpük Dalı', 'hybrid'],
+    ['weapon', 'magaraikiz', 'Köstebek Ustanın Kristal Dalı', 'hybrid'], ['weapon', 'lavikiz', 'Lav Kaplumbağasının Güneş Kılıcı', 'hybrid'],
+    ['weapon', 'ejderikiz', 'Ejderhanın Dostluk Değneği', 'hybrid'],
+  ]) BASES[slot].push({ id, ad, minLvl: 0, boss: true, classLock, ...(WAND[id] ? { heroClass: 'wizard' } : {}) });
   const MULT = [1, 1.35, 1.75, 2.3];
   let UID = (Date.now() % 1e9) * 10;
   function make(slot, id, rarity = 0, ilvl = 1) {
@@ -2010,13 +2165,28 @@ const { FEZA, ITEMS } = (function () {
     const L = BASES[it.slot], b = L && L.find(q => q.id === baseId(it));
     return b ? b.ad + ((it.rarity | 0) >= 2 ? ' ✦' : '') : (it.ad || '');
   }
-  function roll(ilvl = 1, bias = 0, rnd = Math.random) {
+  function allowed(item, heroClass = 'warrior') {
+    if (!item) return false;
+    const list = BASES[item.slot], base = list && list.find(q => q.id === baseId(item));
+    return !!base && (!base.classLock || base.classLock === heroClass) && (item.slot !== 'weapon' || heroClass === 'hybrid' || (base.heroClass || 'warrior') === (heroClass === 'wizard' ? 'wizard' : 'warrior'));
+  }
+  function bossReward(type, heroClass = 'warrior', ilvl = 1) {
+    const wizard = heroClass === 'wizard', gift = heroClass === 'hybrid' ? {
+      kraljole: ['weapon', 'joleikiz'], kefirdev: ['weapon', 'kefirikiz'], kostebekusta: ['weapon', 'magaraikiz'],
+      lavkaplumbaga: ['weapon', 'lavikiz'], ejderha: ['weapon', 'ejderikiz'],
+    }[type] : {
+      kraljole: wizard ? ['weapon', 'jolesihir'] : ['hat', 'joletac'], kefirdev: ['cape', wizard ? 'kefirsihir' : 'kefirkopuk'], kostebekusta: ['hat', wizard ? 'magarasihir' : 'kostebekfener'],
+      lavkaplumbaga: ['weapon', wizard ? 'lavdegnek' : 'lavkilic'], ejderha: ['weapon', wizard ? 'ejderdegnek' : 'ejderkilic'],
+    }[type];
+    return gift ? make(gift[0], gift[1], 3, ilvl) : null;
+  }
+  function roll(ilvl = 1, bias = 0, rnd = Math.random, heroClass = 'warrior') {
     ilvl = Math.max(1, ilvl | 0);
     const s = rnd(), slot = s < 0.4 ? 'weapon' : s < 0.7 ? 'hat' : 'cape', b = clamp(bias || 0, 0, 2);
     const w = [60, 28, 10, 2].map((v, i) => v * Math.pow(1 + b, i));
     let x = rnd() * (w[0] + w[1] + w[2] + w[3]), r = 0;
     while (r < 3 && x >= w[r]) { x -= w[r]; r++; }
-    const list = BASES[slot], leg = list.filter(q => q.legendary), pool = list.filter(q => !q.legendary && q.minLvl <= ilvl);
+    const list = BASES[slot].filter(q => !q.boss && allowed({ slot, base: q.id }, heroClass)), leg = list.filter(q => q.legendary), pool = list.filter(q => !q.legendary && q.minLvl <= ilvl);
     let base;
     if (r === 3 && leg.length && rnd() < 0.65) base = leg[Math.floor(rnd() * leg.length)];
     else {   // newer bases are a bit more likely, so progress shows new shiny things
@@ -2078,9 +2248,17 @@ const { FEZA, ITEMS } = (function () {
   }
   const ITEMS = {
     RARITY, BASES,
-    make, roll, model, thumb, prebake, nameOf,
+    make, roll, model, thumb, prebake, nameOf, allowed, bossReward,
+    adaptLegacy(item, heroClass) {
+      if (!item || heroClass !== 'wizard') return item;
+      const type = { joletac: 'kraljole', kefirkopuk: 'kefirdev', kostebekfener: 'kostebekusta' }[baseId(item)];
+      if (!type) return item;
+      const gift = bossReward(type, heroClass, item.ilvl);
+      return { ...item, slot: gift.slot, base: gift.base, ad: nameOf({ ...gift, rarity: item.rarity }) };
+    },
+    isWand: item => !!item && item.slot === 'weapon' && !!WAND[baseId(item)],
     bladeColor,   // ITEMS.bladeColor(item | baseId) → '#rrggbb' (rainbow blade: its current colour)
-    starter: () => ({ weapon: make('weapon', 'tahta', 0, 1), hat: null, cape: null }),
+    starter: (heroClass = 'warrior') => ({ weapon: make('weapon', heroClass === 'wizard' ? 'findik' : 'tahta', 0, 1), ...(heroClass === 'hybrid' ? { offhand: make('weapon', 'findik', 0, 1) } : {}), hat: null, cape: null }),
     // Stars show only how strong a piece is (its power), never its rarity (that is the colour/glow): a stronger item
     // never shows fewer stars (parent: a stronger castle drop with fewer stars than a shiny forest one confused Feza).
     stars: it => { const p = it ? it.power || 0 : 0; return p >= 34 ? 5 : p >= 24 ? 4 : p >= 16 ? 3 : p >= 10 ? 2 : 1; },

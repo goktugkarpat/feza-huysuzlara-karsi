@@ -1,7 +1,7 @@
 # Feza Kötülere Karşı ⚔️✨
 
 5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
-Huysuz Ejderha köyün neşe kristalini almış ve ormandaki herkesi haylaz yapmış. Feza ışın kılıcıyla haylazlara dokununca
+Huysuz Ejderha köyün neşe kristalini almış ve ormandaki herkesi haylaz yapmış. Feza ışın kılıcıyla ya da sihirli değneğiyle haylazları neşelendirince
 onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün yaratıklar sevimli ve güler yüzlü; kan yok, ölüm yok, korkutucu hiçbir şey yok.
 
 ## Nasıl açılır
@@ -14,12 +14,13 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 ## Nasıl oynanır
 
+- **Karakter:** Oyna düğmesinden sonra Savaşçı Feza, Büyücü Feza veya **Büyülü Şövalye Feza** seçilir. Savaşçı ışın kılıcıyla yaklaşır; büyücü ahşap değneğiyle uzaktan vurur. Büyülü şövalye iki silahı birlikte taşır: yakında kılıç, uzakta değnek kullanır.
 - **Yürümek:** Parmağını ekranda gitmek istediğin yere bas. Feza parmağının altındaki yere koşar; parmağını kaydırdıkça peşinden gider.
 - **Vurmak:** Bir huysuza dokun: Feza yanına gidip vurur. Yakınına gelen huysuza kendiliğinden de vurur.
   Sağ alttaki büyük **ışın kılıcı** düğmesi de en yakındakine vurur.
 - **Yetenekler:** Feza seviye atladıkça kılıç düğmesinin etrafında yeni bir düğme çıkar (toplam 3):
-  ⭐ Yıldız Atışı (uzaktakilere yıldız fırlatır), 🌪️ Kasırga (fırıl fırıl dönüp etrafındakilere dokunur),
-  ☄️ Meteor Yağmuru (gökyüzünden yıldız taşları yağdırır). Düğmenin üstündeki koyu gölge çekilince yetenek yeniden hazırdır.
+  ⭐ Yıldız Atışı (üç güçlü yıldız görünür hedeflere yönelir ve kalabalığı deler), 🌪️ Kasırga (fırıl fırıl dönüp etrafındakilere dokunur),
+  ☄️ Meteor Yağmuru (gökyüzünden yıldız taşları yağdırır). Büyücüde bunların yerini **Işık Okları**, **Buz Çiçeği** (dondurma ve kısa kalkan) ve **Yıldız Bahçesi** alır. Büyülü şövalye **Hilal Dalgası**, **Işık Bağı** ve **Gökkuşağı Mührü** kullanır. Düğmenin üstündeki koyu gölge çekilince yetenek yeniden hazırdır.
 - **Can:** Sol alttaki kırmızı top Feza'nın canıdır. Azalınca yanındaki **kırmızı iksire** bas ya da yerdeki kalpleri topla.
   Can biterse Feza uyuyakalır ve son parlattığı **neşe taşının** yanında dinlenmiş olarak uyanır.
 - **Hazineler:** Sandıklar, küpler ve fıçılar altın ve eşya saklar. Işık sütunlu eşyalar ışın kılıcı (mavi, yeşil, kırmızı, mor, gökkuşağı…), şapka ya da pelerindir;
@@ -35,9 +36,13 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   beyaz etiketle yazar; iksir düğmesinin altındaki kırmızı **×3** ise kalan iksir sayısıdır), B çanta, Esc mola.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
+Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
+
+Eşya görünüşleri toplam 47 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
+
 ## Bölgeler
 
-Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza bir hazine kazanır.
+Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. Savaşçıya sırayla Jöle Kralının Tacı, Kefir Köpüğü Pelerini, Köstebek Ustanın Feneri, Lav Kabuğu silahı ve Ejderha Kanadı silahı düşer. Her karakterin her canavardan alacağı özel ödül farklıdır (toplam 15). Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
 
 1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
    Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
@@ -50,6 +55,36 @@ Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihi
    Sonunda **Koca Lav Kaplumbağası**: kabuğu küçük bir yanardağ; lav topları fışkırtır (düşecekleri yer kırmızı daireyle görünür).
 5. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
    kaybolur, neşe kristali köye döner. İstenirse macera en baştan yeniden başlar.
+
+Boss savaşlarında küçük sürprizler de var: Kral Jöle küçük parçalara ayrılır, Kefir Devi köpük dansı yaptırır,
+Usta Köstebek sıralı toprak dalgaları gönderir, Lav Kaplumbağası yeşil geçit bırakan bir lav dalgası çıkarır.
+Son ejderhanın benekli yumurtaları savaş boyunca çoğalır; yaklaşıp dokununca minik ejderhalar çıkar.
+Aynı anda en fazla 7 yumurta ve 4 yavru bulunur. Savaş bitince veya Feza dinlenince bu sürprizler temizlenir.
+
+Her boss ayrıca bir TBC esintili hareket kullanır; tehlikeli alanlar 2 saniye önceden gösterilir:
+
+| Boss | İlham | Yeni hareket |
+|---|---|---|
+| Kral Jöle | Leotheras — Whirlwind | İşaretli kısa yol boyunca dönerek ilerleyen jöle kasırgası. |
+| Köpüklü Kefir Devi | The Lurker Below — Spout | Yavaşça dönen, köpüklerle süslü kefir jeti. |
+| Usta Köstebek | Gruul — Shatter | Üç kristal belirir; yakında kalırsan parçalanırken hasar verir. Tek oyuncuya uyarlanmıştır. |
+| Koca Lav Kaplumbağası | Kael’thas — Flamestrike | Feza'nın bulunduğu yerde işaretlenen çember parlar ve kısa süre sıcak kalır. |
+| Huysuz Ejderha | Illidan — Eye Blast | İki göz ışını işaretli hattı tarar ve kısa süreli mavi bir iz bırakır. |
+
+Yeni hareketler diğer özel saldırılarla sırayla kullanılır; yumurtalar savaş boyunca çoğalmaya devam eder.
+
+
+## Hardcore
+
+Oyun başladıktan sonra **Mola → Hardcore** ile mevcut karakterin macerası baştan başlar. Yanlışlıkla açılmaması için
+onay düğmesine basılı tutulur. Normal yeni oyun ve uygulamanın yeniden açılışı Hardcore'u kendiliğinden etkinleştirmez.
+
+- Yalnızca **2. ve 4. bölümlerin girişinde otomatik kayıt** alınır; elle kayıt kapalıdır.
+- Yenilince son Hardcore kaydına dönülür. Henüz kayıt yoksa aynı karakterle ilk bölümden başlanır.
+- Hardcore kayıtları normal kayıttan ayrıdır. Sonraki oturumda önce oyuna girip **Mola → Hardcore kaydını aç** seçilebilir.
+- Yaratıklar daha dayanıklı, daha hızlı ve daha sık saldırır. Bossların özel saldırıları çok daha sert vurur;
+  tehlike işaretleri ve kaçma fırsatı korunur. Savaş sırasında kendiliğinden can yenilenmez.
+- Normal **Baştan Başla / Tekrar Oyna** Hardcore'u kapatır. Yeni Hardcore başlatmak önceki Hardcore kaydını sıfırlar.
 
 ## Dosyalar
 

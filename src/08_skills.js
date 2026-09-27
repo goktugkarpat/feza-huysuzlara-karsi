@@ -1,21 +1,20 @@
 /* ── Yetenekler: üç sihirli yetenek (atış anı + süren efektler) ──
    SKILLS[i].cast(ctx) → true | false (false: kullanılamadı, bekleme süresi başlamaz) · SKILLS_update(dt) · SKILLS_clear()
-   Parent decision: only 3 skills – Yıldız Atışı (lvl 1), Kasırga (lvl 3), Meteor Yağmuru (lvl 5).
+   Three slots per class. SKILLS.forClass(heroClass) selects the wizard or hybrid set; the array itself stays the warrior set.
    Built from FX primitives plus a few own meshes (wind funnel, star meteors, rune circles).
    Player fields written here (GAME reads them):
      P.castT   seconds of cast pose left (0.35 at cast, counted down by SKILLS_update) → H.update st.cast = 1 - P.castT / P.castDur
      P.castDur 0.35 · P.castSkill id of the last skill · P.face turned toward the aim for directional skills
      P.spin    seconds left; owned by this file (set equal to its own timer every SKILLS_update; if GAME zeroes it,
-               e.g. on respawn, the whirl ends). P.shield is no longer used by any skill; if something sets it, it is
+               e.g. on respawn, the whirl ends). P.shield is the wizard frost flower’s brief protection; it is
                counted down here (GAME skips its own countdown while SKILLS_update exists).
    SKILLS_update(dt) must run every simulation step, SKILLS_clear() on zone change. */
 'use strict';
 
 const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   const CAST_T = 0.35;
-  // Yıldız: per-star damage lowered from the SPEC's 0.8×sword+6 (parent: "too easy"; a 3-star volley on one
-  // enemy was worth ~4 sword hits at 1 s cooldown). Now a full volley ≈ 2 sword hits.
-  const STAR_K = 0.5, STAR_ADD = 2, STAR_FAN = 0.22, STAR_GAP = 0.3, STAR_FWD = 0.55, STAR_Y = 0.95;
+  // Four-second volley: a little over two sword hits on a lone target, or three distinct stars through a crowd.
+  const STAR_K = 0.7, STAR_ADD = 3, STAR_FAN = 0.22, STAR_GAP = 0.3, STAR_FWD = 0.55, STAR_Y = 0.95;
   const SPIN_T = 2.2, SPIN_R = 2.6, SPIN_TICK = 0.22;
   const MET_N = 8, MET_SPAN = 1.8, MET_R = 2.2, MET_FALL0 = 0.2, MET_LAND = 0.6;
   // Meteors enter from the upper left of the SCREEN: start = landing spot shifted left/up in camera space, then pulled
@@ -35,7 +34,7 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
   // Comic words (Vuuş!, Güm!) go through GAME's shared limiter so skills never add to a pile of words on screen.
   const wordOK = () => (typeof GAME !== 'undefined' && GAME.wordOK ? GAME.wordOK() : true);
   function word(x, z, text) { if (fxOk('floatText') && wordOK()) FX.floatText(x, 2.3, z, text, 'word'); }
-  function sword() { const g = gm(); const d = g && g.heroDamageNow ? g.heroDamageNow() : 0; return d > 0 ? d : (S.P && S.P.dmg) || 10; }
+  function sword() { const g = gm(); const d = g && g.heroDamageNow ? g.heroDamageNow(!!(S.P && S.P.heroClass === 'wizard')) : 0; return d > 0 ? d : (S.P && S.P.dmg) || 10; }
   function near(x, z, r) { const g = gm(); return (g && g.enemiesNear && g.enemiesNear(x, z, r)) || []; }
   function nearest(x, z, r) { const g = gm(); return (g && g.nearestEnemy && g.nearestEnemy(x, z, r)) || null; }
   function hurt(e, amt, o) { const g = gm(); return !!(g && g.damage && g.damage(e, amt, o)); }
@@ -181,6 +180,8 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
 
   // ── Lazy setup: meshes and pools (first cast / first update) ──
   const CIRC = [], METS = [];
+  const GARDEN = { grp: null, petals: null, stars: [], flowers: [], mats: [] };
+  const HYBRID = { guard: null, blades: [], seal: null, cross: null, mats: [], t: 0, tick: 0, n: 0, dmg: 0, sealT: 0, sealTick: 0, sealN: 0, sealDmg: 0, x: 0, z: 0, shield: null };
   const SPIN = { t: 0, dur: SPIN_T, tick: 0, n: 0, emitT: 0, ang: 0, grp: null, inner: null, outer: null, floor: null };
   const MET = { cx: 0, cz: 0, aimed: [], spots: [], first: true };
   let starMat = null;
@@ -233,6 +234,67 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
       METS.push({ st: 0, t0: 0, grp, core, tail, glow, col: RAINBOW[i % RAINBOW.length], x: 0, z: 0, emitT: 0,
         s: new THREE.Vector3(), d: new THREE.Vector3() });
     }
+    // One reusable constellation flower: thin petal tracery and eight gold stars, no lights or per-cast meshes.
+    const garden = GARDEN.grp = new THREE.Group(); garden.name = 'starGarden'; garden.visible = false; root.add(garden);
+    const pts = [];
+    const edge = (a, b) => pts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    for (let petal = 0; petal < 8; petal++) {
+      const a = petal * TAU / 8, ca = Math.cos(a), sa = Math.sin(a);
+      let prev = null;
+      for (let j = 0; j <= 40; j++) {
+        const t = j / 40 * TAU, along = 1.62 * (1 - Math.cos(t)), side = 0.57 * Math.sin(t);
+        const v = [ca * along - sa * side, 0.09 + 0.13 * Math.sin(t / 2), sa * along + ca * side];
+        if (prev) edge(prev, v); prev = v;
+      }
+    }
+    for (const r of [0.72, 3.55]) for (let j = 0; j < 96; j++) {
+      const a = j / 96 * TAU, b = (j + 1) / 96 * TAU;
+      edge([Math.cos(a) * r, 0.075, Math.sin(a) * r], [Math.cos(b) * r, 0.075, Math.sin(b) * r]);
+    }
+    const ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); ge.userData.keep = true;
+    const lineMat = new THREE.LineBasicMaterial({ color: '#f19bff', transparent: true, opacity: 0.85, depthWrite: false });
+    const goldMat = new THREE.MeshStandardMaterial({ color: '#ffd467', emissive: '#ffbc47', emissiveIntensity: 0.65, roughness: 0.3, metalness: 0.25, transparent: true, depthWrite: false });
+    GARDEN.mats.push(lineMat, goldMat);
+    const petals = GARDEN.petals = new THREE.LineSegments(ge, lineMat); petals.frustumCulled = false; garden.add(petals);
+    for (let i = 0; i < 8; i++) {
+      const star = new THREE.Mesh(GEO.star, goldMat); star.frustumCulled = false; garden.add(star); GARDEN.stars.push(star);
+    }
+
+    // Small raised blossoms around the rim. All eight flowers share one low-poly mesh and material.
+    const flowerGeo = new THREE.BufferGeometry(), fv = [];
+    for (let petal = 0; petal < 5; petal++) for (let j = 0; j < 8; j++) {
+      const a = petal * TAU / 5 + j / 8 * TAU / 5, b = a + TAU / 40;
+      const ra = 0.22 + 0.18 * Math.pow(Math.sin(j / 8 * Math.PI), 2), rb = 0.22 + 0.18 * Math.pow(Math.sin((j + 1) / 8 * Math.PI), 2);
+      fv.push(0, 0.06, 0, Math.cos(a) * ra, 0.02, Math.sin(a) * ra, Math.cos(b) * rb, 0.02, Math.sin(b) * rb);
+    }
+    flowerGeo.setAttribute('position', new THREE.Float32BufferAttribute(fv, 3)); flowerGeo.computeVertexNormals(); flowerGeo.userData.keep = true;
+    const flowerMat = new THREE.MeshBasicMaterial({ color: '#e99ee9', transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false });
+    GARDEN.mats.push(flowerMat);
+    const heartGeo = new THREE.IcosahedronGeometry(1, 0); heartGeo.userData.keep = true;
+    for (let i = 0; i < 8; i++) {
+      const blossom = new THREE.Group(), flower = new THREE.Mesh(flowerGeo, flowerMat), gem = new THREE.Mesh(heartGeo, goldMat);
+      gem.scale.setScalar(0.09); gem.rotation.x = -Math.PI / 2; gem.position.y = 0.09;
+      blossom.add(flower, gem); garden.add(blossom); GARDEN.flowers.push(blossom);
+    }
+
+    // The hybrid's orbiting blades and crossed seal are allocated once, then hidden between casts.
+    const bladeGeo = new THREE.OctahedronGeometry(1, 0), barGeo = new THREE.BoxGeometry(0.48, 0.09, 0.09);
+    bladeGeo.userData.keep = barGeo.userData.keep = true;
+    const bladeMat = new THREE.MeshStandardMaterial({ color: '#b7ffed', emissive: '#39aaac', emissiveIntensity: 0.7, metalness: 0.3, roughness: 0.25, transparent: true });
+    const hiltMat = new THREE.MeshBasicMaterial({ color: '#ffd378', transparent: true });
+    HYBRID.mats.push(bladeMat, hiltMat);
+    const makeBlade = () => {
+      const g = new THREE.Group(), b = new THREE.Mesh(bladeGeo, bladeMat), h = new THREE.Mesh(barGeo, hiltMat);
+      b.scale.set(0.12, 0.55, 0.07); b.position.y = 0.27; h.position.y = -0.22; g.add(b, h); return g;
+    };
+    HYBRID.guard = new THREE.Group(); HYBRID.guard.name = 'hybridGuard'; HYBRID.guard.visible = false; root.add(HYBRID.guard);
+    for (let i = 0; i < 3; i++) { const b = makeBlade(); HYBRID.guard.add(b); HYBRID.blades.push(b); }
+    HYBRID.seal = new THREE.Group(); HYBRID.seal.name = 'hybridSeal'; HYBRID.seal.visible = false; root.add(HYBRID.seal);
+    const cross = HYBRID.cross = new THREE.Group(), sealSword = makeBlade(); sealSword.rotation.z = -0.65; sealSword.scale.setScalar(1.7); cross.add(sealSword);
+    const wand = new THREE.Group(), stick = new THREE.Mesh(barGeo, hiltMat), jewel = new THREE.Mesh(bladeGeo, bladeMat);
+    stick.scale.set(0.23, 15, 1); jewel.scale.setScalar(0.19); jewel.position.y = 0.72; wand.add(stick, jewel); wand.rotation.z = 0.65;
+    cross.add(wand); HYBRID.seal.add(cross);
+
     starMat = glowMat('#ffd23f', 3.2); starMat.userData.keep = true;   // fallback star projectile (no FX.projectile)
   }
 
@@ -248,7 +310,7 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     let c = null;
     for (let i = 0; i < CIRC.length; i++) if (!CIRC[i].on) { c = CIRC[i]; break; }
     if (!c) return null;
-    c.on = true; c.t = 0; c.dur = dur; c.mode = mode; c.r = r; c.follow = !!follow;
+    c.on = true; c.alpha = 1; c.t = 0; c.dur = dur; c.mode = mode; c.r = r; c.follow = !!follow;
     c.u.uCol.value.set(color); c.u.uMode.value = mode; c.u.uA.value = 0; c.u.uRot.value = frand(0, TAU);
     c.mesh.position.set(x, 0.035 + mode * 0.008, z); c.mesh.scale.setScalar(r); c.mesh.visible = true;
     return c;
@@ -277,6 +339,7 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
         u.uK.value = 0.25 + 0.72 * (1 - (1 - k) * (1 - k));
         u.uA.value = 1 - k;
       }
+      u.uA.value *= c.alpha;
     }
   }
 
@@ -309,20 +372,27 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     if (face) P.face = Math.atan2(c.aim.x, c.aim.z);
   }
 
-  // ── 1. Yıldız Atışı: three spinning stars in a fan ──
+  // ── 1. Yıldız Atışı: three bright stars converge on visible foes, then pierce through the crowd ──
   // The stars start STAR_GAP apart (not all on one point) and the hand burst stays soft (colour ≤ 1, no bloom),
   // so the first frames show three distinct stars instead of one white flash.
   function castStar(c) {
+    const g = gm(); if (!g || !g.spawnProjectile) return false;
     castPose(c, 'yildiz', true);
-    const base = Math.atan2(c.aim.x, c.aim.z), dmg = Math.max(1, Math.round(STAR_K * sword() + STAR_ADD)), g = gm();
+    const base = Math.atan2(c.aim.x, c.aim.z), dmg = Math.max(1, Math.round(STAR_K * sword() + STAR_ADD));
+    const targets = near(c.x, c.z, 10.8).filter(e => {
+      const dx = e.x - c.x, dz = e.z - c.z, d = Math.hypot(dx, dz);
+      return alive(e) && inSight(c.x, c.z, e) && (d < 0.1 || (dx * c.aim.x + dz * c.aim.z) / d > 0.72);
+    });
+    targets.sort((a, b) => a === c.target ? -1 : b === c.target ? 1 : dist2(c.x, c.z, a.x, a.z) - dist2(c.x, c.z, b.x, b.z));
     const ax = c.aim.x, az = c.aim.z, rx = az, rz = -ax;   // aim and its side (same side as a positive fan angle)
     for (let i = -1; i <= 1; i++) {
-      const a = base + i * STAR_FAN, dx = Math.sin(a), dz = Math.cos(a);
       const x0 = c.x + ax * STAR_FWD + rx * i * STAR_GAP, z0 = c.z + az * STAR_FWD + rz * i * STAR_GAP;
+      const target = targets[(i === 0 ? 0 : i < 0 ? 1 : 2) % Math.max(1, targets.length)];
+      const a = target ? Math.atan2(target.x - x0, target.z - z0) : base + i * STAR_FAN, dx = Math.sin(a), dz = Math.cos(a);
       let obj = fxOk('projectile') ? FX.projectile('star', '#ffd23f') : null;
       if (!obj) { obj = new THREE.Mesh(GEO.star, starMat); obj.scale.setScalar(0.3); }
-      obj.position.set(x0, STAR_Y, z0);
-      if (g && g.spawnProjectile) g.spawnProjectile({ x: x0, y: STAR_Y, z: z0, vx: dx * 15, vz: dz * 15, r: 0.45, dmg, owner: 'feza', kind: 'star', life: 0.8, pierce: 1, obj, color: '#ffd23f' });
+      obj.scale.multiplyScalar(1.25); obj.position.set(x0, STAR_Y, z0);
+      g.spawnProjectile({ x: x0, y: STAR_Y, z: z0, vx: dx * 16, vz: dz * 16, r: 0.5, dmg, owner: 'feza', kind: 'star', life: 0.8, pierce: 2, obj, color: '#ffd23f', onHit: starHit });
       puff(x0, STAR_Y, z0, dx * 1.6, 0.25, dz * 1.6, 0.28, 0.3, 0.05, '#ffe27a', '#ffb638', 1, 0, 3, 1);   // soft kick-off star
     }
     for (let i = 0; i < 3; i++) {   // a few faint twinkles around the hand
@@ -332,6 +402,11 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     circle(c.x, c.z, '#ffd23f', 1.25, 0.45, 0, true);
     sfx('star', { x: c.x, z: c.z });
     return true;
+  }
+
+  function starHit(p) {
+    fxRing(p.x, p.z, { r0: 0.12, r1: 0.8, dur: 0.22, color: '#ffe285', width: 0.13 });
+    burst('sparkle', p.x, p.y, p.z, { color: '#ffd23f', count: 4 });
   }
 
   // ── 2. Kasırga: Feza whirls, wind funnel hits everything around him ──
@@ -506,24 +581,250 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     if (MET.first) { MET.first = false; word(x, z, 'Güm!'); }
   }
 
+  // ── Büyücü: light arrows, a frost flower and a little garden of stars ──
+  // Reuse the FX pools and rune circles. No wall-clock timers: pause, sleep and a new zone stop the magic together.
+  const MAGIC = { t: 0, tick: 0, emitT: 0, x: 0, z: 0, n: 0, dmg: 0, shield: null };
+  function clearMagic() {
+    MAGIC.t = MAGIC.tick = MAGIC.emitT = 0;
+    if (GARDEN.grp) GARDEN.grp.visible = false;
+    if (MAGIC.shield) { MAGIC.shield.remove(); MAGIC.shield = null; }
+  }
+  function inSight(x, z, e) {
+    const g = gm();
+    return !(g && g.L && typeof LEVEL !== 'undefined' && LEVEL.los) || LEVEL.los(g.L, x, z, e.x, e.z);
+  }
+  function castArrows(c) {
+    castPose(c, 'isikoklari', true);
+    const g = gm();
+    if (!g || !g.spawnProjectile) return false;
+    const targets = near(c.x, c.z, 11).filter(e => alive(e) && inSight(c.x, c.z, e));
+    targets.sort((a, b) => dist2(c.x, c.z, a.x, a.z) - dist2(c.x, c.z, b.x, b.z));
+    for (let i = 0; i < 3; i++) {
+      const side = (i - 1) * 0.32, x = c.x + c.aim.x * 0.6 + c.aim.z * side, z = c.z + c.aim.z * 0.6 - c.aim.x * side;
+      const e = targets[i % Math.max(1, targets.length)];
+      const a = e ? Math.atan2(e.x - x, e.z - z) : Math.atan2(c.aim.x, c.aim.z) + (i - 1) * 0.16;
+      g.spawnProjectile({ x, y: 1.05, z, vx: Math.sin(a) * 17, vz: Math.cos(a) * 17, r: 0.4,
+        dmg: Math.max(1, Math.round(sword() * 0.82 + 2)), owner: 'feza', kind: 'arcane', color: '#be8cff', life: 0.72, pierce: 1 });
+      puff(x, 1.05, z, 0, 0.4, 0, 0.35, 0.3, 0, '#d7b5ff', '#7f64e8', 2, 0, 1, 1.4);
+    }
+    circle(c.x, c.z, '#be8cff', 1.2, 0.5, 0, true);
+    sfx('star', { x: c.x, z: c.z, pitch: 1.2 });
+    return true;
+  }
+  function frostBloom(p) {
+    const list = near(p.x, p.z, 3.1);
+    for (let i = 0; i < list.length; i++) if (inSight(p.x, p.z, list[i]))
+      hurt(list[i], Math.max(1, Math.round(p.dmg * 1.6)), { freeze: 2.2, kb: 0.3, fromX: p.x, fromZ: p.z, kind: 'ice' });
+    smash(p.x, p.z, 3.1);
+    circle(p.x, p.z, '#8fe4ff', 3.1, 0.75, 2, false);
+    fxRing(p.x, p.z, { r0: 0.2, r1: 3.1, dur: 0.55, color: '#b6f5ff', width: 0.35 });
+    for (let i = 0; i < 12; i++) {
+      const a = i * TAU / 12;
+      puff(p.x, 0.6, p.z, Math.sin(a) * 4, 1.3, Math.cos(a) * 4, 0.65, 0.4, 0.03, '#c4f7ff', '#73b9ef', 2, 2, 2, 1.5);
+    }
+    sfx('star', { x: p.x, z: p.z, pitch: 1.5 });
+  }
+  function castFrost(c) {
+    castPose(c, 'buzcicegi', true);
+    const g = gm();
+    if (!g || !g.spawnProjectile) return false;
+    c.P.shield = Math.max(c.P.shield || 0, 2.2);
+    if (MAGIC.shield) MAGIC.shield.remove();
+    MAGIC.shield = fxOk('shield') ? FX.shield(c.H && c.H.root ? c.H.root : c.P.pos) : null;
+    g.spawnProjectile({ x: c.x + c.aim.x * 0.55, y: 1, z: c.z + c.aim.z * 0.55,
+      vx: c.aim.x * 13, vz: c.aim.z * 13, r: 0.65, dmg: Math.max(1, Math.round(sword())),
+      owner: 'feza', kind: 'ice', color: '#8fe4ff', life: 0.95, freeze: 2.2, onHit: frostBloom });
+    circle(c.x, c.z, '#b6f5ff', 1.4, 2.2, 0, true);
+    burst('magic', c.x, 1.2, c.z, { color: '#8fe4ff', count: 8 });
+    sfx('shield', { x: c.x, z: c.z, vol: 0.6 });
+    return true;
+  }
+  function castGarden(c) {
+    castPose(c, 'yildizbahcesi', true);
+    let x = c.target ? c.target.x : c.x + c.aim.x * 5, z = c.target ? c.target.z : c.z + c.aim.z * 5;
+    // An empty cast at a wall still makes a garden on the nearest reachable floor.
+    for (let i = 0; i < 12 && (!isFloor(x, z) || !inSight(c.x, c.z, { x, z })); i++) { x = lerp(x, c.x, 0.3); z = lerp(z, c.z, 0.3); }
+    MAGIC.x = x; MAGIC.z = z; MAGIC.t = 3.2; MAGIC.tick = 0.25; MAGIC.emitT = 0; MAGIC.n = 0; MAGIC.dmg = Math.max(1, Math.round(sword() * 0.95));
+    GARDEN.grp.position.set(x, 0, z); GARDEN.grp.visible = true; GARDEN.grp.scale.setScalar(0.05);
+    const ground = circle(x, z, '#aa68dc', 3.6, MAGIC.t, 0, false); if (ground) ground.alpha = 0.22;
+    circle(c.x, c.z, '#f5c6ff', 1.2, 0.55, 0, true);
+    sfx('star', { x, z, pitch: 0.8 });
+    return true;
+  }
+  function updateMagic(dt) {
+    const P = S.P;
+    if (P && P.dead) { clearMagic(); return; }
+    if (MAGIC.shield && (!P || !(P.shield > 0))) { MAGIC.shield.remove(); MAGIC.shield = null; }
+    if (MAGIC.t <= 0) { if (GARDEN.grp) GARDEN.grp.visible = false; return; }
+    MAGIC.t -= dt; MAGIC.tick -= dt; MAGIC.emitT -= dt;
+    const x = MAGIC.x, z = MAGIC.z, age = 3.2 - MAGIC.t;
+    const fade = smooth01(Math.max(0, MAGIC.t) / 0.45), open = smooth01(age / 0.35), beat = Math.pow(Math.max(0, Math.cos((age - 0.25) * TAU * 2)), 5);
+    GARDEN.grp.visible = MAGIC.t > 0;
+    GARDEN.grp.scale.setScalar(0.1 + 0.9 * open);
+    GARDEN.petals.rotation.y = age * 0.18;
+    GARDEN.mats[0].opacity = fade * (0.55 + 0.35 * beat); GARDEN.mats[1].opacity = fade; GARDEN.mats[2].opacity = fade * 0.72;
+    for (let i = 0; i < GARDEN.flowers.length; i++) {
+      const blossom = GARDEN.flowers[i], a = i * TAU / 8 + age * 0.18;
+      blossom.position.set(Math.cos(a) * 2.75, 0.16 + 0.12 * Math.sin(age * 3 + i), Math.sin(a) * 2.75);
+      blossom.scale.setScalar((0.7 + 0.3 * open + beat * 0.22) * fade); blossom.rotation.y = -age * 0.45 + i;
+    }
+    for (let i = 0; i < GARDEN.stars.length; i++) {
+      const star = GARDEN.stars[i], a = i * TAU / 8 - age * 0.3, r = 3.1;
+      star.position.set(Math.cos(a) * r, 0.6 + 0.28 * Math.sin(age * 3 + i) + beat * 0.45, Math.sin(a) * r);
+      star.quaternion.copy(camera.quaternion); star.rotateZ(Math.sin(age * 2 + i) * 0.18);
+      star.scale.setScalar((0.25 + beat * 0.09) * (0.5 + 0.5 * fade));
+    }
+    if (MAGIC.tick <= 0 && MAGIC.n < 6) {
+      MAGIC.tick += 0.5; MAGIC.n++;
+      const list = near(x, z, 3.6);
+      for (let i = 0; i < list.length; i++) if (inSight(x, z, list[i])) {
+        const e = list[i];
+        hurt(e, MAGIC.dmg, { kind: 'magic', fromX: x, fromZ: z, kb: 0.08 });
+        burst('sparkle', e.x, eY(e), e.z, { color: '#f7c6ff', count: 4 });
+      }
+      smash(x, z, 3.6);
+      fxRing(x, z, { r0: 0.2, r1: 3.6, dur: 0.55, color: '#dca3ff', width: 0.22 });
+      // Every damage beat sends a crown of star-petals upward, so the six pulses can be seen as well as heard.
+      for (let i = 0; i < 8; i++) {
+        const a = i * TAU / 8 + MAGIC.n * 0.2, r = 2.4;
+        puff(x + Math.cos(a) * r, 0.25, z + Math.sin(a) * r, Math.cos(a) * 0.35, 2.5, Math.sin(a) * 0.35,
+          0.7, 0.32, 0.02, i % 2 ? '#ffd976' : '#e9adff', '#a173d9', i % 2 ? 1 : 10, 1.5, 0.4, 1.25);
+      }
+      sfx('star', { x, z, vol: 0.35, pitch: 1 + MAGIC.n * 0.08 });
+    }
+    if (MAGIC.emitT <= 0) {
+      MAGIC.emitT += 0.09;
+      for (let i = 0; i < 3; i++) {
+        const a = S.t * 1.5 + i * TAU / 3, r = 2.5;
+        puff(x + Math.sin(a) * r, 1.5 + Math.sin(a * 2) * 0.5, z + Math.cos(a) * r, 0, 0.3, 0,
+          0.5, 0.35, 0.02, i === 1 ? '#ffe9a2' : '#dba8ff', '#977ae8', 1, 0, 1, 1.5);
+      }
+    }
+  }
+
+  // ── Büyülü Şövalye: a travelling sword crescent, a protective bond, and a crossed rainbow seal ──
+  function hybridDamage(P, magic) { return Math.max(1, (magic ? P.magicDmg : P.meleeDmg) || P.dmg || 10); }
+  function castCrescent(c) {
+    const g = gm(); if (!g || !g.spawnProjectile) return false;
+    castPose(c, 'hilaldalgasi', true);
+    // Three visible crescents share a modest +20% volley, rather than tripling the old hit.
+    const total = Math.max(3, Math.round(hybridDamage(c.P, false) * 1.62 + hybridDamage(c.P, true) * 0.78));
+    const targets = near(c.x, c.z, 10.8).filter(e => {
+      const dx = e.x - c.x, dz = e.z - c.z, d = Math.hypot(dx, dz);
+      return alive(e) && inSight(c.x, c.z, e) && (d < 0.1 || (dx * c.aim.x + dz * c.aim.z) / d > 0.72);
+    });
+    targets.sort((a, b) => a === c.target ? -1 : b === c.target ? 1 : dist2(c.x, c.z, a.x, a.z) - dist2(c.x, c.z, b.x, b.z));
+    for (let i = 0; i < 3; i++) {
+      const side = (i - 1) * 0.7, x = c.x + c.aim.x * 0.6 + c.aim.z * side, z = c.z + c.aim.z * 0.6 - c.aim.x * side;
+      const e = targets[(i === 1 ? 0 : i === 0 ? 1 : 2) % Math.max(1, targets.length)];
+      const a = e ? Math.atan2(e.x - x, e.z - z) : Math.atan2(c.aim.x, c.aim.z) + (i - 1) * 0.16;
+      const dmg = Math.floor(total / 3) + (i < total % 3 ? 1 : 0);
+      g.spawnProjectile({ x, y: 0.85, z, vx: Math.sin(a) * 13, vz: Math.cos(a) * 13,
+        r: 0.65, dmg, owner: 'feza', kind: 'crescent', color: '#7af3df', life: 0.85, pierce: 3, kb: 0.15 });
+    }
+    if (fxOk('slash')) FX.slash(c.x, 0.8, c.z, c.P.face, 1, '#7af3df', 1.7, 2.5);
+    circle(c.x, c.z, '#7af3df', 1.1, 0.45, 0, true);
+    sfx('whoosh', { x: c.x, z: c.z, pitch: 1.15 }); return true;
+  }
+  function castBond(c) {
+    castPose(c, 'isikbagi', false);
+    HYBRID.t = 3; HYBRID.tick = 0.25; HYBRID.n = 0;
+    HYBRID.dmg = Math.round((hybridDamage(c.P, false) + hybridDamage(c.P, true)) * 0.34);
+    c.P.shield = Math.max(c.P.shield || 0, 1.8);
+    if (HYBRID.shield) HYBRID.shield.remove();
+    HYBRID.shield = fxOk('shield') ? FX.shield(c.H && c.H.root ? c.H.root : c.P.pos) : null;
+    HYBRID.guard.visible = true; HYBRID.guard.position.set(c.x, 0, c.z);
+    const mark = circle(c.x, c.z, '#72f0d8', 2.8, 3, 0, true); if (mark) mark.alpha = 0.32;
+    sfx('shield', { x: c.x, z: c.z, vol: 0.7 }); return true;
+  }
+  function castSeal(c) {
+    castPose(c, 'gokkusagimuhru', true);
+    let x = c.target ? c.target.x : c.x + c.aim.x * 4.5, z = c.target ? c.target.z : c.z + c.aim.z * 4.5;
+    for (let i = 0; i < 12 && (!isFloor(x, z) || !inSight(c.x, c.z, { x, z })); i++) { x = lerp(x, c.x, 0.3); z = lerp(z, c.z, 0.3); }
+    HYBRID.x = x; HYBRID.z = z; HYBRID.sealT = 3.3; HYBRID.sealTick = 0.65; HYBRID.sealN = 0;
+    HYBRID.sealDmg = Math.round((hybridDamage(c.P, false) + hybridDamage(c.P, true)) * 0.48);
+    HYBRID.seal.position.set(x, 0, z); HYBRID.seal.visible = true;
+    const mark = circle(x, z, '#ffd378', 3.8, 3.3, 0, false); if (mark) mark.alpha = 0.4;
+    circle(c.x, c.z, '#7af3df', 1.3, 0.6, 0, true);
+    sfx('star', { x, z, pitch: 0.75 }); return true;
+  }
+  function clearHybrid() {
+    HYBRID.t = HYBRID.sealT = HYBRID.tick = HYBRID.sealTick = 0;
+    if (HYBRID.guard) HYBRID.guard.visible = false;
+    if (HYBRID.seal) HYBRID.seal.visible = false;
+    if (HYBRID.shield) { HYBRID.shield.remove(); HYBRID.shield = null; }
+  }
+  function updateHybrid(dt) {
+    const P = S.P;
+    if (!P || P.dead || P.heroClass !== 'hybrid') { clearHybrid(); return; }
+    if (HYBRID.shield && !(P.shield > 0)) { HYBRID.shield.remove(); HYBRID.shield = null; }
+    if (HYBRID.t > 0) {
+      HYBRID.t -= dt; HYBRID.tick -= dt;
+      const x = P.pos.x, z = P.pos.z, fade = smooth01(Math.max(0, HYBRID.t) / 0.35);
+      HYBRID.guard.visible = HYBRID.t > 0; HYBRID.guard.position.set(x, 0, z);
+      for (let i = 0; i < HYBRID.blades.length; i++) {
+        const b = HYBRID.blades[i], a = S.t * 3.8 + i * TAU / 3;
+        b.position.set(Math.sin(a) * 1.8, 1 + Math.sin(a * 2) * 0.2, Math.cos(a) * 1.8);
+        b.rotation.set(0.35, a, -0.3); b.scale.setScalar(fade);
+      }
+      if (HYBRID.tick <= 0 && HYBRID.n < 4) {
+        HYBRID.tick += 0.7; HYBRID.n++;
+        const list = near(x, z, 3.1).filter(e => alive(e) && inSight(x, z, e));
+        for (let i = 0; i < list.length; i++) {
+          const e = list[i]; hurt(e, HYBRID.dmg, { kb: 0.18, fromX: x, fromZ: z, kind: 'magic' });
+          if (i < 3 && fxOk('lightning')) FX.lightning([{ x, y: 1.3, z }, { x: e.x, y: eY(e), z: e.z }], '#7af3df');
+        }
+        fxRing(x, z, { r0: 1.2, r1: 3.1, dur: 0.4, color: '#7af3df', width: 0.13 });
+        smash(x, z, 3.1);
+      }
+    }
+    if (HYBRID.sealT > 0) {
+      HYBRID.sealT -= dt; HYBRID.sealTick -= dt;
+      const x = HYBRID.x, z = HYBRID.z, age = 3.3 - HYBRID.sealT, fade = smooth01(Math.max(0, HYBRID.sealT) / 0.35);
+      HYBRID.seal.visible = HYBRID.sealT > 0;
+      HYBRID.cross.position.y = 1.45 + Math.sin(age * 2) * 0.15;
+      HYBRID.cross.quaternion.copy(camera.quaternion); HYBRID.cross.rotateZ(Math.sin(age * 3) * 0.08);
+      HYBRID.cross.scale.setScalar(smooth01(age / 0.55) * fade);
+      if (HYBRID.sealTick <= 0 && HYBRID.sealN < 6) {
+        HYBRID.sealTick += 0.45; const color = RAINBOW[HYBRID.sealN++];
+        const list = near(x, z, 3.8);
+        for (let i = 0; i < list.length; i++) if (inSight(x, z, list[i]))
+          hurt(list[i], HYBRID.sealDmg, { kb: 0.12, fromX: x, fromZ: z, kind: 'magic' });
+        smash(x, z, 3.8);
+        fxRing(x, z, { r0: 0.35, r1: 3.8, dur: 0.55, color, width: 0.22 });
+        if (fxOk('slash')) FX.slash(x, 0.9, z, age * 2, 1, color, 2.4, 2.8);
+        for (let i = 0; i < 10; i++) {
+          const a = i * TAU / 10 + age;
+          puff(x + Math.sin(a) * 2.8, 0.3, z + Math.cos(a) * 2.8, 0, 1.8, 0, 0.65, 0.28, 0.02, color, '#ffffff', 2, 1, 0.3, 1.3);
+        }
+        sfx('star', { x, z, vol: 0.4, pitch: 0.9 + HYBRID.sealN * 0.1 });
+      }
+    }
+  }
+
   // ── Main hooks ──
   function update(dt) {
     if (!S.warm) warmUp();
     S.t += dt; uT.value = S.t;
     const P = S.P || (gm() && gm().P);
     if (S.castLeft > 0) { S.castLeft = Math.max(0, S.castLeft - dt); if (P) P.castT = S.castLeft; }
-    if (P && P.shield > 0) P.shield = Math.max(0, P.shield - dt);   // no skill sets it any more; never leave it stuck
+    if (P && P.shield > 0) P.shield = Math.max(0, P.shield - dt);
     if (SPIN.t > 0) updateSpin(dt);
     updateMeteors(dt);
+    updateMagic(dt);
+    updateHybrid(dt);
     updateCircles(dt);
   }
   function clear() {
     endSpin();
+    clearMagic();
+    clearHybrid();
     for (let i = 0; i < METS.length; i++) { METS[i].st = 0; METS[i].grp.visible = false; }
     MET.aimed.length = 0;
     for (let i = 0; i < CIRC.length; i++) { CIRC[i].on = false; CIRC[i].mesh.visible = false; }
     S.castLeft = 0;
     if (S.P) { S.P.castT = 0; S.P.spin = 0; S.P.shield = 0; }
+    S.P = S.H = null;
   }
 
   const wrap = fn => function (ctx) { const c = prep(ctx); return c ? fn(c) : false; };
@@ -533,5 +834,16 @@ const { SKILLS, SKILLS_update, SKILLS_clear } = (function () {
     { id: 'kasirga', ad: 'Kasırga', icon: '🌪️', lvl: 3, cd: 15, color: '#7ee0ff', line: 'yetenek_kasirga', cast: wrap(castSpin) },
     { id: 'meteor', ad: 'Meteor Yağmuru', icon: '☄️', lvl: 5, cd: 24, color: '#ff9a3c', line: 'yetenek_meteor', cast: wrap(castMeteor) },
   ];
+  const wizard = [
+    { id: 'isikoklari', ad: 'Işık Okları', icon: '✨', lvl: 1, cd: 4, color: '#be8cff', line: 'buyu1', cast: wrap(castArrows) },
+    { id: 'buzcicegi', ad: 'Buz Çiçeği', icon: '❄️', lvl: 3, cd: 15, color: '#8fe4ff', line: 'buyu2', cast: wrap(castFrost) },
+    { id: 'yildizbahcesi', ad: 'Yıldız Bahçesi', icon: '🌌', lvl: 5, cd: 24, color: '#e6a5ff', line: 'buyu3', cast: wrap(castGarden) },
+  ];
+  const hybrid = [
+    { id: 'hilaldalgasi', ad: 'Hilal Dalgası', icon: '🌙', lvl: 1, cd: 4, color: '#7af3df', line: 'hibrit1', cast: wrap(castCrescent) },
+    { id: 'isikbagi', ad: 'Işık Bağı', icon: '⚔️', lvl: 3, cd: 15, color: '#72f0d8', line: 'hibrit2', cast: wrap(castBond) },
+    { id: 'gokkusagimuhru', ad: 'Gökkuşağı Mührü', icon: '🌈', lvl: 5, cd: 24, color: '#ffd378', line: 'hibrit3', cast: wrap(castSeal) },
+  ];
+  list.forClass = heroClass => heroClass === 'hybrid' ? hybrid : heroClass === 'wizard' ? wizard : list;
   return { SKILLS: list, SKILLS_update: update, SKILLS_clear: clear };
 })();

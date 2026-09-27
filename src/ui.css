@@ -564,3 +564,49 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 @media (max-height: 560px) {
   .u-word { font-size: calc(var(--k) * 110px); }
 }
+
+/* Character choice: three large, illustrated buttons; the whole card is a touch target. */
+.u-choice { padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+.u-choice .u-panel { width: min(1020px, 100%); max-height: 100%; overflow-y: auto; gap: 10px; padding: 24px; touch-action: pan-y; }
+.u-choice .u-ptitle { font-size: clamp(26px, 4.2vw, 42px); text-align: center; }
+.u-choicehint { color: #e9dafb; font-size: clamp(15px, 2.4vw, 20px); text-align: center; }
+.u-herorow { display: flex; gap: 20px; width: 100%; margin: 8px 0; }
+#ui .u-herocard { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; gap: 8px; padding: 8px 14px 18px; border: 3px solid #83dcff; border-radius: 26px; color: white; background: radial-gradient(ellipse at 50% 20%, #427dac, #24497b 65%, #283763); box-shadow: 0 6px 0 #172849, inset 0 1px 0 #ffffff70; transition: transform .15s, box-shadow .15s; touch-action: pan-y; }
+#ui .u-herocard.wizard { border-color: #d7a4ff; background: radial-gradient(ellipse at 50% 20%, #9766bd, #60408b 65%, #42296f); box-shadow: 0 6px 0 #291747, inset 0 1px 0 #ffffff70; }
+#ui .u-herocard.hybrid { border-color: #ffe39d; background: radial-gradient(ellipse at 50% 20%, #479f9e, #246577 65%, #254461); box-shadow: 0 6px 0 #183540, inset 0 1px 0 #ffffff70; }
+#ui .u-herocard:focus-visible { outline: 4px solid #ffdf76; outline-offset: 4px; }
+#ui .u-herocard.down { transform: translateY(4px) scale(.98); box-shadow: 0 2px 0 #172849; }
+.u-heroart { width: min(100%, 230px); height: auto; flex-shrink: 0; }
+.u-herocard strong { text-align: center; min-height: 2.4em; display: flex; align-items: center; font-size: clamp(19px, 2.6vw, 27px); text-shadow: 0 2px 0 #261e49; }
+.u-herodesc { font-size: clamp(14px, 2vw, 18px); line-height: 1.4; color: #f0eaff; text-align: center; }
+.u-herogo { display: flex; align-items: center; gap: 8px; margin-top: 5px; padding: 8px 14px; border-radius: 24px; color: #382358; background: linear-gradient(#fff0ab, #ffd063); font-weight: 900; font-size: clamp(13px, 2vw, 18px); }
+.u-herogo .u-svg { width: 18px; height: 18px; }
+#ui .u-choiceback { min-height: 42px; font-size: 20px; padding: 6px 25px; }
+.u-wandico { display: block; font-size: calc(var(--k) * 68px); filter: drop-shadow(0 0 8px #cdacff); }
+.u-offhandico { position: absolute; right: 9%; bottom: 14%; font-size: calc(var(--k) * 44px); filter: drop-shadow(0 0 5px #8effe2); }
+@media (max-width: 520px) {
+  .u-choice .u-panel { padding: 18px 12px; gap: 8px; }
+  .u-herorow { gap: 7px; }
+  .u-herocard strong { font-size: 16px; min-height: 3.6em; line-height: 1.2; }
+  .u-herodesc { font-size: 12px; min-height: 4.2em; }
+  .u-herogo { font-size: 12px; text-align: center; }
+  .u-herogo .u-svg { display: none; }
+  #ui .u-herocard { padding: 5px 5px 12px; border-radius: 20px; gap: 7px; }
+  .u-herogo { padding: 7px 8px; gap: 4px; }
+}
+@media (max-height: 560px) and (min-width: 521px) {
+  .u-choice .u-panel { width: min(850px, 100%); padding: 12px 20px; gap: 4px; }
+  .u-heroart { width: 82px; }
+  .u-herorow { margin: 2px 0; gap: 18px; }
+  #ui .u-herocard { gap: 3px; padding: 2px 10px 8px; }
+  .u-herodesc br { display: none; }
+  .u-herocard strong { font-size: 18px; min-height: 1.3em; }
+  .u-herodesc { font-size: 14px; min-height: 2.8em; }
+  .u-choice .u-ptitle { font-size: 27px; }
+}
+
+/* Hardcore stays inside the in-game pause menu, including on small landscape screens. */
+.u-pause-panel { max-height: 94%; overflow-y: auto; touch-action: pan-y; }
+.u-pause-panel .u-main { gap: calc(var(--k) * 12px); }
+.u-hardcore-hint { max-width: calc(var(--k) * 350px); font-size: calc(var(--k) * 20px); text-align: center; color: #ffe1bd; }
+.u-asktxt small { display: block; margin-top: 1em; font-size: 0.6em; line-height: 1.45; font-weight: 600; }

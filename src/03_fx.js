@@ -1592,6 +1592,9 @@ const FX = (() => {
 
   // ───────────────────────── Projectiles ─────────────────────────
   const PROJ = {
+    magic: { core: 'comet', col: '#ad70ff', halo: 0.62, hk: 1.05, r: 0.14, hot: '#e6faff', hotK: 1.65 },
+    crescent: { core: 'crescent', col: '#7af3df', halo: 1.2, hk: 0.7 },
+    arcane: { core: 'arrow', col: '#be8cff', halo: 0.62, hk: 0.85 },
     star: { core: 'star', col: '#ffd23f', halo: 0.95, hk: 1.5 },
     spore: { core: 'puff', col: '#b8f050', halo: 0.62, hk: 1.3, r: 0.15 },
     ghost: { core: 'ball', col: '#b9a0ff', halo: 0.8, hk: 1.5, r: 0.15, hot: '#efe8ff', hotK: 1.6 },
@@ -1786,7 +1789,7 @@ const FX = (() => {
       vertexShader: FIZZ_VS, fragmentShader: FIZZ_FS, transparent: true, depthWrite: false });
   }
   const projMats = new Map(), projs = [];
-  let STAR_GEO = null, SHARD_GEO = null;
+  let STAR_GEO = null, SHARD_GEO = null, CRESCENT_GEO = null;
   function starGeo() {
     const s = new THREE.Shape();
     for (let i = 0; i < 10; i++) {
@@ -1830,6 +1833,39 @@ const FX = (() => {
       core.scale.setScalar(D.r); core.renderOrder = 23;
       const hot = new THREE.Mesh(G.sphere(12), projMat('ball|#ffe08a|1.9', () => glowMat('#ffe08a', 1.9)));
       hot.scale.setScalar(0.6); hot.position.z = 0.12; core.add(hot);
+    } else if (D.core === 'comet') {
+      // A round pearl with two orbiting motes and a short taper: stronger than a spark, unlike the long arrow skill.
+      core = new THREE.Group();
+      const heart = new THREE.Mesh(G.sphere(12), projMat('wandPearl', () => glowMat('#e6faff', 1.65)));
+      heart.scale.setScalar(0.14); core.add(heart);
+      const tail = new THREE.Mesh(G.sphere(12), projMat('wandTail|' + col, () => glowMat(col, 1.05)));
+      tail.scale.set(0.075, 0.075, 0.28); tail.position.z = -0.21; core.add(tail);
+      for (let i = 0; i < 2; i++) {
+        const mote = new THREE.Mesh(G.sphere(8), projMat('wandMote', () => glowMat('#b5f7ff', 1.25)));
+        mote.scale.setScalar(0.055); core.add(mote);
+      }
+    } else if (D.core === 'crescent') {
+      if (!CRESCENT_GEO) {
+        CRESCENT_GEO = keep(new THREE.RingGeometry(0.58, 0.78, 32, 1, 0, Math.PI).rotateX(Math.PI / 2));
+        const p = CRESCENT_GEO.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z), a = Math.atan2(z, x);
+          const nr = 0.58 + (r > 0.68 ? 0.2 : -0.035) * Math.sin(a);
+          p.setXYZ(i, x * nr / r, 0, z * nr / r);
+        }
+      }
+      core = new THREE.Mesh(CRESCENT_GEO, projMat('crescent|' + col, () => glowMat(col, 1.65, { side: THREE.DoubleSide })));
+    } else if (D.core === 'arrow') {
+      // A long crystal arrow with swept fins: readable even beside the tiny round wand spark.
+      core = new THREE.Group();
+      const m = projMat('arrow|' + col, () => rimify(stdMat({ color: col, emissive: col, emissiveIntensity: 0.65, roughness: 0.2, metalness: 0.25 }), 0xfff1bd, 0.55, 2));
+      const head = new THREE.Mesh(G.octa(), m); head.scale.set(0.2, 0.13, 0.48); head.position.z = 0.18; core.add(head);
+      const shaft = new THREE.Mesh(G.sphere(12), projMat('arrowShaft', () => glowMat('#ffe5a0', 1.2)));
+      shaft.scale.set(0.045, 0.045, 0.43); shaft.position.z = -0.28; core.add(shaft);
+      for (const side of [-1, 1]) {
+        const fin = new THREE.Mesh(G.octa(), m); fin.scale.set(0.075, 0.055, 0.25);
+        fin.rotation.y = side * 0.7; fin.position.set(side * 0.13, 0, -0.43); core.add(fin);
+      }
     } else if (D.core === 'star') {
       const m = projMat('star|' + col, () => rimify(stdMat({ color: col, emissive: col, emissiveIntensity: 0.75, roughness: 0.25, metalness: 0.2 }), 0xffffff, 0.8, 2.0));
       core = new THREE.Mesh(STAR_GEO, m); core.scale.setScalar(0.28);
@@ -1890,6 +1926,11 @@ const FX = (() => {
       if (u.star) {   // face the camera and spin like a thrown star
         g.getWorldQuaternion(_q).invert();
         u.core.quaternion.copy(_q).multiply(camera.quaternion).multiply(_q2.setFromAxisAngle(ZAX, -u.t * 9));
+      } else if (u.look === 'comet') {
+        for (let j = 2; j < 4; j++) {
+          const a = u.t * 14 + j * Math.PI;
+          u.core.children[j].position.set(Math.cos(a) * 0.19, Math.sin(a) * 0.19, -0.08);
+        }
       } else if (u.shard) { u.core.rotation.y += dt * 7; u.core.rotation.z = 0.5; }
       else if (u.bub) {   // soap film wobble + gentle bob
         const w = Math.sin(u.t * 7.3) * 0.07, w2 = Math.sin(u.t * 5.1 + 1.3) * 0.05;
@@ -1984,6 +2025,21 @@ const FX = (() => {
       case 'spore':
         q = P(0, SH.DOT, x, y, z); q.vx = frand(-0.2, 0.2); q.vy = frand(0.1, 0.4); q.vz = frand(-0.2, 0.2); q.size = frand(0.1, 0.16); q.size1 = 0.03; q.life = 0.5; q.color = C.SPORE; emitRaw(q);
         if (Math.random() < 0.5) { q = P(1, SH.GLOW, x, y, z); q.size = 0.35; q.size1 = 0.1; q.life = 0.3; q.alpha = 0.5; q.color = C.SPOREG; emitRaw(q); }
+        break;
+      case 'magic':
+        q = P(1, SH.GLOW, x, y, z); q.size = 0.23; q.size1 = 0.025; q.life = 0.22; q.alpha = 0.6; q.color = lastCol.magic || C.W2; emitRaw(q);
+        if (Math.random() < 0.45) {
+          q = P(1, SH.SPARK, x + frand(-0.13, 0.13), y + frand(-0.13, 0.13), z);
+          q.size = 0.12; q.size1 = 0; q.life = 0.28; q.color = '#b5f7ff'; q.vy = 0.3; emitRaw(q);
+        }
+        break;
+      case 'crescent':
+        q = P(1, SH.SPARK, x + frand(-0.4, 0.4), y, z + frand(-0.4, 0.4));
+        q.size = 0.2; q.size1 = 0; q.life = 0.28; q.color = '#7af3df'; emitRaw(q);
+        break;
+      case 'arcane':
+        q = P(1, SH.SPARK, x, y, z); q.size = 0.23; q.size1 = 0.035; q.life = 0.28; q.alpha = 0.8; q.color = '#be8cff'; emitRaw(q);
+        if (Math.random() < 0.35) twinkles(1, x, y, z, 0.12, '#ffe6a0', 0.3);
         break;
       case 'ghost':
         q = P(0, SH.SMOKE, x, y, z); q.vy = 0.2; q.size = 0.3; q.size1 = 0.7; q.life = 0.55; q.alpha = 0.35; q.spin = frand(-1, 1); q.color = C.GHOST; emitRaw(q);

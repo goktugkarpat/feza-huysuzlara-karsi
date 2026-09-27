@@ -8,6 +8,76 @@ hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, n
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
 bloom on glowing things, detailed characters with smooth geometry and expressive faces — while keeping 60 fps on an M1 iPad.
 
+## Opt-in Hardcore (latest)
+- `GAME.hardcore` is runtime-only. Only `newGame({hardcore:true,plus:false,heroClass})` or explicit
+  `continueHardcore()` enables it. Normal new game, replay and `continueGame()` reset it to false.
+- Pause-menu Hardcore uses the existing hold-to-confirm restart gate. It starts the same class fresh.
+  A separate in-game `Hardcore kaydını aç` action appears when `hasHardcoreSave()` is true; title Continue stays normal.
+- Manual `save()` returns false in Hardcore. Only zone1/3 entry (2nd/4th chapters) writes
+  `fezaKotulereKarsi.hardcore.v1`; normal `fezaKotulereKarsi.v3` is untouched. `hardcoreCheckpoint` informs UI.
+  Death restores the last checkpoint's progression and a fresh zone, or resets the same class to forest before checkpoint1.
+  Restoration does not rewrite the checkpoint. Starting a fresh Hardcore clears its previous checkpoint.
+- HC multipliers: mobHP1.5, bossHP1.4, mobdamage1.8, bossdamage1.7, speed1.2, attack cooldown0.65;
+  ordinary mob windups0.75 with0.4s minimum. Boss idle gaps shrink; existing readable boss windups remain.
+  Raid special damage has another1.5 multiplier (2.55 total). TBC warnings remain2s.
+  No combat regen, calm regen halved; no death-based enemy weakening or retained boss damage.
+
+## Character classes and boss treasures (latest; overrides older notes below)
+- New adventures choose `heroClass: 'warrior' | 'wizard' | 'hybrid'` (Büyülü Şövalye) via the title picker.
+  `GAME.newGame({heroClass, plus:false})` starts fresh; Continue and New Game+ keep the class. Pre-class saves are intentionally
+  cleared once (parent's request); all class-aware saves persist. `ITEMS.adaptLegacy` preserves earlier wizard boss loot.
+- Warrior keeps the lightsaber and original three skills. Wizard uses visible wooden wands, 9 m normal projectiles and Işık Okları
+  (lvl1,4s), Buz Çiçeği (lvl3,15s, freeze + brief shield), Yıldız Bahçesi (lvl5,24s, six pulses with flower/constellation effects).
+- Hybrid carries a right-hand sword and left-hand wand simultaneously: close normal attacks use the sword, distant attacks the wand.
+  Skills: Hilal Dalgası, Işık Bağı, Gökkuşağı Mührü (lvl1/3/5, cooldown4/15/24s). `SKILLS.forClass(heroClass)` selects definitions.
+- All swords/wands retain `item.slot === 'weapon'`. `GAME.equipSlot(item)` routes hybrid wands to `P.equip.offhand`, swords to
+  `P.equip.weapon`; both are saved separately, marked worn in the bag and upgraded independently. `P.meleeDmg` and `P.magicDmg`
+  use the corresponding weapon; hybrid `P.dmg` is the maximum for stable enemy scaling, never a sum of both weapons.
+- `ITEMS.starter(heroClass)`, `roll(ilvl,bias,rnd,heroClass)`, `allowed(item,heroClass)`, `isWand(item)` govern drops/equipment.
+  `bossReward(type,heroClass,ilvl)` returns one exclusive rarity3 identity for each of five bosses × three classes (15 rewards);
+  power scales with zone/NG+, never randomly. Boss items are class-locked and excluded from random pools.
+- 47 item appearances:28 weapons,10 hats,9 capes. Ten added ordinary looks: Buz Kristali/Güneş/Dalga swords, Mercan/Bulut/Çiçek
+  wands, Bulut Beresi/Orman Gezgini Başlığı, Deniz Dalgası/Güneş capes. `FEZA.setEquip` accepts offhand; `H.wandTip` tracks it.
+- Manual saves during boss endings include pending treasures, including the kefir gift and final dragon reward. Invalid hand indices
+  recover an existing matching weapon before creating a starter, preserving the one-piece-per-look inventory rule.
+- Automatic render target: PC/Mac120FPS, phones/iPad60FPS; no FPS setting in menus. Browser/display refresh can limit actual rate.
+
+## Breakables and class balance (latest)
+- Hybrid uses its sword for targeted breakables, attack-button breakables and obstacle-clearing swings; wizard keeps wand attacks.
+  Breakable targets are passed into the swing so wand origin/aim tracks the actual object as well.
+- Equal equipment still gives equal HP/armor. Wizard normal wand damage is1.15× (hybrid1.05×); wizard frost shield lasts2.2s.
+  Hybrid normal sword hits have a0.95 multiplier, preserving warrior's melee advantage while hybrid retains both ranges.
+  These modifiers do not change enemy scaling, item power, first-skill buffs or cooldowns.
+
+## First-skill balance update (latest)
+- Hilal Dalgası fires three separately visible, aimed crescents; the volley shares `round(1.62 × melee + 0.78 × magic)`
+  damage (+20% over the previous single crescent), with rounding distributed across the three shots. Each retains pierce3;
+  knockback is0.15 per crescent (combined0.45). Empty casts fan out; a lone visible forward target receives all three.
+- Işık Okları remains three arrows, each now `round(0.82 × wandDamage + 2)` instead of `round(0.7 × wandDamage + 2)`.
+  Both first skills keep their4s cooldowns and existing range/lifetime.
+
+## Boss arena surprises (latest)
+- `boss.encounter` owns cancellable arena mechanics; clear on calm, nap, defeat or zone change. Pause freezes timers.
+- Dragon begins with 3 pooled spotted eggs, adds one every 12s and two at its summon thresholds (cap7). Player contact
+  hatches a single non-boss `ejderyavru` using `EMODEL.babyDragon` (cap4 living); eggs wait when the cap is full.
+  Whelps have modest damage and no XP/gold. These are temporary enemies, never a following pet.
+- Jöle splits at72%/38% HP; Kefir has two telegraphed foam dance rounds; Mole has sequential ground eruptions;
+  Lava Turtle sends a slow wave with a wide green gap. New moves replace normal boss actions while active.
+- Each boss has an additional TBC-inspired move: `jellyspin` (Leotheras Whirlwind), `spout` (Lurker Spout),
+  `shatter` (Gruul Shatter, three proximity crystals for solo play), `flamestrike` (Kael'thas), `eyeblast` (Illidan).
+  All warn for2s; new moves have at most2 modest hits, Shatter at most1 even if circles overlap.
+  Fixed captured paths/areas do not chase the player after warning. Shared geometry/materials and reusable meshes bound allocation.
+  The first new move is scheduled after6s; subsequent specials wait13s between moves and start only from idle, alternating where an older timed move exists.
+  Jöle retains its HP-threshold splits, dragon eggs keep their independent timer. Existing cleanup/pause rules apply.
+- `__T.encounter()` returns read-only egg positions, living whelp count and current move for QA.
+
+## Screen-lock recovery and star attack (latest)
+- Audio keeps gesture-release/key and page lifecycle recovery listeners after the initial unlock. Returning from an interrupted
+  context restarts the selected music at the current audio clock, clears stale narration/ducking and preserves volume preferences.
+  A closed context is rebuilt; turning sound/music back on and leaving pause also retry recovery. `?sessiz` stays entirely silent.
+- Warrior Yıldız Atışı keeps its 4s cooldown: three larger stars aim at visible forward targets (converge on a lone target),
+  each dealing `round(0.7 × swordDamage + 3)` and piercing up to three enemies. Walls still block shots.
+
 ## Güncel durum — changes after QA and Feza's requests (read this first; it overrides older text below)
 - **Feza's requests:** all weapons are **lightsabers** (ITEMS.bladeColor(item), H.ignite(), H.bladeOn; saber sfx swing/swingBig/hit/crit, saberOn,
   saberOff); only **3 skills** (yildiz lvl 1, kasirga lvl 3, meteor lvl 5); every creature **cute and smiling**, nothing scary; **no spiders**;

@@ -204,7 +204,7 @@ const UI = (() => {
 
   // ── State ──
   const S = {
-    booted: false, ready: false, mode: 'boot', menu: null, paused: false, busy: false, hud: false,
+    booted: false, ready: false, mode: 'boot', choiceFrom: 'title', menu: null, paused: false, busy: false, hud: false,
     t: 0, frame: 0, primary: null, primaryT: 0, atkHeld: false, atkNext: 0, needRender: true, portraitDirty: true, portraitAt: 0,
     boss: false, bossFrac: 1, bossTrail: 1, dpr: 1, playPitch: 0.96, guardUntil: 0, lastGoldBump: 0,
     prefs: { music: true, sound: true }, portraitUrl: null, lastFrame: 0, hold: false, hintT: -1, hintOn: false, cheered: 0,   // hold: tests keep messages on screen
@@ -444,7 +444,7 @@ const UI = (() => {
       D.sk.push({ b, ico: b.firstChild, cd: b.children[1], cdn: b.children[2], shown: false, p: -1, n: -1 });
     }
 
-    buildTitle(root); buildPause(root); buildBag(root); buildWin(root);
+    buildTitle(root); buildChoice(root); buildPause(root); buildBag(root); buildWin(root);
     // subtitles live above every screen (the victory line plays over the victory panel)
     D.sub = el('div', 'u-sub', root, '<div class="u-subico">✨</div><div class="u-subtxt"></div>');
     D.subIco = D.sub.firstChild; D.subTxt = D.sub.lastChild;
@@ -469,9 +469,62 @@ const UI = (() => {
     const tg = el('div', 'u-ttog', t);
     D.tMus = el('button', 'u-rbtn', tg, SVG.note + '<span class="u-slash"></span>'); D.tMus.dataset.tog = 'music';   // sound effects: pause menu only
   }
+  // All portraits share Feza's face; the silhouette and equipment make the choice readable without words.
+  function heroArt(id) {
+    const wizard = id === 'wizard', hybrid = id === 'hybrid';
+    return `<svg class="u-heroart" viewBox="0 0 220 220" aria-hidden="true">
+      <ellipse cx="110" cy="203" rx="68" ry="10" fill="#170d3d" opacity=".35"/>
+      <path d="M82 123 Q52 154 63 196 L160 196 Q164 149 138 123" fill="${wizard ? '#7851cb' : hybrid ? '#207d84' : '#e14d60'}" stroke="#40225e" stroke-width="4"/>
+      <path d="M88 136 L78 187 L143 187 L133 136" fill="${wizard ? '#344789' : hybrid ? '#316d88' : '#488bdd'}" stroke="#28265a" stroke-width="4"/>
+      <path d="M90 187 L89 201 M132 187 L136 201" stroke="#332854" stroke-width="14" stroke-linecap="round"/>
+      <path d="M84 142 L65 164 M136 143 L158 159" stroke="#ffd6aa" stroke-width="15" stroke-linecap="round"/>
+      <circle cx="110" cy="94" r="40" fill="#ffd6aa" stroke="#8b543d" stroke-width="3"/>
+      <path d="M70 94 Q62 53 101 51 Q148 43 150 91 L134 74 L113 81 L104 70 L82 85" fill="#8c542d"/>
+      <ellipse cx="94" cy="99" rx="5" ry="7" fill="#332843"/><ellipse cx="124" cy="99" rx="5" ry="7" fill="#332843"/>
+      <circle cx="92" cy="97" r="1.8" fill="white"/><circle cx="122" cy="97" r="1.8" fill="white"/>
+      <path d="M100 115 Q110 125 121 114" fill="none" stroke="#a15b53" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="82" cy="111" r="6" fill="#f69c98" opacity=".65"/><circle cx="136" cy="111" r="6" fill="#f69c98" opacity=".65"/>
+      ${wizard ? '<path d="M66 66 L103 13 L142 61 Z" fill="#7956be" stroke="#41245e" stroke-width="4"/><path d="M57 67 Q108 49 156 68" stroke="#bb95ff" stroke-width="12" stroke-linecap="round"/><path d="M108 31 L111 39 L120 40 L113 46 L115 54 L108 50 L101 54 L103 46 L97 40 L105 39Z" fill="#ffe895"/><path d="M156 164 L183 107" stroke="#714435" stroke-width="7" stroke-linecap="round"/><path d="M184 83 L190 99 L205 105 L190 111 L184 127 L178 111 L163 105 L178 99Z" fill="#ffe69a"/><circle cx="176" cy="72" r="4" fill="#b9f2ff"/><path d="M40 113l4 9 10 3-10 4-4 10-4-10-10-4 10-3Z" fill="#c9b3ff"/>' : '<path d="M156 161 L178 135" stroke="#515477" stroke-width="12" stroke-linecap="round"/><path d="M177 136 L208 87" stroke="#58dfff" stroke-width="15" stroke-linecap="round" opacity=".35"/><path d="M177 136 L208 87" stroke="#bdffff" stroke-width="7" stroke-linecap="round"/><path d="M168 130 L183 141" stroke="#d7daed" stroke-width="7" stroke-linecap="round"/><path d="M97 148h27l-3 22-10 8-11-8Z" fill="#ffce68" stroke="#9c6a3e" stroke-width="3"/>'}
+      ${hybrid ? '<path d="M66 164 L37 104" stroke="#583928" stroke-width="10" stroke-linecap="round"/><path d="M43 116 L38 105" stroke="#ffd46f" stroke-width="12"/><path d="M35 80 L45 96 L36 111 L25 96Z" fill="#7cfff0" stroke="#fff2aa" stroke-width="3"/><circle cx="35" cy="96" r="23" fill="#70fff0" opacity=".15"/><path d="M85 68 Q110 57 137 69" fill="none" stroke="#ffd46f" stroke-width="7"/><path d="M109 57l7 9-7 9-7-9Z" fill="#b9fff5"/>' : ''}
+    </svg>`;
+  }
+  function buildChoice(root) {
+    const s = D.choice = el('div', 'u-screen u-dim u-choice', root);
+    s.setAttribute('role', 'dialog'); s.setAttribute('aria-modal', 'true'); s.setAttribute('aria-labelledby', 'heroTitle');
+    const p = el('div', 'u-panel', s);
+    const title = el('div', 'u-ptitle', p, ol('Kahramanını Seç', 'u-gold-t')); title.id = 'heroTitle';
+    el('div', 'u-choicehint', p, 'Bugün hangi Feza olacaksın?');
+    const row = el('div', 'u-herorow', p);
+    const names = ['Savaşçı Feza', 'Büyücü Feza', 'Büyülü Şövalye Feza'];
+    const hints = ['Işın kılıcını kuşan, <br>cesurca yaklaş!', 'Değneğini salla, <br>uzaktan büyü yap!', 'Yakında kılıç, <br>uzakta büyü!'];
+    D.heroes = ['warrior', 'wizard', 'hybrid'].map((id, i) => {
+      const b = el('button', 'u-herocard ' + id, row, heroArt(id) +
+        `<strong>${names[i]}</strong><span class="u-herodesc">${hints[i]}</span><span class="u-herogo">${SVG.play} Seç ve Oyna</span>`);
+      b.dataset.heroClass = id;
+      onPress(b, () => startGame(false, id), { menu: true });
+      return b;
+    });
+    D.choiceBack = el('button', 'u-btn p u-choiceback', p, SVG.close + '<span>Geri</span>');
+    onPress(D.choiceBack, () => closeChoice(), { menu: true });
+  }
+  function openChoice(from) {
+    S.choiceFrom = from; S.atkHeld = false;
+    if (S.clearKeys) S.clearKeys();
+    aud('stopVoice'); setPaused(true); setMode('choose'); showScreen(D.choice, true);
+    aud('say', 'kahraman_sec', { prio: 3 });
+    D.heroes[0].focus({ preventScroll: true });
+  }
+  function closeChoice() {
+    if (S.mode !== 'choose' || S.busy) return;
+    aud('stopVoice');
+    showScreen(D.choice, false);
+    if (S.choiceFrom === 'pause') {
+      setMode('play'); S.menu = 'pause'; D.pausePanel.classList.remove('asking'); showScreen(D.pause, true);
+    } else { setPaused(false); showTitle(); D.playBtn.focus({ preventScroll: true }); }
+  }
   function buildPause(root) {
     const s = D.pause = el('div', 'u-screen u-dim', root);
-    const p = D.pausePanel = el('div', 'u-panel', s);
+    const p = D.pausePanel = el('div', 'u-panel u-pause-panel', s);
     el('div', 'u-ptitle', p, ol('Mola', 'u-gold-t'));
     const m = el('div', 'u-main', p);
     D.resume = el('button', 'u-btn g wide', m, SVG.play + '<span>Devam Et</span>');
@@ -480,10 +533,13 @@ const UI = (() => {
     D.pMus = el('button', 'u-btn p', row, SVG.note + '<span class="u-lab">Müzik Açık</span>'); D.pMus.dataset.tog = 'music';
     D.saveBtn = el('button', 'u-btn b wide', m, SVG.save + '<span>Kaydet</span>');
     D.restart = el('button', 'u-btn o wide', m, SVG.again + '<span>Baştan Başla</span>');
+    D.hardcore = el('button', 'u-btn r wide', m, '<span>Hardcore</span>');
+    D.hardcoreContinue = el('button', 'u-btn p wide u-hide', m, '<span>Hardcore kaydını aç</span>');
+    D.hardcoreHint = el('div', 'u-hardcore-hint u-hide', m, 'Hardcore açık · Kayıt yalnızca 2. ve 4. bölüm başında.');
     // Restart question (parental gate): same height as the main panel; the big green "Hayır" lands exactly where
     // "Baştan Başla" was (a double tap is safe) and the small red "Evet" only fires after a 2 s press-and-hold.
     const ask = el('div', 'u-ask', p);
-    el('div', 'u-asktxt', ask, 'Yeniden en baştan<br>başlansın mı?');
+    D.askText = el('div', 'u-asktxt', ask, 'Yeniden en baştan<br>başlansın mı?');
     const yb = el('div', 'u-yesbox', ask);
     D.yes = el('button', 'u-btn r u-small', yb, '<span class="u-hfill"></span>' + SVG.again + '<span>Evet</span>');
     el('div', 'u-yeshint', yb, 'Basılı tut');
@@ -504,7 +560,7 @@ const UI = (() => {
     for (const sl of SLOTS) {
       const box = el('div', 'u-slot', r);
       const hd = el('div', 'u-slothd', box, `<span>${SLOT_EMO[sl]} ${SLOT_AD[sl]}</span><small></small>`);
-      D.slots[sl] = { hdName: hd.querySelector('small'), tiles: el('div', 'u-tiles', box) };
+      D.slots[sl] = { label: hd.firstChild, hdName: hd.querySelector('small'), tiles: el('div', 'u-tiles', box) };
     }
   }
   function buildWin(root) {
@@ -531,9 +587,11 @@ const UI = (() => {
     onCorner(D.bagBtn, () => openBag(), { hold: 0, max: 0.8 });
     onPress(D.resume, () => closeMenu(), { menu: true });
     onPress(D.saveBtn, () => saveNow(), { menu: true });
-    onPress(D.restart, () => { D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800; }, { menu: true });
+    onPress(D.restart, () => askRestart('normal'), { menu: true });
+    onPress(D.hardcore, () => { if (!M.GAME.hardcore) askRestart('hardcore'); }, { menu: true });
+    onPress(D.hardcoreContinue, () => askRestart('hardcoreContinue'), { menu: true });
     onPress(D.no, () => closeAsk(), { menu: true });
-    onHold(D.yes, 2, () => restartAll(), { menu: true });
+    onHold(D.yes, 2, () => S.restartKind === 'normal' ? restartAll() : startHardcore(S.restartKind === 'hardcoreContinue'), { menu: true });
     onPress(D.bagClose, () => closeMenu(), { menu: true });
     D.bagS.addEventListener('pointerdown', e => { if (e.target === D.bagS) closeMenu(); });
     D.pause.addEventListener('pointerdown', e => {
@@ -555,6 +613,27 @@ const UI = (() => {
       const ok = safe('cast', () => g.input.cast(i));
       if (ok) { s.b.classList.remove('new'); bump(s.b, 1.15, true); } else nope(s.b, true);
     }));
+  }
+  function askRestart(kind) {
+    S.restartKind = kind;
+    D.askText.innerHTML = kind === 'normal' ? 'Yeniden en baştan<br>başlansın mı?' : kind === 'hardcoreContinue'
+      ? 'Hardcore kaydı açılsın mı?<small>Şimdiki maceradan çıkılır.<br>Kayıtlı karakterle devam edilir.</small>'
+      : 'Hardcore başlasın mı?<small>Bu karakterle en baştan başlanır.<br>Çok güçlü düşmanlar ve bosslar!<br>Kayıt: yalnızca 2. ve 4. bölüm başı.<br>Yenilirsen son kayda dönersin.</small>';
+    D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800;
+  }
+  async function startHardcore(cont) {
+    const g = M.GAME;
+    if (!g || S.busy) return;
+    S.busy = true;
+    try {
+      const heroClass = g.P.heroClass;
+      closeMenu(); clearBanners(); clearCards(); hideBoss(); S.cine = null; aud('stopVoice');
+      await fade(1, 0.35, 'load');
+      if (cont) g.continueHardcore();
+      else newGameWithIntro(g, { heroClass, plus: false, hardcore: true });
+      setMode('play'); refreshAllSkills(); portraitSoon(0);
+      renderNow(); await frames(2); fade(0, 0.5, null);
+    } finally { S.busy = false; }
   }
   function closeAsk() {
     if (!D.pausePanel.classList.contains('asking')) return;
@@ -613,9 +692,28 @@ const UI = (() => {
       kx = x; kz = z;
       if (M.GAME) safe('input.key', () => M.GAME.input.key(playing() ? x : 0, playing() ? z : 0));
     };
+    S.clearKeys = () => {
+      K.left = K.right = K.up = K.down = false; kx = kz = 0;
+      if (M.GAME) safe('input.key', () => M.GAME.input.key(0, 0));
+    };
     addEventListener('keydown', e => {
       const c = e.code;
       if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills, Q on the potion
+      if (S.mode === 'choose') {
+        if (c === 'Escape') { e.preventDefault(); closeChoice(); }
+        else if (c === 'ArrowLeft' || c === 'ArrowRight') {
+          e.preventDefault(); const at = D.heroes.indexOf(document.activeElement), n = D.heroes.length;
+          D.heroes[(Math.max(0, at) + (c === 'ArrowLeft' ? n - 1 : 1)) % n].focus();
+        }
+        else if (c === 'Tab') {
+          const choices = [...D.heroes, D.choiceBack], at = choices.indexOf(document.activeElement);
+          e.preventDefault(); choices[(at + (e.shiftKey ? choices.length - 1 : 1)) % choices.length].focus();
+        } else if (!e.repeat && (c === 'Enter' || c === 'Space')) {
+          e.preventDefault(); if (document.activeElement === D.choiceBack) closeChoice();
+          else startGame(false, document.activeElement.dataset.heroClass || 'warrior');
+        }
+        return;
+      }
       if (DIRS[c]) { K[DIRS[c]] = true; sendKeys(); e.preventDefault(); return; }
       if (e.repeat) { if (c === 'Space') e.preventDefault(); return; }
       if (c === 'Escape') { if (S.menu) closeMenu(); else if (S.mode === 'play') openPause(); return; }
@@ -1104,6 +1202,12 @@ const UI = (() => {
   // Attack button lightsaber: glows in the equipped saber's colour (the rainbow saber cycles), retracts while Feza
   // sleeps and re-ignites (blade grows out of the hilt) when he wakes up or picks a different saber.
   function bladeTick(P) {
+    const wizard = P.heroClass === 'wizard', hybrid = P.heroClass === 'hybrid';
+    if (last.heroClass !== P.heroClass) {
+      last.heroClass = P.heroClass; D.atk.innerHTML = wizard ? '<span class="u-wandico">🪄</span>' : hybrid ? SVG.sword + '<span class="u-offhandico">🪄</span>' : SVG.sword;
+      D.atkBlade = D.atk.querySelector('.u-blade');
+      D.atk.setAttribute('aria-label', wizard ? 'Büyü at' : hybrid ? 'Yakında kılıçla vur, uzakta büyü at' : 'Kılıçla vur');
+    }
     const w = P.equip && P.equip.weapon, I = M.ITEMS;
     let col = null;
     if (w && I && typeof I.bladeColor === 'function') col = safe('ITEMS.bladeColor', () => I.bladeColor(w));
@@ -1123,6 +1227,7 @@ const UI = (() => {
     if (!s || !v) return;
     const def = s.def || {};
     v.ico.textContent = def.icon || '✨';
+    v.b.setAttribute('aria-label', def.ad || def.name || ('Yetenek ' + (i + 1)));
     v.b.style.setProperty('--c', def.color || '#ffd23f');
     v.b.style.setProperty('--cd', shade(def.color || '#ffd23f', -0.45));
     v.b.classList.remove('u-hide');
@@ -1530,7 +1635,7 @@ const UI = (() => {
     c.style.setProperty('--rc', col); c.style.setProperty('--rl', shade(col, 0.55)); c.style.setProperty('--rd', shade(col, -0.55));
     c.classList.toggle('leg', r >= 3);
     const name = it.ad || (typeof it.base === 'string' ? it.base : 'Hazine');
-    const slotWord = it.slot === 'weapon' ? 'IŞIN KILICI' : it.slot === 'hat' ? 'ŞAPKA' : 'PELERİN';
+    const slotWord = it.slot === 'weapon' ? (M.ITEMS && M.ITEMS.isWand(it) ? 'BÜYÜ DEĞNEĞİ' : 'IŞIN KILICI') : it.slot === 'hat' ? 'ŞAPKA' : 'PELERİN';
     c.innerHTML = `<div class="u-cthumb">${itemThumb(it)}</div><div class="u-ctext">
       <div class="u-cnew">YENİ ${slotWord} · ${esc(rarAd(r).toLocaleUpperCase('tr'))}</div>
       <div class="u-cname${name.length > 17 ? ' long' : ''}">${ol(name)}</div>
@@ -1667,6 +1772,11 @@ const UI = (() => {
   function openPause() {
     if (!canMenu()) return;
     S.menu = 'pause'; D.pausePanel.classList.remove('asking');
+    const hc = !!M.GAME.hardcore;
+    D.saveBtn.classList.toggle('u-hide', hc);
+    D.hardcore.disabled = hc; D.hardcore.textContent = hc ? 'Hardcore açık' : 'Hardcore';
+    D.hardcoreHint.classList.toggle('u-hide', !hc);
+    D.hardcoreContinue.classList.toggle('u-hide', hc || !M.GAME.hasHardcoreSave || !M.GAME.hasHardcoreSave());
     setPaused(true); showScreen(D.pause, true);
   }
   function openBag() {
@@ -1709,13 +1819,14 @@ const UI = (() => {
     const cont = !D.contBtn.classList.contains('u-hide');
     aud('say', cont ? 'devam' : 'basla', { prio: 1 });   // "Devam Et düğmesine bas…" with a save, else "Oyna düğmesine bas…"
   }
-  async function startGame(cont) {
+  async function startGame(cont, heroClass) {
     const g = M.GAME;
-    if (S.busy || S.mode !== 'title' || !g) return;
+    if (S.busy || !g || (S.mode !== 'title' && S.mode !== 'choose')) return;
+    if (!cont && !heroClass) { openChoice('title'); return; }
     S.busy = true;
-    clearBanners(); clearCards(); S.cine = null;
+    clearBanners(); clearCards(); hideBoss(); S.cine = null;
     const A = M.AUD;
-    if (A && (A.current === 'basla' || A.current === 'devam')) aud('stopVoice');   // the title prompt must not delay the intro
+    if (S.mode === 'choose' || (A && (A.current === 'basla' || A.current === 'devam'))) aud('stopVoice');   // the title prompt must not delay the intro
     try {
       if (cont) {
         showScreen(D.title, false);
@@ -1726,7 +1837,8 @@ const UI = (() => {
         renderNow(); await frames(2);
         fade(0, 0.6, null);
       } else {
-        newGameWithIntro(g);
+        showScreen(D.choice, false); setPaused(false);
+        newGameWithIntro(g, { heroClass: heroClass === 'hybrid' ? 'hybrid' : heroClass === 'wizard' ? 'wizard' : 'warrior', plus: false });
         setMode('play'); refreshAllSkills(); portraitSoon(0);
         startHint();   // first-run "tap the ground" finger
       }
@@ -1737,31 +1849,20 @@ const UI = (() => {
     const A = M.AUD;
     let said = false;
     const orig = A && A.say;
-    if (orig) A.say = function (k) { if (k === 'giris1' || k === 'tekrar') said = true; return orig.apply(this, arguments); };
+    if (orig) A.say = function (k) { if (k === 'giris1' || k === 'giris_buyu' || k === 'giris_hibrit' || k === 'tekrar') said = true; return orig.apply(this, arguments); };
     S.cheered = 0;
     try { safe('newGame', () => g.newGame(o)); } finally { if (orig) A.say = orig; }
-    if (!said && A && (!o || !o.plus)) { aud('say', 'giris1', { prio: 3 }); aud('say', 'giris2', { prio: 3 }); }
+    if (!said && A && (!o || !o.plus)) { aud('say', o && o.heroClass === 'hybrid' ? 'giris_hibrit' : o && o.heroClass === 'wizard' ? 'giris_buyu' : 'giris1', { prio: 3 }); if (!o || (!o.heroClass || o.heroClass === 'warrior')) aud('say', 'giris2', { prio: 3 }); }
   }
-  async function restartAll() {
-    const g = M.GAME;
-    if (!g || S.busy) return;
-    S.busy = true;
-    showScreen(D.pause, false); S.menu = null;   // the question stays up while the menu fades (openPause resets it)
-    try {
-      await fade(1, 0.45, 'load');
-      setPaused(false);
-      clearBanners(); clearCards(); hideBoss(); S.cine = null;
-      aud('stopVoice');
-      newGameWithIntro(g, { plus: false });
-      setMode('play'); refreshAllSkills(); portraitSoon(0);
-      renderNow(); await frames(2);
-      fade(0, 0.6, null);
-    } finally { S.busy = false; }
+  function restartAll() {
+    if (!M.GAME || S.busy) return;
+    showScreen(D.pause, false); S.menu = null;
+    openChoice('pause');
   }
   // Mola › Kaydet: the only way progress is kept. The button itself says "Kaydedildi!" for a moment (the menu stays open).
   function saveNow() {
     const g = M.GAME, b = D.saveBtn;
-    if (!g || !g.save || S.saveT) return;
+    if (!g || !g.save || g.hardcore || S.saveT) return;
     const ok = !!safe('save', () => g.save());
     b.classList.toggle('g', ok); b.classList.toggle('r', !ok); b.classList.remove('b');
     b.innerHTML = ok ? SVG.check + '<span>Kaydedildi!</span>' : SVG.close + '<span>Kaydedilemedi</span>';
@@ -1825,12 +1926,17 @@ const UI = (() => {
   function renderBag() {
     const g = M.GAME; if (!g) return;
     const P = g.P;
-    const chips = [`<span class="u-chip">❤️ ${Math.round(P.maxHp)}</span>`, `<span class="u-chip">${SVG.saber} ${Math.round(P.dmg)}</span>`];   // damage: a little lightsaber
+    const chips = [`<span class="u-chip">❤️ ${Math.round(P.maxHp)}</span>`];
+    if (P.heroClass === 'hybrid') {
+      chips.push(`<span class="u-chip">${SVG.saber} ${Math.round(P.meleeDmg)}</span>`, `<span class="u-chip">🪄 ${Math.round(P.magicDmg)}</span>`);
+    } else chips.push(`<span class="u-chip">${P.heroClass === 'wizard' ? '🪄' : SVG.saber} ${Math.round(P.dmg)}</span>`);
     if (P.armor > 0) chips.push(`<span class="u-chip">🛡️ %${Math.round(P.armor)}</span>`);
     D.bagChips.innerHTML = chips.join('');
     for (const sl of SLOTS) {
       const box = D.slots[sl], cur = P.equip[sl];
-      box.hdName.innerHTML = cur ? `· ${esc(cur.ad || '')}` : '';
+      if (sl === 'weapon') box.label.innerHTML = P.heroClass === 'wizard' ? '🪄 Büyü Değnekleri' : P.heroClass === 'hybrid' ? `${SVG.saber} Kılıçlar ve 🪄 Değnekler` : `${SVG.saber} Işın Kılıçları`;
+      const worn = sl === 'weapon' && P.heroClass === 'hybrid' ? [cur, P.equip.offhand].filter(Boolean) : [cur].filter(Boolean);
+      box.hdName.innerHTML = worn.length ? '· ' + worn.map(it => esc(it.ad || '')).join(' + ') : '';
       box.tiles.innerHTML = '';
       const items = (P.bag || []).filter(it => it && it.slot === sl).sort((a, b) => (b.power || 0) - (a.power || 0) || (b.rarity || 0) - (a.rarity || 0));
       if (sl !== 'weapon') {
@@ -1838,12 +1944,15 @@ const UI = (() => {
         onTap(t, () => { if (P.equip[sl] && g.unequip) { safe('unequip', () => g.unequip(sl)); afterEquip(); } });
       }
       for (const it of items) {
-        const r = clamp(it.rarity || 0, 0, 3), col = rarCol(r);
-        const t = el('button', 'u-tile' + (it === cur ? ' on' : '') + (newItems.has(it) ? ' fresh' : ''), box.tiles,
+        const r = clamp(it.rarity || 0, 0, 3), col = rarCol(r), slot = g.equipSlot ? g.equipSlot(it) : sl, equipped = P.equip[slot];
+        const t = el('button', 'u-tile' + (it === equipped ? ' on' : '') + (newItems.has(it) ? ' fresh' : ''), box.tiles,
           `${itemThumb(it)}<span class="u-stars">${stars(it)}</span><span class="u-chk">✓</span><span class="u-new">YENİ</span>`);
+        const diff = (it.power || 0) - (equipped ? equipped.power || 0 : 0);
+        t.setAttribute('aria-label', `${it.ad || 'Eşya'}${it === equipped ? ', kuşanıldı' : ', güç farkı ' + (diff > 0 ? '+' : '') + diff}`);
+        t.title = t.getAttribute('aria-label');
         t.style.setProperty('--rc', col); t.style.setProperty('--rl', shade(col, 0.5)); t.style.setProperty('--rd', shade(col, -0.6));
         onTap(t, () => {
-          if (P.equip[sl] === it) { wiggle(t); return; }
+          if (P.equip[slot] === it) { wiggle(t); return; }
           safe('equip', () => g.equip(it)); afterEquip(); sfx('star', { vol: 0.5, pitch: 1.2 });
         });
       }
@@ -1964,6 +2073,7 @@ const UI = (() => {
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
+    on('hardcoreCheckpoint', () => toast('Hardcore kaydı alındı', true));
   }
 
   // ───────────────────────── Camera ─────────────────────────

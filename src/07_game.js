@@ -125,6 +125,10 @@ const GAME = (() => {
   // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
+  const HARDCORE_KEY = 'fezaKotulereKarsi.hardcore.v1';
+  const HC = { hp: 1.5, bossHp: 1.4, dmg: 1.8, bossDmg: 1.7, special: 1.5, speed: 1.2, cd: 0.65, wind: 0.75 };
+  let hardcore = false, hardcoreSnapshot = null;   // opt-in every new adventure; normal saves never select it
+
   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale); 4 = Round 4's (orman, kefir, magara,
   // yanardag, kale) — from sv 4 on the save also names its zone (zid), so a later reorder cannot move a save.
   const SAVE_V = 4;
@@ -262,7 +266,7 @@ const GAME = (() => {
   const xpFor = lvl => 40 + 25 * lvl + 5 * lvl * lvl;
   const P = {
     pos: new THREE.Vector3(), face: Math.PI, hp: T.baseHp, maxHp: T.baseHp, lvl: 1, xp: 0, xpNext: xpFor(1), gold: 0,
-    potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, hat: null, cape: null }, bag: [],
+    heroClass: 'warrior', potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, offhand: null, hat: null, cape: null }, bag: [],
     skills: [], spin: 0, shield: 0, dead: false, checkpoint: { x: 0, z: 0 }, zone: 0, ng: 0, god: false,
   };
   // Controller (input intent, swing, timers). Private.
@@ -272,7 +276,7 @@ const GAME = (() => {
     vel: 0, mdx: 0, mdz: 1, swing: null, swingDir: 1, swingFace: null, combo: 0, lastSwingEnd: -9, queued: false,
     lunge: { vx: 0, vz: 0, t: 0 }, kbx: 0, kbz: 0, castT: -1, hurtT: 0, invuln: 0, idleT: 0, cheerT: 0,
     lastHurt: -99, playT: 0, deadT: 0, deathX: 0, deathZ: 0, transT: 0, stepT: 0, stepSide: 1,
-    tgtRef: null, tgtBest: 1e9, tgtStall: 0, blockT: 0, waitT: 0,   // walk-to-target watchdogs
+    wandRoute: null, wandPlanAt: -99, tgtRef: null, tgtBest: 1e9, tgtStall: 0, blockT: 0, waitT: 0,   // walk-to-target watchdogs
     progT: 0, progD: 0, progGx: NaN, progGz: NaN, autoBrk: 0,        // tap-walk net-progress watchdog (see PROG)
     lockT: 0, lockFace: null,                                         // a story beat holds Feza still (drinking the kefir: GIFT)
     dragRoute: null, dragRouteTx: 0, dragRouteTz: 0, dragPlanAt: -9,   // a way round while dragging into a dead end (see updatePlayer)
@@ -559,32 +563,37 @@ const GAME = (() => {
   }
 
   // ── Stats ──
+  const heroClassOf = value => value === 'wizard' || value === 'hybrid' ? value : 'warrior';
+  const isWand = item => !!(item && typeof ITEMS !== 'undefined' && ITEMS.isWand && ITEMS.isWand(item));
+  function equipSlot(item, heroClass = P.heroClass) { return heroClass === 'hybrid' && item.slot === 'weapon' && isWand(item) ? 'offhand' : item.slot; }
   function recalcStats() {
     const w = P.equip.weapon, h = P.equip.hat, c = P.equip.cape;
     const old = P.maxHp;
     P.maxHp = Math.round(T.baseHp + 12 * (P.lvl - 1) + 5 * (h ? h.power : 0));
-    P.dmg = 8 + 2 * (P.lvl - 1) + (w ? w.power : 0);
+    const base = 8 + 2 * (P.lvl - 1), wand = P.heroClass === 'hybrid' ? P.equip.offhand : w;
+    P.meleeDmg = base + (w ? w.power : 0); P.magicDmg = base + (wand ? wand.power : 0);
+    P.dmg = P.heroClass === 'hybrid' ? Math.max(P.meleeDmg, P.magicDmg) : P.meleeDmg;
     P.armor = Math.min(45, c ? c.power : 0);
     P.speed = T.speed * (1 + 0.04 * (c ? c.rarity : 0));
     if (P.maxHp > old) P.hp += P.maxHp - old;
     P.hp = Math.min(P.hp, P.maxHp);
     P.xpNext = xpFor(P.lvl);
   }
-  const heroDamageNow = () => Math.max(1, Math.round(P.dmg * frand(0.9, 1.12)));
+  const heroDamageNow = magic => Math.max(1, Math.round((magic ? P.magicDmg : P.meleeDmg) * frand(0.9, 1.12)));
   const ilvlNow = () => zdef().ilvl + P.ng * 3 + (Math.random() < 0.35 ? 1 : 0);
 
   function buildSkills() {
-    const list = typeof SKILLS !== 'undefined' && Array.isArray(SKILLS) ? SKILLS : [];
-    const old = GAME.skills || [];
+    const list = typeof SKILLS !== 'undefined' && Array.isArray(SKILLS) ? (SKILLS.forClass ? SKILLS.forClass(P.heroClass) : SKILLS) : [];
+    const old = (GAME.skills || []).slice();
     GAME.skills.length = 0;
     list.forEach((def, i) => GAME.skills.push({ def, unlocked: !!(old[i] && old[i].unlocked), cd: 0, cdMax: def.cd || 1 }));
     P.skills = GAME.skills;
   }
   function resetPlayer() {
     P.lvl = 1; P.xp = 0; P.gold = 0; P.potions = DIFF.potions; P.ng = 0; P.dead = false; P.spin = 0; P.shield = 0;
-    const st = typeof ITEMS !== 'undefined' && ITEMS.starter ? ITEMS.starter() : { weapon: null, hat: null, cape: null };
-    P.equip = { weapon: st.weapon || null, hat: st.hat || null, cape: st.cape || null };
-    P.bag = [P.equip.weapon, P.equip.hat, P.equip.cape].filter(Boolean);
+    const st = typeof ITEMS !== 'undefined' && ITEMS.starter ? ITEMS.starter(P.heroClass) : { weapon: null, hat: null, cape: null };
+    P.equip = { weapon: st.weapon || null, offhand: st.offhand || null, hat: st.hat || null, cape: st.cape || null };
+    P.bag = [P.equip.weapon, P.equip.offhand, P.equip.hat, P.equip.cape].filter(Boolean);
     for (const s of GAME.skills) { s.unlocked = false; s.cd = 0; }
     F = { zl: {}, kapi: {} }; skillQ.length = 0; removeMoustache();
     recalcStats(); P.hp = P.maxHp;
@@ -594,6 +603,7 @@ const GAME = (() => {
   // ── Zone loading ──
   function removeObj(o) { if (o && o.parent) o.parent.remove(o); }
   function clearWorld() {
+    if (boss) clearEncounter(boss);
     for (const e of enemies) dropEnemy(e);
     for (const e of dying) dropEnemy(e);
     enemies.length = 0; dying.length = 0; sleepers = []; boss = null; GAME.boss = null;
@@ -611,6 +621,7 @@ const GAME = (() => {
     finale = false; ZF = {}; pathS = 0; pathCum = null; firstQ.length = 0; mooT = frand(18, 30);
     C.cheerT = 0; C.castT = -1; removeMoustache();
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.queued = false; C.vel = 0;
+    C.wandRoute = null; C.wandPlanAt = -99;
     C.lunge.t = 0; C.kbx = C.kbz = 0; C.route = null; C.lockT = 0; C.dragRoute = null; C.portalHold = false; C.dragWinT = -1;
     if (R.marker) { R.marker.visible = false; R.sel.visible = false; R.bars.count = 0; }
     fx('clear');
@@ -649,6 +660,7 @@ const GAME = (() => {
     GAME.state = title ? 'title' : 'play';
     emit('zone', { index: i, name: zdef(i).ad, title });
     if (!title) enterZoneStory(i);
+    if (hardcore && !title && !o.hardcoreRestore && (i === 1 || i === 3)) saveHardcoreCheckpoint();
     return L;
   }
   // Pre-compile AND draw once everything this zone will show later (enemy types + elites + boss, pickups, name tag,
@@ -680,6 +692,9 @@ const GAME = (() => {
     if (hasE && finalZone(i) && (bt || L.boss)) {   // the finale: neşe kristali
       try {
         if (!WARM_E._crystal && EMODEL.crystal) WARM_E._crystal = { root: EMODEL.crystal() };
+        if (!WARM_E._baby && EMODEL.babyDragon) WARM_E._baby = EMODEL.babyDragon();
+        if (WARM_E._baby) tmp.add(WARM_E._baby.root);
+        for (const egg of eggPool()) if (!egg.used) tmp.add(egg.root);
       } catch (err) { warnOnce('warm finale', err); }
       if (WARM_E._crystal && WARM_E._crystal.root) tmp.add(WARM_E._crystal.root);
     }
@@ -832,7 +847,7 @@ const GAME = (() => {
     const d = edef(type), per = DIFF.bossHpPerDmg, hi = (d.hp || 1600) * DIFF.bossHp / per;
     return { per, lo: hi * DIFF.bossHpMin, hi, dmg: (d.dmg || 16) * 1.4 * DIFF.bossDmg };
   }
-  const bossHpNow = type => { const c = bossCfg(type); return Math.max(1, Math.round(c.per * clamp(P.dmg, c.lo, c.hi) * (1 + 0.5 * P.ng))); };
+  const bossHpNow = type => { const c = bossCfg(type); return Math.max(1, Math.round(c.per * clamp(P.dmg, c.lo, c.hi) * (1 + 0.5 * P.ng) * (hardcore ? HC.bossHp : 1))); };
   // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
   function variantFor(type, sp) {
     if (sp && sp.variant) return sp.variant;
@@ -841,28 +856,31 @@ const GAME = (() => {
     return VARIANTS[type] ? fpick(VARIANTS[type]) : undefined;
   }
   function makeEnemy(sp) {
-    const type = sp.type, def = edef(type), Z = zdef();
+    const type = sp.type, def = sp.whelp ? { ...edef('yarasa'), ad: 'Minik Ejderha', kind: 'melee', fly: true, hover: 0.32, r: 0.42, height: 0.95 } : edef(type), Z = zdef();
     const isBoss = def.kind === 'boss' || sp.pack === 'boss';
     const elite = !!sp.elite && !isBoss;
     const ngH = 1 + 0.6 * P.ng, ngD = 1 + 0.3 * P.ng;
     const variant = variantFor(type, sp);
     let m = null;
-    if (typeof EMODEL !== 'undefined' && EMODEL.build) { try { m = EMODEL.build(type, { variant, elite }); } catch (err) { warnOnce('EMODEL.build ' + type, err); } }
+    if (sp.whelp && typeof EMODEL !== 'undefined' && EMODEL.babyDragon) {
+      const baby = EMODEL.babyDragon();
+      m = { ...baby, radius: 0.42, height: 0.95, anim(dt, st) { baby.anim(dt, st.move > 0.05, st.attack >= 0); } };
+    } else if (typeof EMODEL !== 'undefined' && EMODEL.build) { try { m = EMODEL.build(type, { variant, elite }); } catch (err) { warnOnce('EMODEL.build ' + type, err); } }
     if (!m || !m.root) m = fallbackEnemy(type, elite);
     scene.add(m.root);
     const sc = elite ? 1.4 : 1;
     const hp = Math.round(isBoss ? bossHpNow(type)
-      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH));
+      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH) * (hardcore ? HC.hp : 1));
     const e = {
       type, def, m, variant, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1),
-      speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng),
+      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1) * (hardcore ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
+      speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng) * (hardcore ? HC.speed : 1),
       xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
       gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
       kind: isBoss ? 'boss' : HEAVY[type] ? 'slam' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
-      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd, windup: Math.max(T.windMin, def.windup || 0.6), aggroR: def.aggro || 9,
+      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * (hardcore ? HC.cd : 1), windup: hardcore ? Math.max(0.4, (def.windup || 0.6) * HC.wind) : Math.max(T.windMin, def.windup || 0.6), aggroR: def.aggro || 9,
       homeX: sp.x, homeZ: sp.z, pack: sp.pack, room: sp.room, sp,
       state: 'idle', stT: 0, wind: 0.6, cd: frand(0.4, 1.2), stun: 0, frozen: 0, flash: 0, hurt: 0, kvx: 0, kvz: 0,
       aggro: false, token: false, dist: 99, losOk: false, losT: frand(0, 0.3), lookT: frand(0, 0.25), wT: frand(0.5, 3), walking: false, wx: sp.x, wz: sp.z,
@@ -885,6 +903,10 @@ const GAME = (() => {
     if (isBoss) {
       e.ph = 'idle'; e.phD = 1; e.wait = 1.5; e.last = ''; e.last2 = ''; e.th = []; e.yarim = false; e.summon = 0; e.dmg0 = e.dmg; e.naps = 0; e.sized = false;
       e.kit = bossKit(type); e.final = finalZone(); e.did = 0;
+    }
+    if (sp.whelp) {
+      e.whelp = true; e.hp = e.maxHp = Math.max(12, Math.round(P.dmg * 2.1 * (hardcore ? HC.hp : 1))); e.dmg = (3 + Math.min(3, P.ng)) * (hardcore ? HC.dmg : 1);
+      e.speed = 2.1 * (hardcore ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * (hardcore ? HC.cd : 1); e.windup = 0.8 * (hardcore ? HC.wind : 1); e.xp = 0; e.gold = 0;
     }
     place(e);
     enemies.push(e);
@@ -1568,7 +1590,7 @@ const GAME = (() => {
   }
   function bossAggro(b) {
     if (b.aggro || b.dead) return;
-    b.aggro = true; remove(b.tele); b.tele = null;
+    b.aggro = true; startEncounter(b); remove(b.tele); b.tele = null;
     bossPhase(b, 'roar', 1.6);
     if (!b.sized) {   // a weak sword must not mean a 2-minute fight: the boss's hp follows Feza's damage (once, when it starts)
       b.sized = true;
@@ -1609,6 +1631,7 @@ const GAME = (() => {
     return null;
   }
   function bossCalm(b) {
+    clearEncounter(b);
     b.aggro = false; remove(b.tele); b.tele = null; bossPhase(b, 'idle', 1); b.wait = 1;
     emit('boss', { on: false, type: b.type });
     const Z = zdef(); if (Z.music) aud('music', Z.music);
@@ -1647,10 +1670,277 @@ const GAME = (() => {
     }
     // Feza gone (napping, or ran far off out of the room): the boss calms down and waits (its hp stays as it is)
     if (!canTarget || d > 34 || (!b.final && d > 22 && !inBossArena(b))) { bossCalm(b); return; }
+    if (encounterStep(b, dt)) { st.phase = 'idle'; st.phaseT = 0; st.move = 0; return; }
     b.stT += dt;
     (BOSS_AI[b.type] || dragonStep)(b, dt, d, ux, uz);
     st.phase = b.ph === 'idle' && st.move > 0.05 ? 'move' : b.ph;
     st.phaseT = clamp(b.stT / (b.phD || 1), 0, 1);
+  }
+
+  // Little raid-inspired surprises. One cancellable state owns every marker, egg and playmate; no delayed callbacks
+  // survive a nap, a retreat, a happy boss or a zone change. Pausing freezes this state with the rest of the simulation.
+  const sq = x => x * x;
+  const ENCOUNTER = { eggs: 7, whelps: 4, eggEvery: 12, touch: 0.9 };
+  function eggPool() {
+    if (R.eggPool) return R.eggPool;
+    const shell = new THREE.SphereGeometry(1, 20, 14), dot = new THREE.SphereGeometry(1, 8, 6);
+    const nest = new THREE.TorusGeometry(0.48, 0.075, 6, 24);
+    const cream = new THREE.MeshStandardMaterial({ color: '#f0d9ff', roughness: 0.5 });
+    const spots = new THREE.MeshStandardMaterial({ color: '#af63cf', roughness: 0.4 });
+    const straw = new THREE.MeshStandardMaterial({ color: '#e4bc6c', roughness: 0.9 });
+    R.eggPool = [];
+    for (let i = 0; i < ENCOUNTER.eggs; i++) {
+      const root = new THREE.Group(); root.name = 'dragonEgg';
+      const body = new THREE.Mesh(shell, cream); body.position.y = 0.58; body.scale.set(0.43, 0.59, 0.43); body.castShadow = true; root.add(body);
+      const rim = new THREE.Mesh(nest, straw); rim.rotation.x = Math.PI / 2; rim.position.y = 0.08; root.add(rim);
+      const dots = new THREE.InstancedMesh(dot, spots, 7), pose = new THREE.Object3D();
+      for (let j = 0; j < 7; j++) { const a = j * 2.4, y = 0.28 + (j % 3) * 0.23, r = 0.43 * Math.sqrt(1 - sq((y - 0.58) / 0.59));
+        pose.position.set(Math.sin(a) * r, y, Math.cos(a) * r); pose.scale.set(0.09, 0.11, 0.055); pose.rotation.y = a; pose.updateMatrix(); dots.setMatrixAt(j, pose.matrix); }
+      dots.instanceMatrix.needsUpdate = true; root.add(dots);
+      R.eggPool.push({ root, used: false });
+    }
+    return R.eggPool;
+  }
+  function startEncounter(b) {
+    if (b.encounter) return;
+    b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true };
+    if (b.type === 'ejderha') { layEggs(b, 3); ftext(b.x, 1.7, b.z, 'Yumurtalara dikkat!', 'word'); }
+  }
+  function clearEncounter(b) {
+    const q = b && b.encounter;
+    if (q) {
+      for (const egg of q.eggs) { removeObj(egg.pool.root); egg.pool.used = false; }
+      clearRaidMove(q); b.encounter = null;
+    }
+    for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i].arenaChild === b) {
+      const e = enemies[i]; if (C.targetE === e) C.targetE = null; e.dead = true; dropEnemy(e); enemies.splice(i, 1);
+    }
+    for (let i = dying.length - 1; i >= 0; i--) if (dying[i].arenaChild === b) { dropEnemy(dying[i]); dying.splice(i, 1); }
+  }
+  function clearRaidMove(q) {
+    if (!q.move) return;
+    for (const h of q.move.marks) remove(h);
+    for (const o of q.move.meshes) { removeObj(o); if (o.userData.raidPool) o.userData.raidUsed = false; }
+    q.move = null;
+  }
+  function layEggs(b, n) {
+    const q = b.encounter, rm = bossRoom();
+    if (!q || !rm) return;
+    const rx = (rm.hw || rm.r || 10) * 0.72, rz = (rm.hh || rm.r || 10) * 0.72;
+    for (let k = 0; k < n && q.eggs.length < ENCOUNTER.eggs; k++) {
+      let spot = null;
+      for (let j = 0; j < 30; j++) {
+        const a = (++q.serial * 2.39996), x = rm.x + Math.sin(a) * rx, z = rm.z + Math.cos(a) * rz;
+        if (inRoom(rm, x, z, 1.1) && circleFree(x, z, 0.65) && dist2(x, z, P.pos.x, P.pos.z) > 4 &&
+          dist2(x, z, b.x, b.z) > sq(b.r + 0.9) && !q.eggs.some(e => dist2(e.x, e.z, x, z) < 2.8)) { spot = { x, z }; break; }
+      }
+      if (!spot) break;
+      const pool = eggPool().find(e => !e.used); if (!pool) break;
+      pool.used = true; pool.root.position.set(spot.x, 0, spot.z); pool.root.rotation.set(0, q.serial, 0); scene.add(pool.root);
+      q.eggs.push({ ...spot, pool, t: 0 }); burst('sparkle', spot.x, 0.7, spot.z, { color: '#e1b1ff', count: 7 });
+    }
+  }
+  function hatchEgg(b, q, i) {
+    if (enemies.filter(e => e.arenaChild === b && e.whelp && !e.dead).length >= ENCOUNTER.whelps) return;
+    const egg = q.eggs[i]; q.eggs.splice(i, 1); egg.pool.used = false; removeObj(egg.pool.root);
+    burst('sparkle', egg.x, 0.5, egg.z, { color: '#f0d9ff', count: 16 }); sfx('pop', { x: egg.x, z: egg.z, pitch: 1.4 });
+    const e = makeEnemy({ type: 'ejderyavru', whelp: true, x: egg.x, z: egg.z, pack: 'bossadds' });
+    e.arenaChild = b; setAggro(e, false); e.cd = 1.3;
+  }
+  function raidDot(m, x, z, r, delay, color, start = 0) {
+    if (!circleFree(x, z, 0.35) || !inRoom(bossRoom(), x, z, 0.6)) return;
+    m.dots.push({ x, z, r, at: delay, hit: false, start, color, shown: start === 0 });
+    if (!start) m.marks.push(fx('telegraph', x, z, r, delay, color));
+  }
+  // These short encounters borrow readable shapes from raid fights, with generous warnings and no unavoidable damage.
+  const RAID_NEW = { kraljole: 'jellyspin', kefirdev: 'spout', kostebekusta: 'shatter', lavkaplumbaga: 'flamestrike', ejderha: 'eyeblast' };
+  function raidMesh(m, shape, color) {
+    if (!R.raidShapes) R.raidShapes = { ball: new THREE.SphereGeometry(1, 12, 8), crystal: new THREE.ConeGeometry(1, 1, 6),
+      rod: new THREE.CylinderGeometry(1, 1, 1, 10), ring: new THREE.TorusGeometry(1, 0.055, 6, 40), strip: new THREE.BoxGeometry(1, 1, 1) };
+    if (!R.raidMeshPool) R.raidMeshPool = {};
+    const key = shape + color, pool = R.raidMeshPool[key] || (R.raidMeshPool[key] = []);
+    let o = pool.find(q => !q.userData.raidUsed);
+    if (!o) {
+      const material = pool.length ? pool[0].material : new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.28, roughness: 0.45, transparent: shape === 'strip', opacity: shape === 'strip' ? 0.42 : 1, depthWrite: shape !== 'strip' });
+      o = new THREE.Mesh(R.raidShapes[shape], material); o.name = 'raidTbc'; o.userData.raidPool = true; pool.push(o);
+    }
+    o.userData.raidUsed = true; o.visible = false; o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1);
+    scene.add(o); m.meshes.push(o); return o;
+  }
+  const RAID_UP = new THREE.Vector3(0, 1, 0), RAID_DIR = new THREE.Vector3(), RAID_EYE = new THREE.Vector3();
+  function raidBeam(o, x0, y0, z0, x1, y1, z1, radius) {
+    RAID_DIR.set(x1 - x0, y1 - y0, z1 - z0); const length = RAID_DIR.length();
+    o.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); o.scale.set(radius, length, radius);
+    if (length > 0.001) o.quaternion.setFromUnitVectors(RAID_UP, RAID_DIR.multiplyScalar(1 / length)); o.visible = true;
+  }
+  function raidLineDistance(x, z, x0, z0, x1, z1) {
+    const dx = x1 - x0, dz = z1 - z0, k = clamp(((x - x0) * dx + (z - z0) * dz) / Math.max(0.001, dx * dx + dz * dz), 0, 1);
+    return Math.hypot(x - x0 - dx * k, z - z0 - dz * k);
+  }
+  function startNewRaid(b, m) {
+    const rm = bossRoom(); m.warn = 2; m.hits = 0; m.lastHit = -99; m.dur = 5.6;
+    if (m.kind === 'jellyspin') {
+      const end = bossSpot(b, P.pos.x, P.pos.z, 5);
+      m.x0 = b.x; m.z0 = b.z; m.x1 = end.x; m.z1 = end.z; m.radius = b.r + 0.75; m.dur = 5;
+      m.marks.push(fx('telegraphLine', m.x0, m.z0, m.x1, m.z1, m.radius * 2, m.warn, '#d6a2ee'));
+      m.ring = raidMesh(m, 'ring', '#ce8feb'); m.ring.rotation.x = Math.PI / 2;
+      m.balls = []; for (let i = 0; i < 3; i++) m.balls.push(raidMesh(m, 'ball', '#c9f393'));
+      ftext(b.x, b.height + 0.4, b.z, 'Dönen Jöle!', 'word');
+    } else if (m.kind === 'spout') {
+      m.angle = Math.atan2(P.pos.x - b.x, P.pos.z - b.z) - Math.PI / 3; m.sweep = Math.PI * 2 / 3; m.range = 9; m.dur = 6;
+      m.marks.push(fx('telegraphCone', b.x, b.z, m.angle + m.sweep / 2, m.sweep + 0.24, m.range, m.warn, '#ffa0cf'));
+      m.beam = raidMesh(m, 'rod', '#ffe8ed'); m.balls = []; for (let i = 0; i < 7; i++) m.balls.push(raidMesh(m, 'ball', i % 2 ? '#fff4dc' : '#ffc9e2'));
+      ftext(b.x, b.height + 0.4, b.z, 'Dönen köpük!', 'word');
+    } else if (m.kind === 'shatter') {
+      m.dur = 3; m.crystals = [];
+      const a0 = Math.atan2(P.pos.x - rm.x, P.pos.z - rm.z);
+      for (let i = 0; i < 3; i++) {
+        const a = a0 + i * TAU / 3, x = rm.x + Math.sin(a) * 4.2, z = rm.z + Math.cos(a) * 4.2;
+        raidDot(m, x, z, 2.4, m.warn, '#b0b5ff');
+        if (m.dots.length <= i) continue;
+        const o = raidMesh(m, 'crystal', '#b7d4ff'); o.position.set(x, 0.7, z); o.scale.set(0.42, 1.3, 0.42); o.visible = true; m.crystals.push(o);
+      }
+      ftext(b.x, b.height + 0.4, b.z, 'Kristaller parlıyor!', 'word');
+    } else if (m.kind === 'flamestrike') {
+      m.x = P.pos.x; m.z = P.pos.z; m.radius = 2.4; m.dur = 4.4;
+      m.marks.push(fx('telegraph', m.x, m.z, m.radius, m.warn, '#ffb15f'));
+      m.ring = raidMesh(m, 'ring', '#ffc465'); m.ring.rotation.x = Math.PI / 2; m.ring.position.set(m.x, 0.12, m.z); m.ring.scale.setScalar(m.radius);
+      m.balls = []; for (let i = 0; i < 6; i++) m.balls.push(raidMesh(m, 'ball', '#ffbd69'));
+      ftext(b.x, b.height + 0.4, b.z, 'Sıcak çember!', 'word');
+    } else if (m.kind === 'eyeblast') {
+      const a = Math.atan2(P.pos.x - b.x, P.pos.z - b.z), dx = Math.cos(a), dz = -Math.sin(a);
+      const from = bossSpot(b, P.pos.x - dx * 3.4, P.pos.z - dz * 3.4, 18), to = bossSpot(b, P.pos.x + dx * 3.4, P.pos.z + dz * 3.4, 18);
+      m.x0 = from.x; m.z0 = from.z; m.x1 = to.x; m.z1 = to.z; m.radius = 0.95; m.dur = 6.4;
+      m.marks.push(fx('telegraphLine', m.x0, m.z0, m.x1, m.z1, m.radius * 2, m.warn, '#aebaff'));
+      m.beams = [raidMesh(m, 'rod', '#91f5ec'), raidMesh(m, 'rod', '#b8e7ff')]; m.trail = raidMesh(m, 'strip', '#9abaf6');
+      m.trailDots = []; for (let i = 0; i < 7; i++) m.trailDots.push(raidMesh(m, 'crystal', i % 2 ? '#b0ddff' : '#91b8ff'));
+      ftext(b.x, b.height + 0.4, b.z, 'Işıklı izden uzaklaş!', 'word');
+    }
+  }
+  function newRaidStep(b, m, dt) {
+    if (m.kind === 'shatter') {
+      for (const o of m.crystals) { o.rotation.y += dt * 1.4; o.visible = m.t < m.warn; }
+      return;
+    }
+    if (m.t < m.warn) return;
+    const t = m.t - m.warn; let touch = false, k = 0.45;
+    if (m.kind === 'jellyspin') {
+      const dx = m.x1 - b.x, dz = m.z1 - b.z, d = Math.hypot(dx, dz);
+      if (d > 0.1) bossWalk(b, dx / d, dz / d, Math.min(2, d / Math.max(dt, 0.001)), dt);
+      b.face += dt * 5.5; m.ring.visible = true; m.ring.position.set(b.x, 0.15, b.z); m.ring.scale.setScalar(m.radius);
+      m.balls.forEach((o, i) => { const a = t * 5 + i * TAU / 3; o.visible = true; o.position.set(b.x + Math.sin(a) * m.radius, 0.6, b.z + Math.cos(a) * m.radius); o.scale.setScalar(0.22); });
+      touch = dist2(P.pos.x, P.pos.z, b.x, b.z) < sq(m.radius + T.heroR * 0.5);
+    } else if (m.kind === 'spout') {
+      const a = m.angle + m.sweep * clamp(t / 4, 0, 1), dx = Math.sin(a), dz = Math.cos(a); b.face = a;
+      raidBeam(m.beam, b.x, 1.2, b.z, b.x + dx * m.range, 0.55, b.z + dz * m.range, 0.2);
+      m.balls.forEach((o, i) => { const f = ((i / 7 + t * 0.35) % 1); o.visible = true; o.position.set(b.x + dx * m.range * f, 1.2 - f * 0.65, b.z + dz * m.range * f); o.scale.setScalar(0.22 + 0.13 * f); });
+      touch = raidLineDistance(P.pos.x, P.pos.z, b.x, b.z, b.x + dx * m.range, b.z + dz * m.range) < 0.55 + T.heroR;
+    } else if (m.kind === 'flamestrike') {
+      if (!m.burst) { m.burst = true; burst('lava', m.x, 0.15, m.z, { count: 18, scale: 1.4 }); }
+      m.ring.visible = true;
+      m.balls.forEach((o, i) => { const a = i * TAU / 6; o.visible = true; o.position.set(m.x + Math.sin(a) * 1.8, 0.22 + Math.abs(Math.sin(t * 3 + i)) * 0.3, m.z + Math.cos(a) * 1.8); o.scale.set(0.2, 0.34, 0.2); });
+      touch = dist2(P.pos.x, P.pos.z, m.x, m.z) < sq(m.radius + T.heroR * 0.5); k = t < 0.3 ? 0.6 : 0.25;
+    } else if (m.kind === 'eyeblast') {
+      const f = clamp(t / 2.4, 0, 1), x = lerp(m.x0, m.x1, f), z = lerp(m.z0, m.z1, f), a = Math.atan2(x - b.x, z - b.z);
+      b.face = a;
+      b.m.root.rotation.y = a; b.m.root.updateMatrixWorld(true);
+      m.beams.forEach((o, i) => { const side = i ? 0.33 : -0.33, eyes = b.m.B && b.m.B.eyes;
+        if (eyes) { RAID_EYE.set(side, 0, 0.12); eyes.localToWorld(RAID_EYE); }
+        else RAID_EYE.set(b.x + Math.sin(a) * b.r * 0.6 + Math.cos(a) * side, b.height * 0.86, b.z + Math.cos(a) * b.r * 0.6 - Math.sin(a) * side);
+        raidBeam(o, RAID_EYE.x, RAID_EYE.y, RAID_EYE.z, x + Math.cos(a) * side * 0.3, 0.18, z - Math.sin(a) * side * 0.3, 0.065); o.visible = t < 2.4;
+      });
+      const length = Math.hypot(x - m.x0, z - m.z0); m.trail.visible = true; m.trail.position.set((m.x0 + x) / 2, 0.065, (m.z0 + z) / 2); m.trail.rotation.y = Math.atan2(x - m.x0, z - m.z0); m.trail.scale.set(m.radius * 2, 0.09, Math.max(0.1, length));
+      m.trailDots.forEach((o, i) => { const at = (i + 0.3) / 7; o.visible = f >= at; o.position.set(lerp(m.x0, m.x1, at), 0.23, lerp(m.z0, m.z1, at)); o.scale.set(0.15, 0.35 + 0.12 * Math.sin(t * 5 + i), 0.15); o.rotation.y = t + i; });
+      touch = raidLineDistance(P.pos.x, P.pos.z, m.x0, m.z0, x, z) < m.radius + T.heroR * 0.5; k = 0.4;
+    }
+    if (touch && m.hits < 2 && m.t - m.lastHit >= 1.1 && los(b.x, b.z, P.pos.x, P.pos.z)) {
+      m.hits++; m.lastHit = m.t; hurtPlayer(b.dmg * k * (hardcore ? HC.special : 1), b.x, b.z, 0.3);
+    }
+  }
+  function startRaidMove(b, kind) {
+    const q = b.encounter, rm = bossRoom(), m = { kind, t: 0, marks: [], meshes: [], dots: [], dur: 3.8 };
+    q.move = m; q.timer = 13;
+    if (Object.values(RAID_NEW).includes(kind)) { startNewRaid(b, m); return; }
+    if (kind === 'split') {
+      m.dur = 2.4; q.splits++;
+      for (const side of [-1, 1]) { const at = bossSpot(b, b.x + side * 2.3, b.z + 0.8, 3); raidDot(m, at.x, at.z, 1, 1.4, '#a0ef68'); }
+      ftext(b.x, b.height + 0.4, b.z, 'Jöle arkadaşlar!', 'word');
+    } else if (kind === 'dance') {
+      const safe = (q.serial++ % 4), r = 4.2; m.dur = 4.2; m.safes = [];
+      for (let wave = 0; wave < 2; wave++) for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 2, x = rm.x + Math.sin(a) * r, z = rm.z + Math.cos(a) * r;
+        if (i === (safe + wave) % 4) m.safes.push({ x, z, at: wave * 1.9, shown: false });
+        else raidDot(m, x, z, 2.4, 1.8 + wave * 1.9, '#ffa8cc', wave * 1.9);
+      }
+      ftext(rm.x, 1.5, rm.z, 'Köpük dansı!', 'word');
+    } else if (kind === 'burrow') {
+      const a = Math.atan2(P.pos.x - b.x, P.pos.z - b.z);
+      for (let i = 0; i < 4; i++) raidDot(m, b.x + Math.sin(a) * (b.r + 1.5 + i * 1.9), b.z + Math.cos(a) * (b.r + 1.5 + i * 1.9), 1.45, 1.6 + i * 0.45, '#e7b978');
+      ftext(b.x, b.height + 0.4, b.z, 'Toprak dalgası!', 'word');
+    } else if (kind === 'wave') {
+      const rx = Math.min(10, (rm.hw || rm.r || 10) * 0.8), rz = Math.min(9, (rm.hh || rm.r || 10) * 0.75);
+      m.x0 = rm.x - rx; m.x1 = rm.x + rx; m.z0 = rm.z - rz; m.z1 = rm.z + rz;
+      m.gap = clamp(P.pos.x + (P.pos.x < rm.x ? 2.2 : -2.2), m.x0 + 3, m.x1 - 3); m.halfGap = 2.6; m.dur = 1.8 + (m.z1 - m.z0) / 3.2;
+      if (!R.raidWaveGeo) { R.raidWaveGeo = new THREE.BoxGeometry(1, 0.18, 0.65); R.raidWaveMat = new THREE.MeshStandardMaterial({ color: '#ff9c48', emissive: '#ff5c20', emissiveIntensity: 0.7, roughness: 0.6 }); }
+      for (const [left, right] of [[m.x0, m.gap - m.halfGap], [m.gap + m.halfGap, m.x1]]) if (right > left) {
+        m.marks.push(fx('telegraphLine', (left + right) / 2, m.z0, (left + right) / 2, m.z1, right - left, 1.8, '#ffad78'));
+        const o = new THREE.Mesh(R.raidWaveGeo, R.raidWaveMat); o.scale.x = right - left; o.position.set((left + right) / 2, 0.15, m.z0); o.visible = false; scene.add(o); m.meshes.push(o);
+      }
+      m.marks.push(fx('telegraphLine', m.gap, m.z0, m.gap, m.z1, m.halfGap * 2, m.dur, '#73e7a4'));
+      ftext(b.x, b.height + 0.4, b.z, 'Yeşil aralıktan geç!', 'word');
+    }
+  }
+  function raidMoveStep(b, dt) {
+    const q = b.encounter, m = q.move; m.t += dt;
+    for (const safe of m.safes || []) if (!safe.shown && m.t >= safe.at) { safe.shown = true; m.marks.push(fx('ring', safe.x, safe.z, { r0: 2.1, r1: 2.1, dur: 1.88, color: '#6fec9d', width: 0.18 })); }
+    for (const d of m.dots) if (!d.shown && m.t >= d.start) { d.shown = true; m.marks.push(fx('telegraph', d.x, d.z, d.r, Math.max(0.05, d.at - m.t), d.color)); }
+    for (const d of m.dots) if (!d.hit && m.t >= d.at) {
+      d.hit = true;
+      if (m.kind === 'split') {
+        if (enemies.filter(e => !e.dead && e.pack === 'bossadds').length < 6) {
+          const e = makeEnemy({ type: 'jole', x: d.x, z: d.z, pack: 'bossadds' }); e.arenaChild = b;
+          e.hp = e.maxHp = Math.max(10, Math.round(P.dmg * 1.7 * (hardcore ? HC.hp : 1))); e.dmg *= 0.45; e.xp = 0; e.gold = 0; e.m.root.scale.multiplyScalar(0.7); e.r *= 0.7; e.height *= 0.7; setAggro(e, false);
+        }
+      } else {
+        burst(m.kind === 'shatter' ? 'sparkle' : m.kind === 'dance' ? 'milk' : 'dirt', d.x, 0.1, d.z, { count: 14, scale: 1.4 });
+        fx('ring', d.x, d.z, { r0: 0.2, r1: d.r, dur: 0.45, color: m.kind === 'dance' ? '#fff0dc' : '#d8ab72', width: 0.25 });
+        if (dist2(P.pos.x, P.pos.z, d.x, d.z) < sq(d.r + T.heroR * 0.5) && (m.kind !== 'shatter' || !m.hits)) { if (m.kind === 'shatter') m.hits++; hurtPlayer(b.dmg * 0.5 * (hardcore ? HC.special : 1), d.x, d.z, 0.5); }
+      }
+    }
+    if (m.kind === 'wave' && m.t >= 1.8) {
+      const z = m.z0 + (m.t - 1.8) * 3.2;
+      for (const o of m.meshes) { o.visible = true; o.position.z = z; }
+      if (!m.hit && Math.abs(P.pos.z - z) < 0.65 && P.pos.x >= m.x0 && P.pos.x <= m.x1 && Math.abs(P.pos.x - m.gap) > m.halfGap - T.heroR * 0.5) {
+        m.hit = true; hurtPlayer(b.dmg * 0.65 * (hardcore ? HC.special : 1), b.x, z - 1, 0.65);
+      }
+    }
+    if (Object.values(RAID_NEW).includes(m.kind)) newRaidStep(b, m, dt);
+    if (m.t >= m.dur) { clearRaidMove(q); bossEnd(b, 0.8, 1.2); }
+  }
+  function encounterStep(b, dt) {
+    if (!b.encounter) startEncounter(b);
+    const q = b.encounter;
+    if (b.type === 'ejderha') {
+      q.eggT -= dt;
+      if (q.eggT <= 0) { q.eggT += ENCOUNTER.eggEvery; layEggs(b, 1); }
+      for (let i = q.eggs.length - 1; i >= 0; i--) {
+        const e = q.eggs[i]; e.t += dt; e.pool.root.rotation.z = Math.sin(e.t * 2.3) * 0.035;
+        if (dist2(P.pos.x, P.pos.z, e.x, e.z) < sq(ENCOUNTER.touch)) hatchEgg(b, q, i);
+      }
+    }
+    if (q.move) { raidMoveStep(b, dt); return true; }
+    q.timer -= dt;
+    if (b.ph !== 'idle') return false;
+    if (q.timer <= 0 && q.nextNew) { q.nextNew = false; startRaidMove(b, RAID_NEW[b.type]); return true; }
+    if (b.type === 'kraljole') {
+      if (q.splits < 2 && b.hp / b.maxHp < [0.72, 0.38][q.splits]) { q.nextNew = true; startRaidMove(b, 'split'); return true; }
+      if (q.timer <= 0) { q.nextNew = true; q.timer = 3; }
+    } else if (q.timer <= 0) {
+      q.nextNew = true;
+      if (b.type === 'ejderha') { layEggs(b, 1); q.timer = 8; return false; }
+      startRaidMove(b, { kefirdev: 'dance', kostebekusta: 'burrow', lavkaplumbaga: 'wave' }[b.type]); return true;
+    }
+    return false;
   }
 
   // ── Shared boss moves ──
@@ -1658,7 +1948,7 @@ const GAME = (() => {
   function bossIdle(b, dt, d, ux, uz, keep) {
     b.face = dampAngle(b.face, Math.atan2(ux, uz), 3.5, dt);
     if (d > keep) bossWalk(b, ux, uz, b.speed, dt);
-    b.wait -= dt;
+    b.wait -= dt / (hardcore ? HC.cd : 1);
     return b.wait <= 0;
   }
   function pickPhase(b, opts) {   // opts [[phase, weight], …]; never the same attack three times in a row
@@ -1705,6 +1995,7 @@ const GAME = (() => {
     if (pd < R + T.heroR * 0.5) hurtPlayer(b.dmg * dmgK, x, z, kb);
   }
   function summonAdds(b, type, n) {
+    n = Math.min(n, Math.max(0, 6 - enemies.filter(e => !e.dead && !e.boss && e.pack === 'bossadds').length));
     let made = 0;
     const rm = bossRoom(), at = [];
     // in front of it first (toward Feza), fanning out; farther rings if a wall or a pillar is in the way
@@ -2171,14 +2462,14 @@ const GAME = (() => {
           b.did = 1; sfx('roar', { x: b.x, z: b.z }); shake(0.35);
           fx('ring', b.x, b.z, { r0: 1, r1: 9, dur: 0.7, color: '#ffb0f0', width: 0.6 });
         }
-        if (b.did === 1 && b.summon && b.stT > 0.75) { b.did = 2; summonAdds(b, b.kit.add || 'yarasa', b.summon); nextWave(b); }
+        if (b.did === 1 && b.summon && b.stT > 0.75) { b.did = 2; layEggs(b, 2); nextWave(b); }
         if (b.stT >= 1.6) { bossPhase(b, 'idle', 1); b.wait = frand(0.6, 1.0); }
         break;
       }
       case 'idle': {
         b.face = dampAngle(b.face, faceP, 3, dt);
         if (d > 8.5) bossWalk(b, ux, uz, b.speed, dt);
-        b.wait -= dt;
+        b.wait -= dt / (hardcore ? HC.cd : 1);
         if (b.wait <= 0) {
           if (b.summon) { bossPhase(b, 'roar', 1.6); const k = b.kit.lines.add; if (k && hasLine(k)) say(k, 2); break; }
           // by distance; never the same move three times in a row — the swap stays in the same distance band (up close
@@ -2306,6 +2597,7 @@ const GAME = (() => {
   }
   function makeHappy(e, o = {}) {
     e.dead = true; e.hp = 0;
+    if (e.boss) clearEncounter(e);
     // before its xp: no level-up line may queue in front of the ending (dragon) or the boss's happy line (mid-zone boss)
     // (a new skill's line waits for the boss's happy line, its goodbye and the UI's look at the portal (≈7.5 s), see skillLine)
     const gift = !!(e.boss && !e.final && e.kit && e.kit.gift);   // Round 4: the kefir giant hands Feza a glass of kefir first (GIFT)
@@ -2326,7 +2618,10 @@ const GAME = (() => {
       const beat = giftBeat();
       e.gift = { t: 0, stage: 0, yol: giftYol(), beat, byeAt: Math.max(GT.bye, beat - GIFT.byeDur - 0.3), glass: null, looted: false, held: false };
       e.giftGold = Math.round(e.gold * frand(0.8, 1.25));
-      e.giftItem = rollItem(2, DROP.tries * 3);
+      e.giftItem = bossItem(e);
+      // An exhausted wardrobe gives coins instead of an item. Roll that reward now too, so a save during the drink
+      // contains exactly the same gold as waiting for the reward to appear.
+      e.giftExtraGold = e.giftItem ? 0 : Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25));
     }
     dying.push(e);
     const cy = e.y + e.height * 0.7;
@@ -2406,11 +2701,11 @@ const GAME = (() => {
     C.swing = null; C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.queued = false; C.vel = 0;
     C.deathX = P.pos.x; C.deathZ = P.pos.z;
     say('yoruldu', 3); emit('dead', {});
-    sfx('saberOff', { vol: 0.7 });   // FEZA retracts the blade while he naps
+    if (!wizard()) sfx('saberOff', { vol: 0.7 });   // FEZA retracts the blade while he naps
     burst('zzz', P.pos.x, 1.2, P.pos.z, {});
-    if (boss && boss.aggro && !boss.dead) bossTired(boss);
+    if (boss && boss.aggro && !boss.dead) { if (!hardcore) bossTired(boss); clearEncounter(boss); }
     for (const e of enemies) {   // (remember how far the pack's fight got: see respawn)
-      if (!e.boss && dist2(e.x, e.z, C.deathX, C.deathZ) < NAP.r * NAP.r) { e.napHp = e.hp; e.napped = e.aggro; }
+      if (!hardcore && !e.boss && dist2(e.x, e.z, C.deathX, C.deathZ) < NAP.r * NAP.r) { e.napHp = e.hp; e.napped = e.aggro; }
       if (e.aggro) { if (e.boss) bossCalm(e); else calm(e); }
     }
     const at = gt;
@@ -2419,6 +2714,7 @@ const GAME = (() => {
   const NAP = { r: 18, heal: 0.25, calm: 4.5, near: 3 };
   function respawn() {
     if (!P.dead) return;
+    if (hardcore) { recoverHardcore(); return; }
     P.dead = false; P.hp = P.maxHp; GAME.state = 'play'; C.invuln = 2; C.hurtT = 0; C.kbx = C.kbz = 0;
     C.lockT = 0; C.cheerT = 0;   // (a story lock from before the nap never freezes him after waking up)
     // No nap loop (Round 3 QA: a careless kid napped 10× in a row on one pack that came back fully healed each time): the
@@ -2450,15 +2746,19 @@ const GAME = (() => {
     emit('respawn', {});
   }
 
-  function startSwing(targetFace) {
+  const wizard = () => P.heroClass === 'wizard';
+  const ranged = () => wizard() || P.heroClass === 'hybrid';
+  const WAND_RANGE = 9;
+  function startSwing(targetFace, target, breakable = false) {
     if (C.swing || P.spin > 0 || P.dead) return;
     C.combo = gt - C.lastSwingEnd < 0.55 ? C.combo + 1 : 0;
-    const big = C.combo % 3 === 2;
-    C.swing = { t: 0, dur: big ? T.swingBig : T.swing, dir: C.swingDir, big, hit: false, slash: false };
+    const magic = wizard() || (P.heroClass === 'hybrid' && !breakable && (!target || Math.hypot(target.x - P.pos.x, target.z - P.pos.z) > T.reach + (target.r || 0) - 0.15));
+    const big = !magic && C.combo % 3 === 2;
+    C.swing = { t: 0, dur: magic ? 0.55 : big ? T.swingBig : T.swing, magic, target: target || null, dir: C.swingDir, big, hit: false, slash: false };
     C.swingDir = -C.swingDir;
     C.swingFace = targetFace === undefined || targetFace === null ? null : targetFace;
     C.idleT = 0;
-    sfx(big ? 'swingBig' : 'swing', { pitch: frand(0.92, 1.1), vol: 0.8 });
+    sfx(magic ? 'star' : big ? 'swingBig' : 'swing', { pitch: frand(0.92, 1.1), vol: magic ? 0.4 : 0.8 });
   }
   // The lightsaber's colour (ITEMS.bladeColor; the rainbow one cycles). Used by the slash, hit sparks and Feza's light.
   const _hsl = new THREE.Color();
@@ -2474,7 +2774,22 @@ const GAME = (() => {
     if (id === 'gokkusagi') return '#' + _hsl.setHSL(((typeof TIME !== 'undefined' ? TIME.t : gt) * 0.18) % 1, 1, 0.6).getHexString();
     return BLADE_COL[id] || '#c8f4ff';
   }
+  // A wand flick launches a real shot: it travels through the world and cannot hit through walls.
+  function wandHit() {
+    let face = C.swingFace === null ? P.face : C.swingFace;
+    let x = P.pos.x + Math.sin(face) * 0.35, z = P.pos.z + Math.cos(face) * 0.35, y = 1.05;
+    const tip = H && H.wandTip;
+    if (tip && dist2(tip.x, tip.z, P.pos.x, P.pos.z) < 4 && isFloor(tip.x, tip.z) && los(P.pos.x, P.pos.z, tip.x, tip.z)) { x = tip.x; y = clamp(tip.y, 0.6, 2.5); z = tip.z; }
+    const target = C.swing && C.swing.target;
+    if (target && !target.dead) face = Math.atan2(target.x - x, target.z - z);
+    const dx = Math.sin(face), dz = Math.cos(face), color = bladeColor(P.heroClass === 'hybrid' ? P.equip.offhand : P.equip.weapon);
+    spawnProjectile({ x, y, z, vx: dx * 19, vz: dz * 19,
+      r: 0.3, dmg: heroDamageNow(true) * (wizard() ? 1.15 : 1.05), kind: 'magic', color, life: WAND_RANGE / 19, kb: 0.3 });
+    burst('magic', x, y, z, { color, count: 4, scale: 0.65 });
+    R.pulse = Math.max(R.pulse || 0, 0.65);
+  }
   function swingHit(sw) {
+    if (sw.magic) { wandHit(); return; }
     const px = P.pos.x, pz = P.pos.z;
     const reach = T.reach * (sw.big ? 1.12 : 1), arc = T.arc * (sw.big ? 1.15 : 1);
     let hits = 0, crits = 0;
@@ -2485,7 +2800,7 @@ const GAME = (() => {
       if (d > reach + e.r) continue;
       if (d > e.r + 0.3 && Math.abs(angDiff(P.face, Math.atan2(dx, dz))) > arc) continue;
       const crit = Math.random() < T.crit;
-      const amt = heroDamageNow() * (sw.big ? 1.3 : 1) * (crit ? 2 : 1);
+      const amt = heroDamageNow() * (P.heroClass === 'hybrid' ? 0.95 : 1) * (sw.big ? 1.3 : 1) * (crit ? 2 : 1);
       damage(e, amt, { kb: e.boss ? 0 : sw.big ? 0.8 : 0.45, fromX: px, fromZ: pz, crit, kind: 'sword' });
       const hy = e.y + e.height * 0.5, dl = d || 1, bc = bladeColor();
       const hx = e.x - dx / dl * e.r * 0.6, hz = e.z - dz / dl * e.r * 0.6;
@@ -2524,17 +2839,25 @@ const GAME = (() => {
     if (GAME.state !== 'play' || P.dead || P.spin > 0 || C.lockT > 0 || giftBusy()) return;
     if (C.swing) { C.queued = true; return; }
     C.hasT = false; C.targetObj = null;
-    const e = nearestEnemy(P.pos.x, P.pos.z, 4.8);
-    let face = null;
+    let e = null;
+    if (ranged()) {
+      let bd = WAND_RANGE * WAND_RANGE;
+      for (const q of enemies) {
+        if (q.dead || hidden(q)) continue;
+        const d = dist2(q.x, q.z, P.pos.x, P.pos.z);
+        if (d < bd && los(P.pos.x, P.pos.z, q.x, q.z)) { bd = d; e = q; }
+      }
+    } else e = nearestEnemy(P.pos.x, P.pos.z, 4.8);
+    let face = null, breakable = false;
     if (e) {
       face = Math.atan2(e.x - P.pos.x, e.z - P.pos.z);
       const gap = Math.hypot(e.x - P.pos.x, e.z - P.pos.z) - e.r - 1.2;
-      if (gap > 0.15) lungeToward(e.x, e.z, Math.min(gap, 2.4));
+      if (!ranged() && gap > 0.15) lungeToward(e.x, e.z, Math.min(gap, 2.4));
     } else {
       const b = nearestBreakable(P.pos.x, P.pos.z, 2.6);
-      if (b) face = Math.atan2(b.x - P.pos.x, b.z - P.pos.z);
+      if (b) { face = Math.atan2(b.x - P.pos.x, b.z - P.pos.z); e = b; breakable = true; }
     }
-    startSwing(face);
+    startSwing(face, e, breakable);
   }
   function nearestBreakable(x, z, r) {
     if (!L || !L.breakObjs) return null;
@@ -2676,7 +2999,7 @@ const GAME = (() => {
         if (gap >= bd || (bl > 1e-3 && Math.abs(angDiff(mf, Math.atan2(bx, bz))) > PROG.brkArc)) continue;
         bd = gap; best = b;
       }
-      if (best) { C.autoBrk++; startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z)); return; }
+      if (best) { C.autoBrk++; startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z), best, true); return; }
     }
     C.blockT = Math.max(C.blockT, 0.31);
   }
@@ -2694,7 +3017,7 @@ const GAME = (() => {
     if (C.swing) {
       const sw = C.swing; sw.t += dt;
       const k = sw.t / sw.dur;
-      if (!sw.slash && k >= 0.2) {
+      if (!sw.magic && !sw.slash && k >= 0.2) {
         sw.slash = true;
         // a thin bright energy arc in the blade colour (FX reads the options; older FX just gets the colour)
         fx('slash', P.pos.x, 0.8, P.pos.z, P.face, sw.dir, bladeColor(), sw.big ? 2.2 : 1.9, sw.big ? 2.9 : 2.4, { saber: true, energy: true, thin: true });
@@ -2732,13 +3055,22 @@ const GAME = (() => {
       }
       if (C.targetE && C.targetE.dead) C.targetE = null;
       const tgt = C.targetE || C.targetObj;
-      if (tgt !== C.tgtRef) { C.tgtRef = tgt; C.tgtBest = 1e9; C.tgtStall = 0; C.waitT = 0; }
+      if (tgt !== C.tgtRef) { C.tgtRef = tgt; C.wandRoute = null; C.wandPlanAt = -99; C.tgtBest = 1e9; C.tgtStall = 0; C.waitT = 0; }
       if (C.targetE) {
         const e = C.targetE, dx = e.x - P.pos.x, dz = e.z - P.pos.z, d = Math.hypot(dx, dz) || 1e-3;
         if (hidden(e)) {   // a köstebek dug in: follow its mound (it is coming anyway) and whack it when it pops up
           face = Math.atan2(dx, dz);
           if (d > 2.8) { mx = dx / d; mz = dz / d; want = P.speed * 0.8; } else waitE = true;
-        } else if (d <= T.reach + e.r - 0.3) { face = Math.atan2(dx, dz); if (!C.swing) startSwing(face); C.waitT = 0; C.tgtStall = 0; }
+        } else if (ranged() && !los(P.pos.x, P.pos.z, e.x, e.z)) {
+          // A ranged hero must find an opening rather than wait forever for a tapped creature behind a pillar.
+          if (gt - C.wandPlanAt > 0.8) { C.wandPlanAt = gt; C.wandRoute = routeTo(e.x, e.z); }
+          const r = C.wandRoute;
+          while (r && r.length && Math.hypot(r[0].x - P.pos.x, r[0].z - P.pos.z) < 0.45) r.shift();
+          if (r && r.length) {
+            const rx = r[0].x - P.pos.x, rz = r[0].z - P.pos.z, rd = Math.hypot(rx, rz) || 1;
+            mx = rx / rd; mz = rz / rd; want = P.speed; face = Math.atan2(mx, mz);
+          } else { face = Math.atan2(dx, dz); C.tgtStall += dt; waitE = true; }
+        } else if (d <= (ranged() ? WAND_RANGE - 0.5 : T.reach + e.r - 0.3)) { face = Math.atan2(dx, dz); if (!C.swing) startSwing(face, e); C.waitT = 0; C.tgtStall = 0; }
         else if (C.waitT > 0 || (e.dist < 18 && !e.losOk)) {
           // Behind a wall (it comes round through the flow field) or stuck on something: face it and wait, never push into the wall.
           // Round 4 kid runs: while he waited he ignored whatever was hitting him (the volcano boss 3 m away kept hitting him
@@ -2816,18 +3148,19 @@ const GAME = (() => {
       for (const e of enemies) {
         if (!e.m.root.visible || hidden(e)) continue;
         const dx = e.x - P.pos.x, dz = e.z - P.pos.z, cd = Math.hypot(dx, dz);
-        if (!held) { const g = cd - e.r; if (g < T.autoR && g < bd) { bd = g; best = e; } continue; }
+        if (ranged() && (cd >= WAND_RANGE || !los(P.pos.x, P.pos.z, e.x, e.z))) continue;
+        if (!held) { const g = cd - e.r; if (g < (ranged() ? WAND_RANGE - e.r : T.autoR) && g < bd) { bd = g; best = e; } continue; }
         const g = cd - e.r - T.heroR;
-        if (g >= T.autoDragR || g >= bd) continue;
+        if (g >= (ranged() ? WAND_RANGE - e.r - T.heroR : T.autoDragR) || g >= bd) continue;
         if (moving && cd > 1e-3 && Math.abs(angDiff(mf, Math.atan2(dx, dz))) > T.autoDragArc) continue;
         bd = g; best = e;
       }
-      if (best) startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z));
+      if (best) startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z), best);
       // Waited ~1.5 s for the tapped one while another one right here hurts him: forget the tapped one (like a tapped object
       // after 2 s, tgtStall) and fight here — otherwise its walk/wait retries keep pulling him away between swings.
       if (waitE && best && best !== C.targetE && C.tgtStall > 1.5 && gt - C.lastHurt < 1) C.targetE = null;
     }
-    if (C.swing) want *= 0.22;
+    if (C.swing) want *= C.swing.magic ? 0.7 : 0.22;
     if (P.spin > 0) want *= 0.85;
     if (want > 0.01) { C.mdx = mx; C.mdz = mz; if (face === null && !C.swing) face = Math.atan2(mx, mz); }
     C.vel = damp(C.vel, want, want > C.vel ? 12 : 18, dt);
@@ -2858,7 +3191,7 @@ const GAME = (() => {
     if (gt - C.lastHurt > T.regenDelay && P.hp < P.maxHp) {
       let fighting = false;
       for (const e of enemies) if (e.aggro) { fighting = true; break; }
-      P.hp = Math.min(P.maxHp, P.hp + P.maxHp * (fighting ? DIFF.regenFight : DIFF.regenCalm) * dt);
+      P.hp = Math.min(P.maxHp, P.hp + P.maxHp * (hardcore ? (fighting ? 0 : DIFF.regenCalm * 0.5) : (fighting ? DIFF.regenFight : DIFF.regenCalm)) * dt);
     }
     C.playT += dt;
     if (!F.intro0 && C.playT > 40) introFirstSkill();
@@ -2880,7 +3213,7 @@ const GAME = (() => {
       case 'crystal': victory(); break;
       case 'break':
         if (r.broken) { C.targetObj = null; break; }
-        if (!C.swing) startSwing(Math.atan2(r.x - P.pos.x, r.z - P.pos.z));
+        if (!C.swing) startSwing(Math.atan2(r.x - P.pos.x, r.z - P.pos.z), r, true);
         break;
     }
   }
@@ -3065,6 +3398,7 @@ const GAME = (() => {
   }
   function killProjectile(i, poof) {
     const p = projectiles[i];
+    if (!p) return;
     const end = p.owner === 'enemy' && SHOT_END[p.kind];
     if (isBubble(p)) bubblePop(p);
     else if (end) { burst(end[0], p.x, Math.max(0.1, p.y), p.z, { color: p.kind === 'rock' ? DIRT : p.color, count: 8 }); if (end[1]) sfx(end[1], { x: p.x, z: p.z, vol: 0.6 }); }
@@ -3073,9 +3407,13 @@ const GAME = (() => {
     projectiles.splice(i, 1);
   }
   function updateProjectiles(dt) {
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-      const p = projectiles[i];
+    // A hit can end the fight or start a nap and remove other shots. Visit each original shot once by identity.
+    const frameShots = projectiles.slice();
+    for (let i = frameShots.length - 1; i >= 0; i--) {
+      const p = frameShots[i];
+      if (projectiles.indexOf(p) < 0) continue;
       p.t += dt; p.life -= dt;
+      const ox = p.x, oz = p.z;
       p.x += p.vx * dt; p.z += p.vz * dt;
       if (p.kind === 'bubble') { p.by = damp(p.by === undefined ? p.y : p.by, 0.95, 2.5, dt); p.y = p.by + 0.13 * Math.sin(p.t * 5.5); }   // floats and bobs
       else if (p.kind === 'fizz') { p.by = damp(p.by === undefined ? p.y : p.by, 1.0, 2.2, dt); p.y = p.by + 0.16 * Math.sin(p.t * 6.5 + (p.ph || 0)); }   // fizzy: bobs a little livelier
@@ -3084,14 +3422,15 @@ const GAME = (() => {
       p.obj.position.set(p.x, p.y, p.z);
       if (p.vx || p.vz) p.obj.rotation.y = Math.atan2(p.vx, p.vz);
       fx('trail', p.kind, p.x, p.y, p.z);
-      if (p.life <= 0) { killProjectile(i, true); continue; }
-      if (!isFloor(p.x, p.z)) { killProjectile(i, true); continue; }
+      if (p.life <= 0) { killProjectile(projectiles.indexOf(p), true); continue; }
+      if (!isFloor(p.x, p.z) || (p.owner === 'feza' && !los(ox, oz, p.x, p.z))) { killProjectile(projectiles.indexOf(p), true); continue; }
       if (p.owner === 'enemy') {
         if (!P.dead && dist2(p.x, p.z, P.pos.x, P.pos.z) < (p.r + T.heroR) * (p.r + T.heroR)) {
           if (p.onHit) { try { p.onHit(p, null); } catch (err) { warnOnce('onHit', err); } }
+          if (projectiles.indexOf(p) < 0) continue;
           hurtPlayer(p.dmg, p.x - p.vx, p.z - p.vz, 0.3);
           if (!isBubble(p)) burst('hit', p.x, p.y, p.z, { color: p.color, count: 8 });
-          killProjectile(i, false);
+          killProjectile(projectiles.indexOf(p), false);
         }
         continue;
       }
@@ -3104,15 +3443,17 @@ const GAME = (() => {
         p.hit.push(e);
         const sp = Math.hypot(p.vx, p.vz) || 1;
         const happy = p.dmg > 0 ? damage(e, p.dmg, { kb: p.kb, fromX: p.x - p.vx / sp, fromZ: p.z - p.vz / sp, kind: p.kind, freeze: p.freeze, stun: p.stun }) : false;
+        if (projectiles.indexOf(p) < 0) { dead = true; break; }
         burst('hit', p.x, p.y, p.z, { color: p.color, count: 6 });
         if (p.onHit) { try { p.onHit(p, e, happy); } catch (err) { warnOnce('onHit', err); } }
+        if (projectiles.indexOf(p) < 0) { dead = true; break; }
         if (p.pierce > 0) p.pierce--; else { dead = true; break; }
       }
-      if (dead) { killProjectile(i, true); continue; }
+      if (dead) { killProjectile(projectiles.indexOf(p), true); continue; }
       if (L && L.breakObjs) for (const b of L.breakObjs) {
         if (!b.broken && dist2(p.x, p.z, b.x, b.z) < (p.r + (b.r || 0.4)) * (p.r + (b.r || 0.4))) { breakObj(b); dead = true; break; }
       }
-      if (dead) killProjectile(i, true);
+      if (dead) killProjectile(projectiles.indexOf(p), true);
     }
   }
 
@@ -3126,13 +3467,13 @@ const GAME = (() => {
   // Is it worth dropping although Feza has that look? Only if it replaces it (shinier, or clearly stronger) AND he would
   // wear it (stronger than what he wears in that slot) — otherwise it just looks like the same thing dropping again.
   const upgradeOf = (item, have) => replaces(item, have) && ((item.rarity | 0) > (have.rarity | 0) || item.power >= have.power * DROP.upgrade) &&
-    item.power > ((P.equip[item.slot] && P.equip[item.slot].power) || 0);
+    item.power > ((P.equip[equipSlot(item)] && P.equip[equipSlot(item)].power) || 0);
   function rollItem(bias, tries = DROP.tries) {
     if (typeof ITEMS === 'undefined' || !ITEMS.roll) return null;
     let up = null;
     for (let i = 0; i < tries; i++) {
       let it = null;
-      try { it = ITEMS.roll(ilvlNow(), clamp(bias, 0, 2)); } catch (err) { warnOnce('ITEMS.roll', err); return null; }
+      try { it = ITEMS.roll(ilvlNow(), clamp(bias, 0, 2), Math.random, P.heroClass); } catch (err) { warnOnce('ITEMS.roll', err); return null; }
       if (!it || groundLook(it)) continue;        // never two of the same look at once
       const have = ownedLook(it);
       if (!have) return it;                       // a look Feza doesn't have yet
@@ -3147,11 +3488,16 @@ const GAME = (() => {
     spawnCoins(x, z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
     return null;
   }
+  // Boss treasures have a fixed identity; ordinary monsters and chests still roll random loot.
+  function bossItem(e) {
+    return typeof ITEMS !== 'undefined' && ITEMS.bossReward ? ITEMS.bossReward(e.type, P.heroClass, zdef().ilvl + P.ng * 3) : rollItem(2, DROP.tries * 3);
+  }
   function dropLoot(e) {
+    if (e.arenaChild) return;   // optional arena playmates never become an endless treasure farm
     const gold = Math.round(e.gold * frand(0.8, 1.25));
-    if (e.boss) {   // every boss: lots of coins, a treasure (the DROP rules, looking harder for something new), hearts
+    if (e.boss) {   // every boss: its own treasure, lots of coins, hearts
       spawnCoins(e.x, e.z, gold, 40, 3.5);
-      dropItem(2, e.x, e.z, DROP.tries * 3);
+      const item = bossItem(e); if (item) spawnItem(item, e.x, e.z);
       for (let i = 0; i < 3; i++) spawnLoot('heart', e.x, e.z);
       return;
     }
@@ -3343,7 +3689,7 @@ const GAME = (() => {
     }
   }
   function addItem(item, force) {
-    if (!item) return;
+    if (!item || (ITEMS.allowed && !ITEMS.allowed(item, P.heroClass))) return;
     const old = ownedLook(item);
     if (old && old !== item) {   // one piece per look: the stronger copy takes the old one's place (worn → stays worn)
       if (!force && !replaces(item, old)) {   // not stronger, or less shiny (the rolls avoid this): a few coins instead
@@ -3353,36 +3699,36 @@ const GAME = (() => {
       }
       P.bag[P.bag.indexOf(old)] = item;
     } else if (P.bag.indexOf(item) < 0) P.bag.push(item);
-    const cur = P.equip[item.slot];
+    const cur = P.equip[equipSlot(item)];
     const better = force || !cur || item.power > cur.power;
     if (better) equip(item, true);
     emit('item', { item, equipped: better });
     if (better && (item.rarity || 0) < 3) {   // once per slot per zone (shiny ones always), never over the dragon fight
-      const line = item.slot === 'weapon' ? 'kilic' : item.slot === 'hat' ? 'sapka' : 'pelerin';
+      const line = item.slot === 'weapon' ? (isWand(item) ? 'degnek' : 'kilic') : item.slot === 'hat' ? 'sapka' : 'pelerin';
       if (!ZF['l_' + line] || (item.rarity || 0) >= 2) { if (chat(line, 1, (item.rarity || 0) >= 2 ? 6 : 15)) ZF['l_' + line] = true; }
     }
     // (not during a boss's story: queued behind it, the portal cut the once-per-game bag hint — a later piece says it)
     if (!better && !F.canta && item.slot !== 'weapon' && !finale && gt >= storyUntil) { F.canta = true; later(1.5, () => say('canta', 1)); }
   }
   function equip(item, quiet) {
-    if (!item || !item.slot) return;
+    if (!item || !item.slot || (ITEMS.allowed && !ITEMS.allowed(item, P.heroClass))) return;
     if (P.bag.indexOf(item) < 0) P.bag.push(item);
-    const newBlade = item.slot === 'weapon' && P.equip.weapon !== item;
+    const slot = equipSlot(item), newBlade = item.slot === 'weapon' && P.equip[slot] !== item;
     // drinking the kefir giant's gift (saber put away): a new blade stays off too until giftDrunk lights it (Round 4 QA:
     // a saber put on in the wardrobe during the sip lit up and he drank holding a lit saber)
     const sheathed = C.lockT > 0 || !!(boss && boss.gift && (boss.gift.stage === 2 || boss.gift.stage === 3));
-    P.equip[item.slot] = item;
+    P.equip[equipSlot(item)] = item;
     recalcStats();
-    if (newBlade && GAME.state !== 'title' && !sheathed) { sfx('saberOn', { vol: 0.8 }); R.pulse = 1; }   // FEZA.setEquip ignites the new blade
+    if (newBlade && GAME.state !== 'title' && !sheathed) { sfx(isWand(item) ? 'star' : 'saberOn', { vol: 0.8 }); R.pulse = 1; }   // FEZA.setEquip ignites the new blade
     if (H) { try { H.setEquip(P.equip); } catch (err) { warnOnce('H.setEquip', err); } }
     if (H && sheathed && newBlade && typeof H.retract === 'function') { try { H.retract(); } catch (err) { warnOnce('H.retract', err); } }
     burst('sparkle', P.pos.x, 1.0, P.pos.z, { color: rarCol(item.rarity || 0), count: 14 });
     if (!quiet) sfx('click');
     C.cheerT = Math.max(C.cheerT, 0.7);
-    emit('equip', { item, slot: item.slot });
+    emit('equip', { item, slot });
   }
   function unequip(slot) {
-    if (slot === 'weapon' || !P.equip[slot]) return;
+    if (slot === 'weapon' || slot === 'offhand' || !P.equip[slot]) return;
     P.equip[slot] = null; recalcStats();
     if (H) H.setEquip(P.equip);
     emit('equip', { item: null, slot });
@@ -3406,7 +3752,7 @@ const GAME = (() => {
     if (beam) later(1.3, () => remove(beam));
     ftext(x, 2.6, z, 'Seviye ' + P.lvl + '!', 'word');
     sfx('levelup');
-    if (!GAME.skills.some((s, i) => canUnlock(s, i))) chat('seviye' + (1 + (P.lvl % 3)), 2, 6);   // a new skill's line matters more
+    if (!GAME.skills.some((s, i) => canUnlock(s, i))) chat(ranged() && P.lvl % 3 === 2 ? (wizard() ? 'seviye_buyu' : 'seviye_hibrit') : 'seviye' + (1 + (P.lvl % 3)), 2, 6);   // a new skill's line matters more
     C.cheerT = 1.4;
     emit('levelup', { lvl: P.lvl });
     checkUnlocks(true);
@@ -3586,7 +3932,7 @@ const GAME = (() => {
         g.stage = 2;
         // (a Kasırga cast just before the catch kept him whirling through the whole drink: 08_skills ends it when P.spin is 0)
         P.spin = 0; P.castT = 0; C.castT = -1; C.swing = null;
-        if (H && typeof H.retract === 'function' && H.bladeOn !== false) { try { H.retract(); } catch (err) { warnOnce('H.retract', err); } sfx('saberOff', { vol: 0.6 }); }
+        if (H && typeof H.retract === 'function' && H.bladeOn !== false) { try { H.retract(); } catch (err) { warnOnce('H.retract', err); } if (!wizard()) sfx('saberOff', { vol: 0.6 }); }
         C.lockT = GT.drunk - t + GIFT.lock; C.lockFace = CAM.yaw || 0; C.cheerT = GIFT.raise;
         emit('gift', { stage: 'drink', x: P.pos.x, z: P.pos.z, dur: GT.drunk - t });   // (UI may frame Feza while he drinks)
         sfx('pop', { pitch: 1.4, vol: 0.6 }); burst('sparkle', gl.position.x, gl.position.y, gl.position.z, { count: 12, color: '#ffffff' });
@@ -3642,7 +3988,8 @@ const GAME = (() => {
     const g = b.gift;
     g.stage = 5; g.looted = true;
     spawnCoins(b.x, b.z, b.giftGold || Math.round(b.gold), 40, 3.5);
-    if (b.giftItem) spawnItem(b.giftItem, b.x, b.z); else spawnCoins(b.x, b.z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
+    if (b.giftItem) spawnItem(b.giftItem, b.x, b.z);
+    else if (b.giftExtraGold) spawnCoins(b.x, b.z, b.giftExtraGold, 3);
     b.giftItem = null;
     // (Round 4 QA 2: confetti and fizz at face height of the 3 m bottle covered its big smile: confetti above the cap, the
     // fizz low on both sides of it)
@@ -3864,19 +4211,20 @@ const GAME = (() => {
     const won = !!(boss && boss.dead) || !!crystal, ZL = zones();
     let zone = P.zone, bossDone = -1, gold = P.gold;
     const bag = P.bag.map(plainItem);
-    if (won && !finalZone() && ZL && P.zone < ZL.length - 1) {
-      zone = P.zone + 1;
+    if (won && ZL) {
+      if (!finalZone() && P.zone < ZL.length - 1) zone = P.zone + 1;
+      else if (finalZone()) bossDone = P.zone;
       // (saved a moment after the cheer: its coins and treasure still flying to him go into the save, as through the portal)
       const bx = boss ? boss.x : P.pos.x, bz = boss ? boss.z : P.pos.z, R2 = 26 * 26;
       for (const c of coins) if (dist2(c.x, c.z, bx, bz) < R2) gold += c.value;
       for (const o of loot) if (o.kind === 'item' && o.item && dist2(o.x, o.z, bx, bz) < R2) bag.push(plainItem(o.item));
       // (the kefir giant's reward before it popped out: Kaydet during the glass of kefir keeps it too)
-      if (boss && boss.gift && !boss.gift.looted) { gold += boss.giftGold || 0; if (boss.giftItem) bag.push(plainItem(boss.giftItem)); }
-    } else if (won && finalZone()) bossDone = P.zone;
+      if (boss && boss.gift && !boss.gift.looted) { gold += (boss.giftGold || 0) + (boss.giftExtraGold || 0); if (boss.giftItem) bag.push(plainItem(boss.giftItem)); }
+    }
     return {
-      v: 1, sv: SAVE_V, t: Date.now(), zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
+      v: 1, sv: SAVE_V, t: Date.now(), ...(hardcore ? { hardcore: true } : {}), heroClass: P.heroClass, zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
       bag,
-      equip: { weapon: P.bag.indexOf(P.equip.weapon), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
+      equip: { weapon: P.bag.indexOf(P.equip.weapon), offhand: P.bag.indexOf(P.equip.offhand), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
       flags: Object.assign({ intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]), bossDone,
         yolculuk: !!F.yolculuk }, first),
@@ -3888,11 +4236,57 @@ const GAME = (() => {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); return true; } catch (err) { warnOnce('save', err); return false; }
   }
   function save() {
+    if (hardcore) return false;
     if (GAME.state === 'title' || GAME.state === 'end' || GAME.state === 'transition' || (L && L._title)) return false;
     return writeSave(snapshot());
   }
   function readSave() {
-    try { return cleanSave(JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')); } catch (err) { return null; }
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+      if (s && s.hardcore === true) return null;
+      // The class update starts a fresh adventure once; saves made after choosing a hero stay intact.
+      if (s && s.heroClass !== 'warrior' && s.heroClass !== 'wizard' && s.heroClass !== 'hybrid') { localStorage.removeItem(SAVE_KEY); return null; }
+      return cleanSave(s);
+    } catch (err) { return null; }
+  }
+  // Hardcore has its own checkpoint slot. Only entering Kefir Valley / the Volcano writes it; returning after a
+  // defeat restores the exact progression without turning a partially cleared room into a new checkpoint.
+  function readHardcoreSave() {
+    if (hardcore && !hardcoreSnapshot) return null;   // a new attempt cannot inherit an old browser checkpoint
+    try {
+      const raw = JSON.parse(hardcoreSnapshot || localStorage.getItem(HARDCORE_KEY) || 'null');
+      if (!raw || raw.hardcore !== true || !['warrior', 'wizard', 'hybrid'].includes(raw.heroClass)) return null;
+      const s = cleanSave(raw);
+      return s && (s.zone === 1 || s.zone === 3) && !(s.flags && s.flags.bossDone >= 0) ? s : null;
+    } catch (err) { return null; }
+  }
+  function saveHardcoreCheckpoint() {
+    if (!hardcore || (P.zone !== 1 && P.zone !== 3)) return false;
+    const s = snapshot(); s.hardcore = true; s.flags.bossDone = -1;
+    hardcoreSnapshot = JSON.stringify(s);   // a private/full browser can still recover this running adventure
+    try { localStorage.setItem(HARDCORE_KEY, hardcoreSnapshot); } catch (err) { warnOnce('hardcore checkpoint', err); }
+    emit('hardcoreCheckpoint', { zone: P.zone, name: zdef().ad });
+    return true;
+  }
+  function restoreHardcore(s) {
+    hardcore = true; hardcoreSnapshot = JSON.stringify(s); applySave(s); C.playT = 0; C.lastHurt = gt - 99; yolWant = false;
+    loadZone(s.zone, { hardcoreRestore: true }); C.invuln = 1;
+  }
+  function recoverHardcore() {
+    const s = readHardcoreSave(), heroClass = P.heroClass;
+    if (s && s.heroClass === heroClass) restoreHardcore(s);
+    else {
+      // Before the first automatic save, everything in this failed attempt belongs to the old adventure.
+      P.heroClass = heroClass; buildSkills(); resetPlayer(); C.playT = 0; C.lastHurt = gt - 99;
+      loadZone(0, { hardcoreRestore: true }); yolWant = false;
+    }
+    emit('respawn', { hardcore: true, zone: P.zone });
+  }
+  function continueHardcore() {
+    if (!inited) init();
+    const s = readHardcoreSave();
+    if (!s) return false;
+    restoreHardcore(s); say('hos_geldin', 3); return true;
   }
   // A save from an older build or a corrupted one must never softlock 'Devam Et': numbers must be finite, the bag an
   // array of known items; unknown items are dropped and equip slots that point at the wrong kind of item are emptied.
@@ -3906,9 +4300,11 @@ const GAME = (() => {
     const baseOf = it => (it.base && typeof it.base === 'object' ? it.base.id : it.base);
     const okItem = it => !!it && typeof it === 'object' && ['weapon', 'hat', 'cape'].indexOf(it.slot) >= 0 && typeof it.power === 'number' && isFinite(it.power) &&
       typeof baseOf(it) === 'string' && (!B || !B[it.slot] || B[it.slot].some(b => b.id === baseOf(it)));
+    const heroClass = heroClassOf(s.heroClass);
     const raw = s.bag || [], bag = [], at = new Map();
     raw.forEach((it, i) => {
-      if (!okItem(it)) return;
+      if (ITEMS.adaptLegacy) it = ITEMS.adaptLegacy(it, heroClass);
+      if (!okItem(it) || (ITEMS.allowed && !ITEMS.allowed(it, heroClass))) return;
       const c = Object.assign({}, it, { base: baseOf(it), rarity: clamp(it.rarity | 0, 0, 3), ilvl: Math.max(1, it.ilvl | 0 || 1), power: Math.max(0, Math.round(it.power)) });
       // today's name (a save from the test build still says 'Demir Kılıç ✦': every sword is a lightsaber now)
       let nm = null;
@@ -3917,9 +4313,9 @@ const GAME = (() => {
       at.set(i, bag.length); bag.push(c);
     });
     const eqIn = s.equip && typeof s.equip === 'object' ? s.equip : {}, equip = {};
-    for (const slot of ['weapon', 'hat', 'cape']) {
+    for (const slot of ['weapon', 'offhand', 'hat', 'cape']) {
       const j = eqIn[slot], k = Number.isInteger(j) && at.has(j) ? at.get(j) : -1;
-      equip[slot] = k >= 0 && bag[k].slot === slot ? k : -1;
+      equip[slot] = k >= 0 && equipSlot(bag[k], heroClass) === slot ? k : -1;
     }
     // One piece per look (older builds kept every copy): the shiniest copy stays, then the strongest (same look, so a
     // copy that loses is plainer or weaker); a worn copy that goes hands its slot to the one that stays.
@@ -3929,7 +4325,7 @@ const GAME = (() => {
     const slim = [], re = bag.map(() => -1);
     bag.forEach((c, k) => { if (best.get(lookKey(c)) === k) { re[k] = slim.length; slim.push(c); } });
     bag.forEach((c, k) => { if (re[k] < 0) re[k] = re[best.get(lookKey(c))]; });
-    for (const slot of ['weapon', 'hat', 'cape']) if (equip[slot] >= 0) equip[slot] = re[equip[slot]];
+    for (const slot of ['weapon', 'offhand', 'hat', 'cape']) if (equip[slot] >= 0) equip[slot] = re[equip[slot]];
     const L1 = clamp(Math.floor(lvl), 1, 99);
     const ZL = zones();
     const zn = saveZone(s, Math.max(0, Math.floor(zone)), ZL);
@@ -3937,7 +4333,7 @@ const GAME = (() => {
     // the crystal-waiting flag names a zone index too (the castle): it moves with the zones
     if (typeof flags.bossDone === 'number' && flags.bossDone >= 0) flags.bossDone = saveZone(s, Math.floor(flags.bossDone), ZL, true);
     return Object.assign({}, s, {
-      sv: SAVE_V, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
+      sv: SAVE_V, heroClass, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
       ng: clamp(Math.floor(ng), 0, 99), zone: zn, zid: ZL && ZL[zn] ? ZL[zn].id : s.zid, bag: slim, equip,
       skills: Array.isArray(s.skills) ? s.skills : [], flags,
     });
@@ -3959,11 +4355,21 @@ const GAME = (() => {
     return zn;
   }
   function applySave(s) {
+    P.heroClass = heroClassOf(s.heroClass); buildSkills();
     P.lvl = s.lvl || 1; P.xp = s.xp || 0; P.gold = s.gold || 0; P.potions = clamp(s.potions ?? DIFF.potions, 0, P.maxPotions); P.ng = s.ng || 0;
     P.bag = (s.bag || []).filter(Boolean);
     const eq = s.equip || {};
-    P.equip = { weapon: P.bag[eq.weapon] || null, hat: P.bag[eq.hat] || null, cape: P.bag[eq.cape] || null };
-    if (!P.equip.weapon && typeof ITEMS !== 'undefined' && ITEMS.starter) { const w = ITEMS.starter().weapon; if (w) { P.bag.push(w); P.equip.weapon = w; } }
+    P.equip = { weapon: P.bag[eq.weapon] || null, offhand: P.heroClass === 'hybrid' ? P.bag[eq.offhand] || null : null, hat: P.bag[eq.hat] || null, cape: P.bag[eq.cape] || null };
+    if (typeof ITEMS !== 'undefined' && ITEMS.starter) {
+      const starter = ITEMS.starter(P.heroClass);
+      for (const slot of P.heroClass === 'hybrid' ? ['weapon', 'offhand'] : ['weapon']) if (!P.equip[slot] && starter[slot]) {
+        // A missing or invalid hand index must not create a second copy of a weapon already in the bag.
+        let best = null;
+        for (const item of P.bag) if (equipSlot(item) === slot && (!best || item.power > best.power)) best = item;
+        P.equip[slot] = best || starter[slot];
+        if (!best) P.bag.push(starter[slot]);
+      }
+    }
     const fl = s.flags || {};
     // Skills come from the level (saves by index are unreliable: the skill list changed from 6 to 3).
     GAME.skills.forEach((sk, i) => { sk.cd = 0; sk.unlocked = i === 0 ? !!(fl.intro0 || P.lvl >= 2 || (s.skills && s.skills[0])) : P.lvl >= (sk.def.lvl || 1); });
@@ -3991,20 +4397,23 @@ const GAME = (() => {
   }
   function newGame(o = {}) {
     if (!inited) init();
-    const plus = o.plus !== undefined ? !!o.plus : GAME.state === 'end';
+    hardcore = o.hardcore === true; hardcoreSnapshot = null;
+    if (hardcore) { try { localStorage.removeItem(HARDCORE_KEY); } catch (err) { /* this adventure still has no checkpoint */ } }
+    const plus = !hardcore && (o.plus !== undefined ? !!o.plus : GAME.state === 'end');
     if (plus) {
       P.ng++; P.dead = false; P.potions = Math.max(P.potions, DIFF.potions);
       for (const s of GAME.skills) s.cd = 0;
       F.zl = {}; F.kapi = {}; F.bossDone = -1; skillQ.length = 0;
       recalcStats(); P.hp = P.maxHp;
-    } else resetPlayer();
+    } else { P.heroClass = heroClassOf(o.heroClass); buildSkills(); resetPlayer(); }
     C.playT = 0; C.lastHurt = gt - 99;
     if (!plus && useTitleLevel()) startHere(); else loadZone(0);
     yolWant = false;
     if (plus) say('tekrar', 3);
     else {
       say('giris1', 3);
-      const w = say('giris2', 3) || lineLen('giris1') + 0.3 + lineLen('giris2');   // (AUD.say: s until giris2 has ended)
+      const intro = wizard() ? 'giris_buyu' : P.heroClass === 'hybrid' ? 'giris_hibrit' : 'giris2';
+      const w = say(intro, 3) || lineLen('giris1') + 0.3 + lineLen(intro);   // (AUD.say: s until giris2 has ended)
       // (Round 4 QA: the first skill's line could be dropped from AUD's full queue at the start — it waits for the intro)
       skillAt = Math.max(skillAt, gt + w + 0.6);
       // (Round 4) the whole journey, once per game: forest, kefir valley, cave, volcano, the dragon's castle — at the first
@@ -4014,6 +4423,7 @@ const GAME = (() => {
   }
   function continueGame() {
     if (!inited) init();
+    hardcore = false; hardcoreSnapshot = null;
     const s = readSave();
     if (!s) { GAME.clearSave(); newGame({ plus: false }); return; }
     try { applySave(s); } catch (err) {   // never leave the kid on a dead HUD: start fresh instead
@@ -4110,10 +4520,11 @@ const GAME = (() => {
   function updateHero(dt) {
     if (!H) return;
     const castP = P.castT > 0 && P.castDur ? 1 - P.castT / P.castDur : C.castT;
+    HST.hybrid = P.heroClass === 'hybrid'; HST.magicAttack = !!(C.swing && C.swing.magic);
     HST.move = clamp(C.vel / P.speed, 0, 1);
-    HST.attack = C.swing ? clamp(C.swing.t / C.swing.dur, 0, 1) : -1;
+    HST.attack = C.swing && !C.swing.magic ? clamp(C.swing.t / C.swing.dur, 0, 1) : -1;
     HST.swingDir = C.swing ? C.swing.dir : C.swingDir;
-    HST.cast = castP >= 0 && castP < 1 ? castP : -1;
+    HST.cast = C.swing && C.swing.magic ? clamp(C.swing.t / C.swing.dur, 0, 0.999) : castP >= 0 && castP < 1 ? castP : -1;
     HST.spin = P.spin > 0; HST.hurt = C.hurtT; HST.dead = P.dead; HST.cheer = C.cheerT > 0; HST.idleT = C.idleT;
     H.root.position.copy(P.pos); H.root.rotation.y = P.face;
     bladeLight(dt);
@@ -4158,7 +4569,7 @@ const GAME = (() => {
     const go = () => {
       if (!H || P.dead || GAME.state === 'title') return;
       if (typeof H.ignite === 'function') { try { H.ignite(); } catch (err) { warnOnce('H.ignite', err); } }
-      sfx('saberOn', { vol: 0.85 }); R.pulse = 1;
+      sfx(wizard() ? 'star' : 'saberOn', { vol: 0.85 }); R.pulse = 1;
     };
     if (delay > 0) later(delay, go); else go();
   }
@@ -4256,7 +4667,7 @@ const GAME = (() => {
     const s = readSave();   // title screen: wear the saved outfit
     if (s && s.bag) {
       const eq = s.equip || {}, bag = s.bag;
-      const wear = { weapon: bag[eq.weapon] || P.equip.weapon, hat: bag[eq.hat] || null, cape: bag[eq.cape] || null };
+      const wear = { weapon: bag[eq.weapon] || P.equip.weapon, offhand: s.heroClass === 'hybrid' ? bag[eq.offhand] || null : null, hat: bag[eq.hat] || null, cape: bag[eq.cape] || null };
       R.titleWear = wear;
       try { H.setEquip(wear); } catch (err) { warnOnce('setEquip', err); }
     }
@@ -4297,6 +4708,7 @@ const GAME = (() => {
       window.__T.tp(boss.x, boss.z + boss.r + 8);
       return boss;
     },
+    encounter() { const q = boss && boss.encounter; return q ? { type: boss.type, eggs: q.eggs.map(e => ({ x: e.x, z: e.z })), whelps: enemies.filter(e => e.whelp && !e.dead).length, move: q.move ? { kind: q.move.kind, t: q.move.t, dur: q.move.dur, warn: q.move.warn, hits: q.move.hits, x: q.move.x, z: q.move.z, x0: q.move.x0, z0: q.move.z0, x1: q.move.x1, z1: q.move.z1, radius: q.move.radius, angle: q.move.angle, sweep: q.move.sweep, range: q.move.range, gap: q.move.gap, dots: q.move.dots.map(d => ({ x: d.x, z: d.z, at: d.at, hit: d.hit })) } : null } : null; },
     bossCfg(type) { return Object.assign({}, bossCfg(type || (boss && boss.type) || 'ejderha')); },   // {per, lo, hi, dmg}
     bossHit(frac = 0.1) { if (boss && !boss.dead) damage(boss, Math.max(1, Math.round(boss.maxHp * frac)), { silent: true, force: true }); return boss ? boss.hp : null; },
     // extras for tests
@@ -4330,8 +4742,10 @@ const GAME = (() => {
 
   const GAME = {
     P, H: null, enemies, L: null, state: 'title', paused: false, skills: [], boss: null, time: 0,
+    get hardcore() { return hardcore; },
+    hasHardcoreSave: () => !!readHardcoreSave(), continueHardcore,
     init, newGame, continueGame, hasSave: () => !!readSave(), save, clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* private mode */ } },
-    loadZone, update, titleUpdate, input, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
+    loadZone, update, titleUpdate, input, equipSlot, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
     on, emit, enemiesNear, nearestEnemy, damage, spawnProjectile, hitBreakables, heroDamageNow, hurtPlayer, heal,
     xpFor, projectiles, loot, coins, wordOK,
   };
