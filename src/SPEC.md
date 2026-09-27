@@ -17,9 +17,9 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   `fezaKotulereKarsi.hardcore.v1`; normal `fezaKotulereKarsi.v3` is untouched. `hardcoreCheckpoint` informs UI.
   Death restores the last checkpoint's progression and a fresh zone, or resets the same class to forest before checkpoint1.
   Restoration does not rewrite the checkpoint. Starting a fresh Hardcore clears its previous checkpoint.
-- HC multipliers: mobHP1.5, bossHP1.4, mobdamage1.8, bossdamage1.7, speed1.2, attack cooldown0.65;
-  ordinary mob windups0.75 with0.4s minimum. Boss idle gaps shrink; existing readable boss windups remain.
-  Raid special damage has another1.5 multiplier (2.55 total). TBC warnings remain2s.
+- HC multipliers: mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
+  ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; existing readable boss windups remain.
+  Raid special damage has another1.35 multiplier (1.9575 total). TBC warnings remain2s.
   No combat regen, calm regen halved; no death-based enemy weakening or retained boss damage.
 
 ## Character classes and boss treasures (latest; overrides older notes below)

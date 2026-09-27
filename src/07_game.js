@@ -126,7 +126,7 @@ const GAME = (() => {
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
   const HARDCORE_KEY = 'fezaKotulereKarsi.hardcore.v1';
-  const HC = { hp: 1.5, bossHp: 1.4, dmg: 1.8, bossDmg: 1.7, special: 1.5, speed: 1.2, cd: 0.65, wind: 0.75 };
+  const HC = { hp: 1.35, bossHp: 1.25, dmg: 1.5, bossDmg: 1.45, special: 1.35, speed: 1.12, cd: 0.78, wind: 0.85 };
   let hardcore = false, hardcoreSnapshot = null;   // opt-in every new adventure; normal saves never select it
 
   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale); 4 = Round 4's (orman, kefir, magara,
