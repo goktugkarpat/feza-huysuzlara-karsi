@@ -43,11 +43,8 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
 - Automatic render target: 120FPS on PC, Mac, phones and iPad; no FPS setting in menus. Browser/display refresh can limit actual rate.
 - **Steady 120 on tablets (latest):** QUALITY.tablet (iPad incl. its Mac-UA mode, Android, phones; ?tablet / ?pc force it) gets a
   point-light `if (directLight.visible)` ShaderChunk patch (same picture). perfHz(rawDt) (UI frame(), every drawn frame) detects a >60 Hz
-  screen → PERF.hz120 → tablet120On(): dpr ≤ 1.25, bloom from 1/4 res with 4 levels (QUALITY.bloomFrom/bloomLevels/bloomGain 2/4/1.12;
-  PC 1/5/1), sun shadow 1536²; perfWin120 counts frames > 12.5 ms per 2.5 s window and steps dpr down by 0.125 (then MSAA 0) while > 1.5 %
-  miss (2 windows), undoes steps that don't help (capFps), steps back up after 30 s clean, never above the start; a failed step up
-  sets PERF.top (not tried again). Level + top saved in localStorage 'fezaKotulereKarsi.t120' → the next start uses them. PC/Mac and 60 Hz tablets unchanged;
-  ?hd skips it. The "." FPS meter (or ?fps) shows the resolution the ladder chose.
+  screen → PERF.hz120 → tablet120On(): fixed dpr 1.0 and MSAA 2 (parent's choice; the 1.25/1.125 ladder still micro-stuttered), full bloom
+  and 2048² shadows, perfTick off (PERF.t120). PC/Mac and 60 Hz tablets unchanged; ?hd skips it. The "." FPS meter (or ?fps) shows it.
 
 ## Breakables and class balance (latest)
 - Hybrid uses its sword for targeted breakables, attack-button breakables and obstacle-clearing swings; wizard keeps wand attacks.
@@ -253,7 +250,7 @@ smooth01, angDiff, dampAngle, dist2, $, mulberry32, RNG {seed,r,range,int,pick,c
 frand, fpick (Math.random, for fx), TIME {t, dt, u: shared time uniform}, UP, ZERO3, renderer, scene, camera, CAM,
 LIGHTS {hemi, sun, sunOffset, feza, torches[4]}, lightsFollow(x,z), setLighting({...}), setEnvironment(sky,horizon,ground,int),
 POST {on, strength, threshold, exposure, saturation, vignette, tint, tintAmt}, renderFrame(), resizeRenderer(), RESIZE_HOOKS,
-QUALITY {dpr, minDpr, msaa, tablet, bloomFrom, bloomLevels, bloomGain}, PERF, perfTick(rawDt), perfHz(rawDt), tablet120On(), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
+QUALITY {dpr, minDpr, msaa, tablet}, PERF, perfTick(rawDt), perfHz(rawDt), tablet120On(), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
 toScreen(v3, out) → {x,y,vis}, G {sphere,hemi,cyl,cone,box,rbox,torus,capsule,ico,dodeca,octa} (cached unit geometries —
 never dispose them), Kit (add/push/pop/seg/build), mergeParts, tmat, onSphere(x,y,R,inset) → [pos, quat], col3, mixCol,
 stdMat(o), vcMat(o), glowMat(color,int,o), patchMat(mat,o), rimify(mat,color,strength,power), disposeTree(obj), shadows(obj,cast,recv),

@@ -35,8 +35,9 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - **Bilgisayarda klavye:** ok tuşları / WASD yürür, Boşluk vurur, **1 2 3** yetenekleri kullanır, **Q** iksir içer (tuşlar düğmelerin üstünde
   beyaz etiketle yazar; iksir düğmesinin altındaki kırmızı **×3** ise kalan iksir sayısıdır), B çanta, Esc mola.
 - **FPS göstergesi:** klavyede **.** (nokta) tuşu açıp kapatır; iPad'de adresin sonuna `?fps` eklenirse açık başlar.
-- **Tablette sabit 120 FPS:** ekranı 120 Hz olan tablette (iPad Pro'da Safari › Gelişmiş › Özellik Bayrakları › "Prefer Page Rendering Updates near 60fps" kapalıyken) oyun kendiliğinden biraz daha düşük çözünürlük (1.25×), daha hafif parlama ve
-  1536'lık gölgeyle çalışır; kareler yine yetişmezse çözünürlüğü adım adım düşürür. Bilgisayar ve Mac'te ayarlar değişmez.
+- **Tablette sabit 120 FPS:** ekranı 120 Hz olan tablette (iPad Pro'da Ayarlar › Safari › Gelişmiş › Özellik Bayrakları ›
+  "Prefer Page Rendering Updates near 60fps" kapalıyken) oyun çözünürlüğü 1.00×'e ve MSAA'yı 2×'e sabitler, kendiliğinden değiştirmez.
+  Bilgisayar ve Mac'te ayarlar değişmez.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
 Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.

@@ -66,8 +66,6 @@ const QUALITY = {
   // tablet: iPad (also in its "Mac" desktop mode), Android, phones — not PCs (a Windows touch laptop stays a PC). ?tablet / ?pc force it.
   tablet: Q.has('tablet') || (!Q.has('pc') && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
     (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1))),
-  // bloom chain: first level at 1/2^bloomFrom of the screen, bloomLevels levels, glow × bloomGain (tablet120On changes them)
-  bloomFrom: 1, bloomLevels: 5, bloomGain: 1,
 };
 // Tablets: a point light that doesn't reach a pixel skips its lighting maths (Feza's light and the 2 pooled torches exist in every zone,
 // mostly at intensity 0 or out of range) — the same picture for less GPU work. Patched before the first shader is built: three.js caches
@@ -295,7 +293,7 @@ function resizeRenderer() {
     // stencil: Feza's x-ray pass. Nothing reads depth/stencil afterwards → no resolve blit, the MSAA depth is just discarded.
     if (!rtMain) rtMain = new THREE.WebGLRenderTarget(pw, ph, { type, samples: QUALITY.msaa, depthBuffer: true, stencilBuffer: true, resolveDepthBuffer: false, resolveStencilBuffer: false });
     else rtMain.setSize(pw, ph);
-    let mw = Math.max(1, pw >> QUALITY.bloomFrom), mh = Math.max(1, ph >> QUALITY.bloomFrom);
+    let mw = pw >> 1, mh = ph >> 1;
     for (let i = 0; i < MIPN; i++) {
       if (!MIPS[i]) { MIPS[i] = new THREE.WebGLRenderTarget(mw, mh, { type, depthBuffer: false }); MIPS[i].texture.generateMipmaps = false; }
       else MIPS[i].setSize(mw, mh);
@@ -343,20 +341,19 @@ function renderFrame() {
   let src = rtMain.texture, sw = rtMain.width, sh = rtMain.height;
   const du = matDown.uniforms;
   du.thr.value = POST.threshold;
-  const nb = QUALITY.bloomLevels;
-  for (let i = 0; i < nb; i++) {
+  for (let i = 0; i < MIPN; i++) {
     du.src.value = src; du.texel.value.set(1 / sw, 1 / sh); du.first.value = i === 0 ? 1 : 0;
     renderer.setRenderTarget(MIPS[i]); renderer.render(sceneDown, FS_CAM);
     src = MIPS[i].texture; sw = MIPS[i].width; sh = MIPS[i].height;
   }
   renderer.autoClear = false;
-  for (let i = nb - 1; i > 0; i--) {
+  for (let i = MIPN - 1; i > 0; i--) {
     matUp.uniforms.src.value = MIPS[i].texture; matUp.uniforms.texel.value.set(1 / MIPS[i].width, 1 / MIPS[i].height);
     renderer.setRenderTarget(MIPS[i - 1]); renderer.render(sceneUp, FS_CAM);
   }
   renderer.autoClear = true;
   const cu = matComp.uniforms;
-  cu.tScene.value = rtMain.texture; cu.tBloom.value = MIPS[0].texture; cu.strength.value = POST.strength * QUALITY.bloomGain;
+  cu.tScene.value = rtMain.texture; cu.tBloom.value = MIPS[0].texture; cu.strength.value = POST.strength;
   cu.expo.value = POST.exposure; cu.sat.value = POST.saturation; cu.vig.value = POST.vignette;
   cu.tint.value.copy(POST.tint); cu.tintAmt.value = POST.tintAmt;
   renderer.setRenderTarget(null);
@@ -367,16 +364,10 @@ function renderFrame() {
 // perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
 // doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
 const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false,
-  slow: 0, bad: 0, top: 0, playT: 0, hz: { n: 0, fast: 0 }, hz120: false, t120: false };
-const PERF_KEY = 'fezaKotulereKarsi.t120';   // the 120 Hz tablet level this device holds: {l, top} (saved in the first 5 min of play, before heat)
+  hz: { n: 0, fast: 0 }, hz120: false, t120: false };
 function perfLadder() {
   const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
   L.push({ dpr: d0, msaa: m0 });
-  if (PERF.t120) {   // 120 Hz tablet: resolution first in small steps (MSAA 2× is cheap on the iPad's GPU), MSAA off only at the end
-    for (let d = d0; d > QUALITY.minDpr + 1e-3;) { d = Math.max(QUALITY.minDpr, d - 0.125); L.push({ dpr: d, msaa: m0 }); }
-    if (m0 > 0) L.push({ dpr: Math.min(d0, QUALITY.minDpr), msaa: 0 });
-    return L;
-  }
   if (m0 > 2) L.push({ dpr: d0, msaa: 2 });
   if (m0 > 0) L.push({ dpr: d0, msaa: 0 });
   for (let d = d0; d > QUALITY.minDpr + 1e-3;) { d = Math.max(QUALITY.minDpr, d - 0.25); L.push({ dpr: d, msaa: 0 }); }
@@ -386,10 +377,9 @@ function perfSet(i) {
   const q = PERF.ladder[i];
   PERF.level = i; QUALITY.dpr = q.dpr; QUALITY.msaa = q.msaa;
   resizeRenderer();
-  if (PERF.t120 && PERF.playT < 300) { try { localStorage.setItem(PERF_KEY, JSON.stringify({ l: i, top: PERF.top })); } catch (e) {} }
   if (DEBUG) console.log('quality ' + i + ': dpr ' + q.dpr + ' msaa ' + q.msaa + ' (' + PERF.fps.toFixed(1) + ' fps)');
 }
-function perfReset(grace = 1) { PERF.acc = 0; PERF.n = 0; PERF.slow = 0; PERF.grace = grace; }
+function perfReset(grace = 1) { PERF.acc = 0; PERF.n = 0; PERF.grace = grace; }
 function perfActive() {
   if (document.hidden) return false;
   if (typeof UI !== 'undefined' && UI && (UI.mode !== 'play' || UI.menu || UI.paused)) return false;
@@ -397,19 +387,17 @@ function perfActive() {
   return true;
 }
 function perfTick(rawDt, active) {
+  if (PERF.t120) return;   // 120 Hz tablet: fixed settings (tablet120On)
   if (active === undefined) active = perfActive();
   if (!active || !(rawDt > 0)) { PERF.was = false; return; }
   if (!PERF.was || rawDt > 0.25) { PERF.was = true; perfReset(1); return; }   // play (re)starts, zone load, tab was hidden
-  PERF.playT += rawDt;
   if (PERF.grace > 0) { PERF.grace -= rawDt; return; }                        // let shader warm-up hitches pass
   PERF.acc += rawDt; PERF.n++;
-  if (rawDt > 0.0125) PERF.slow++;   // missed a 120 Hz deadline (8.3 ms)
   if (PERF.acc < 2.5) return;
-  const win = PERF.acc, fps = PERF.fps = PERF.n / PERF.acc, slow = PERF.slow / PERF.n;
-  PERF.acc = 0; PERF.n = 0; PERF.slow = 0;
+  const win = PERF.acc, fps = PERF.fps = PERF.n / PERF.acc;
+  PERF.acc = 0; PERF.n = 0;
   const L = PERF.ladder;
   if (PERF.level === 0 && (!L.length || L[0].dpr !== QUALITY.dpr || L[0].msaa !== QUALITY.msaa)) PERF.ladder = perfLadder();
-  if (PERF.t120) { perfWin120(win, fps, slow); return; }
   if (PERF.probe) {
     const pr = PERF.probe; PERF.probe = null;
     if (fps < 50 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
@@ -429,28 +417,18 @@ function perfTick(rawDt, active) {
   if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
 }
 
-// ── 120 Hz tablets (parent: "tablette sabit 120 olsun, gerekirse biraz gölge ve çözünürlük kalitesi azaltarak") ──
-// On a ProMotion iPad (Safari's "Prefer Page Rendering Updates near 60fps" off) the full picture runs ~95 FPS, and measured at iPad size the
-// frame is GPU-bound and ~80 % per-pixel. tablet120On: resolution 1.25× (−23 %), bloom chain from 1/4 resolution with 4 levels (−5 %, the
-// glow stays as wide; gain 1.12 keeps its brightness), sun shadow 1536² (−1 %). Then perfWin120 lowers the resolution further while frames
-// still miss the deadline. PC and Mac never get here; a tablet whose screen/browser gives 60 Hz keeps the full picture.
+// ── 120 Hz tablets (parent: "tablette sabit 120 olsun"; then "çözünürlüğü 1.00×'e sabitlesek ve MSAA 2 yapsak") ──
+// On a ProMotion iPad (Safari's "Prefer Page Rendering Updates near 60fps" off) the full picture ran ~95 FPS: GPU-bound, ~80 % per-pixel.
+// A resolution ladder (1.25× → 1.125×) still stuttered, so a 120 Hz tablet gets fixed settings instead: resolution 1.0× (−45 % GPU time,
+// measured at iPad size) and MSAA 2×, full bloom and shadows, no automatic changes. PC and Mac never get here; a tablet whose
+// screen/browser gives 60 Hz keeps its full picture and the normal watchdog.
 function tablet120On() {
   if (PERF.t120 || !QUALITY.tablet || Q.has('hd')) return;   // ?hd: full quality for screenshots
   PERF.t120 = true;
-  QUALITY.dpr = Math.min(QUALITY.dpr, 1.25);
-  QUALITY.bloomFrom = 2; QUALITY.bloomLevels = 4; QUALITY.bloomGain = 1.12;
-  const sh = LIGHTS.sun.shadow;
-  sh.mapSize.set(1536, 1536);
-  if (sh.map) { sh.map.dispose(); sh.map = null; }   // three.js makes the new map at the next shadow pass
-  PERF.level = 0; PERF.ladder = perfLadder(); PERF.probe = null; PERF.capFps = 0; PERF.good = 0; PERF.bad = 0;
-  PERF.upWait = 30; PERF.upJust = false; PERF.top = 0;
-  // start at the level this tablet held last time (no stutter while it finds it again)
-  let saved = null; try { saved = JSON.parse(localStorage.getItem(PERF_KEY) || 'null'); } catch (e) {}
-  const n = PERF.ladder.length - 1;
-  if (saved && saved.l >= 0) {
-    PERF.top = clamp(saved.top | 0, 0, n);
-    const q = PERF.ladder[PERF.level = clamp(saved.l | 0, PERF.top, n)]; QUALITY.dpr = q.dpr; QUALITY.msaa = q.msaa;
-  }
+  QUALITY.dpr = Math.min(QUALITY.dpr, 1); QUALITY.minDpr = QUALITY.dpr;
+  if (!Q.has('msaa')) QUALITY.msaa = 2;
+  PERF.level = 0; PERF.ladder = [{ dpr: QUALITY.dpr, msaa: QUALITY.msaa }]; PERF.probe = null;
+  try { localStorage.removeItem('fezaKotulereKarsi.t120'); } catch (e) {}   // the earlier ladder's saved level
   resizeRenderer(); perfReset(1);
   if (DEBUG) console.log('tablet 120: dpr ' + QUALITY.dpr + ' msaa ' + QUALITY.msaa);
 }
@@ -463,31 +441,6 @@ function perfHz(rawDt) {
   if (h.n < 90) return;
   if (h.fast >= 14) { PERF.hz120 = true; tablet120On(); }
   h.n = 0; h.fast = 0;
-}
-// One 2.5 s window at 120 Hz. slow = share of frames that missed the deadline. Steps down after 2 windows in a row with > 1.5 % (a 115 FPS
-// average is ~4 %: steady micro-stutter; at once when a quarter miss), undoes a step that didn't help (then something else caps the rate:
-// Low Power Mode 30 fps), steps back up after upWait s of clean frames (≤ 0.4 % missed), never above the start. A step up that fails sets
-// PERF.top: that level is not tried again (saved per device) — no up-and-down.
-function perfWin120(win, fps, slow) {
-  if (PERF.probe) {
-    const pr = PERF.probe; PERF.probe = null;
-    if (slow > 0.015 && slow > pr.slow * 0.7 && fps < pr.fps * 1.05) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no better → undo
-  }
-  if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;   // the cap is gone
-  if (slow > 0.015) {
-    PERF.good = 0;
-    if (PERF.upJust) { PERF.top = PERF.level + 1; PERF.bad = 2; } else PERF.bad++;   // a failed step up goes back at once, for good
-    PERF.upJust = false;
-    if (PERF.capFps && fps > PERF.capFps * 0.9) return;   // still the known cap
-    if ((PERF.bad >= 2 || slow > 0.25) && PERF.level < PERF.ladder.length - 1) {
-      PERF.bad = 0; PERF.probe = { from: PERF.level, fps, slow }; perfSet(PERF.level + 1); perfReset(0.5);
-    }
-    return;
-  }
-  PERF.bad = 0; PERF.upJust = false;
-  if (slow > 0.004) { PERF.good = 0; return; }
-  PERF.capFps = 0; PERF.good += win;
-  if (PERF.level > PERF.top && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
 }
 
 // ── Kamera ──
