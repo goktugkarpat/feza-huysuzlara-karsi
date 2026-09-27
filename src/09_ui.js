@@ -707,6 +707,7 @@ const UI = (() => {
     addEventListener('keydown', e => {
       const c = e.code;
       if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills, Q on the potion
+      if (e.key === '.' || c === 'NumpadDecimal') { if (!e.repeat) toggleFps(); e.preventDefault(); return; }   // by character: '.' sits elsewhere on a Turkish keyboard
       if (S.mode === 'choose') {
         if (c === 'Escape') { e.preventDefault(); closeChoice(); }
         else if (c === 'ArrowLeft' || c === 'ArrowRight') {
@@ -2439,6 +2440,28 @@ const UI = (() => {
   // Other devices retain the requested 120 FPS ceiling.
   const nativeIPadRaf = /iPad/i.test(navigator.userAgent) || (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
   const frameRate = 120;
+  // FPS meter for the parent: the "." key toggles it (no button; ?fps on the address starts it on, handy on an iPad).
+  // Counts the frames really drawn, the average frame time, the automatic quality level and the longest frame of the window.
+  const FPSM = { el: null, n: 0, t0: 0, worst: 0 };
+  function toggleFps(on = !FPSM.el) {
+    if (!on) { if (FPSM.el) FPSM.el.remove(); FPSM.el = null; return; }
+    if (FPSM.el) return;
+    FPSM.el = document.createElement('div'); FPSM.el.className = 'u-fps'; FPSM.el.textContent = 'FPS ölçülüyor…';
+    document.body.appendChild(FPSM.el); FPSM.t0 = 0; FPSM.n = 0; FPSM.worst = 0;
+  }
+  function fpsTick(ts, raw) {
+    const m = FPSM; if (!m.el) return;
+    if (S.paused || S.menu) { m.el.textContent = 'FPS · mola'; m.t0 = 0; return; }   // nothing is drawn while a menu is open
+    if (!m.t0) { m.t0 = ts; m.n = 0; m.worst = 0; return; }
+    m.n++; if (raw > m.worst) m.worst = raw;
+    const span = ts - m.t0;
+    if (span < 500) return;
+    const q = typeof QUALITY !== 'undefined' ? QUALITY : null;
+    m.el.textContent = Math.round(m.n * 1000 / span) + ' FPS · ' + (span / m.n).toFixed(1) + ' ms'   // two lines: fits a narrow phone
+      + (m.worst > 0.034 ? ' · en uzun ' + Math.round(m.worst * 1000) + ' ms' : '')
+      + (q ? '\nçözünürlük ' + (+q.dpr.toFixed(2)) + '× · MSAA ' + q.msaa + '×' : '');
+    m.t0 = ts; m.n = 0; m.worst = 0;
+  }
   function frame(ts) {
     requestAnimationFrame(frame);
     if (!nativeIPadRaf) {
@@ -2452,6 +2475,7 @@ const UI = (() => {
     const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / frameRate;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);
+    fpsTick(ts, raw);
   }
   // One frame; every module call is isolated so a failing module never stops the loop (no per-frame closures).
   function step(dt, raw, render) {
@@ -2494,6 +2518,7 @@ const UI = (() => {
     onResize();
     RESIZE_HOOKS.push(onResize);
     loadPrefs(); syncToggles();
+    if (Q.has('fps')) toggleFps(true);
     if (M.AUD) M.AUD.onSubtitle = subtitle;
     bindInput();
     // let the loading spinner paint before the heavy synchronous setup
