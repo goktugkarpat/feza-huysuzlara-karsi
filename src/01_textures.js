@@ -1,17 +1,20 @@
 /* ── Dokular: prosedürel, döşenebilir yüzey dokuları (renk + normal haritası) ──
-   TEX.init() ortak ve orman yüzeylerini üretir; mağara/yanardağ/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir.
+   TEX.init() ortak ve orman yüzeylerini üretir; kefir/mağara/yanardağ/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir;
+   TEX.release(tema) / TEX.keepOnly(bölge) geride kalan bölgelerin yüzeylerini bellekten atar (gerekirse yeniden üretilir).
    Her yüzey: TEX.<ad> = { map, normalMap } (init'ten sonra hepsi var); TEX.M.<ad> = bir karonun metre boyu.
    normalMap'in alfa kanalı yüksekliği (0..1) taşır (zemin karışımlarında "yüksekliğe göre geçiş" için). */
 const TEX = (function () {
   'use strict';
   // Metres covered by one texture tile.
   const M = { grass: 4, dirt: 3, cobble: 3, caveFloor: 4, caveSand: 3, castleFloor: 4, carpet: 2, brick: 2, rock: 3, wood: 1,
-    bark: 1, roof: 2, plaster: 1, leaves: 2, fabric: 0.5, metal: 0.5, moss: 2, basalt: 4, ash: 3, lava: 6 };
+    bark: 1, roof: 2, plaster: 1, leaves: 2, fabric: 0.5, metal: 0.5, moss: 2, basalt: 4, ash: 3, lava: 6,
+    yogurt: 4, biscuit: 3, cheese: 4, milk: 6, swiss: 1.5 };
   // Suggested material settings (TEX.mat): roughness, normalScale, metalness.
   const HINT = { grass: [0.9, 1], dirt: [0.95, 1], cobble: [0.8, 1], caveFloor: [0.75, 1], caveSand: [0.95, 1], castleFloor: [0.32, 0.8],
     carpet: [0.95, 0.8], brick: [0.85, 1], rock: [0.85, 1], wood: [0.7, 1], bark: [0.9, 1], roof: [0.55, 1], plaster: [0.9, 1],
     leaves: [0.7, 0.9], fabric: [0.9, 0.8], metal: [0.35, 0.6, 1], moss: [0.95, 1], shirt: [0.85, 0.6],
-    basalt: [0.78, 1], ash: [0.96, 1], lava: [0.55, 0.7] };
+    basalt: [0.78, 1], ash: [0.96, 1], lava: [0.55, 0.7],
+    yogurt: [0.46, 0.75], biscuit: [0.88, 1], cheese: [0.5, 0.85], milk: [0.22, 0.5], swiss: [0.48, 0.8] };
 
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const fract = x => x - Math.floor(x);
@@ -864,6 +867,318 @@ const TEX = (function () {
     return surf(A, H, S, 3);
   }
 
+  // ───────────────────── Dairy surfaces (Kefir Vadisi; TEX.ensure('dairy') or on first use) ─────────────────────
+  // Cavity shading for food: grooves darken warmly (red kept, blue lowered — like light in cream or cheese), never towards grey.
+  function cavityWarm(A, H, S, r, k, lo, hi = 1.05) {
+    const B = blur(blur(H, S, r), S, r), n = S * S;
+    for (let i = 0, o = 0; i < n; i++, o += 4) {
+      const f = clamp(1 + (H[i] - B[i]) * k, lo, hi);
+      if (f < 1) { A[o] *= 1 - (1 - f) * 0.62; A[o + 1] *= 1 - (1 - f) * 0.95; A[o + 2] *= 1 - (1 - f) * 1.3; }
+      else { A[o] *= f; A[o + 1] *= f; A[o + 2] *= f; }
+    }
+  }
+  // One irregular rounded lump (crumb, berry bit, bubble) sitting on the height field; hb = base height (default: height at its centre).
+  function lump(A, H, S, cx, cy, rr, asp, an, c, br, ht, hb, wob = 0.12, shade = 0.26) {
+    const m = S - 1, ca = Math.cos(an), sa = Math.sin(an), ry = rr * asp, ext = rr * 1.3 + 1, p1 = cx * 1.7 + cy, p2 = cx - cy * 1.3;
+    if (hb === undefined) hb = H[((cy | 0) & m) * S + ((cx | 0) & m)] + 0.02;
+    for (let py = Math.floor(cy - ext); py <= cy + ext; py++) for (let px = Math.floor(cx - ext); px <= cx + ext; px++) {
+      const qx = px + 0.5 - cx, qy = py + 0.5 - cy, u = (qx * ca + qy * sa) / rr, v = (-qx * sa + qy * ca) / ry;
+      const d0 = Math.sqrt(u * u + v * v); if (d0 > 1.45) continue;
+      const th = Math.atan2(v, u), d = d0 / (1 + wob * Math.sin(2 * th + p1) + wob * 0.6 * Math.sin(3 * th + p2));
+      const cov = clamp((1 - d) * ry + 0.5, 0, 1); if (cov <= 0) continue;
+      const dome = Math.sqrt(Math.max(0, 1 - d * d)), h = hb + dome * ht, i = (py & m) * S + (px & m);
+      if (h <= H[i]) continue;
+      const sh = br * (1 - shade + shade * Math.sqrt(dome));
+      blend(A, i, c[0] * sh, c[1] * sh, c[2] * sh, cov);
+      H[i] += (h - H[i]) * cov;
+    }
+  }
+  // Soft round highlight spot (baked glint on glossy berries / bubbles).
+  function glint(A, S, cx, cy, r, a, c = [255, 250, 244]) {
+    const m = S - 1;
+    for (let py = Math.floor(cy - r - 1); py <= cy + r + 1; py++) for (let px = Math.floor(cx - r - 1); px <= cx + r + 1; px++) {
+      const d = hyp(px + 0.5 - cx, py + 0.5 - cy) / r; if (d >= 1) continue;
+      blend(A, (py & m) * S + (px & m), c[0], c[1], c[2], (1 - d * d) * a);
+    }
+  }
+
+  // Walkable Kefir Vadisi ground: thick strained yogurt spread with a spatula — a few broad curved strokes, each one smoothing the
+  // cream flat (slightly tilted) and pushing a low, soft ridge up along one edge (broad and barely brighter, so at the 4 m repeat it
+  // reads as smooth swirled cream, not as sunlight caustics on wet sand), one soft-serve swirl dollop (only one, so the repeat
+  // doesn't show), two shallow spoon scoops (an egg-shaped dent with the pushed-up cream on its front lip, a touch of whey inside)
+  // and sparse tiny air pores. Near-white cream (the floor shader's tint and cavityWarm add the warmth; shading warms towards
+  // beige, never grey). The same maps give the glossy yogurt hills (06 M.yog, triplanar), so the relief stays gentle.
+  // The strokes are broad and smooth, so they are drawn at half resolution and upsampled (4× cheaper; ~20 ms instead of ~50 on JSC).
+  function genYogurt() {
+    const S = 512, n = S * S, m = S - 1, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n), LIP = new Float32Array(n);
+    const big = fbm(S, 4, 3, 305), fine = fbm(S, 64, 2, 8), grit = fbm(S, 128, 1, 7);
+    const pal = ramp([[0, 0xe4dccd], [0.45, 0xefe9de], [0.8, 0xf5f1e8], [1, 0xf9f6ef]]);   // near-white, a hair creamier and darker than the milk
+    const Sh = 256, mh = Sh - 1, und = fbm(Sh, 5, 3, 306), mid = fbm(Sh, 12, 3, 308), Hh = new Float32Array(Sh * Sh), Lh = new Float32Array(Sh * Sh);
+    for (let i = 0; i < Sh * Sh; i++) Hh[i] = und[i] * 0.42 + (mid[i] - 0.5) * 0.08;
+    const R = mulberry32(307);
+    // spatula strokes (half-res): arcs of a circle (centre cx,cy radius Rr), band half-width hw tapering where the spatula lifts off
+    for (let s = 0; s < 14; s++) {
+      const cx = R() * Sh, cy = R() * Sh, Rr = (60 + R() * 120) / 2, w = (30 + R() * 30) / 2, len = (90 + R() * 150) / 2, span = len / Rr, a0 = R() * TAU;
+      const sg = R() < 0.5 ? 1 : -1, lv = (R() - 0.5) * 0.05, tilt = 0.05 + R() * 0.06, lipH = 0.05 + R() * 0.04;
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+      for (let q = 0; q <= 16; q++) { const a = a0 + span * q / 16, x = cx + Math.cos(a) * Rr, y = cy + Math.sin(a) * Rr; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const pad = w * 1.6 + 1, rA = Math.max(0, Rr - pad), rB = Rr + pad, bx0 = Math.floor(x0 - pad), bx1 = Math.ceil(x1 + pad);
+      const px_ = (px, py, qy) => {
+        const qx = px + 0.5 - cx, r = hyp(qx, qy);
+        let da = Math.atan2(qy, qx) - a0; da -= Math.floor(da / TAU) * TAU;
+        const t = da / span; if (t > 1.08) return;
+        const hw = w * (1 - 0.6 * ss(0.55, 1.05, t)) * (0.8 + 0.2 * ss(0, 0.2, t)), sc = (r - Rr) / hw * sg, as = Math.abs(sc);
+        if (as > 1.6) return;
+        const ca = ss(-0.02, 0.1, t) * (1 - ss(0.94, 1.08, t)), i = (py & mh) * Sh + (px & mh);
+        const cov = ca * (1 - ss(0.7, 1, as)) * 0.92, tgt = und[i] * 0.42 + lv + tilt * sc + (mid[i] - 0.5) * 0.02;
+        Hh[i] += (tgt - Hh[i]) * cov;
+        const e1 = (sc - 0.9) / 0.3, e2 = (sc + 0.95) / 0.22;
+        const lp = ca * lipH * ((e1 < 3 && e1 > -3 ? Math.exp(-e1 * e1) : 0) + (e2 < 3 && e2 > -3 ? 0.25 * Math.exp(-e2 * e2) : 0));
+        if (lp > 0.002) { Hh[i] += lp; Lh[i] = Math.max(Lh[i] * (1 - cov), lp / 0.16); }
+        else Lh[i] *= 1 - cov;
+      };
+      // only the pixels of the ring rA..rB on each row (two spans), clipped to the arc's bounding box
+      for (let py = Math.floor(y0 - pad); py <= y1 + pad; py++) {
+        const qy = py + 0.5 - cy, q2 = qy * qy; if (q2 >= rB * rB) continue;
+        const xo = Math.sqrt(rB * rB - q2), xi = q2 < rA * rA ? Math.sqrt(rA * rA - q2) : 0;
+        const l0 = Math.max(bx0, Math.floor(cx - xo)), l1 = Math.min(bx1, Math.ceil(cx - xi)), r0 = Math.max(bx0, Math.floor(cx + xi)), r1 = Math.min(bx1, Math.ceil(cx + xo));
+        for (let px = l0; px <= l1; px++) px_(px, py, qy);
+        for (let px = Math.max(r0, l1 + 1); px <= r1; px++) px_(px, py, qy);
+      }
+    }
+    const MID = new Float32Array(n);   // upsample (bilinear, wrapping) + full-res fine detail
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
+      const hx = (x + 0.5) * 0.5, hy = (y + 0.5) * 0.5;
+      H[i] = samp(Hh, Sh, hx, hy) + (fine[i] - 0.5) * 0.015 + (grit[i] - 0.5) * 0.005; LIP[i] = samp(Lh, Sh, hx, hy); MID[i] = samp(mid, Sh, hx, hy);
+    }
+    // soft-serve swirl dollops: a spiral ridge winding up to a little peak
+    for (let s = 0; s < 1; s++) {
+      const cx = R() * S, cy = R() * S, Rr = 52 + R() * 16, turns = 2.2 + R() * 0.8, dir = R() < 0.5 ? -1 : 1, ph = R();
+      for (let py = Math.floor(cy - Rr); py <= cy + Rr; py++) for (let px = Math.floor(cx - Rr); px <= cx + Rr; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, r = hyp(qx, qy) / Rr; if (r >= 1) continue;
+        const i = (py & m) * S + (px & m), sp = r * turns + dir * Math.atan2(qy, qx) / TAU + ph;
+        const band = 0.5 + 0.5 * Math.cos(TAU * sp), w = (1 - r * r) * (1 - r * r);
+        const pk = Math.max(0, 1 - (r / 0.26) * (r / 0.26)), peak = 0.2 * pk * pk;   // soft rounded tip (no sharp point)
+        const hs = H[i] * 0.4 + 0.3 + (band * 0.34 + (1 - r) * 0.3) * (1 - r * 0.5) + peak;
+        H[i] += (hs - H[i]) * w; LIP[i] += (band * 0.8 - LIP[i]) * w;
+      }
+    }
+    // spoon scoops: an egg-shaped dent (the spoon's bowl, wider at the front) with the cream it pushed piled up on its front lip
+    // (relief only: no lip brightening, so no bright rings)
+    const WH = new Float32Array(n);   // a touch of whey shine inside
+    for (let s = 0; s < 2; s++) {
+      const cx = R() * S, cy = R() * S, L = 18 + R() * 12, W = L * (0.66 + R() * 0.12), an = R() * TAU, dep = 0.2 + R() * 0.08;
+      const ca = Math.cos(an), sa = Math.sin(an), ext = L * 1.7 + 3;
+      for (let py = Math.floor(cy - ext); py <= cy + ext; py++) for (let px = Math.floor(cx - ext); px <= cx + ext; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, u = (qx * ca + qy * sa) / L, v = (-qx * sa + qy * ca) / (W * (1 + 0.14 * clamp(u, -1, 1)));
+        const d = Math.sqrt(u * u + v * v); if (d > 1.6) continue;
+        const i = (py & m) * S + (px & m);
+        let dh = 0;
+        if (d < 1) { const b = 1 - d * d; dh -= dep * b * (0.85 + 0.15 * u); WH[i] = Math.max(WH[i], ss(0.3, 0.95, b)); }
+        const e = (d - 1.14) / 0.24, lp = 0.11 * Math.exp(-e * e) * (0.3 + 0.7 * ss(-0.5, 0.9, u));   // soft piled-up lip, mostly in front
+        dh += lp;
+        H[i] += dh;
+      }
+    }
+    // tiny air pores
+    for (let q = 0; q < 120; q++) {
+      const cx = R() * S, cy = R() * S, rr = 0.9 + R() * 1.4;
+      for (let py = Math.floor(cy - rr - 1); py <= cy + rr + 1; py++) for (let px = Math.floor(cx - rr - 1); px <= cx + rr + 1; px++) {
+        const d = hyp(px + 0.5 - cx, py + 0.5 - cy) / rr; if (d >= 1) continue;
+        H[(py & m) * S + (px & m)] -= 0.035 * (1 - d * d);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      paint(A, i, pal, 0.36 + big[i] * 0.32 + Math.min(1, LIP[i]) * 0.12 + (MID[i] - 0.5) * 0.1 + (fine[i] - 0.5) * 0.05, 1);
+      const wh = WH[i] * 0.22;
+      if (wh > 0) blend(A, i, 236, 226, 200, wh);   // a hint of whey
+    }
+    cavityWarm(A, H, S, 4, 1.4, 0.76, 1.04);
+    return surf(A, H, S, 3.4);
+  }
+
+  // Kefir Vadisi path: packed golden biscuit crumbs with granola clusters (honey-toasted lumps), pale oat flakes with fine lines and
+  // toasted rims, and a few glossy berry bits (dried cranberry, blueberry, strawberry). Warm golden — clearly not the forest dirt.
+  function genBiscuit() {
+    const S = 512, n = S * S, m = S - 1, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const big = fbm(S, 5, 4, 601), mid = fbm(S, 16, 3, 602), fine = fbm(S, 128, 1, 7), grain = fbm(S, 64, 2, 8);
+    const pal = ramp([[0, 0xa66f2c], [0.4, 0xcc964a], [0.75, 0xe2b467], [1, 0xf0cd88]]);
+    for (let i = 0; i < n; i++) {
+      paint(A, i, pal, 0.18 + big[i] * 0.34 + mid[i] * 0.3 + (grain[i] - 0.5) * 0.24, 1);
+      H[i] = big[i] * 0.25 + mid[i] * 0.2 + grain[i] * 0.1 + fine[i] * 0.06;
+    }
+    const crumb = [0xe8bc70, 0xd8a458, 0xc68c42, 0xf2d290, 0xb87c38, 0xe0b066];
+    pebbles(A, H, S, 603, 1500, 1.4, 4.6, crumb, 0.3, 2.2);
+    const R = mulberry32(604), T = [0xc98e46, 0xb97c38, 0xd9a458, 0xa96e32, 0xd29a50].map(hex3);
+    // granola clusters: packed toasted lumps, a honey glint on some
+    for (let c = 0; c < 62; c++) {
+      const cx = R() * S, cy = R() * S, k = 4 + ((R() * 5) | 0), cr = 6 + R() * 6, hb = H[((cy | 0) & m) * S + ((cx | 0) & m)] + 0.04;
+      for (let q = 0; q < k; q++) {
+        const a = R() * TAU, rd = cr * Math.sqrt(R()), rr = 3.4 + R() * 3.6;
+        lump(A, H, S, cx + Math.cos(a) * rd, cy + Math.sin(a) * rd, rr, 0.7 + R() * 0.3, R() * Math.PI, T[(R() * T.length) | 0], 0.88 + R() * 0.24,
+          0.2 + rr * 0.03, hb + R() * 0.08, 0.2, 0.34);
+      }
+      if (R() < 0.45) glint(A, S, cx - 1.5, cy - 1.5, 2.2 + R() * 1.4, 0.35, [255, 226, 150]);
+    }
+    // oat flakes
+    for (let f = 0; f < 58; f++) {
+      const cx = R() * S, cy = R() * S, L = 12 + R() * 8, W = L * (0.56 + R() * 0.18), an = R() * TAU, ca = Math.cos(an), sa = Math.sin(an);
+      const hb = H[((cy | 0) & m) * S + ((cx | 0) & m)] + 0.05, tilt = (R() - 0.5) * 0.3, curl = 0.05 + R() * 0.08, p1 = R() * TAU, p2 = R() * TAU;
+      const tone = 0.9 + R() * 0.14, toast = R() * 0.5, ext = L * 1.35 + 2;
+      for (let py = Math.floor(cy - ext); py <= cy + ext; py++) for (let px = Math.floor(cx - ext); px <= cx + ext; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, u = (qx * ca + qy * sa) / L, v = (-qx * sa + qy * ca) / W;
+        const d0 = Math.sqrt(u * u + v * v); if (d0 > 1.3) continue;
+        const th = Math.atan2(v, u), d = d0 / (1 + 0.08 * Math.sin(3 * th + p1) + 0.05 * Math.sin(5 * th + p2));
+        const cov = clamp((1 - d) * W + 0.5, 0, 1); if (cov <= 0) continue;
+        const edge = ss(0.55, 1, d), stri = 0.5 + 0.5 * Math.sin(v * W * 1.7 + u * 1.5 + p1), i = (py & m) * S + (px & m);
+        const h = hb + 0.2 + tilt * u + curl * v * v + edge * 0.03 + stri * 0.012;
+        if (h <= H[i]) continue;
+        const e = clamp(edge * (0.55 + toast), 0, 1), s = tone * (0.95 + 0.05 * stri);
+        blend(A, i, (236 + (200 - 236) * e) * s, (204 + (144 - 204) * e) * s, (140 + (74 - 140) * e) * s, cov);
+        H[i] += (h - H[i]) * cov;
+      }
+    }
+    pebbles(A, H, S, 605, 240, 3, 8.5, [0xd9a456, 0xc58a40, 0xe6bc72, 0xb57a36, 0xf0cf8e], 0.42, 2.4);
+    // berry bits: a few glossy dried cranberries, blueberries and strawberry pieces
+    const BER = [[[184, 36, 60], [150, 22, 46]], [[70, 62, 150], [48, 42, 112]], [[222, 70, 88], [246, 160, 168]]];
+    for (let b = 0; b < 12; b++) {
+      const cx = R() * S, cy = R() * S, kind = b % 3, rr = 5 + R() * 4.5, an = R() * Math.PI, asp = kind === 1 ? 0.85 + R() * 0.15 : 0.6 + R() * 0.3;
+      const hb = H[((cy | 0) & m) * S + ((cx | 0) & m)] + 0.08, c = BER[kind];
+      lump(A, H, S, cx, cy, rr, asp, an, c[0], 0.95 + R() * 0.1, 0.3, hb, kind === 1 ? 0.06 : 0.22, 0.42);
+      if (kind === 2) lump(A, H, S, cx + 0.8, cy - 0.6, rr * 0.55, asp, an, c[1], 1, 0.3, hb + 0.02, 0.25, 0.1);   // pale strawberry inside
+      if (kind === 0) lump(A, H, S, cx - 1, cy + 1, rr * 0.5, asp, an + 1, c[1], 1, 0.32, hb, 0.3, 0.3);             // cranberry wrinkle
+      glint(A, S, cx - rr * 0.3, cy - rr * 0.3, rr * 0.35, 0.55);
+    }
+    cavityWarm(A, H, S, 3, 1.3, 0.64, 1.08);
+    return surf(A, H, S, 3.5);
+  }
+
+  // Swiss cheese: warm yellow blocks (joints = true: plaza/arena slabs, 1 m rows in a loose running bond, bevelled with a slightly
+  // deeper golden rind along the edges, narrow warm gaps) or one jointless slab (joints = false: props such as wheels and wedges).
+  // Round holes ("eyes") of many sizes — a few big, most small — are smooth craters, darker and more golden inside, with a softly lit lip;
+  // holes crossing a block edge cut into the bevel. No block may stand out (colour spread is soft-limited).
+  function genCheese(S = 512, joints = true) {
+    const n = S * S, m = S - 1, k = S / 512, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wob = fbm(S, 16, 3, 501), mot = fbm(S, 8, 4, 502), fine = fbm(S, Math.min(128, S / 4), 1, 7), grit = fbm(S, 64, 2, 8), big = fbm(S, 3, 3, 503);
+    const RH = 128 * k, NB = 3, rows = S / RH, R = mulberry32(504), J = [];
+    for (let r = 0; r < rows; r++) {
+      const off = (r & 1 ? S / NB / 2 : 0) + (R() - 0.5) * 50 * k, js = [];
+      for (let q = 0; q < NB; q++) js.push(((off + q * S / NB + (R() - 0.5) * 50 * k) % S + S) % S);
+      J.push(js.sort((a, b) => a - b));
+    }
+    const pal = [0xf4c647, 0xf8d25a, 0xf1be3e, 0xf9d766, 0xf0c34c, 0xf6cc52, 0xf3c955].map(hex3), NBk = rows * 8;
+    const BR = new Float32Array(NBk), BG = new Float32Array(NBk), BB = new Float32Array(NBk), BH = new Float32Array(NBk);
+    for (let id = 0; id < NBk; id++) { const c = pal[(hash(id, 3) * pal.length) | 0], s = 0.95 + hash(id, 4) * 0.08; BR[id] = c[0] * s; BG[id] = c[1] * s; BB[id] = c[2] * s; BH[id] = hash(id, 2); }
+    const RIM = [230, 164, 54];
+    for (let y = 0, i = 0; y < S; y++) {
+      const r = (y / RH) | 0, ly = (y % RH) + 0.5, js = J[r];
+      for (let x = 0; x < S; x++, i++) {
+        let e = 999, id = 0, j0 = 2.6 * k;
+        if (joints) {
+          const X = x + 0.5; let q = NB - 1;
+          for (let t = 0; t < NB; t++) if (X >= js[t]) q = t;
+          const a = js[q], b = q < NB - 1 ? js[q + 1] : js[0] + S, lx = X >= a ? X - a : X + S - a, bw = b - a;
+          const dx = Math.min(lx, bw - lx), dy = Math.min(ly, RH - ly), rc = 14 * k;
+          e = (dx < rc && dy < rc) ? rc - hyp(rc - dx, rc - dy) : Math.min(dx, dy);
+          e += (wob[i] - 0.5) * 3 * k; id = r * 8 + q; j0 += grit[i] * 1.2 * k;
+        }
+        const t = clamp((e - j0) / (12 * k), 0, 1), bev = Math.sqrt(1 - (1 - t) * (1 - t)), cov = clamp(e - j0 + 0.5, 0, 1);
+        const hs = 0.3 + bev * (0.55 + BH[id] * 0.08) + (mot[i] - 0.5) * 0.05 + (fine[i] - 0.5) * 0.012, hm = 0.04 + grit[i] * 0.04;
+        H[i] = hm + (Math.max(hs, hm) - hm) * cov;
+        const br = (0.93 + mot[i] * 0.1 + (fine[i] - 0.5) * 0.03) * (0.84 + 0.16 * bev) * (1 + (big[i] - 0.5) * 0.06);
+        let cr = BR[id] * br, cg = BG[id] * br, cb = BB[id] * br;
+        const rind = (1 - ss(0, 0.8, t)) * 0.55;
+        cr += (RIM[0] - cr) * rind; cg += (RIM[1] - cg) * rind; cb += (RIM[2] - cb) * rind;
+        const wax = ss(0.66, 0.92, mot[i]) * 0.12;   // faint paler waxy streaks
+        cr += (255 - cr) * wax; cg += (238 - cg) * wax; cb += (160 - cb) * wax;
+        const gk = 0.82 + grit[i] * 0.3, o = i * 4;
+        A[o] = 204 * gk + (cr - 204 * gk) * cov; A[o + 1] = 142 * gk + (cg - 142 * gk) * cov; A[o + 2] = 46 * gk + (cb - 46 * gk) * cov; A[o + 3] = 255;
+      }
+    }
+    // holes: smooth craters, darker/more golden inside, a lighter cut lip around them
+    const nh = Math.round(92 * k * k * (joints ? 1 : 1.25));
+    for (let h = 0; h < nh + 70 * k * k; h++) {
+      const pin = h >= nh, cx = R() * S, cy = R() * S, rr = pin ? (0.9 + R() * 1.3) * Math.max(1, k * 1.5) : (2.6 + 17 * Math.pow(R(), 2.3)) * (joints ? k : k * 1.3);
+      const asp = 0.84 + R() * 0.16, an = R() * Math.PI, ca = Math.cos(an), sa = Math.sin(an), dep = Math.min(0.55, 0.1 + rr * 0.025 / k), ext = rr * 1.35 + 1;
+      for (let py = Math.floor(cy - ext); py <= cy + ext; py++) for (let px = Math.floor(cx - ext); px <= cx + ext; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, u = (qx * ca + qy * sa) / rr, v = (-qx * sa + qy * ca) / (rr * asp), d = Math.sqrt(u * u + v * v);
+        if (d > 1.3) continue;
+        const i = (py & m) * S + (px & m), o = i * 4, c = clamp((1 - d) * rr * asp + 0.5, 0, 1);
+        if (d > 1) { if (!pin) { const l = (1 - (d - 1) / 0.3) * 0.12; blend(A, i, 255, 226, 120, l); H[i] += l * 0.1; } continue; }
+        const bowl = Math.sqrt(1 - d * d);
+        H[i] -= dep * bowl * c;
+        const f = 1 - (0.1 + 0.24 * bowl) * c;
+        A[o] *= 1 - (1 - f) * 0.35; A[o + 1] *= 1 - (1 - f) * 0.8; A[o + 2] *= 1 - (1 - f) * 1.4;
+      }
+    }
+    cavityWarm(A, H, S, 3, 1.0, 0.72, 1.05);
+    return surf(A, H, S, 3.6);
+  }
+
+  // Milk / kefir albedo for LEVEL's liquid shader (scrolled + wobbled like the lava): creamy white with soft wave ripples (integer
+  // wave vectors + tileable warp → seamless), faint cream marbling, two soft drop rings, and fizzy kefir bubbles (clusters + singles).
+  // A soft light is baked into the ripples so they also read in an unlit shader. normalMap: ripples and bubble domes; alpha (height)
+  // ≈ ripples, highest on the bubbles. Slightly cooler white than the creamy yogurt ground; tint it (e.g. warm ivory) for kefir.
+  function genMilk() {
+    const S = 512, n = S * S, m = S - 1, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wx = fbm(S, 3, 3, 401), wy = fbm(S, 3, 3, 402), cream = fbm(S, 3, 4, 403), fine = fbm(S, 32, 2, 404), big = fbm(S, 2, 3, 405);
+    const WV = [[3, 1, 0.5, 0], [-1, 4, 0.36, 1.3], [2, -5, 0.24, 2.1], [7, 3, 0.12, 0.4], [-6, 5, 0.08, 4.2], [11, -4, 0.045, 1.7], [-5, 13, 0.03, 3.3]];   // [kx, ky, amp, phase]
+    const pal = ramp([[0, 0xe6e3dd], [0.5, 0xf0eee9], [1, 0xf8f7f3]]);   // milk: a clean, slightly cooler white than the creamy yogurt ground
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
+      const X = (x + 0.5 + (wx[i] - 0.5) * 38) / S, Y = (y + 0.5 + (wy[i] - 0.5) * 38) / S;
+      let h = 0; for (let q = 0; q < WV.length; q++) { const w = WV[q]; h += Math.sin(TAU * (w[0] * X + w[1] * Y) + w[3]) * w[2]; }
+      h = h / (1 + Math.abs(h) * 0.35);                               // soften the crests a little (thick creamy liquid)
+      H[i] = h * 0.9;
+      paint(A, i, pal, 0.55 + h * 0.14 + (big[i] - 0.5) * 0.2 + (fine[i] - 0.5) * 0.04, 1);
+      const cm = ss(0.58, 0.84, cream[i]) * 0.35;                      // cream marbling
+      if (cm > 0) blend(A, i, 242, 226, 192, cm);
+    }
+    const R = mulberry32(406);
+    // drop rings
+    for (let q = 0; q < 2; q++) {
+      const cx = R() * S, cy = R() * S, r0 = 26 + R() * 40, wl = 9 + R() * 4, amp = 0.14 + R() * 0.08, ext = r0 + 36;
+      for (let py = Math.floor(cy - ext); py <= cy + ext; py++) for (let px = Math.floor(cx - ext); px <= cx + ext; px++) {
+        const r = hyp(px + 0.5 - cx, py + 0.5 - cy); if (r > ext) continue;
+        const x2 = (r - r0) / 18, env = Math.exp(-x2 * x2) * ss(0, r0 * 0.5, r), w = Math.cos((r - r0) / wl * TAU) * amp * env, i = (py & m) * S + (px & m);
+        H[i] += w;
+        const o = i * 4, f = 1 + w * 0.12; A[o] *= f; A[o + 1] *= f; A[o + 2] *= f;
+      }
+    }
+    // bake a soft light (from the upper left) into the smooth ripples so they read even in an unlit shader; shade warms, never greys
+    for (let y = 0, i = 0; y < S; y++) {
+      const yu = ((y + 1) & m) * S, yd = ((y - 1) & m) * S;
+      for (let x = 0; x < S; x++, i++) {
+        const sl = (H[y * S + ((x - 1) & m)] - H[y * S + ((x + 1) & m)]) + (H[yu + x] - H[yd + x]), f = clamp(1 + sl * 0.7, 0.94, 1.03), o = i * 4;
+        if (f < 1) { A[o] *= 1 - (1 - f) * 0.7; A[o + 1] *= 1 - (1 - f) * 0.95; A[o + 2] *= 1 - (1 - f) * 1.35; }
+        else { A[o] *= f; A[o + 1] *= f; A[o + 2] *= f; }
+      }
+    }
+    for (let i = 0; i < n; i++) H[i] += (fine[i] - 0.5) * 0.012;   // a whisper of surface texture for the highlights
+    // fizzy bubbles: soap-like film with a faint pink/blue sheen, a thin darker edge and a bright rim (so they read on white milk),
+    // a soft warm contact shadow and a glint
+    const bubble = (cx, cy, rb) => {
+      const hb = H[((cy | 0) & m) * S + ((cx | 0) & m)], ph = R() * TAU, ex = rb * 1.4 + 1.5;
+      for (let py = Math.floor(cy - ex); py <= cy + ex; py++) for (let px = Math.floor(cx - ex); px <= cx + ex; px++) {
+        const qx = px + 0.5 - cx, qy = py + 0.5 - cy, d = hyp(qx, qy) / rb, i = (py & m) * S + (px & m), o = i * 4;
+        if (d > 1.4) continue;
+        if (d > 1) { const sh = (1 - (d - 1) / 0.4) * 0.13; A[o] *= 1 - sh * 0.5; A[o + 1] *= 1 - sh * 0.8; A[o + 2] *= 1 - sh * 1.2; continue; }   // soft warm contact shadow
+        const c = clamp((1 - d) * rb + 0.5, 0, 1), dome = Math.sqrt(1 - d * d), rim = ss(0.6, 0.86, d) * (1 - ss(0.9, 0.97, d));
+        const ir = 0.5 + 0.5 * Math.sin(Math.atan2(qy, qx) * 2 + ph + d * 3), edge = ss(0.88, 0.99, d);
+        blend(A, i, 240 + 10 * ir, 240 - 2 * ir, 250 - 8 * ir, c * 0.55 * (1 - rim));   // thin film with a faint iridescent sheen
+        blend(A, i, 255, 254, 250, c * rim * 0.95);                                        // bright rim
+        blend(A, i, 206, 196, 184, c * edge * 0.45);                                       // thin darker edge
+        H[i] += (hb + 0.35 + dome * 0.22 * Math.min(1.5, rb / 3) - H[i]) * c;
+      }
+      glint(A, S, cx - rb * 0.35, cy - rb * 0.35, Math.max(0.8, rb * 0.3), 0.9, [255, 255, 255]);
+    };
+    for (let c = 0; c < 22; c++) {
+      const cx = R() * S, cy = R() * S, k = 5 + ((R() * 12) | 0), sp = 8 + R() * 11;
+      for (let q = 0; q < k; q++) { const a = R() * TAU, rd = sp * Math.sqrt(R()); bubble(cx + Math.cos(a) * rd, cy + Math.sin(a) * rd, 1.8 + Math.pow(R(), 1.8) * 5); }
+    }
+    for (let q = 0; q < 70; q++) bubble(R() * S, R() * S, 1.5 + Math.pow(R(), 2) * 3.8);
+    return surf(A, H, S, 4);
+  }
+
   // ── Feza's T-shirt: canvas print (clouds, pastel planes, stars on off-white) + ribbed-knit normal map ──
   function genShirt() {
     const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
@@ -968,39 +1283,68 @@ const TEX = (function () {
 
   const GEN = { grass: genGrass, dirt: genDirt, cobble: genCobble, caveFloor: genCaveFloor, caveSand: genCaveSand, castleFloor: genCastleFloor,
     carpet: genCarpet, brick: genBrick, rock: genRock, wood: genWood, bark: genBark, roof: genRoof, plaster: genPlaster, leaves: genLeaves,
-    fabric: genFabric, metal: genMetal, moss: genMoss, shirt: genShirt, basalt: genBasalt, ash: genAsh, lava: genLava };
-  // Surfaces only the cave/volcano/castle need: TEX.init() gives them placeholder textures (real, shareable Texture objects) whose
-  // pixels are generated by TEX.ensure(theme) — or automatically the first time anything reads image.data (GPU upload, canvas copy).
-  const THEME = { forest: [], cave: ['caveFloor', 'caveSand'], volcano: ['basalt', 'ash', 'lava'], castle: ['castleFloor', 'carpet', 'brick'] };
-  // Zone index → theme: ZONES (06_level.js) when it is there, else the Round 3 order.
+    fabric: genFabric, metal: genMetal, moss: genMoss, shirt: genShirt, basalt: genBasalt, ash: genAsh, lava: genLava,
+    yogurt: genYogurt, biscuit: genBiscuit, cheese: () => genCheese(512, true), milk: genMilk, swiss: () => genCheese(256, false) };
+  // Surfaces only the kefir/cave/volcano/castle zones need: TEX.init() gives them placeholder textures (real, shareable Texture objects)
+  // whose pixels are generated by TEX.ensure(theme) — or automatically the first time anything reads image.data (GPU upload, canvas copy).
+  // swiss = jointless cheese (256 px) for props and creatures (cheese wheels / wedges, the peynir wedge).
+  const THEME = { forest: [], dairy: ['yogurt', 'biscuit', 'cheese', 'milk', 'swiss'], cave: ['caveFloor', 'caveSand'], volcano: ['basalt', 'ash', 'lava'],
+    castle: ['castleFloor', 'carpet', 'brick'] };
+  const SIZE = { swiss: 256 };   // lazy surfaces that are not 512 px (a size here also makes a surface lazy when it has no theme)
+  // Zone index → theme: ZONES (06_level.js) when it is there, else the Round 4 order.
   function themeOf(i) {
     try { if (typeof ZONES !== 'undefined' && ZONES && ZONES[i] && ZONES[i].theme) return ZONES[i].theme; } catch (e) { /* not loaded yet */ }
-    return ['forest', 'cave', 'volcano', 'castle'][i];
+    return ['forest', 'dairy', 'cave', 'volcano', 'castle'][i];
   }
   const LAZY = {}, PEND = {};
-  for (const th in THEME) for (const k of THEME[th]) LAZY[k] = 512;
+  for (const th in THEME) for (const k of THEME[th]) LAZY[k] = SIZE[k] || 512;
+  for (const k in SIZE) if (!LAZY[k]) LAZY[k] = SIZE[k];
   let batch = 0;
   const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   const clearNC = () => { for (const k in NC) delete NC[k]; };
   const setData = (t, d) => Object.defineProperty(t.image, 'data', { value: d, writable: true, enumerable: true, configurable: true });
   function flat(n, r, g, b, a) { const d = new Uint8Array(n); for (let i = 0; i < n; i += 4) { d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a; } return d; }
 
+  // A pending surface's image: reading image.data generates the pixels (realize swaps the getter for the real array).
+  function arm(k, img) {
+    Object.defineProperty(img, 'data', { enumerable: true, configurable: true, get() {
+      if (PEND[k]) realize(k, true);
+      const d = Object.getOwnPropertyDescriptor(img, 'data');
+      return d && 'value' in d ? d.value : null;
+    } });
+  }
   function placeholder(k) {
     const S = LAZY[k], s = {};
     for (const [key, srgb] of [['map', true], ['normalMap', false]]) {
       const t = dtex(new Uint8Array(0), 1, srgb), img = { width: S, height: S };   // same sampler settings as a generated surface
-      Object.defineProperty(img, 'data', { enumerable: true, configurable: true, get() {
-        if (PEND[k]) realize(k, true);
-        const d = Object.getOwnPropertyDescriptor(img, 'data');
-        return d && 'value' in d ? d.value : null;
-      } });
+      arm(k, img);
       t.image = img;   // clones (TEX.rep) share this image object through the texture's Source
       s[key] = t;
     }
     PEND[k] = s;
     return s;
   }
-  // Generate a pending surface and hand its pixels to the placeholder textures (never uploaded before, so no re-upload needed).
+  // Free generated lazy surfaces (GPU copies of the textures and their TEX.rep clones + the pixel arrays) and make them pending
+  // again. The Texture objects stay the same, so every material that holds them stays valid: TEX.ensure — or the next draw that
+  // uses one — generates it again (same seeds → same pixels) and uploads it.
+  function drop(list) {
+    const out = [];
+    for (const k of list) {
+      const s = TEX[k];
+      if (!LAZY[k] || PEND[k] || !s || !s.map || !s.normalMap) continue;
+      const imgs = [s.map.image, s.normalMap.image];
+      if (!imgs.every(im => im && typeof im === 'object' && (Object.getOwnPropertyDescriptor(im, 'data') || {}).configurable)) continue;
+      PEND[k] = s;
+      for (const im of imgs) arm(k, im);
+      s.map.dispose(); s.normalMap.dispose();   // three.js deletes the GL texture once no texture sharing its image uses it
+      for (const key in REP) if (key.slice(0, key.indexOf('@')) === k) { REP[key].map.dispose(); REP[key].normalMap.dispose(); }
+      out.push(k);
+    }
+    return out;
+  }
+  const listOf = th => (th == null || th === 'all' ? Object.keys(LAZY) : THEME[th] || (LAZY[th] ? [th] : []));
+  // Generate a pending surface and hand its pixels to the placeholder textures (never uploaded yet, or disposed by TEX.release:
+  // either way three.js uploads them at their next use).
   function realize(k, lazy) {
     const P = PEND[k]; if (!P) return;
     delete PEND[k];
@@ -1020,7 +1364,7 @@ const TEX = (function () {
 
   const TEX = {
     M, HINT, ready: false, times: {},
-    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Cave/volcano/castle surfaces get placeholders
+    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Kefir/cave/volcano/castle surfaces get placeholders
     // (see TEX.ensure). Safe to call twice.
     init() {
       if (TEX.ready) return TEX;
@@ -1042,7 +1386,7 @@ const TEX = (function () {
       console.log('TEX ' + log.join(', ') + ' | upload ' + TEX.times.upload + ' | total ' + TEX.times.total + ' ms (later: ' + Object.keys(PEND).join(', ') + ')');
       return TEX;
     },
-    // Generate the surfaces a zone theme needs ('forest' | 'cave' | 'volcano' | 'castle', or a zone index 0..3 → ZONES[i].theme;
+    // Generate the surfaces a zone theme needs ('forest' | 'dairy' | 'cave' | 'volcano' | 'castle', or a zone index 0..4 → ZONES[i].theme;
     // a surface name also works; no argument = all) and upload them. Call it while the screen is faded (LEVEL.build).
     // Cheap no-op when they already exist.
     ensure(theme) {
@@ -1060,6 +1404,28 @@ const TEX = (function () {
     },
     // Names of surfaces whose pixels are not generated yet.
     pending: () => Object.keys(PEND),
+    // Free a zone theme's surfaces (same arguments as ensure; no argument / 'all' = every kefir/cave/volcano/castle surface): GPU
+    // textures + pixels go, the surfaces become pending again (TEX.ensure or their next use makes them again, ~0.1–0.3 s under the
+    // fade). For zones behind the player (≈ 12 MB each on the GPU). Don't call it for the zone on screen (its next frame would make
+    // them again). Returns the names it freed.
+    release(theme) {
+      if (!TEX.ready) return [];
+      if (typeof theme === 'number') theme = themeOf(theme);
+      const out = drop(listOf(theme));
+      if (out.length) console.log('TEX release ' + theme + ': ' + out.join(', '));
+      return out;
+    },
+    // Free every lazy surface the given zone (index) or theme doesn't use — call it with the zone about to load, e.g. next to
+    // TEX.ensure(i) under the loading fade. Returns the names it freed.
+    keepOnly(theme) {
+      if (!TEX.ready) return [];
+      if (typeof theme === 'number') theme = themeOf(theme);
+      if (theme == null || !(THEME[theme] || LAZY[theme])) return [];   // unknown zone/theme: keep everything
+      const keep = new Set(listOf(theme));
+      const out = drop(Object.keys(LAZY).filter(k => !keep.has(k)));
+      if (out.length) console.log('TEX keepOnly ' + theme + ': released ' + out.join(', '));
+      return out;
+    },
     // Upload all generated textures to the GPU now (avoids a hitch the first time a surface appears). Pending ones are skipped.
     upload() {
       if (typeof renderer === 'undefined' || !renderer.initTexture) return;

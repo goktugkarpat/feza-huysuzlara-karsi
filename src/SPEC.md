@@ -34,9 +34,54 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   to the kid); AUD.stopVoice(), AUD.current (key string). sesler.js also has window.VOICE_DUR.
 - **FX:** FX.beam(x, z, color, height, dur, {k, cut}) (column starts ~1.1 m up); floatText merges damage numbers per target and de-overlaps;
   atlas has 16 shapes (FX.SHAPES).
-- **UI:** title: "Oyna" always (new game), "Devam Et" next to it only with a save; nothing saves by itself — Pause › **Kaydet** (GAME.save())
+- **UI:** title: without a save only "Oyna"; with a save a big green "Devam Et" plus an orange "Baştan Başla" (a new game from the forest; the save stays until the next Kaydet); nothing saves by itself — Pause › **Kaydet** (GAME.save())
   is the only save; skill buttons show their keys 1 2 3 (#ui.kbd: no touch screen, or after any key press); "Baştan Başla" needs a 2 s hold; ⏸/🎒 are hold buttons in a top row; music toggle only in
   the pause menu; boss camera fits the whole dragon; cinematic after the boss.
+
+## Round 4 — Feza's request: KEFİR VADİSİ, a dairy zone right after the forest (read first; overrides older text)
+Feza LOVES kefir and yogurt and asked for this zone specially — it must be the most charming, creative, polished zone in the game.
+Keep everything from earlier rounds (lightsabers, 3 skills, cute smiling creatures, no spiders/insects — and NO FLIES near the dairy —, no pet,
+manual save only, current DIFF/DROP philosophy, battery settings, bosses at every zone end with gated portals).
+**Zone order (index = save zone):** 0 orman (boss kraljole) · **1 kefir 'Kefir Vadisi'** (boss **kefirdev**) · 2 magara (kostebekusta) ·
+3 yanardag (lavkaplumbaga) · 4 kale (ejderha, final). ZONES[1] = { id:'kefir', ad:'Kefir Vadisi', theme:'dairy', line:'kefir', music:'kefir',
+size 100, rooms 8, side 3, enemies {yogurt:4, kaymak:3, kopuk:3, peynir:1, jole:2}, variants {jole:['muhallebi']}, elites ['yogurt','kaymak'],
+hpMult 1.4, dmgMult 1.2, xpMult 1.35, gold 1.5, ilvl 2, boss 'kefirdev' }. Later zones keep their numbers (GAME re-balances DIFF for 5 zones).
+Saves: sv 4. Saves with sv 3 and zone ≥ 1 move to zone + 1 (older saves first get the sv<3 migration, then this one).
+**Look (theme 'dairy'):** a bright, creamy, pastel morning valley (peach-pink fog, warm soft sun, nothing dark). Walkable floor = creamy strained-yogurt
+ground with soft swirls and spoon marks (TEX 'yogurt'); the path = biscuit/granola crumb trail with a few berries (TEX 'biscuit'); plazas/arena =
+yellow cheese slabs with little holes (TEX 'cheese'). Non-walkable ground next to the floor = gently flowing MILK and KEFIR rivers/ponds (animated
+creamy shader with soft ripples and tiny fizzy kefir bubbles popping on the surface) plus glossy white yogurt hills (low on the camera side).
+Boundary/decor: giant Swiss-cheese wheels and wedges with holes, butter blocks, stacked yogurt pots, milk cans (güğüm), wooden butter churns
+(yayık), glass milk and kefir bottles, honey pots with dripping honey, giant strawberries and blueberries, bowls of yogurt with fruit, a milk
+waterfall, wooden fences with little bells, cute cow-patterned mailbox/sign "Kefir Vadisi". Biscuit bridges over the milk rivers. Boss arena =
+"Kefir Pınarı": a round cheese-slab plaza around a bubbling kefir spring. All instanced/chunked within the existing draw-call budget.
+**Creatures (05 models + EDEF, all cute and smiling — "ekşi" means a funny sour face: one eye squinting, tongue out; never gross, never rotten-looking):**
+- yogurt 'Ekşi Yoğurt': a small yogurt cup with a peeled foil lid tilted like a cap, creamy body bulging over the rim, lime-tinted cream while sour;
+  melee hopper (hops then bumps). Happy: fresh white cream with a strawberry on top.
+- kaymak 'Kesik Kaymak': a rolled clotted-cream swirl with a honey drizzle "hat"; fast melee slider (glides, leaves a short creamy trail).
+- kopuk 'Kefir Köpüğü': a floating cluster of fizzy foam bubbles with a face; flyer, ranged, puffs slow fizz bubbles (shot kind 'fizz').
+- peynir 'Peynir Dilimi': a Swiss-cheese wedge with holes on little legs; slow, tanky melee (the zone's big one; also the elite-ish heavy).
+- jole variant 'muhallebi': a wobbly milk-pudding jelly with a cinnamon dusting.
+**Boss kefirdev 'Köpüklü Kefir Devi'** (~3 m): a big friendly glass kefir bottle creature — translucent glass with creamy kefir inside and bubbles
+rising, a big bottle cap worn like a crown, a label with a smiling face, little arms. Phases (st.phase/st.phaseT): idle, move, shake (wobbles and
+fizzes = wind-up), geyser (pops its cap and sprays a foam cone — telegraphCone), bubbles (spits 5 slow fizz bubbles in a fan), slam (hops and
+lands with a milk-splash ring), summon (2–3 kopuk at 66 % / 33 %), roar (a happy burp-free "fizz!"), dying. Lines {giris:'kefirdev_giris', bitti:'kefirdev_bitti'}.
+Fight length target for a button-masher ~35–50 s. Defeat: overjoyed, then it hands Feza a glass of kefir: Feza drinks it (cheer pose + sparkle),
+full heal, 'kefir_ikram' line, guaranteed treasure + coins, then 'kefirdev_yol' line and the portal opens.
+Pickups: in the kefir zone the heart pickups look like little kefir bottles (same effect).
+**Story/voice (02):** new lines — yolculuk "Önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ ve en sonunda ejderhanın kalesi!" (said once
+after giris2), kefir "Kefir Vadisi! Ejderhanın büyüsü buraya da ulaşmış: yoğurtlar ekşimiş, kaymaklar kesilmiş. Hadi onları neşelendirelim!",
+ilk_yogurt "Bak bak! Ekşi yoğurtlar zıplıyor!", ilk_kaymak "Kaymaklar kayarak geliyor, dikkat!", ilk_kopuk "Kefir köpükleri uçuşuyor!",
+kefirdev_giris "İşte Köpüklü Kefir Devi! Çalkalanınca köpük fışkırtıyor, dikkat et!", kefirdev_bitti "Kefir Devi çok mutlu! Artık hiç ekşi değil!",
+kefir_ikram "Kefir Devi sana en güzel kefirinden verdi. Afiyet olsun Feza!", kefirdev_yol "Kefir Devi diyor ki: Ejderha dağların ardındaki
+kalesine uçtu. Yol mağaradan geçiyor!". Changed lines — kraljole_bitti "Kral Jöle çok mutlu! Sihirli kapı Kefir Vadisi'ne açıldı!",
+magara "Köstebek ve Salyangoz Mağarası! Kalenin yolu buradan geçiyor. Burası biraz karanlık ama sen çok cesursun.", usta_bitti "Usta Köstebek
+kocaman gülümsüyor! Kapı yanardağa açıldı!", yanardag "Lav Yanardağı! Lavlar çok sıcak, yoldan ayrılma! Ejderhanın kalesi çok yakında!".
+Music 'kefir' (sunny pastoral: accordion/ukulele/xylophone, a light Anatolian folk touch, very happy). New sfx: fizz, cork (bottle pop), slurp
+(drinking), squish, moo (a soft cute distant cow, rare ambient), splat reused.
+**FX (03):** bursts 'milk' (creamy splash), 'fizz' (rising sparkly kefir bubbles), 'crumbs' (biscuit crumbs); projectile kind 'fizz' (glossy soap-like
+kefir bubble, pops with sparkles).
+**UI (09):** 5 zones everywhere (cards 1–5), kefirdev boss portrait + SVG fallback, subtitle icons for the new lines (🥛 🥣 🫧 🧀 as fits).
 
 ## Round 3 — Feza's request: a 4th zone (volcano) + a boss at the end of EVERY zone (read first; overrides older text)
 Keep everything from earlier rounds (lightsabers, 3 skills with cooldowns 4/15/24 s, cute smiling creatures, no spiders/bugs, no pet, manual

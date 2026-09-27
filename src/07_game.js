@@ -27,7 +27,33 @@
    a nap keeps the pack's progress (NAP); the arena checkpoint is just outside the arena; 'kapi' is skipped when the boss's
    happy line already says the door opened; a new skill's line waits for the boss story (skillQ).
    Tap-to-walk never runs in place: a net-progress watchdog (tapWalkProgress, PROG) swings at a vase in the way, else
-   walks round once, else stands still (test/r3y_src_07_game_js_stuck.html). */
+   walks round once, else stands still (test/r3y_src_07_game_js_stuck.html).
+   Round 4 (Feza: KEFİR VADİSİ, zone 1 right after the forest): DIFF arrays are in the 5-zone order orman, kefir, magara,
+   yanardag, kale (ZORDER; looked up by zone id, so a 4-zone ZONES list still maps right). New creatures: yogurt hops at
+   Feza and bumps (hopStep: crouch = st.windup, the hop = st.attack/st.air while GAME lifts the root along an arc, a
+   circle shows where it lands), kaymak glides and dashes along a short lane leaving a creamy trail (rollStep with
+   GLIDE numbers, FX 'slime' tinted cream), kopuk is a flying fizz-bubble shooter (shot kind 'fizz' floats and pops like a
+   soap bubble), peynir is the slow heavy one (kind 'slam': a ground circle, cheese crumbs). Boss kefirdev (kefirdevStep):
+   shake (wind-up, the foam cone shows) → geyser (a foam cone that pushes Feza out), bubbles (5 slow fizz bubbles in a
+   fan), slam (hops and lands with a milk-splash ring), summons kopuk at 66 % / 33 %, a happy "fizz!" roar. When it cheers
+   up it hands Feza a glass of kefir (GIFT: the glass flies to him, he puts the saber away, raises it, drinks — cheer pose,
+   sparkles, full heal, 'kefirdev_bitti' → 'kefir_ikram' → 'kefirdev_yol'), then the treasure pops out, it waves goodbye
+   and the portal opens (the 'happy' event carries beat = s until then and gift: true; extra event 'gift' {stage: 'drink' |
+   'drunk', x, z, dur}). In the kefir zone the hearts are little kefir bottles and a cow moos far away now and then.
+   'yolculuk' is said once after giris2; first-sight lines ilk_yogurt / ilk_kaymak / ilk_kopuk (≥ 5 s apart, a missed
+   one comes at the next sighting). Saves are sv 4 and carry the zone id (zid): sv 3 with zone ≥ 1 moves one zone on
+   (older ones first get the sv < 3 step). A checkpoint wake-up spot is always one Feza fits in, and a Feza pushed half
+   into a wall steps out to the nearest free spot (a kid bot stood stuck in a castle corner for 100 s).
+   Round 4 QA fixes: the voice waits its turn — first-sight lines (and the forest's name 'orman', now said at the first
+   jelly / mushroom) start only when the narrator is free, FIRST_GAP s after the last one ENDED; 'yolculuk' comes at the
+   first calm moment after giris2 (the owl first when Feza stands at it; the owl never queues behind other lines); the
+   first skill's line waits for the intro; a skill won at a mid-zone boss is said in the next zone. The portal holds Feza
+   while the cheered boss's story line plays (a tap waits in the swirl: C.portalHold); the Kefir Devi's portal wakes as
+   'kefirdev_yol' reaches "Yol mağaradan geçiyor!", the giant waves until then and twirls away just before; the hand-over
+   waits while Feza naps; no swings/skills while it hands him the glass (a Kasırga kept him whirling through the drink);
+   the geyser's foam zone stays on the ground for the whole spray and its foam is a creamy fountain. The crystal waits for
+   'ejderha_bitti'. Walking: routeTo walks to the best reachable spot near a finger on a bush / the milk; a drag that
+   bounces in a wall corner re-routes (DRAGWIN); a ranged creature behind a wall comes round instead of backing off. */
 const GAME = (() => {
   'use strict';
 
@@ -41,18 +67,21 @@ const GAME = (() => {
   };
   // ── Difficulty: the one place to tune how hard the game is (parent, 2nd round: "the creatures go happy at once,
   //    only the dragon was strong — make the whole game a bit harder") ──
-  // Arrays "per zone" are in ZONES order: orman, magara, yanardag (Round 3), kale — looked up by zone id (see zslot).
+  // Arrays "per zone" are in ZONES order: orman, kefir (Round 4), magara, yanardag (Round 3), kale — looked up by zone id (see zslot).
   const DIFF = {
     hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
-    // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1)
-    zoneHp: [1.15, 1, 0.95, 1],
-    hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85 },   // the big slow golem, the slow bubble snail and the shell turtle are tanky enough already
+    // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1; Round 4: the kefir
+    // valley is gentle, and Feza now reaches the cave ~2 levels stronger, so the later zones went up to feel as before)
+    // (Round 4, test/r4_game_kid.html, seeds 11/23/37 × masher/hold/tap bots vs the 4-zone build: the kefir valley with
+    //  0–1 potions and no naps, the cave/volcano/castle back to about the potions and low-hp moments they had before)
+    zoneHp: [1.15, 1.1, 1.3, 1.08, 1.05],
+    hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85, peynir: 0.8 },   // the big slow golem, the slow bubble snail, the shell turtle and the cheese wedge are tanky enough already
     eliteHp: 3.4,       // elites: hp × this (on top of hp; was 3)
     eliteDmg: 1.5,      // elites: damage × this (their hp went up: their punch stays)
     // A strong sword must not turn the creatures happy in one or two hits (lots of treasure, or the next adventure round):
     // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
-    power: { dmg: [20, 36, 44, 54], k: 0.8 },
-    bossHp: 8,          // dragon hp at most (a button-masher with a good sword needs about a minute)
+    power: { dmg: [20, 28, 36, 44, 54], k: 0.8 },
+    bossHp: 8.8,        // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger)
     bossHpPerDmg: 220, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 220 × P.dmg, at least 58 % of the max (2nd round: 175;
                                          //    Round 3: Feza reaches the castle a zone stronger, the fight stays ~1 minute, 60–90 s)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
@@ -60,16 +89,22 @@ const GAME = (() => {
     // when the fight starts; dmg = the base hit (× 1 + 0.3 × round). Targets for a button-masher: kral jöle ~30–45 s,
     // usta köstebek ~40–55 s (it spends time underground), lav kaplumbağası ~50–70 s (the dragon above: ~60–90 s).
     boss: {   // (Round 3 QA: masher fights measured 34 s / 45 s → per 100 / 125 raised a little to centre them in their targets)
-      kraljole:      { per: 110, lo: 15, hi: 34, dmg: 14 },
-      kostebekusta:  { per: 130, lo: 21, hi: 48, dmg: 23 },
-      lavkaplumbaga: { per: 205, lo: 26, hi: 60, dmg: 25 },
+      // (Round 4 QA, kid bots without potions: Kral Jöle put every run to sleep (~187 hp per fight vs 124–148 max hp) → dmg
+      //  14 → 12; the Kefir Devi / Usta Köstebek ran 52–62 s for kids who tap or hold → per 140 → 130 and 130 → 124)
+      kraljole:      { per: 110, lo: 15, hi: 34, dmg: 12 },
+      kefirdev:      { per: 130, lo: 18, hi: 40, dmg: 16 },   // Round 4: Köpüklü Kefir Devi, ~35–50 s for a button-masher
+      kostebekusta:  { per: 124, lo: 21, hi: 48, dmg: 26 },   // (Round 4: met ~2 levels stronger: 23 → 26)
+      lavkaplumbaga: { per: 205, lo: 26, hi: 60, dmg: 26 },   // (25 → 26)
     },
     bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in a boss fight tires the boss: damage ×0.75 (down to ×0.55), −8 % hp
     dmg: 1.8,           // enemy damage (was 1.5)
     // × per zone: the forest must bite a little too (a potion now and then); the volcano's rolling turtles and ember chicks
     // come in crowds. Round 3 QA (10 naive kid runs: forest/cave hit as hard as each other while Feza is much weaker in the
-    // forest, level-1 naps in the first 20 s; the castle was the easiest): was [1.7, 1.2, 1, 1].
-    zoneDmg: [1.5, 1.05, 1, 1.15],
+    // forest, level-1 naps in the first 20 s; the castle was the easiest): was [1.7, 1.2, 1, 1]. Round 4: the kefir valley
+    // bites softly; the cave / volcano / castle are met ~2 / 1.5 / 1 levels stronger, so they hit a little harder.
+    // Round 4 QA (21 kid-bot runs): the forest napped 1.67× without potions (target 0–1) → 1.35 (0.56–0.67 naps); the castle
+    // only 0.67× (target 1–2) → 1.33 (1.33 naps).
+    zoneDmg: [1.35, 1.15, 1.4, 1.2, 1.33],
     atkCd: 0.75,        // enemy attack cooldown (was 0.85; wind-ups unchanged, always ≥ T.windMin)
     xp: 1.1,            // xp per enemy (level pace stays about the same although fights are longer)
     heart: 0.1,         // a heart heals this fraction of max hp (was 0.12)
@@ -90,24 +125,37 @@ const GAME = (() => {
   // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
-  const SAVE_V = 3;   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale)
+  // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale); 4 = Round 4's (orman, kefir, magara,
+  // yanardag, kale) — from sv 4 on the save also names its zone (zid), so a later reorder cannot move a save.
+  const SAVE_V = 4;
   const WORDS = ['Pof!', 'Bam!', 'Vuuş!', 'Pat!', 'Güm!', 'Tak!', 'Hop!'];
   // Lightsaber blade colours (fallback when ITEMS.bladeColor is missing; gokkusagi cycles through the rainbow).
   const BLADE_COL = { tahta: '#c8f4ff', demir: '#3f9dff', kristal: '#3dff66', ates: '#ff3344', yildiz: '#b455ff' };
   const SHOT_KIND = { mantar: 'spore', salyangoz: 'bubble', hayalet: 'ghost', atescik: 'fire', ejderha: 'dragonfire', ateskusu: 'ember',
-    kraljole: 'jelly', kostebekusta: 'rock', lavkaplumbaga: 'lavaball' };
+    kraljole: 'jelly', kostebekusta: 'rock', lavkaplumbaga: 'lavaball', kopuk: 'fizz', kefirdev: 'fizz' };
   const SHOT_COL = { spore: '#b9f07a', bubble: '#bfe6ff', ghost: '#bfe3ff', fire: '#ff9a3c', dragonfire: '#e46bff',   // dragonfire = the dragon's pink bubbles
-    ember: '#ffae3c', jelly: '#5cc8ff', rock: '#b58f68', lavaball: '#ff7a1c' };   // jelly: the sky-blue Kral Jöle spits sky-blue blobs
+    ember: '#ffae3c', jelly: '#5cc8ff', rock: '#b58f68', lavaball: '#ff7a1c',   // jelly: the sky-blue Kral Jöle spits sky-blue blobs
+    fizz: '#aee6ff' };   // kefir fizz bubbles: pale sky blue, so they read on the creamy yogurt floor
   // How an enemy shot ends when it hits or fades (burst kind, sfx): soap bubbles pop on their own (bubblePop).
   // (jelly: FX's glossy jelly splat in the blob's colour — 'slime' is the snail's trail lying on the floor)
   const SHOT_END = { jelly: ['jelly', 'splat'], rock: ['dirt', 'hitSoft'], ember: ['embers', null], lavaball: ['lava', 'splat'] };
-  const ELITE_AD = { kostebek: 'Kocaman Köstebek', salyangoz: 'Kocaman Salyangoz', kaplumbaga: 'Kocaman Kaplumbağa', ateskusu: 'Kocaman Ateş Kuşu' };
+  const ELITE_AD = { kostebek: 'Kocaman Köstebek', salyangoz: 'Kocaman Salyangoz', kaplumbaga: 'Kocaman Kaplumbağa', ateskusu: 'Kocaman Ateş Kuşu',
+    yogurt: 'Kocaman Yoğurt', kaymak: 'Kocaman Kaymak' };
   // said once per game, the first time that type notices Feza (the flags go into the save)
-  const FIRST_LINE = { kostebek: 'ilk_kostebek', salyangoz: 'ilk_salyangoz', kaplumbaga: 'ilk_kaplumbaga', ateskusu: 'ilk_ateskusu' };
+  const FIRST_LINE = { kostebek: 'ilk_kostebek', salyangoz: 'ilk_salyangoz', kaplumbaga: 'ilk_kaplumbaga', ateskusu: 'ilk_ateskusu',
+    yogurt: 'ilk_yogurt', kaymak: 'ilk_kaymak', kopuk: 'ilk_kopuk' };
+  // s of quiet after a first-sight line ENDS before the next one (three new kinds in one kefir room: the next one waits a
+  // moment; Round 4 QA: counted from the request, they still played back-to-back behind the zone's name in AUD's queue)
+  const FIRST_GAP = 5;
   const RAR_COL = ['#f4f4f4', '#5aa8ff', '#ffd23f', '#ff8a1c'];
   const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple'] };
-  const ZORDER = ['orman', 'magara', 'yanardag', 'kale'];   // the order of DIFF's per-zone arrays
-  const ROLLERS = { kaplumbaga: 1 };                         // melee by tucking into the shell and rolling (EDEF kind 'roll' too)
+  const ZORDER = ['orman', 'kefir', 'magara', 'yanardag', 'kale'];   // the order of DIFF's per-zone arrays (Round 4: the kefir valley is 1)
+  const ROLLERS = { kaplumbaga: 1, kaymak: 1 };              // melee by rolling / gliding along a lane (EDEF kind 'roll' / 'glide' / 'slide' too)
+  const HOPPERS = { yogurt: 1 };                             // melee by hopping at Feza and bumping him (EDEF kind 'hop' too)
+  const HEAVY = { peynir: 1 };                               // slow heavy melee: a ground-circle slam like the golem's (EDEF kind 'slam' too)
+  const CREAMY = { kaymak: '#ffdf9e' };                      // leave a short creamy trail while they move (honey cream: reads on the white yogurt)
+  // Per-type lane-attack numbers (EDEF roll:{…} overrides): the turtle rolls, the clotted-cream swirl glides.
+  const GLIDE = { start: 2.5, speed: 8.5, len: 3.6, w: 1.1, rec: 0.75 };
   // Boss behaviour data (tuning numbers are in DIFF.boss). lines: voice keys (EDEF[type].lines overrides); add: the little
   // ones it calls at the hp fractions `at` (n of them each time); roar: pitch of its (cute) roar; summonAt: when in its summon
   // phase (0..1) the little ones pop up (the model's "come out, friends!" beat; default 0.47).
@@ -115,6 +163,8 @@ const GAME = (() => {
     kraljole:      { lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' }, add: 'jole', at: [0.66, 0.33], n: [3, 3], roar: 1.45, col: '#5cc8ff' },
     kostebekusta:  { lines: { giris: 'usta_giris', bitti: 'usta_bitti' }, add: 'kostebek', at: [0.66, 0.33], n: [3, 3], roar: 1.2, col: '#ffcf7a', summonAt: 0.8 },
     lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c' },
+    // Round 4: gift = it hands Feza a glass of kefir when it cheers up (see GIFT); roarSfx: its happy "fizz!" instead of a roar
+    kefirdev:      { lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' }, add: 'kopuk', at: [0.66, 0.33], n: [2, 3], roar: 1.1, col: '#bfe9ff', gift: true, roarSfx: 'fizz' },
     ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yarasa' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
   };
   // Fallback enemy stats (EDEF overrides every field it defines).
@@ -138,6 +188,13 @@ const GAME = (() => {
     kraljole: { ad: 'Kral Jöle', hp: 900, dmg: 12, speed: 1.9, r: 1.5, height: 2.8, xp: 150, gold: 40, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
     kostebekusta: { ad: 'Usta Köstebek', hp: 1100, dmg: 14, speed: 2.0, r: 1.35, height: 2.6, xp: 260, gold: 60, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
     lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', hp: 1400, dmg: 16, speed: 1.5, r: 1.8, height: 2.8, xp: 400, gold: 90, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
+    // Round 4 (Kefir Vadisi creatures + its boss; used until / where 05_enemies has no number)
+    yogurt: { ad: 'Ekşi Yoğurt', hp: 24, dmg: 6, speed: 2.5, r: 0.5, height: 0.85, xp: 12, gold: 3, kind: 'hop', atkRange: 2.4, atkCd: 1.9, windup: 0.6, aggro: 9 },
+    kaymak: { ad: 'Kesik Kaymak', hp: 26, dmg: 6, speed: 3.5, r: 0.5, height: 0.75, xp: 13, gold: 3, kind: 'glide', atkRange: 2.4, atkCd: 2.0, windup: 0.65, aggro: 9.5 },
+    kopuk: { ad: 'Kefir Köpüğü', hp: 20, dmg: 6, speed: 2.3, r: 0.45, height: 0.8, xp: 12, gold: 3, kind: 'ranged', atkRange: 6.5, atkCd: 2.6, windup: 0.75, fly: true, hover: 1.0, aggro: 9.5,
+      shot: { kind: 'fizz', speed: 3.8, r: 0.36 } },
+    peynir: { ad: 'Peynir Dilimi', hp: 80, dmg: 11, speed: 1.5, r: 0.8, height: 1.15, xp: 30, gold: 8, kind: 'slam', atkRange: 1.7, atkCd: 2.6, windup: 0.95, slamR: 1.9, aggro: 9 },
+    kefirdev: { ad: 'Köpüklü Kefir Devi', hp: 1000, dmg: 13, speed: 1.7, r: 1.5, height: 3.0, xp: 200, gold: 50, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
   };
 
   // ── Other modules are optional (tests, half-wired builds): every call is guarded ──
@@ -154,6 +211,8 @@ const GAME = (() => {
   const sfx = (name, o) => aud('sfx', name, o);
   const say = (key, prio = 1, o) => aud('say', key, o ? Object.assign({ prio }, o) : { prio }) || 0;
   const hasLine = key => typeof AUD !== 'undefined' && !!AUD && !!AUD.LINES && !!AUD.LINES[key];
+  const speaking = () => !!aud('speaking');   // a line is playing or queued
+  const quietFor = () => gt - talkAt;         // s since the narrator was last heard (talkAt: updated every frame in update())
   const burst = (kind, x, y, z, o) => fx('burst', kind, x, y, z, o);
   const ftext = (x, y, z, text, style) => fx('floatText', x, y, z, text, style);
   const shake = a => fx('shake', a);
@@ -215,6 +274,10 @@ const GAME = (() => {
     lastHurt: -99, playT: 0, deadT: 0, deathX: 0, deathZ: 0, transT: 0, stepT: 0, stepSide: 1,
     tgtRef: null, tgtBest: 1e9, tgtStall: 0, blockT: 0, waitT: 0,   // walk-to-target watchdogs
     progT: 0, progD: 0, progGx: NaN, progGz: NaN, autoBrk: 0,        // tap-walk net-progress watchdog (see PROG)
+    lockT: 0, lockFace: null,                                         // a story beat holds Feza still (drinking the kefir: GIFT)
+    dragRoute: null, dragRouteTx: 0, dragRouteTz: 0, dragPlanAt: -9,   // a way round while dragging into a dead end (see updatePlayer)
+    dragWinT: -1, dragWinX: 0, dragWinZ: 0, dragWalk: 0, progW: 0,     // drag / tap-walk net-progress windows (∫ speed)
+    portalHold: false,                                                 // tapped the portal while the boss's story line plays
   };
   let F = {};                       // story flags (lines said once, intro done…)
   let ZF = {};                      // per-zone flags (reset on every zone load)
@@ -228,7 +291,12 @@ const GAME = (() => {
   let skillAt = -99;
   const mortars = [];               // lobbed shots (the lava turtle's lava balls): fly in an arc onto a telegraph circle
   let actT = 0, tokT = 0, flowT = 0, flowCx = -1e9, flowCz = -1e9, flowAt = -9;
-  let lastKocaman = -99, lastCanAz = -99, lastPraise = -99, lastPotionMsg = -99, lastSoft = -9, npcTalkUntil = -1, npcTalkAt = -99;
+  const firstQ = [];                // {type, at, fl}: first-sight lines that had to wait (FIRST_GAP, or the narrator was talking)
+  let mooT = 25;                    // Round 4: a soft cow far across the kefir valley now and then (quiet moments only)
+  let talkAt = -99;                 // game time the narrator was last heard (AUD.speaking); see quietFor()
+  let storyEnd = -99;               // game time the cheered boss's last story line should end (storySay / storyTalking)
+  let yolWant = false;              // Round 4: 'yolculuk' still to come (new game, forest): at the first calm moment after giris2
+  let lastFirst = -99, lastKocaman = -99, lastCanAz = -99, lastPraise = -99, lastPotionMsg = -99, lastSoft = -9, npcTalkUntil = -1, npcTalkAt = -99, npcWantAt = -99;
   const cheers = [];
   // Comic words (Pof!, Bam!, Hop!…) share one slot: at most one every WORD_GAP s of game time, so a crowd fight doesn't
   // bury the screen in text. 08_skills.js asks through GAME.wordOK() too. Never limited: the '!' spotted marker,
@@ -359,6 +427,36 @@ const GAME = (() => {
     g.scale.setScalar(1.55);
     return (R.potion = g);
   }
+  // Round 4: in the kefir valley a heart pickup is a little glass bottle of kefir (same effect): strawberry-pink kefir in
+  // clear glass, a red cap and a white label with red hearts — and a little red heart floats over it (spawnLoot), so it
+  // still says "this makes you feel better" (QA: a white bottle on the cream floor, easy to take for the potion).
+  function kefirBottleTpl() {
+    if (R.bottle) return R.bottle;
+    const g = new THREE.Group();
+    const lq = new Kit();
+    lq.add(G.cyl(1, 1, 18), '#ffffff', [0, 0.115, 0], 0, [0.088, 0.2, 0.088]);
+    lq.add(G.sphere(18), '#ffffff', [0, 0.215, 0], 0, [0.088, 0.05, 0.088]);
+    const liquid = new THREE.Mesh(lq.build(), stdMat({ color: '#ffd9e6', roughness: 0.35, emissive: '#ffc4d8', emissiveIntensity: 0.4 }));
+    const gl = new Kit();
+    gl.add(G.cyl(1, 1, 20, true), '#ffffff', [0, 0.12, 0], 0, [0.1, 0.23, 0.1]);
+    gl.add(G.sphere(20), '#ffffff', [0, 0.235, 0], 0, [0.1, 0.07, 0.1]);
+    gl.add(G.cyl(1, 1, 16, true), '#ffffff', [0, 0.31, 0], 0, [0.045, 0.08, 0.045]);
+    const glass = new THREE.Mesh(gl.build(), stdMat({ color: '#ffffff', transparent: true, opacity: 0.24, roughness: 0.04, metalness: 0.1, depthWrite: false }));
+    const ck = new Kit();
+    ck.add(G.cyl(1, 1, 16), '#ff3d5e', [0, 0.36, 0], 0, [0.056, 0.035, 0.056]);   // the cap
+    ck.add(G.torus(TAU, 0.22, 16), '#ff3d5e', [0, 0.378, 0], [Math.PI / 2, 0, 0], 0.05);
+    ck.add(G.cyl(1, 1, 20), '#fff6f8', [0, 0.12, 0], 0, [0.103, 0.085, 0.103]);   // the white label
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {   // a red heart on each side of it
+      for (const sx of [-1, 1]) ck.add(G.sphere(10), '#f5142f', [Math.sin(a) * 0.104 + Math.cos(a) * sx * 0.016, 0.132, Math.cos(a) * 0.104 - Math.sin(a) * sx * 0.016], 0, [0.02, 0.02, 0.012]);
+      ck.add(G.cone ? G.cone(12) : G.sphere(8), '#f5142f', [Math.sin(a) * 0.104, 0.112, Math.cos(a) * 0.104], [Math.PI, a, 0], [0.03, 0.035, 0.012]);
+    }
+    const cap = new THREE.Mesh(ck.build(), rimify(vcMat({ roughness: 0.3, emissive: '#b0103a', emissiveIntensity: 0.18 }), '#ffc2d4', 0.3, 2.6));
+    cap.castShadow = true; liquid.castShadow = true;
+    g.add(liquid, cap, glass);
+    g.scale.setScalar(1.75);
+    return (R.bottle = g);
+  }
+  const dairyZone = () => { const Z = zdef(); return Z.theme === 'dairy' || Z.id === 'kefir'; };
 
   // Enemy health bars: ONE instanced billboard mesh, SDF pill drawn in the shader (gold frame for elites).
   const BAR_MAX = 48;
@@ -488,7 +586,7 @@ const GAME = (() => {
     P.equip = { weapon: st.weapon || null, hat: st.hat || null, cape: st.cape || null };
     P.bag = [P.equip.weapon, P.equip.hat, P.equip.cape].filter(Boolean);
     for (const s of GAME.skills) { s.unlocked = false; s.cd = 0; }
-    F = { zl: {}, kapi: {} }; skillQ.length = 0;
+    F = { zl: {}, kapi: {} }; skillQ.length = 0; removeMoustache();
     recalcStats(); P.hp = P.maxHp;
     if (H) H.setEquip(P.equip);
   }
@@ -502,7 +600,7 @@ const GAME = (() => {
     for (const p of projectiles) killProjectileObj(p);
     projectiles.length = 0; coins.length = 0; if (R.coins) R.coins.count = 0;
     for (const m of mortars) { killProjectileObj(m); remove(m.tele); }
-    mortars.length = 0; storyUntil = -99;
+    mortars.length = 0; storyUntil = -99; storyEnd = -99;
     for (const o of loot) { removeObj(o.obj); remove(o.beam); }
     loot.length = 0; timers.length = 0;
     if (crystal) {   // EMODEL.crystal() keeps its disposer on userData
@@ -510,10 +608,10 @@ const GAME = (() => {
       crystal.obj.traverse(o => { if (o.userData && typeof o.userData.dispose === 'function') { try { o.userData.dispose(); } catch (err) { warnOnce('crystal.dispose', err); } } });
       crystal = null;
     }
-    finale = false; ZF = {}; pathS = 0; pathCum = null;
-    C.cheerT = 0; C.castT = -1;
+    finale = false; ZF = {}; pathS = 0; pathCum = null; firstQ.length = 0; mooT = frand(18, 30);
+    C.cheerT = 0; C.castT = -1; removeMoustache();
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.queued = false; C.vel = 0;
-    C.lunge.t = 0; C.kbx = C.kbz = 0; C.route = null;
+    C.lunge.t = 0; C.kbx = C.kbz = 0; C.route = null; C.lockT = 0; C.dragRoute = null; C.portalHold = false; C.dragWinT = -1;
     if (R.marker) { R.marker.visible = false; R.sel.visible = false; R.bars.count = 0; }
     fx('clear');
     if (typeof SKILLS_clear === 'function') { try { SKILLS_clear(); } catch (err) { warnOnce('SKILLS_clear', err); } }
@@ -589,6 +687,8 @@ const GAME = (() => {
     try {
       const hm = new THREE.Mesh(heartGeo(), R.heartMat); hm.castShadow = true; tmp.add(hm);
       const pot = potionTpl(); tmp.add(pot);
+      if (Z.theme === 'dairy' || Z.id === 'kefir') tmp.add(kefirBottleTpl());   // (Round 4) the valley's kefir-bottle hearts
+      if (bt && bossKit(bt).gift) tmp.add(kefirGlassTpl(), moustacheTpl());     // …and the giant's glass of kefir (+ Feza's kefir moustache)
       tmp.add(decal(lootRingMat('#ff4d7a'), 1), decal(R.blobMat, 1), decal(R.auraGlow, 1), decal(R.auraMat, 1), decal(R.markMat, 1), decal(R.selMat, 1));
       if (!R.warmTag) R.warmTag = nameTag('Kocaman');
       tmp.add(R.warmTag);
@@ -655,7 +755,7 @@ const GAME = (() => {
     R.coins.count = coinsN; R.bars.count = barsN;
     for (const h of temp) { if (h && h.proj) killProjectileObj(h.proj); else remove(h); }
     for (const k in WARM_E) if (WARM_E[k] && WARM_E[k].root) removeObj(WARM_E[k].root);
-    removeObj(potionTpl());
+    removeObj(potionTpl()); if (R.bottle) removeObj(R.bottle); if (R.glass) removeObj(R.glass); if (R.must && !must) removeObj(R.must);
     GAME.warmMs = Math.round(performance.now() - t0);
   }
   function populate() {
@@ -761,7 +861,7 @@ const GAME = (() => {
       speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng),
       xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
       gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
-      kind: isBoss ? 'boss' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
+      kind: isBoss ? 'boss' : HEAVY[type] ? 'slam' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
       atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd, windup: Math.max(T.windMin, def.windup || 0.6), aggroR: def.aggro || 9,
       homeX: sp.x, homeZ: sp.z, pack: sp.pack, room: sp.room, sp,
       state: 'idle', stT: 0, wind: 0.6, cd: frand(0.4, 1.2), stun: 0, frozen: 0, flash: 0, hurt: 0, kvx: 0, kvz: 0,
@@ -792,6 +892,7 @@ const GAME = (() => {
   }
   function dropEnemy(e) {
     remove(e.tele); e.tele = null; remove(e.ice); e.ice = null;
+    if (e.gift) killGlass(e.gift);
     if (e.aura) { removeObj(e.aura); e.aura = null; }
     if (e.tag) { removeObj(e.tag); e.tag.material.map.dispose(); e.tag.material.dispose(); e.tag = null; }
     removeObj(e.m.root);
@@ -831,14 +932,50 @@ const GAME = (() => {
       ftext(e.x, e.y + e.height + 1.1, e.z, e.name + '!', 'word');
       if (gt - lastKocaman > 40) { lastKocaman = gt; emit('toast', { text: e.name + ' geliyor!' }); }
       // the voice line once per zone, now or never ("… geliyor!" said after the fight started would be wrong)
-      if (!ZF.kocaman && chat('kocaman', dist2(e.x, e.z, P.pos.x, P.pos.z) < 12 * 12 ? 3 : 2, 6, { wait: 4 })) ZF.kocaman = true;
+      // (not over another line: queued behind it, "… geliyor!" came after the fight had started)
+      if (!ZF.kocaman && !speaking() && chat('kocaman', dist2(e.x, e.z, P.pos.x, P.pos.z) < 12 * 12 ? 3 : 2, 6, { wait: 4 })) ZF.kocaman = true;
     }
     if (!F.intro0) introFirstSkill();
-    const fl = FIRST_LINE[e.type];   // "Bak bak! Köstebekler toprağın altından çıkıyor!" — once per game, the first time
-    if (fl && !F[fl] && !finale && hasLine(fl)) { F[fl] = true; later(0.5, () => say(fl, 2, { wait: 8 })); }   // (a first-sight line 15 s late is wrong)
+    // "Bak bak! Köstebekler…" — once per game, the first time (EDEF line: a newer creature). Round 4 QA: the forest's name
+    // line ('orman': "…Jöleler ve mantarlar çok huysuzlanmış") is said at the first jelly / mushroom Feza meets (said 14 m
+    // from the start it was always dropped behind the intro).
+    const fl = firstLineFor(e.type);
+    // Claimed only when it can start now (Round 4 QA: claimed while the zone's name and a new skill's line were still
+    // playing, it went stale in AUD's queue and was lost for the whole game); otherwise flushFirst says it a moment later,
+    // or at the next sighting of that kind.
+    if (fl && !firstSaid(fl) && !finale && hasLine(fl)) {
+      if (!sayFirst(fl) && !firstQ.some(q => q.fl === fl)) firstQ.push({ type: e.type, at: gt, fl });
+    }
     if (spread && e.pack !== undefined && e.pack !== null) {
       for (let i = sleepers.length - 1; i >= 0; i--) if (sleepers[i].pack === e.pack) { const s = sleepers.splice(i, 1)[0]; makeEnemy(s); }
       for (const o of enemies) if (o !== e && o.pack === e.pack && !o.aggro && !o.boss) setAggro(o, false);
+    }
+  }
+  const ZONE_FIRST = { orman: { jole: 1, mantar: 1 } };   // zone id → the creatures whose first sighting says the zone's name line
+  function firstLineFor(type) {
+    const Z = zdef();
+    if (ZONE_FIRST[Z.id] && ZONE_FIRST[Z.id][type] && F.zl && !F.zl[P.zone] && Z.line) return Z.line;
+    return FIRST_LINE[type] || (typeof edef(type).line === 'string' ? edef(type).line : null);
+  }
+  const zoneLineKey = fl => fl === zdef().line;
+  const firstSaid = fl => (zoneLineKey(fl) ? !!(F.zl && F.zl[P.zone]) : !!F[fl]);
+  // Says a first-sight line if the narrator is free and the last one ended FIRST_GAP s ago; marks it said. false = not now.
+  function sayFirst(fl) {
+    if (gt - lastFirst < FIRST_GAP || speaking() || quietFor() < 0.6) return false;
+    if (zoneLineKey(fl)) F.zl[P.zone] = true; else F[fl] = true;
+    lastFirst = gt + 0.5 + (lineLen(fl) || 3);   // (the gap counts from the end of this line)
+    later(0.5, () => { const w = say(fl, 2, { wait: 8 }); if (w) lastFirst = gt + w; });
+    return true;
+  }
+  function flushFirst() {   // a first-sight line that had to wait: now, if one of that kind is still fighting nearby
+    if (!firstQ.length || finale || gt - lastFirst < FIRST_GAP || speaking()) return;
+    for (let i = 0; i < firstQ.length; i++) {
+      const t = firstQ[i].type, fl = firstQ[i].fl;
+      if (!fl || firstSaid(fl)) { firstQ.splice(i--, 1); continue; }
+      // still true: one of them is fighting nearby, or they were spotted only a few seconds ago (a quick fight is over)
+      if (gt - firstQ[i].at > 10 && !enemies.some(q => q.type === t && q.aggro && !q.dead && q.dist < 14 && !hidden(q))) continue;
+      if (sayFirst(fl)) firstQ.splice(i, 1);
+      return;
     }
   }
   function calm(e) {
@@ -847,7 +984,7 @@ const GAME = (() => {
   }
   function cancelWindup(e) {
     remove(e.tele); e.tele = null;
-    if (e.state === 'windup' || e.state === 'strike' || e.state === 'recover' || BUR_ST[e.state]) {
+    if (e.state === 'windup' || e.state === 'strike' || e.state === 'recover' || e.state === 'hop' || BUR_ST[e.state]) {   // (a yogurt knocked out of its hop drops down: see enemyStep)
       if (e.state === 'windup' || e.state === 'rise') STATS.cancel++;
       if (BUR_ST[e.state]) e.upT = 0;   // a köstebek pops up where it is (see enemyStep) and stays up a while
       e.state = e.aggro ? 'chase' : 'idle'; e.cd = Math.max(e.cd, frand(0.5, 0.9));
@@ -941,6 +1078,7 @@ const GAME = (() => {
     }
     st.move = 0; st.windup = -1; st.attack = -1; st.frozen = false;
     if (e.boss) { st.breath = st.stomp = st.roar = st.fireball = -1; }
+    else if (!e.fly && e.y > 0 && e.state !== 'hop') { e.y = Math.max(0, e.y - dt * 6); st.air = 0; }   // a hop that was cut short lands
     if (e.frozen > 0) {
       e.frozen -= dt; st.frozen = true;
       if (e.frozen <= 0) unfreeze(e);
@@ -963,9 +1101,11 @@ const GAME = (() => {
     } else if (!canTarget || d > T.leash) calm(e);
     else if (e.kind === 'ranged') rangedStep(e, dt, d, ux, uz);
     else if (e.kind === 'burrow') burrowStep(e, dt, d, ux, uz);
-    else if (e.kind === 'roll' || ROLLERS[e.type]) rollStep(e, dt, d, ux, uz);
+    else if (HOPPERS[e.type] || e.kind === 'hop') hopStep(e, dt, d, ux, uz);
+    else if (ROLLERS[e.type] || e.kind === 'roll' || e.kind === 'glide' || e.kind === 'slide') rollStep(e, dt, d, ux, uz);
     else meleeStep(e, dt, d, ux, uz);
     if (SLIMY[e.type] && st.move > 0.05 && d < 30) slimeTrail(e, dt);
+    else if (CREAMY[e.type] && st.move > 0.05 && d < 30 && e.state !== 'roll') creamTrail(e, dt, 0.16);
     place(e); anim(e, dt);
     if (e.elite && d < 24 && e.bur < 0.5) {   // golden motes drifting up around elites
       e.sparkT -= dt;
@@ -1016,11 +1156,14 @@ const GAME = (() => {
   function strike(e) {
     STATS.strike++;
     if (e.kind === 'slam') {
-      fx('ring', e.sx, e.sz, { r0: 0.4, r1: e.slamR + 0.6, dur: 0.45, color: '#ffd9a0', width: 0.5 });
-      burst('dust', e.sx, 0.1, e.sz, { count: 26, scale: 1.4 });
-      burst('debris', e.sx, 0.2, e.sz, { color: '#b9a58a', count: 10 });
-      shake(0.3 * clamp(1.4 - e.dist / 14, 0.2, 1));
-      sfx('slam', { x: e.x, z: e.z });
+      const cheese = e.type === 'peynir';   // the cheese wedge thumps down: a creamy ring, biscuit/cheese crumbs, no rocks
+      fx('ring', e.sx, e.sz, { r0: 0.4, r1: e.slamR + 0.6, dur: 0.45, color: cheese ? '#fff0b8' : '#ffd9a0', width: 0.5 });
+      burst('dust', e.sx, 0.1, e.sz, cheese ? { count: 14, scale: 1.2, color: '#f3e4c2' } : { count: 26, scale: 1.4 });
+      if (cheese) { burst('crumbs', e.sx, 0.2, e.sz, { count: 14 }); burst('debris', e.sx, 0.2, e.sz, { color: '#ffd24a', count: 6 }); }
+      else burst('debris', e.sx, 0.2, e.sz, { color: '#b9a58a', count: 10 });
+      shake((cheese ? 0.22 : 0.3) * clamp(1.4 - e.dist / 14, 0.2, 1));
+      sfx('slam', cheese ? { x: e.x, z: e.z, pitch: 1.25, vol: 0.8 } : { x: e.x, z: e.z });
+      if (cheese) sfx('squish', { x: e.x, z: e.z, vol: 0.6, pitch: 0.8 });
       if (Math.hypot(P.pos.x - e.sx, P.pos.z - e.sz) < e.slamR + T.heroR * 0.5) hurtPlayer(e.dmg, e.sx, e.sz, 1.2);
       return;
     }
@@ -1046,7 +1189,9 @@ const GAME = (() => {
     }
     e.strafeT -= dt;
     if (e.strafeT <= 0) { e.strafeT = frand(1.5, 3); e.strafe = -e.strafe; }
-    if (d < 3.4) { stepToward(e, -ux, -uz, e.speed * 0.65, dt, false); e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt); }
+    // backs off only while it can see Feza: behind a wall it comes round (chaseDir) — Feza waits for it there (a kid bot
+    // and a ghost stood 3.4 m apart on the two sides of a castle wall for 600 s)
+    if (d < 3.4 && e.losOk) { stepToward(e, -ux, -uz, e.speed * 0.65, dt, false); e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt); }
     else if (d > e.atkRange * 0.9 || !e.losOk) { const c = chaseDir(e, d, ux, uz); stepToward(e, c.x, c.z, e.speed, dt); }
     else if (e.token) { stepToward(e, -uz * e.strafe, ux * e.strafe, e.speed * 0.3, dt, false); e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt); }
     else e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt);
@@ -1148,15 +1293,22 @@ const GAME = (() => {
     const len = Math.hypot(x1 - x0, z1 - z0);   // older FX: a narrow cone along the lane
     return fx('telegraphCone', x0, z0, Math.atan2(x1 - x0, z1 - z0), clamp(2 * Math.atan2(w * 0.5, Math.max(1, len)) * 1.6, 0.25, 1.2), len, dur, col);
   }
+  const glider = e => e.type === 'kaymak' || e.kind === 'glide' || e.kind === 'slide';
   function rollStep(e, dt, d, ux, uz) {
-    const st = e.st, R = e.def.roll || {};
+    const st = e.st, gl = glider(e), R = e.def.roll || (gl ? GLIDE : {});
     if (e.state === 'windup') {
       e.stT += dt; st.windup = clamp(e.stT / e.wind, 0, 1);
       if (e.stT < e.wind * 0.3) { e.face = dampAngle(e.face, Math.atan2(e.rdx, e.rdz), 10, dt); }
       if (e.stT >= e.wind) {
         e.state = 'roll'; e.stT = 0; e.tele = null; e.rollHit = false; e.rollD = 0; STATS.strike++;
-        sfx('roll', { x: e.x, z: e.z, vol: 0.8, pitch: e.elite ? 0.85 : frand(1, 1.15) });
-        burst('dust', e.x, 0.05, e.z, { count: 6, dir: { x: -e.rdx, z: -e.rdz } });
+        if (gl) {   // the cream swirl leans in and whooshes off along the lane
+          sfx('whoosh', { x: e.x, z: e.z, vol: 0.7, pitch: e.elite ? 1.0 : frand(1.25, 1.45) });
+          sfx('squish', { x: e.x, z: e.z, vol: 0.5, pitch: frand(1.1, 1.3) });
+          burst('milk', e.x, 0.1, e.z, { count: 6, scale: 0.7, dir: { x: -e.rdx, z: -e.rdz } });
+        } else {
+          sfx('roll', { x: e.x, z: e.z, vol: 0.8, pitch: e.elite ? 0.85 : frand(1, 1.15) });
+          burst('dust', e.x, 0.05, e.z, { count: 6, dir: { x: -e.rdx, z: -e.rdz } });
+        }
       }
       return;
     }
@@ -1167,11 +1319,14 @@ const GAME = (() => {
       const moved = Math.hypot(e.x - ox, e.z - oz);
       e.rollD += moved; e.face = Math.atan2(e.rdx, e.rdz);
       st.attack = clamp(e.rollD / Math.max(0.5, e.rollLen), 0, 1); st.move = 1;
-      e.trailT -= dt;
-      if (e.trailT <= 0 && e.dist < 26) {
-        e.trailT = 0.07;
-        burst('dust', e.x - e.rdx * e.r, 0.04, e.z - e.rdz * e.r, { count: 2, color: '#c9a07a', dir: { x: -e.rdx, z: -e.rdz } });
-        if (Math.random() < 0.5) burst('embers', e.x, 0.3, e.z, { count: 2 });
+      if (gl) creamTrail(e, dt, 0.05);   // a glossy streak of cream behind the glide
+      else {
+        e.trailT -= dt;
+        if (e.trailT <= 0 && e.dist < 26) {
+          e.trailT = 0.07;
+          burst('dust', e.x - e.rdx * e.r, 0.04, e.z - e.rdz * e.r, { count: 2, color: '#c9a07a', dir: { x: -e.rdx, z: -e.rdz } });
+          if (Math.random() < 0.5) burst('embers', e.x, 0.3, e.z, { count: 2 });
+        }
       }
       if (!e.rollHit && !P.dead && Math.hypot(P.pos.x - e.x, P.pos.z - e.z) < e.r + T.heroR + 0.15) {
         e.rollHit = true; STATS.strikeHit++;
@@ -1198,7 +1353,7 @@ const GAME = (() => {
     if (e.token && d <= start && e.cd <= 0 && e.losOk) startRoll(e, ux, uz, d);
   }
   function startRoll(e, ux, uz, d) {
-    const R = e.def.roll || {};
+    const gl = glider(e), R = e.def.roll || (gl ? GLIDE : {});
     e.state = 'windup'; e.stT = 0; STATS.windup++;
     e.wind = Math.max(T.windMin, e.windup);
     e.rdx = ux; e.rdz = uz;
@@ -1206,7 +1361,75 @@ const GAME = (() => {
     e.rollLen = Math.max(1, laneLen(e.x, e.z, ux, uz, want, e.r * 0.9, null));
     const w = (R.w || ROLL.w) * (e.elite ? 1.35 : 1);
     e.tele = telegraphLine(e.x, e.z, e.x + ux * (e.rollLen + e.r), e.z + uz * (e.rollLen + e.r), w, e.wind, '#ff6a3a');
-    sfx('whoosh', { x: e.x, z: e.z, vol: 0.4, pitch: 0.7 });
+    sfx('whoosh', { x: e.x, z: e.z, vol: 0.4, pitch: gl ? 1.0 : 0.7 });
+  }
+  // Kesik Kaymak: a short glossy streak of cream lies behind it (FX's slime drops tinted cream, ~2 s) + a creamy drip now and then.
+  function creamTrail(e, dt, every) {
+    e.trailT -= dt;
+    if (e.trailT > 0 || e.dist > 30) return;
+    e.trailT = every;
+    const fx0 = Math.sin(e.face), fz0 = Math.cos(e.face), bx = e.x - fx0 * e.r * 0.7, bz = e.z - fz0 * e.r * 0.7;
+    burst('slime', bx, 0.03, bz, { color: CREAMY[e.type] || '#ffdf9e', dir: { x: fx0, z: fz0 }, scale: e.elite ? 1.4 : 1 });
+    if (Math.random() < (every < 0.1 ? 0.25 : 0.12)) burst(typeof e.def.trail === 'string' ? e.def.trail : 'milk', bx, 0.12, bz, { count: 3, scale: 0.5 });   // (EDEF trail: a creamy drip)
+  }
+  // ── Ekşi Yoğurt: from a couple of metres away it crouches (the wind-up; a circle shows where it will land), hops at Feza
+  // in an arc (GAME lifts it: e.y; st.attack / st.air = the flight 0..1) and bumps whoever is in the circle, then sits
+  // squashed for a moment — the time to whack it. ──
+  const HOPE = { start: 2.6, air: 0.5, h: 0.55, R: 1.05, rec: 0.6 };   // (h: GAME's arc; 05's bump adds its own ~0.26 m forward hop on st.attack)
+  function hopStep(e, dt, d, ux, uz) {
+    const st = e.st, H0 = e.def.hop || {};
+    if (e.state === 'windup') {
+      e.stT += dt; st.windup = clamp(e.stT / e.wind, 0, 1);
+      e.face = dampAngle(e.face, Math.atan2(e.hx1 - e.x, e.hz1 - e.z), 10, dt);
+      if (e.stT >= e.wind) {
+        e.state = 'hop'; e.stT = 0; e.hx0 = e.x; e.hz0 = e.z; STATS.strike++;
+        sfx('bounce', { x: e.x, z: e.z, vol: 0.55, pitch: e.elite ? 1.0 : frand(1.3, 1.5) });
+      }
+      return;
+    }
+    if (e.state === 'hop') {
+      e.stT += dt;
+      const air = H0.air || HOPE.air, k = clamp(e.stT / air, 0, 1), s = smooth01(k);
+      _tp.x = e.x; _tp.z = e.z;   // carried across (walls stop it: LEVEL.move slides along them)
+      moveXZ(_tp, lerp(e.hx0, e.hx1, s) - e.x, lerp(e.hz0, e.hz1, s) - e.z, e.r * 0.9); e.x = _tp.x; e.z = _tp.z;
+      e.y = 4 * (H0.h || HOPE.h) * (e.elite ? 1.2 : 1) * k * (1 - k);
+      st.attack = k; st.air = k; st.move = 0;   // (no walk-hop on top of the big hop)
+      if (k >= 1) { e.y = 0; st.air = 0; hopLand(e); e.state = 'recover'; e.stT = 0; }
+      return;
+    }
+    if (e.state === 'recover') {   // squashed after the bump
+      e.stT += dt; st.attack = 1;
+      if (e.stT >= (H0.rec || HOPE.rec)) { e.state = 'chase'; e.cd = e.atkCd * frand(0.85, 1.2); }
+      return;
+    }
+    const start = (H0.start || HOPE.start) + e.r;
+    const want = e.token ? start * 0.8 : 4.3 + e.r;
+    if (d > want) { const c = chaseDir(e, d, ux, uz); stepToward(e, c.x, c.z, e.speed * (e.token ? 1 : 0.7), dt); }
+    else if (!e.token && d < want - 1.4) { stepToward(e, -ux, -uz, e.speed * 0.35, dt, false); e.face = dampAngle(e.face, Math.atan2(ux, uz), 6, dt); }
+    else e.face = dampAngle(e.face, Math.atan2(ux, uz), 7, dt);
+    if (e.token && d <= start && e.cd <= 0 && e.losOk) startHop(e, ux, uz, d);
+  }
+  function startHop(e, ux, uz, d) {
+    const H0 = e.def.hop || {};
+    e.state = 'windup'; e.stT = 0; STATS.windup++;
+    e.wind = Math.max(T.windMin, e.windup);
+    e.face = Math.atan2(ux, uz);
+    // the circle is centred on Feza; it lands just short of his centre (its body next to his), never further than it can hop
+    e.hopR = (H0.R || HOPE.R) * (e.elite ? 1.3 : 1);
+    e.hcx = P.pos.x; e.hcz = P.pos.z;
+    const go = Math.max(0, Math.min(d - (e.r + T.heroR) * 0.55, (H0.start || HOPE.start) + e.r + 0.6));
+    e.hx1 = e.x + ux * go; e.hz1 = e.z + uz * go;
+    e.tele = fx('telegraph', e.hcx, e.hcz, e.hopR, e.wind + (H0.air || HOPE.air), '#ff5a3a');
+    sfx('squish', { x: e.x, z: e.z, vol: 0.45, pitch: frand(1.2, 1.4) });
+  }
+  function hopLand(e) {
+    remove(e.tele); e.tele = null;
+    const R = e.hopR || HOPE.R;
+    burst('milk', e.x, 0.1, e.z, { count: e.elite ? 12 : 8, scale: e.elite ? 1.2 : 0.9 });
+    fx('ring', e.hcx, e.hcz, { r0: 0.2, r1: R + 0.25, dur: 0.32, color: '#fff3dc', width: 0.28 });
+    sfx('splat', { x: e.x, z: e.z, vol: 0.55, pitch: frand(1.3, 1.5) });
+    shake(0.06 * clamp(1.4 - e.dist / 12, 0.2, 1));
+    if (!P.dead && Math.hypot(P.pos.x - e.hcx, P.pos.z - e.hcz) < R + T.heroR * 0.5) { STATS.strikeHit++; hurtPlayer(e.dmg, e.x, e.z, 0.55); }
   }
   // Salyangoz: a short sparkly slime trail behind it while it moves.
   function slimeTrail(e, dt) {
@@ -1217,7 +1440,7 @@ const GAME = (() => {
     burst('slime', bx, 0.03, bz, { dir: { x: Math.sin(e.face), z: Math.cos(e.face) }, scale: e.elite ? 1.4 : 1 });
   }
   const shape = (name, dflt) => (typeof FX !== 'undefined' && FX && FX.SHAPES && FX.SHAPES[name] !== undefined ? FX.SHAPES[name] : dflt);
-  const PT = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0.4, size: 0.3, size1: 0, color: '#fff', color1: '#fff', alpha: 1, shape: 0, add: true, grav: 0, drag: 0, spin: 0, fade: 1, pop: 0 };
+  const PT = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0.4, size: 0.3, size1: 0, color: '#fff', color1: '#fff', alpha: 1, shape: 0, add: true, grav: 0, drag: 0, spin: 0, fade: 1, pop: 0, soft: 0 };
   function emitP(x, y, z, vx, vy, vz, life, size, size1, color, color1, shape, grav = 0, drag = 0) {
     if (typeof FX === 'undefined' || !FX.emit) return;
     PT.x = x; PT.y = y; PT.z = z; PT.vx = vx; PT.vy = vy; PT.vz = vz; PT.life = life; PT.size = size; PT.size1 = size1;
@@ -1252,6 +1475,7 @@ const GAME = (() => {
         life: (e.atkRange + 4) / speed, color: SHOT_COL[kind] });
     }
     if (kind === 'bubble') { sfx('bubble', { x: e.x, z: e.z, vol: 0.8 }); burst('sparkle', m.x, m.y, m.z, { color: '#d8f4ff', count: 5 }); }
+    else if (kind === 'fizz') { sfx('fizz', { x: e.x, z: e.z, vol: 0.7, pitch: frand(1.0, 1.25) }); sfx('bubble', { x: e.x, z: e.z, vol: 0.45, pitch: 1.3 }); burst('fizz', m.x, m.y, m.z, { count: 6, scale: 0.7 }); }
     else if (kind === 'ember') { sfx('chirp', { x: e.x, z: e.z, vol: 0.7, pitch: frand(0.95, 1.2) }); burst('embers', m.x, m.y, m.z, { count: 5 }); }
     else sfx(kind === 'fire' ? 'fireball' : 'spit', { x: e.x, z: e.z, vol: 0.7 });
   }
@@ -1450,15 +1674,20 @@ const GAME = (() => {
     if (b.summon) b.wait = Math.min(b.wait, 0.35);   // an hp mark was crossed: the little ones come right after this move
   }
   function nextWave(b) { if (b.sq) b.sq.shift(); b.summon = b.sq && b.sq.length ? b.sq[0] : 0; }
+  function bossCall(b, pitch, vol) {   // its roar: a cute growl, or (kit.roarSfx) the kefir giant's happy "fizz!" with a bubbly puff
+    const s = b.kit.roarSfx || 'roar';
+    sfx(s, { x: b.x, z: b.z, pitch, vol });
+    if (s === 'fizz') { sfx('cork', { x: b.x, z: b.z, vol: 0.7 * vol, pitch: 1.1 }); const m = muzzle(b); burst('fizz', m.x, m.y + 0.2, m.z, { count: 18, scale: 1.5 }); }
+  }
   function bossRoar(b, D) {   // the intro roar (a cute growl + a soft ring)
     if (b.did === 0 && b.stT > 0.35) {
-      b.did = 1; sfx('roar', { x: b.x, z: b.z, pitch: b.kit.roar || 1 }); shake(0.25);
+      b.did = 1; bossCall(b, b.kit.roar || 1, 1); shake(0.25);
       fx('ring', b.x, b.z, { r0: 1, r1: 7, dur: 0.6, color: b.kit.col || '#ffb0f0', width: 0.5 });
     }
     if (b.stT >= D) bossEnd(b, 0.5, 0.9);
   }
   function bossSummon(b, D) {   // "come, little ones!": a happy roar, then they pop up around it
-    if (b.did === 0 && b.stT > 0.25) { b.did = 1; sfx('roar', { x: b.x, z: b.z, pitch: (b.kit.roar || 1) * 1.12, vol: 0.8 }); fx('ring', b.x, b.z, { r0: 1, r1: 5, dur: 0.5, color: b.kit.col, width: 0.4 }); }
+    if (b.did === 0 && b.stT > 0.25) { b.did = 1; bossCall(b, (b.kit.roar || 1) * 1.12, 0.8); fx('ring', b.x, b.z, { r0: 1, r1: 5, dur: 0.5, color: b.kit.col, width: 0.4 }); }
     if (b.did === 1 && b.stT > (b.kit.summonAt || 0.47) * D) { b.did = 2; summonAdds(b, b.kit.add, b.summon || 3); nextWave(b); }
     if (b.stT >= D) bossEnd(b, 0.7, 1.1);
   }
@@ -1468,8 +1697,9 @@ const GAME = (() => {
       owner: 'enemy', kind, life, color: SHOT_COL[kind] });
     return m;
   }
-  function bossRing(b, x, z, R, dmgK, kb, col) {   // a landing / stomp / pop-up shockwave: hurts Feza inside R
-    fx('ring', x, z, { r0: 0.6, r1: R + 0.6, dur: 0.5, color: col || '#ffd9a0', width: 0.6 });
+  // ro: extra FX ring options (a cream ring on the pale dairy floor needs a low k / edge: FX's default bloomed into a white halo)
+  function bossRing(b, x, z, R, dmgK, kb, col, ro) {   // a landing / stomp / pop-up shockwave: hurts Feza inside R
+    fx('ring', x, z, Object.assign({ r0: 0.6, r1: R + 0.6, dur: 0.5, color: col || '#ffd9a0', width: 0.6 }, ro));
     const pd = Math.hypot(P.pos.x - x, P.pos.z - z);
     shake(0.35 * clamp(1.4 - pd / 16, 0.3, 1));
     if (pd < R + T.heroR * 0.5) hurtPlayer(b.dmg * dmgK, x, z, kb);
@@ -1490,9 +1720,10 @@ const GAME = (() => {
       if (type === 'jole') burst('jelly', x, 0.35, z, { color: b.kit.col || SHOT_COL.jelly, scale: 1.2 });
       else if (e.kind === 'burrow') burst('dirt', x, 0.05, z, { count: 10, color: DIRT });
       else if (type === 'kaplumbaga') burst('lava', x, 0.1, z, {});
+      else if (type === 'kopuk') burst('fizz', x, 1, z, { count: 14, scale: 1.3 });
       else burst('shadowPuff', x, 0.8, z, {});
     }
-    sfx(type === 'yarasa' ? 'bat' : type === 'kostebek' ? 'dig' : type === 'jole' ? 'bounce' : 'pop', { x: b.x, z: b.z });
+    sfx(type === 'yarasa' ? 'bat' : type === 'kostebek' ? 'dig' : type === 'jole' ? 'bounce' : type === 'kopuk' ? 'fizz' : 'pop', { x: b.x, z: b.z });
     return made;
   }
   function bossThresholds(b) {
@@ -1745,6 +1976,160 @@ const GAME = (() => {
     sfx('whoosh', { x: b.x, z: b.z, pitch: 0.6 });
     return true;
   }
+  // ── Köpüklü Kefir Devi (Round 4): a big friendly glass kefir bottle. It shakes itself (the wind-up: wobbles and fizzes
+  // while the foam cone shows on the ground) → pops its cap and sprays a foam geyser along the cone (a few soft hits that
+  // push Feza out of the foam); spits 5 slow fizz bubbles in a fan (the saber pops them: "Pof!"); hops and lands with a
+  // milk-splash ring (the circle shows first); calls 2–3 kefir foams at 66 % / 33 %. Model phases (05, st.phase/phaseT):
+  // shake (the whole 0..1 wobbles), geyser (cap pops at 0.1, foam sprayAt 0.14–0.84, the cap drops back on ~0.9), bubbles
+  // (puffs up, then one bubble at each fizzAt 0.4 … 0.8 while its body turns across: the fan), slam (crouch 0–0.2, airborne
+  // 0.2–0.8 — the model jumps, GAME carries it across — lands at 0.8), summon (the foams pop out at 0.47), roar (a happy
+  // "fizz!"). EDEF.kefirdev's cone / sprayAt / fizzAt / slamR override these. m.muzzle() = the bottle's mouth. ──
+  const KEF = { shakeD: 1.1, geyD: 1.9, spray: [0.14, 0.84], cone: 0.95, len: 6, tick: 0.28, tickK: 0.3, kb: 0.9,
+    bubD: 1.9, fizzAt: [0.4, 0.5, 0.6, 0.7, 0.8], turn: 0.34, fanK: 1.8, bubSpeed: 3.6, bubR: 0.42, bubK: 0.55,
+    slamD: 1.8, up: 0.2, down: 0.8, R: 2.9, maxD: 8 };
+  const kefCone = b => (b.def.cone && b.def.cone.angle) || KEF.cone, kefLen = b => (b.def.cone && b.def.cone.len) || KEF.len;
+  const kefSpray = b => (Array.isArray(b.def.sprayAt) && b.def.sprayAt.length === 2 ? b.def.sprayAt : KEF.spray);
+  const kefFizz = b => (Array.isArray(b.def.fizzAt) && b.def.fizzAt.length ? b.def.fizzAt : KEF.fizzAt);
+  function kefirdevStep(b, dt, d, ux, uz) {
+    const faceP = Math.atan2(ux, uz), st = b.st;
+    st.air = 0;
+    switch (b.ph) {
+      case 'roar': bossRoar(b, 1.6); break;
+      case 'summon': bossSummon(b, 1.5); break;
+      case 'idle':
+        if (bossIdle(b, dt, d, ux, uz, 5.5)) {
+          if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
+          const ph = pickPhase(b, d < b.r + 3 ? [['geyser', 0.45], ['slam', 0.35], ['bubbles', 0.2]]
+            : d < 9 ? [['geyser', 0.4], ['bubbles', 0.35], ['slam', 0.25]] : [['bubbles', 0.5], ['slam', 0.5]]);
+          if (ph === 'geyser') {   // it shakes first; the foam cone shows for the whole wind-up
+            bossPhase(b, 'shake', KEF.shakeD); b.face = faceP;
+            b.tele = fx('telegraphCone', b.x, b.z, b.face, kefCone(b), b.r + kefLen(b), KEF.shakeD + KEF.geyD * kefSpray(b)[0], '#ff5a44');
+            sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 0.85 }); sfx('squish', { x: b.x, z: b.z, vol: 0.5, pitch: 0.7 });
+          } else if (ph === 'slam') {
+            bossPhase(b, 'slam', KEF.slamD);
+            const t = approachSpot(b, KEF.maxD);   // lands right next to Feza (he is inside the circle), never on him
+            b.hx0 = b.x; b.hz0 = b.z; b.hx1 = t.x; b.hz1 = t.z;
+            b.tele = fx('telegraph', t.x, t.z, b.def.slamR || KEF.R, KEF.slamD * KEF.down, '#ff4a3a');
+          } else bossPhase(b, 'bubbles', KEF.bubD);
+        }
+        break;
+      case 'shake': {   // wobbling and fizzing: little bubbles rise from its neck
+        b.shT = (b.shT || 0) - dt;
+        if (b.shT <= 0) { b.shT = 0.09; const m = muzzle(b); burst('fizz', m.x, m.y, m.z, { count: 3, scale: 0.8 }); }
+        if (b.did === 0 && b.stT > b.phD * 0.45) { b.did = 1; sfx('fizz', { x: b.x, z: b.z, vol: 0.9, pitch: 1.1 }); }
+        if (b.stT >= b.phD) { bossPhase(b, 'geyser', KEF.geyD); b.tick = 0; }
+        break;
+      }
+      case 'geyser': {
+        const k = b.stT / b.phD, sp = kefSpray(b), on = k >= sp[0] && k < sp[1];
+        if (b.did === 0 && k >= Math.max(0, sp[0] - 0.04)) {   // pop! the cap flies up and the foam gushes out
+          b.did = 1; remove(b.tele); b.tick = 0.12; b.crown = 0; b.foamT = 0;   // (the first hit as the jet turns toward Feza)
+          // the foam zone stays on the ground for the whole spray (Round 4 QA: the cone vanished at the pop while the hits went
+          // on 1.3 s over the whole cone, far outside the thin foam stream): a lighter pink, removed as the spray ends
+          b.tele = fx('telegraphCone', b.x, b.z, b.face, kefCone(b), b.r + kefLen(b), (sp[1] - k) * b.phD + 0.35, '#ff9ccb');
+          const m = muzzle(b);
+          sfx('cork', { x: b.x, z: b.z }); sfx('fizz', { x: b.x, z: b.z, vol: 1, pitch: 0.75 }); shake(0.18);
+          burst('fizz', m.x, m.y + 0.2, m.z, { count: 16, scale: 1.4 }); burst('milk', m.x, m.y, m.z, { count: 10, scale: 1.2, color: '#fff4e4' });
+        }
+        if (b.did === 1 && k >= sp[1]) { b.did = 2; remove(b.tele); b.tele = null; }   // the spray is over: the zone goes
+        if (on) {
+          foamSpray(b, dt, (k - sp[0]) / Math.max(0.05, sp[1] - sp[0]));
+          b.fzS = (b.fzS || 0) - dt;
+          if (b.fzS <= 0) { b.fzS = 0.3; sfx('fizz', { x: b.x, z: b.z, vol: 0.55, pitch: frand(0.8, 1.0) }); }
+          b.tick -= dt;
+          if (b.tick <= 0) {   // soft foam hits that push him out of the cone
+            b.tick = KEF.tick;
+            if (!P.dead && d < b.r + kefLen(b) + T.heroR && Math.abs(angDiff(b.face, faceP)) < kefCone(b) * 0.5 + 0.06) hurtPlayer(b.dmg * KEF.tickK, b.x, b.z, KEF.kb);
+          }
+        }
+        if (b.stT >= b.phD) bossEnd(b, 1.0, 1.5);
+        break;
+      }
+      case 'bubbles': {   // puffs up, then five slow fizz bubbles, one per burp while its body turns across: a fan
+        const fa = kefFizz(b), k = b.stT / b.phD;
+        if (k < fa[0]) { if (k < 0.3) { b.face = dampAngle(b.face, faceP, 5, dt); b.aim = b.face; } chargeFxAt(muzzle(b), SHOT_COL.fizz, k / fa[0]); }
+        if (b.did < fa.length && k >= fa[b.did]) {
+          // the same turn as the model's body (05: −0.34 → +0.34 over phaseT 0.36–0.84), widened so the fan has gaps to dodge
+          const turn = lerp(-KEF.turn, KEF.turn, smooth01((fa[b.did] - 0.36) / 0.48)) * KEF.fanK;
+          const m = muzzle(b), a = (b.aim !== undefined ? b.aim : b.face) + turn, sp = KEF.bubSpeed * frand(0.95, 1.05);
+          spawnProjectile({ x: m.x, y: Math.max(0.9, m.y), z: m.z, vx: Math.sin(a) * sp, vz: Math.cos(a) * sp, r: KEF.bubR, dmg: b.dmg * KEF.bubK,
+            owner: 'enemy', kind: 'fizz', life: 6.5, color: SHOT_COL.fizz });
+          sfx('bubble', { x: b.x, z: b.z, pitch: frand(0.75, 0.95), vol: 0.8 }); if (b.did === 0) sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 1.2 });
+          burst('fizz', m.x, m.y, m.z, { count: 6, scale: 1 });
+          b.did++;
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.4);
+        break;
+      }
+      case 'slam': {   // like Kral Jöle's hop: GAME carries it across while the model is in the air (st.air 0..1)
+        const t = b.stT, c = KEF.slamD * KEF.up, a = KEF.slamD * (KEF.down - KEF.up);
+        if (t < c) b.face = dampAngle(b.face, Math.atan2(b.hx1 - b.x, b.hz1 - b.z), 6, dt);
+        else if (t < c + a) {
+          if (b.did === 0) { b.did = 1; sfx('bounce', { x: b.x, z: b.z, pitch: 0.75 }); burst('milk', b.x, 0.2, b.z, { count: 10, scale: 1.2 }); burst('dust', b.x, 0.05, b.z, { count: 8, color: '#f3e4c2' }); }
+          const k = smooth01((t - c) / a);
+          b.x = lerp(b.hx0, b.hx1, k); b.z = lerp(b.hz0, b.hz1, k); st.air = (t - c) / a;
+        } else if (b.did === 1) {
+          b.did = 2; b.x = b.hx1; b.z = b.hz1; remove(b.tele); b.tele = null;
+          burst('milk', b.x, 0.2, b.z, { count: 26, scale: 2.2 }); burst('fizz', b.x, 0.5, b.z, { count: 16, scale: 1.4 });
+          sfx('slam', { x: b.x, z: b.z }); sfx('splat', { x: b.x, z: b.z, pitch: 0.8 });
+          // (Round 4 QA: the white additive ring bloomed into a halo over the boss and Feza: a soft cream ring now)
+          bossRing(b, b.x, b.z, b.def.slamR || KEF.R, 1, 1.8, '#ffe9c4', { k: 0.8, edge: 0.35 });
+        }
+        if (t >= b.phD) bossEnd(b, 0.8, 1.3);
+        break;
+      }
+      default: bossPhase(b, 'idle', 1); b.wait = 0.5;
+    }
+  }
+  // The geyser's foam, staged so it reads as a kefir fountain: the cap pops with a white crown splash on the bottle's mouth,
+  // then glossy cream clumps shoot out low in front of the bottle and rain over the cone, where foam piles up and melts.
+  // (Round 4 QA 2: ivory clumps that faded early blended into grey-beige balls over the blue label and the yellow cheese, and
+  // the jet straight up + the arc from the mouth were drawn right across the giant's face, which looks at Feza = toward the
+  // camera: now opaque white until they melt on the floor, starting 0.9 m out and 0.4 m below the mouth, flat and fast, so
+  // they leave its silhouette at once.) Soft shading kept: the ball's full shading gives a half-grey belly. Normal blend
+  // (never a white bloom), kept airy: a thick cloud hid Feza right where he has to step out of it.
+  const FOAM_COL = ['#ffffff', '#fff8f2', '#ffeef5', '#f2f8ff'];
+  function foamSpray(b, dt, u) {   // u: 0..1 through the spray
+    const m = muzzle(b), L = b.r + kefLen(b), CA = kefCone(b);
+    const mx = m.x, my = Math.max(1.4, m.y), mz = m.z, fx0 = Math.sin(b.face), fz0 = Math.cos(b.face);
+    const DOT = shape('DOT', 9), SMOKE = shape('SMOKE', 3), RING = shape('RING', 6), SPARK = shape('SPARK', 2);
+    if (!b.crown) {   // the crown splash on the bottle's mouth as the cap pops (the pop itself: kefirdevStep)
+      b.crown = 1;
+      burst('milk', mx, my + 0.1, mz, { scale: 1.1, color: '#ffffff' });
+    }
+    PT.add = false; PT.soft = 1; PT.alpha = 1; PT.fade = 5; PT.pop = 0.1;
+    b.foamT = (b.foamT || 0) - dt;
+    const sx = mx + fx0 * 0.9, sy = Math.max(1, my - 0.4), sz = mz + fz0 * 0.9;
+    while (b.foamT <= 0) {   // cream clumps arcing out over the cone, each onto its own spot (g = 9)
+      // (they swell as they fly: from the high camera every arc toward Feza crosses the giant's face on screen, so there
+      // they are still small beads; ~0.3–0.42 as they land, a little more as they melt)
+      b.foamT += 0.026;
+      const a = b.face + frand(-0.42, 0.42) * CA, r = frand(b.r + 0.6, L - 0.3), vy = frand(0.2, 0.8), T = (vy + Math.sqrt(vy * vy + 18 * sy)) / 9;
+      const tx = b.x + Math.sin(a) * r, tz = b.z + Math.cos(a) * r;
+      emitP(sx, sy, sz, (tx - sx) / T, vy, (tz - sz) / T, T + 0.35, frand(0.1, 0.14), frand(0.42, 0.56), fpick(FOAM_COL), '#ffffff', DOT, 9, 0);
+    }
+    b.clT = (b.clT || 0) - dt;
+    if (b.clT <= 0 && u > 0.1) {   // foam piling up on the cone: soft cream puffs that swell and melt (no grey edges: soft)
+      b.clT = 0.055;
+      const a = b.face + frand(-0.42, 0.42) * CA, r = frand(b.r + 0.9, L - 0.2), x = b.x + Math.sin(a) * r, z = b.z + Math.cos(a) * r;
+      PT.fade = 2.6;
+      emitP(x, frand(0.15, 0.35), z, Math.sin(a) * 0.6, frand(0.2, 0.5), Math.cos(a) * 0.6, frand(0.8, 1.1), frand(0.4, 0.55), frand(0.8, 1.0), fpick(FOAM_COL), '#fffaf4', SMOKE, -0.2, 1.5);
+    }
+    if (Math.random() < 0.35) {   // a few glossy kefir bubbles arcing out
+      const a = b.face + frand(-0.45, 0.45) * CA, sp = frand(0.35, 0.9) * L / 1.35;
+      PT.pop = 0.12; PT.fade = 4;
+      emitP(mx, my, mz, Math.sin(a) * sp, frand(1.2, 2.4), Math.cos(a) * sp, frand(1.1, 1.4), frand(0.14, 0.2), frand(0.2, 0.28), '#bfe9ff', '#e8f7ff', RING, 3.5, 0.3);
+    }
+    PT.add = true; PT.soft = 0; PT.fade = 1; PT.pop = 0;
+    if (Math.random() < 0.35) { const a = b.face + frand(-0.4, 0.4) * CA, sp = frand(0.3, 0.9) * L / 1.35;
+      emitP(mx, my, mz, Math.sin(a) * sp, frand(1.4, 2.6), Math.cos(a) * sp, frand(0.6, 0.9), frand(0.14, 0.22), 0.04, fpick(['#ffffff', '#ffe8f2', '#fff3c4']), '#ffffff', SPARK, 3, 0.3); }
+    b.splT = (b.splT || 0) - dt;
+    if (b.splT <= 0 && u > 0.3) {   // milky splashes where the clumps land
+      b.splT = 0.12;
+      const a = b.face + frand(-0.42, 0.42) * CA, r = frand(b.r + 1.5, L);
+      burst('milk', b.x + Math.sin(a) * r, 0.1, b.z + Math.cos(a) * r, { count: 4, scale: 0.8, color: '#fff4e4' });
+    }
+  }
   // Lobbed shots (lava balls): an arc from the muzzle onto a telegraph circle; they hurt only where they land.
   function spawnMortar(o) {
     let obj = fx('projectile', o.kind, SHOT_COL[o.kind]);
@@ -1886,7 +2271,7 @@ const GAME = (() => {
       default: bossPhase(b, 'idle', 1); b.wait = 0.5;   // (a phase of another boss type: start over)
     }
   }
-  const BOSS_AI = { kraljole: kraljoleStep, kostebekusta: kostebekustaStep, lavkaplumbaga: lavkaplumbagaStep, ejderha: dragonStep };
+  const BOSS_AI = { kraljole: kraljoleStep, kefirdev: kefirdevStep, kostebekusta: kostebekustaStep, lavkaplumbaga: lavkaplumbagaStep, ejderha: dragonStep };
 
   // ── Damage ──
   function damage(e, amount, o = {}) {
@@ -1908,7 +2293,7 @@ const GAME = (() => {
       if (e.boss) { emit('bossHp', { frac: Math.max(0, e.hp / e.maxHp) }); bossThresholds(e); }
     }
     if (o.kb && o.fromX !== undefined && !e.boss && !(e.bur > 0)) {   // (a köstebek half in the ground is not knocked away)
-      const mass = e.type === 'golem' ? 0.3 : e.elite ? 0.5 : 1;
+      const mass = e.type === 'golem' ? 0.3 : e.elite || HEAVY[e.type] ? 0.5 : 1;   // (the cheese wedge is heavy too)
       let dx = x - o.fromX, dz = z - o.fromZ; const d = Math.hypot(dx, dz);
       if (d > 1e-3) { dx /= d; dz /= d; } else { dx = Math.sin(P.face); dz = Math.cos(P.face); }
       e.kvx += dx * o.kb * 9 * mass; e.kvz += dz * o.kb * 9 * mass;
@@ -1923,7 +2308,8 @@ const GAME = (() => {
     e.dead = true; e.hp = 0;
     // before its xp: no level-up line may queue in front of the ending (dragon) or the boss's happy line (mid-zone boss)
     // (a new skill's line waits for the boss's happy line, its goodbye and the UI's look at the portal (≈7.5 s), see skillLine)
-    if (e.boss) { if (e.final) finale = true; else { storyUntil = gt + 10; skillAt = gt + 7.5; } }
+    const gift = !!(e.boss && !e.final && e.kit && e.kit.gift);   // Round 4: the kefir giant hands Feza a glass of kefir first (GIFT)
+    if (e.boss) { if (e.final) finale = true; else { storyUntil = gt + (gift ? giftBeat() + 2 : 10); skillAt = gt + (gift ? 9 : 7.5); } }
     const i = enemies.indexOf(e); if (i >= 0) enemies.splice(i, 1);
     remove(e.tele); e.tele = null;
     if (e.ice) { remove(e.ice); e.ice = null; }
@@ -1934,7 +2320,14 @@ const GAME = (() => {
     if (e.m.setMood) e.m.setMood('happy');
     if (e.m.flash) e.m.flash(0);
     e.dieT = 0; e.dieDur = e.boss ? 3.2 : 1.15;
-    if (e.boss) { e.st.phase = 'idle'; e.st.phaseT = 0; e.st.air = 0; }
+    if (e.boss) { e.st.phase = gift ? 'give' : 'idle'; e.st.phaseT = 0; e.st.air = 0; }
+    if (gift) {   // its reward is rolled now (a Kaydet during the hand-over keeps it) and pops out after Feza drank
+      // (yol: when 'kefirdev_yol' starts; beat: the portal wakes; byeAt: it starts waving goodbye — it vanishes just before)
+      const beat = giftBeat();
+      e.gift = { t: 0, stage: 0, yol: giftYol(), beat, byeAt: Math.max(GT.bye, beat - GIFT.byeDur - 0.3), glass: null, looted: false, held: false };
+      e.giftGold = Math.round(e.gold * frand(0.8, 1.25));
+      e.giftItem = rollItem(2, DROP.tries * 3);
+    }
     dying.push(e);
     const cy = e.y + e.height * 0.7;
     burst('cheer', e.x, cy, e.z, { scale: e.boss ? 3 : e.elite ? 1.6 : 1 });
@@ -1947,9 +2340,11 @@ const GAME = (() => {
     if (e.elite || e.boss) later(0.25, () => ftext(e.x, e.y + e.height + 0.4, e.z, '+' + xp + ' ⭐', 'xp'));
     if (e.boss) bossDown(e);   // its happy line first: level-up / new skill lines queue behind it
     gainXp(xp);
-    dropLoot(e);
+    if (!e.gift) dropLoot(e);
     if (C.targetE === e) C.targetE = null;
-    emit('happy', { type: e.type, x: e.x, z: e.z, elite: e.elite, boss: e.boss, final: !!(e.boss && e.final) });
+    // beat (mid-zone bosses): s until the portal wakes up — the UI's story camera stays on the boss until then
+    emit('happy', { type: e.type, x: e.x, z: e.z, elite: e.elite, boss: e.boss, final: !!(e.boss && e.final),
+      beat: e.boss && !e.final ? (e.gift ? e.gift.beat : 1.5) : undefined, gift: !!e.gift });
     cheers.push(gt);
     while (cheers.length && gt - cheers[0] > 2) cheers.shift();
     if ((cheers.length >= 3 || e.elite) && gt - lastPraise > 25) praise();
@@ -2025,6 +2420,7 @@ const GAME = (() => {
   function respawn() {
     if (!P.dead) return;
     P.dead = false; P.hp = P.maxHp; GAME.state = 'play'; C.invuln = 2; C.hurtT = 0; C.kbx = C.kbz = 0;
+    C.lockT = 0; C.cheerT = 0;   // (a story lock from before the nap never freezes him after waking up)
     // No nap loop (Round 3 QA: a careless kid napped 10× in a row on one pack that came back fully healed each time): the
     // pack nearby goes home, but keeps what Feza already did (at most +25 % hp back), is tired like a boss after a nap
     // (DIFF.bossNap: hits ×0.75, down to ×0.55; an elite that won twice also loses 30 % hp) and lets him wake up in peace
@@ -2121,8 +2517,11 @@ const GAME = (() => {
     C.lunge.t = 0.14; C.lunge.vx = dx / d * go / 0.14; C.lunge.vz = dz / d * go / 0.14;
     burst('dust', P.pos.x, 0.05, P.pos.z, { count: 5 });
   }
+  // The kefir giant cheered up and hands Feza its glass: no swings or skills until he has drunk it (Round 4 QA: a Kasırga
+  // cast between the cheer and the catch kept him whirling through the whole drink).
+  const giftBusy = () => !!(boss && boss.dead && boss.gift && boss.gift.stage < 4);
   function attackButton() {
-    if (GAME.state !== 'play' || P.dead || P.spin > 0) return;
+    if (GAME.state !== 'play' || P.dead || P.spin > 0 || C.lockT > 0 || giftBusy()) return;
     if (C.swing) { C.queued = true; return; }
     C.hasT = false; C.targetObj = null;
     const e = nearestEnemy(P.pos.x, P.pos.z, 4.8);
@@ -2145,7 +2544,7 @@ const GAME = (() => {
   }
   function cast(i) {
     const s = GAME.skills[i];
-    if (!s || !s.unlocked || s.cd > 0 || P.dead || GAME.state !== 'play') return false;
+    if (!s || !s.unlocked || s.cd > 0 || P.dead || GAME.state !== 'play' || C.lockT > 0 || giftBusy()) return false;
     const target = nearestEnemy(P.pos.x, P.pos.z, 12);
     let ax = Math.sin(P.face), az = Math.cos(P.face);
     if (target) { const dx = target.x - P.pos.x, dz = target.z - P.pos.z, d = Math.hypot(dx, dz) || 1; ax = dx / d; az = dz / d; }
@@ -2157,16 +2556,34 @@ const GAME = (() => {
     return true;
   }
   function movePlayer(dx, dz) {
-    if (!circleFree(P.pos.x, P.pos.z, T.heroR * 0.8)) {   // overlapping a solid (knocked into a chest…): let him walk out
+    if (!circleFree(P.pos.x, P.pos.z, T.heroR * 0.8)) {   // overlapping a solid or a wall (knocked into a chest…)
+      // Round 4 kid bots: a drag into a wall corner from such a spot never got out (100 s) → first step to the nearest spot
+      // where he fits (a few cm usually), then walk on as usual; only if there is none, the old "walk out over any floor"
+      const x0 = P.pos.x, z0 = P.pos.z, f = freeSpotNear(x0, z0, 0.5);
+      if (f) {
+        P.pos.x = f.x; P.pos.z = f.z; moveXZ(P.pos, dx, dz, T.heroR);
+        if (Math.abs(P.pos.x - f.x) + Math.abs(P.pos.z - f.z) > 1e-4) return;
+        P.pos.x = x0; P.pos.z = z0;   // (that way is blocked from there too: try the old way out)
+      }
       if (isFloor(P.pos.x + dx, P.pos.z + dz)) { P.pos.x += dx; P.pos.z += dz; }
       return;
     }
     moveXZ(P.pos, dx, dz, T.heroR);
   }
+  function freeSpotNear(x, z, maxR, r = T.heroR) {   // nearest spot (rings of 0.1 m, 16 directions) where Feza fits, or null
+    if (circleFree(x, z, r)) return { x, z };
+    for (let d = 0.1; d <= maxR + 1e-6; d += 0.1) for (let k = 0; k < 16; k++) {
+      const a = k / 16 * TAU, qx = x + Math.sin(a) * d, qz = z + Math.cos(a) * d;
+      if (isFloor(qx, qz) && circleFree(qx, qz, r)) return { x: qx, z: qz };
+    }
+    return null;
+  }
   // Tap-to-walk round a bush or a wall corner: when the straight walk to a tapped point gets stuck, a small grid search
-  // (4-neighbour BFS over cells Feza fits in) finds a way round, string-pulled to a few corners. Too far round (another
-  // room behind a wall) or no way: he simply stops instead of walking into the wall forever. Dragging is left as it is.
-  const ROUTE = { cells: 3000, len: 45 };
+  // (4-neighbour BFS over cells Feza fits in) finds a way round, string-pulled to a few corners. A point he cannot stand on
+  // or reach (a bush, the milk, across a river): the best reachable spot within ROUTE.near cells of it. Too far round
+  // (another room behind a wall) or nothing near: he simply stops instead of walking into the wall forever. Dragging uses
+  // it too when he is blocked (see updatePlayer).
+  const ROUTE = { cells: 3000, len: 45, near: 5 };
   const NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   function walkable(x0, z0, x1, z1) {   // a straight stretch he fits through
     const l = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.ceil(l / 0.3));
@@ -2181,14 +2598,26 @@ const GAME = (() => {
     const s = cell(P.pos.x, P.pos.z);
     let g = cell(tx, tz);
     if (s < 0 || g < 0) return null;
-    if (!fits(g)) {   // the tapped spot itself is taken (a bush): the free cell next to it closest to the tap
-      let best = -1, bd = 1e9;
-      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-        const i = (g % W) + di, j = Math.floor(g / W) + dj, c = i >= 0 && j >= 0 && i < W && j < H ? j * W + i : -1;
-        if (c >= 0 && fits(c)) { const d = dist2(i + 0.5, j + 0.5, tx, tz); if (d < bd) { bd = d; best = c; } }
+    // Cells Feza fits in near the point, best first: closest to the finger, a little toward Feza's side (ring by ring out
+    // to ROUTE.near cells). Round 4 QA: a finger 2+ cells deep in a bush clump, the milk or a yogurt hill found no free
+    // cell in its 3×3 and Feza stood still for 25–150 s; now he walks round to the bush's edge / the milk shore under it.
+    const gi = g % W, gj = (g - gi) / W;
+    const near = (from, to) => {
+      const out = [];
+      for (let r = from; r <= to; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+        if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+        const i = gi + di, j = gj + dj;
+        if (i < 0 || j < 0 || i >= W || j >= H) continue;
+        const c = j * W + i;
+        if (fits(c)) out.push({ c, k: dist2(i + 0.5, j + 0.5, tx, tz) + 0.25 * dist2(i + 0.5, j + 0.5, P.pos.x, P.pos.z) });
       }
-      if (best < 0) return null;
-      g = best;
+      return out.sort((a, b) => a.k - b.k);
+    };
+    if (!fits(g)) {   // the spot itself is taken: the first ring round it with room
+      let cand = [];
+      for (let r = 1; r <= ROUTE.near && !cand.length; r++) cand = near(r, r);
+      if (!cand.length) return null;
+      g = cand[0].c;
     }
     const prev = new Map([[s, -1]]), q = [s];
     let head = 0, found = s === g;
@@ -2203,7 +2632,11 @@ const GAME = (() => {
         if (n === g) { found = true; break; }
       }
     }
-    if (!found) return null;
+    if (!found) {   // cannot get there (across the milk, behind a wall): the best spot near it he CAN reach, if any
+      const alt = near(0, ROUTE.near).find(o => prev.has(o.c));
+      if (!alt || alt.c === s) return null;
+      g = alt.c;
+    }
     const pts = [];
     for (let c = g; c !== s && c !== -1 && c !== undefined; c = prev.get(c)) pts.push({ x: (c % W) + 0.5, z: Math.floor(c / W) + 0.5 });
     if (pts.length > ROUTE.len) return null;
@@ -2224,12 +2657,16 @@ const GAME = (() => {
   // at most PROG.brk per tap); otherwise blockT is set, so updatePlayer tries a way round once, or stops if it already did.
   const PROG = { win: 0.4, min: 0.3, brk: 2, brkGap: 0.8, brkArc: 100 * Math.PI / 180 };
   function tapWalkProgress(gx, gz, d, mx, mz, dt) {
-    if (C.swing || C.lunge.t > 0 || C.kbx || C.kbz) { C.progT = 0; C.progD = d; return; }   // slowed or pushed on purpose: not stuck
-    if (gx !== C.progGx || gz !== C.progGz) { C.progGx = gx; C.progGz = gz; C.progT = 0; C.progD = d; return; }   // new tap / next corner
+    // slowed or pushed on purpose (a swing at a creature / vase, a lunge, a knock-back): not stuck. Swings at thin air (a
+    // masher) only slow him down: the check asks for part of the way he ran instead (Round 4 QA: a masher in a bush pocket
+    // never tripped the watchdog and stood still)
+    if ((C.swing && C.swingFace !== null) || C.lunge.t > 0 || C.kbx || C.kbz) { C.progT = 0; C.progD = d; C.progW = 0; return; }
+    if (gx !== C.progGx || gz !== C.progGz) { C.progGx = gx; C.progGz = gz; C.progT = 0; C.progD = d; C.progW = 0; return; }   // new tap / next corner
+    C.progW += C.vel * dt;
     if ((C.progT += dt) < PROG.win) return;
-    const d0 = C.progD;
-    C.progT = 0; C.progD = d;
-    if (d0 - d >= Math.min(PROG.min, (d0 - 0.2) * 0.5)) return;   // getting there (near the goal he slows down: ask less)
+    const d0 = C.progD, ran = C.progW;
+    C.progT = 0; C.progD = d; C.progW = 0;
+    if (d0 - d >= Math.min(PROG.min, (d0 - 0.2) * 0.5, ran * 0.4)) return;   // getting there (near the goal he slows down: ask less)
     if (C.autoBrk < PROG.brk && P.spin <= 0 && L && L.breakObjs) {
       const mf = Math.atan2(mx, mz);
       let best = null, bd = PROG.brkGap;
@@ -2243,6 +2680,7 @@ const GAME = (() => {
     }
     C.blockT = Math.max(C.blockT, 0.31);
   }
+  const DRAGWIN = { t: 1, min: 0.5, left: 1.0, ran: 0.8 };   // drag net-progress window (s; m net at least; m still to go; m run)
   const skillsOwnTimers = () => typeof SKILLS_update === 'function';
 
   function updatePlayer(dt) {
@@ -2270,7 +2708,15 @@ const GAME = (() => {
       }
     }
 
-    let mx = 0, mz = 0, want = 0, face = null;
+    if (C.lockT > 0) {   // a story beat (Round 4: drinking the kefir giant's gift): he stands still facing the camera
+      C.lockT -= dt; C.swing = null; C.queued = false; C.hasT = false; C.targetE = null; C.targetObj = null; C.route = null;
+      C.vel = damp(C.vel, 0, 18, dt); C.lunge.t = 0; C.idleT = 0;
+      if (C.kbx || C.kbz) { movePlayer(C.kbx * dt, C.kbz * dt); const k = Math.exp(-10 * dt); C.kbx *= k; C.kbz *= k; if (Math.abs(C.kbx) + Math.abs(C.kbz) < 0.05) C.kbx = C.kbz = 0; }
+      if (C.lockFace !== null) P.face = dampAngle(P.face, C.lockFace, 8, dt);
+      C.playT += dt;
+      return;
+    }
+    let mx = 0, mz = 0, want = 0, face = null, waitE = false;
     const keyMove = C.keyX !== 0 || C.keyZ !== 0;
     if (keyMove) {
       const l = Math.hypot(C.keyX, C.keyZ); mx = C.keyX / l; mz = C.keyZ / l; want = P.speed * Math.min(1, l);
@@ -2291,11 +2737,14 @@ const GAME = (() => {
         const e = C.targetE, dx = e.x - P.pos.x, dz = e.z - P.pos.z, d = Math.hypot(dx, dz) || 1e-3;
         if (hidden(e)) {   // a köstebek dug in: follow its mound (it is coming anyway) and whack it when it pops up
           face = Math.atan2(dx, dz);
-          if (d > 2.8) { mx = dx / d; mz = dz / d; want = P.speed * 0.8; }
-        } else if (d <= T.reach + e.r - 0.3) { face = Math.atan2(dx, dz); if (!C.swing) startSwing(face); C.waitT = 0; }
+          if (d > 2.8) { mx = dx / d; mz = dz / d; want = P.speed * 0.8; } else waitE = true;
+        } else if (d <= T.reach + e.r - 0.3) { face = Math.atan2(dx, dz); if (!C.swing) startSwing(face); C.waitT = 0; C.tgtStall = 0; }
         else if (C.waitT > 0 || (e.dist < 18 && !e.losOk)) {
           // Behind a wall (it comes round through the flow field) or stuck on something: face it and wait, never push into the wall.
-          face = Math.atan2(dx, dz); C.waitT = Math.max(0, C.waitT - dt);
+          // Round 4 kid runs: while he waited he ignored whatever was hitting him (the volcano boss 3 m away kept hitting him
+          // for 15 s while he faced a tapped little turtle it had wedged in) — so the auto-attack below still runs while he
+          // waits (waitE), and C.tgtStall counts the waiting to let him give the tapped one up (see there).
+          face = Math.atan2(dx, dz); C.waitT = Math.max(0, C.waitT - dt); C.tgtStall += dt; waitE = true;
         } else {
           mx = dx / d; mz = dz / d; want = P.speed;
           if (C.blockT > 0.45) { C.waitT = 1.0; C.blockT = 0; }   // not getting anywhere: wait a moment, then try again
@@ -2312,13 +2761,42 @@ const GAME = (() => {
         }
       } else if (C.hasT) {
         let gx = C.tx, gz = C.tz;
-        if (C.drag) { C.route = null; C.routeTried = false; C.progGx = NaN; C.autoBrk = 0; }
+        if (C.drag) {
+          C.route = null; C.routeTried = false; C.progGx = NaN; C.autoBrk = 0;
+          // Round 4 kid bots: a finger held on the far side of a lava/milk river from a wall pocket (both ways blocked) kept
+          // Feza running into the corner for minutes. Fully blocked while dragging → the way round to the point under the
+          // finger (the tap-walk's grid route), re-planned when the finger moves on; nothing changes while he can move.
+          if (C.dragRoute && Math.hypot(C.tx - C.dragRouteTx, C.tz - C.dragRouteTz) > 2.5) C.dragRoute = null;
+          // Net progress too (Round 4 QA): in a concave wall corner LEVEL's sliding bounced him back and forth every frame at
+          // full speed — every frame "moved", so blockT never grew and he shook in place for 25 s with the finger held.
+          // Every DRAGWIN.t s he must have got a good part of the way he ran (∫ speed; a masher's air swings slow him down,
+          // so they count too) further — not while swinging at something, lunging, pushed, or with a creature right there.
+          if (!C.dragRoute) {
+            if (C.dragWinT < 0 || (C.swing && C.swingFace !== null) || C.lunge.t > 0 || C.kbx || C.kbz) { C.dragWinT = 0; C.dragWalk = 0; C.dragWinX = P.pos.x; C.dragWinZ = P.pos.z; }
+            else {
+              C.dragWalk += C.vel * dt;
+              if ((C.dragWinT += dt) >= DRAGWIN.t) {
+                const net = Math.hypot(P.pos.x - C.dragWinX, P.pos.z - C.dragWinZ), left = Math.hypot(C.tx - P.pos.x, C.tz - P.pos.z), ran = C.dragWalk;
+                C.dragWinT = 0; C.dragWalk = 0; C.dragWinX = P.pos.x; C.dragWinZ = P.pos.z;
+                if (ran > DRAGWIN.ran && net < Math.min(DRAGWIN.min, ran * 0.4) && left > DRAGWIN.left && !enemies.some(e => e.dist < e.r + T.heroR + 0.8)) C.blockT = Math.max(C.blockT, 0.51);
+              }
+            }
+          } else C.dragWinT = -1;
+          if (C.dragRoute) {
+            while (C.dragRoute.length && Math.hypot(C.dragRoute[0].x - P.pos.x, C.dragRoute[0].z - P.pos.z) < 0.45) C.dragRoute.shift();
+            if (C.dragRoute.length) { gx = C.dragRoute[0].x; gz = C.dragRoute[0].z; } else C.dragRoute = null;
+          } else if (C.blockT > 0.5 && gt - C.dragPlanAt > 1) {
+            C.dragPlanAt = gt;
+            const r = routeTo(C.tx, C.tz);
+            if (r && r.length) { C.dragRoute = r; C.dragRouteTx = C.tx; C.dragRouteTz = C.tz; C.blockT = 0; gx = r[0].x; gz = r[0].z; }
+          }
+        }
         else if (C.route) {   // walking round an obstacle to a tapped point, corner by corner
           while (C.route.length && Math.hypot(C.route[0].x - P.pos.x, C.route[0].z - P.pos.z) < 0.45) C.route.shift();
           if (C.route.length) { gx = C.route[0].x; gz = C.route[0].z; } else C.route = null;
         }
         const dx = gx - P.pos.x, dz = gz - P.pos.z, d = Math.hypot(dx, dz);
-        if (d > (C.drag ? 0.4 : 0.2)) { mx = dx / d; mz = dz / d; want = P.speed * (C.route ? 1 : clamp(d / 0.8, 0.35, 1)); }
+        if (d > (C.drag && !C.dragRoute ? 0.4 : 0.2)) { mx = dx / d; mz = dz / d; want = P.speed * (C.route || C.dragRoute ? 1 : clamp(d / 0.8, 0.35, 1)); }
         else if (!C.drag) C.hasT = false;
         if (!C.drag && C.hasT) tapWalkProgress(gx, gz, d, mx, mz, dt);
         if (!C.drag && C.hasT && C.blockT > 0.3) {   // stuck on the way: find a way round once, else stop trying
@@ -2330,8 +2808,9 @@ const GAME = (() => {
       }
     }
     // Auto-attack: face a grumpy one and swing. Finger up: anything within T.autoR. Finger held (or keys): only one he
-    // touches, ahead of him while he moves (so he fights his way through, but running away still works).
-    if (!C.swing && P.spin <= 0 && !C.targetE) {
+    // touches, ahead of him while he moves (so he fights his way through, but running away still works). Also while he waits
+    // for a tapped one he cannot reach yet (waitE: behind a wall / lava, stuck, or dug in) — then anything within T.autoR.
+    if (!C.swing && P.spin <= 0 && (!C.targetE || waitE)) {
       const held = C.drag || keyMove, moving = want > 0.01, mf = moving ? Math.atan2(mx, mz) : 0;
       let best = null, bd = 1e9;
       for (const e of enemies) {
@@ -2344,6 +2823,9 @@ const GAME = (() => {
         bd = g; best = e;
       }
       if (best) startSwing(Math.atan2(best.x - P.pos.x, best.z - P.pos.z));
+      // Waited ~1.5 s for the tapped one while another one right here hurts him: forget the tapped one (like a tapped object
+      // after 2 s, tgtStall) and fight here — otherwise its walk/wait retries keep pulling him away between swings.
+      if (waitE && best && best !== C.targetE && C.tgtStall > 1.5 && gt - C.lastHurt < 1) C.targetE = null;
     }
     if (C.swing) want *= 0.22;
     if (P.spin > 0) want *= 0.85;
@@ -2394,7 +2876,7 @@ const GAME = (() => {
       case 'chest': if (!r.opened) openChest(r); break;
       case 'npc': talkNpc(true); break;
       case 'cp': activateCp(r, true); break;
-      case 'portal': enterPortal(); break;
+      case 'portal': if (storyTalking()) { C.portalHold = true; break; } enterPortal(); break;   // (the story line first: see proximity)
       case 'crystal': victory(); break;
       case 'break':
         if (r.broken) { C.targetObj = null; break; }
@@ -2422,18 +2904,50 @@ const GAME = (() => {
       // walks in once it has been open PORTAL.wait s (the boss has waved goodbye, its treasure flew to him) and he has
       // been more than PORTAL.arm m away since it opened. A tap on the portal always works.
       // (a kid who just keeps standing in it goes through once the boss's story is over, PORTAL.stay s after it opened)
+      // Round 4 QA: a tap (or walking in) while the cheered boss's story line plays cut it in every eager run ("Kefir Devi
+      // diyor ki: Ejderha dağ…" and never "Yol mağaradan geçiyor!"; the other bosses lost their "…kapı … açıldı" half):
+      // he waits in the swirl (C.portalHold after a tap) and goes the moment the line ends (at most PORTAL.hold s after it opened).
       const d2 = dist2(po.x, po.z, x, z);
       if (po.armed === false && d2 > PORTAL.arm * PORTAL.arm) po.armed = true;
-      if (d2 < 1.35 * 1.35) { if ((po.armed !== false || gt - po.openT > PORTAL.stay) && !(gt - po.openT < PORTAL.wait)) enterPortal(); }
-      else if (d2 < 9 * 9 && !F.kapi[P.zone]) { F.kapi[P.zone] = true; say('kapi', 1); }
+      if (d2 < 1.35 * 1.35) {
+        const go = C.portalHold || ((po.armed !== false || gt - po.openT > PORTAL.stay) && !(gt - po.openT < PORTAL.wait));
+        if (go && (!storyTalking() || gt - po.openT > PORTAL.hold)) enterPortal();
+      } else {
+        C.portalHold = false;   // (walked off again: a later walk-in follows the usual rules)
+        if (d2 < 9 * 9 && !F.kapi[P.zone]) { F.kapi[P.zone] = true; say('kapi', 1); }
+      }
     }
-    if (L.npcObj && !F.baykus && dist2(L.npcObj.x, L.npcObj.z, x, z) < 3.6 * 3.6) talkNpc(false);
+    if (L.npcObj && !F.baykus) {   // walking past the owl (it talks once the narrator is free, while Feza is still close / on screen)
+      const d2 = dist2(L.npcObj.x, L.npcObj.z, x, z);
+      if (d2 < 3.6 * 3.6) npcWantAt = gt;
+      if (d2 < 3.6 * 3.6 || (gt - npcWantAt < 20 && d2 < 9 * 9)) talkNpc(false);
+    }
     if (crystal && crystal.ready && dist2(crystal.x, crystal.z, x, z) < 2.0 * 2.0) victory();
-    if (P.zone === 0 && !F.zl[0] && L.start && dist2(L.start.x, L.start.z, x, z) > 14 * 14) {
-      // (Round 3 QA: the opening talked 30 s straight; the forest's name is dropped if the intro/owl/first skill still go on)
-      F.zl[0] = true; const Z = zdef(0); if (Z.line) say(Z.line, 2, { wait: 10 });
-    }
+    // (Round 4 QA: the forest's name 'orman' is now its first-sight line, see setAggro — said 14 m from the start it was
+    // dropped behind the intro in every run)
+    if (yolWant) yolculukStep();
   }
+  // Round 4: 'yolculuk' (the whole journey), once per new game after giris2 — at the first calm moment: the narrator has
+  // been quiet a moment, no fight, and the owl goes first when Feza stands at it (QA: queued right after giris2 it made
+  // the opening 36–42 s of talk without a break and the owl's line came 14–19 s after Feza walked past it).
+  function yolculukStep() {
+    if (F.yolculuk || P.zone !== 0 || finale || !hasLine('yolculuk')) { yolWant = false; return; }
+    if (GAME.state !== 'play' || P.dead || speaking() || quietFor() < 2.5) return;   // (a breath after the last line)
+    if (gt < skillAt + 0.5 || skillQ.length) return;   // a new button's line first
+    if (L && L.npcObj && !F.baykus && dist2(L.npcObj.x, L.npcObj.z, P.pos.x, P.pos.z) < (gt - npcWantAt < 20 ? 81 : 3.6 * 3.6)) return;   // the owl first
+    for (const e of enemies) if (e.aggro && !e.dead) return;
+    yolWant = false; F.yolculuk = true; say('yolculuk', 3);
+  }
+  // A cheered boss's story line is playing ('…bitti', or the Kefir Devi's 'kefir_ikram' / 'kefirdev_yol'). AUD.current
+  // says what plays; storyEnd (game time the last story line should end, from AUD.say) caps it, so a narrator that never
+  // reports the end (no audio clock: a frozen tab, a test stepping frames) cannot hold the portal or the crystal back.
+  function storyTalking(final) {
+    const b = boss;
+    if (!b || !b.dead || !!b.final !== !!final || gt > storyEnd + 0.25 || typeof AUD === 'undefined' || !AUD) return false;
+    const c = AUD.current, k = b.kit && b.kit.lines;
+    return !!c && (c === (k && k.bitti) || c === 'kefir_ikram' || c === 'kefirdev_yol');
+  }
+  function storySay(k) { const w = say(k, 3); storyEnd = Math.max(storyEnd, gt + (w || 0)); return w; }
   function openChest(c) {
     if (c.opened) return;
     try { c.open(); } catch (err) { warnOnce('chest.open', err); }
@@ -2476,8 +2990,10 @@ const GAME = (() => {
     const first = !cp.active;
     if (first) { try { cp.activate(); } catch (err) { warnOnce('cp.activate', err); } cp.active = true; }
     let sx = cp.x, sz = cp.z + 1.6;
-    if (!circleFree(sx, sz, T.heroR)) {
-      const alt = hasLevel() && LEVEL.randomFloorNear ? LEVEL.randomFloorNear(L, cp.x, cp.z, 1.3, 2.6) : null;
+    if (!circleFree(sx, sz, T.heroR)) {   // (a spot he fits in: a floor cell right at a wall made him wake up stuck in it)
+      let alt = null;
+      for (let k = 0; k < 8 && !alt; k++) { const q = hasLevel() && LEVEL.randomFloorNear ? LEVEL.randomFloorNear(L, cp.x, cp.z, 1.3, 2.6) : null; if (q && circleFree(q.x, q.z, T.heroR)) alt = q; }
+      if (!alt) alt = freeSpotNear(cp.x, cp.z + 1.6, 1.5) || freeSpotNear(P.pos.x, P.pos.z, 1.5);
       if (alt) { sx = alt.x; sz = alt.z; } else { sx = P.pos.x; sz = P.pos.z; }
     }
     P.checkpoint = { x: sx, z: sz, cx: cp.x, cz: cp.z };
@@ -2491,7 +3007,10 @@ const GAME = (() => {
   }
   function talkNpc(tapped) {
     if (gt - npcTalkAt < (tapped ? 4 : 8)) return;
-    if (tapped && aud('speaking')) return;
+    // (walking past it: only when the narrator is free — queued behind the intro the owl "talked" 14–17 s later, far off
+    // screen; proximity keeps trying while he is near it (≤ 9 m for 20 s after passing it), else it talks when he comes
+    // back or taps it)
+    if (aud('speaking')) return;
     npcTalkAt = gt; F.baykus = true;
     if (L && L.npcObj && C.vel < 0.5 && !C.swing) faceTo(L.npcObj.x, L.npcObj.z);
     const s = say('baykus', 2);
@@ -2503,7 +3022,7 @@ const GAME = (() => {
     if (cur && typeof cur === 'object') return cur.key === 'baykus';
     return cur === undefined && gt < npcTalkUntil;
   }
-  const PORTAL = { wait: 2.5, arm: 2.5, stay: 6.5, pocket: 24 };
+  const PORTAL = { wait: 2.5, arm: 2.5, stay: 6.5, pocket: 24, hold: 8 };
   function enterPortal() {
     if (GAME.state !== 'play') return;
     if (L && L.portalObj && !L.portalObj.active) return;   // shut until the zone's boss cheers up: it does nothing
@@ -2523,7 +3042,7 @@ const GAME = (() => {
       x: o.x, y: o.y !== undefined ? o.y : 0.9, z: o.z, vx: o.vx || 0, vz: o.vz || 0, r: o.r !== undefined ? o.r : 0.35,
       dmg: o.dmg !== undefined ? o.dmg : 5, owner: o.owner || 'feza', kind: o.kind || 'star', life: o.life !== undefined ? o.life : 3,
       pierce: o.pierce || 0, obj: o.obj || null, color: o.color, onHit: o.onHit || null, kb: o.kb !== undefined ? o.kb : 0.25,
-      freeze: o.freeze || 0, stun: o.stun || 0, hit: [], t: 0,
+      freeze: o.freeze || 0, stun: o.stun || 0, hit: [], t: 0, ph: o.ph !== undefined ? o.ph : frand(0, TAU),
     };
     if (!p.obj) p.obj = fx('projectile', p.kind, p.color);
     if (!p.obj) { p.obj = new THREE.Mesh(G.sphere(12), glowMat(p.color || '#ffd23f', 3)); p.obj.scale.setScalar(p.r * 0.8); }
@@ -2534,11 +3053,11 @@ const GAME = (() => {
   }
   // Soap bubbles (the snail's, and the dragon's big pink ones) always pop with sparkles: FX pops its own bubble visuals
   // when they leave the scene; a stand-in visual gets the burst from here.
-  const isBubble = p => p.kind === 'bubble' || p.kind === 'dragonfire';
+  const isBubble = p => p.kind === 'bubble' || p.kind === 'dragonfire' || p.kind === 'fizz';   // (Round 4: the kefir fizz bubbles too)
   function bubblePop(p) {
     const u = p.obj && p.obj.userData && p.obj.userData.fxp;
     if (!(u && u.pop)) burst('bubblePop', p.x, p.y, p.z, { color: p.color, scale: p.kind === 'dragonfire' ? 1.5 : 1 });
-    sfx('bubblePop', { x: p.x, z: p.z, vol: 0.6 });
+    sfx('bubblePop', { x: p.x, z: p.z, vol: 0.6, pitch: p.kind === 'fizz' ? 1.25 : 1 });
   }
   function killProjectileObj(p) {
     removeObj(p.obj);
@@ -2559,6 +3078,7 @@ const GAME = (() => {
       p.t += dt; p.life -= dt;
       p.x += p.vx * dt; p.z += p.vz * dt;
       if (p.kind === 'bubble') { p.by = damp(p.by === undefined ? p.y : p.by, 0.95, 2.5, dt); p.y = p.by + 0.13 * Math.sin(p.t * 5.5); }   // floats and bobs
+      else if (p.kind === 'fizz') { p.by = damp(p.by === undefined ? p.y : p.by, 1.0, 2.2, dt); p.y = p.by + 0.16 * Math.sin(p.t * 6.5 + (p.ph || 0)); }   // fizzy: bobs a little livelier
       else if (p.kind === 'jelly') { p.by = damp(p.by === undefined ? p.y : p.by, 0.35, 3, dt); p.y = p.by + 0.75 * Math.abs(Math.sin(p.t * 4.6)); }   // a jelly blob bounces along
       else if (p.owner === 'enemy') p.y = damp(p.y, 0.85, 2.5, dt);
       p.obj.position.set(p.x, p.y, p.z);
@@ -2714,17 +3234,21 @@ const GAME = (() => {
   }
   function spawnLoot(kind, x, z, item) {
     let main;
-    if (kind === 'heart') main = new THREE.Mesh(heartGeo(), R.heartMat);
+    const kef = kind === 'heart' && dairyZone();   // (Round 4) the kefir valley's hearts are little kefir bottles
+    if (kef) main = kefirBottleTpl().clone();
+    else if (kind === 'heart') main = new THREE.Mesh(heartGeo(), R.heartMat);
     else if (kind === 'potion') main = potionTpl().clone();
     else main = itemModel(item);
-    if (kind === 'heart') main.castShadow = true;
+    if (kind === 'heart' && !kef) main.castShadow = true;
     const obj = new THREE.Group();
     const col = kind === 'item' ? rarCol(item ? item.rarity : 0) : kind === 'heart' ? '#ff4d7a' : '#ff5d7d';
     const ring = decal(lootRingMat(col), kind === 'item' ? 1.15 : 1.05); ring.position.y = 0.04;
     const blob = decal(R.blobMat, kind === 'item' ? 1.0 : 0.7); blob.position.y = 0.03; blob.renderOrder = 1;
     obj.add(blob, ring, main); scene.add(obj);
+    let heart = null;
+    if (kef) { heart = new THREE.Mesh(heartGeo(), R.heartMat); heart.scale.setScalar(0.42); obj.add(heart); }   // the red heart over the kefir bottle
     const a = frand(0, TAU), s = frand(0.9, 2.2);
-    const o = { kind, obj, main, ring, item, x, z, y: 0.7, vx: Math.sin(a) * s, vz: Math.cos(a) * s, vy: frand(4.5, 6), t: 0, landed: false, beam: null, ph: frand(0, TAU), mag: false };
+    const o = { kind, obj, main, ring, item, x, z, y: 0.7, vx: Math.sin(a) * s, vz: Math.cos(a) * s, vy: frand(4.5, 6), t: 0, landed: false, beam: null, ph: frand(0, TAU), mag: false, kefir: kef, heart };
     loot.push(o);
     return o;
   }
@@ -2742,7 +3266,7 @@ const GAME = (() => {
     for (let i = loot.length - 1; i >= 0; i--) {
       const o = loot[i];
       o.t += dt;
-      const hoverY = o.kind === 'item' ? 0.62 : o.kind === 'heart' ? 0.55 : 0.12;
+      const hoverY = o.kind === 'item' ? 0.62 : o.kind === 'heart' ? (o.kefir ? 0.14 : 0.55) : 0.12;
       const dx = px - o.x, dz = pz - o.z, d = Math.hypot(dx, dz);
       const canTake = o.kind !== 'potion' || P.potions < P.maxPotions;
       if (!o.landed) {
@@ -2767,7 +3291,16 @@ const GAME = (() => {
       const bob = o.landed ? 0.07 * Math.sin(o.t * 2.6 + o.ph) : 0;
       o.obj.position.set(o.x, 0, o.z);
       o.main.position.y = o.y + bob;
-      if (o.kind === 'heart') o.main.rotation.set(-0.5, (CAM.yaw || 0) + 0.55 * Math.sin(o.t * 2.2 + o.ph), 0);
+      if (o.kefir) {   // a kefir bottle wiggles and turns; its little heart bobs over it, facing the kid, and twinkles now and then
+        o.main.rotation.y += dt * 1.5; o.main.rotation.z = 0.16 * Math.sin(o.t * 2.6 + o.ph);
+        if (o.heart) {
+          o.heart.position.y = o.y + bob + 0.92 + 0.05 * Math.sin(o.t * 3.1 + o.ph);
+          o.heart.rotation.set(-0.5, (CAM.yaw || 0) + 0.45 * Math.sin(o.t * 2.2 + o.ph), 0);
+          o.heart.scale.setScalar(0.42 * (1 + 0.08 * Math.sin(o.t * 5 + o.ph)));
+        }
+        if (o.landed && !o.mag && Math.random() < dt * 1.1) burst('sparkle', o.x, o.y + 0.95, o.z, { count: 3, color: '#ff9ac0' });
+      }
+      else if (o.kind === 'heart') o.main.rotation.set(-0.5, (CAM.yaw || 0) + 0.55 * Math.sin(o.t * 2.2 + o.ph), 0);
       else { o.main.rotation.y += dt * (o.kind === 'item' ? 1.3 : 1.8); if (o.kind === 'item') o.main.rotation.z = 0.35 * Math.sin(o.t * 1.3); }
       o.ring.scale.setScalar((o.kind === 'item' ? 1.15 : 1.05) * (1 + 0.08 * Math.sin(o.t * 4 + o.ph)));
       if (o.beam && o.beam.obj) o.beam.obj.position.set(o.x, o.beam.obj.position.y, o.z);
@@ -2781,6 +3314,7 @@ const GAME = (() => {
     removeObj(o.obj); remove(o.beam);
     if (o.kind === 'heart') {
       heal(DIFF.heart); sfx('heart');
+      if (o.kefir) { sfx('slurp', { vol: 0.45, pitch: 1.35 }); burst('fizz', P.pos.x, 1.1, P.pos.z, { count: 8, scale: 0.8 }); }
     } else if (o.kind === 'potion') {
       P.potions = Math.min(P.maxPotions, P.potions + 1); sfx('potion', { pitch: 1.2 });
       ftext(P.pos.x, 2.0, P.pos.z, '+1 İksir', 'heal');
@@ -2827,16 +3361,21 @@ const GAME = (() => {
       const line = item.slot === 'weapon' ? 'kilic' : item.slot === 'hat' ? 'sapka' : 'pelerin';
       if (!ZF['l_' + line] || (item.rarity || 0) >= 2) { if (chat(line, 1, (item.rarity || 0) >= 2 ? 6 : 15)) ZF['l_' + line] = true; }
     }
-    if (!better && !F.canta && item.slot !== 'weapon' && !finale) { F.canta = true; later(1.5, () => say('canta', 1)); }
+    // (not during a boss's story: queued behind it, the portal cut the once-per-game bag hint — a later piece says it)
+    if (!better && !F.canta && item.slot !== 'weapon' && !finale && gt >= storyUntil) { F.canta = true; later(1.5, () => say('canta', 1)); }
   }
   function equip(item, quiet) {
     if (!item || !item.slot) return;
     if (P.bag.indexOf(item) < 0) P.bag.push(item);
     const newBlade = item.slot === 'weapon' && P.equip.weapon !== item;
+    // drinking the kefir giant's gift (saber put away): a new blade stays off too until giftDrunk lights it (Round 4 QA:
+    // a saber put on in the wardrobe during the sip lit up and he drank holding a lit saber)
+    const sheathed = C.lockT > 0 || !!(boss && boss.gift && (boss.gift.stage === 2 || boss.gift.stage === 3));
     P.equip[item.slot] = item;
     recalcStats();
-    if (newBlade && GAME.state !== 'title') { sfx('saberOn', { vol: 0.8 }); R.pulse = 1; }   // FEZA.setEquip ignites the new blade
+    if (newBlade && GAME.state !== 'title' && !sheathed) { sfx('saberOn', { vol: 0.8 }); R.pulse = 1; }   // FEZA.setEquip ignites the new blade
     if (H) { try { H.setEquip(P.equip); } catch (err) { warnOnce('H.setEquip', err); } }
+    if (H && sheathed && newBlade && typeof H.retract === 'function') { try { H.retract(); } catch (err) { warnOnce('H.retract', err); } }
     burst('sparkle', P.pos.x, 1.0, P.pos.z, { color: rarCol(item.rarity || 0), count: 14 });
     if (!quiet) sfx('click');
     C.cheerT = Math.max(C.cheerT, 0.7);
@@ -2884,15 +3423,18 @@ const GAME = (() => {
   // The meteor comes with Kral Jöle's cheer (its xp is a level-up): its line must not push the boss's goodbye and the door
   // behind it — nor play inside the next zone before that zone's name. Held until skillAt (boss +7.5 s, or right after the
   // next zone's line), then queued as usual.
+  // Round 4 QA: a skill won at a mid-zone boss always waits for the next zone (right after its name): in the old zone the
+  // portal cut it (stopVoice) and it was never repeated. At prio 3 a full queue drops a chattier line instead of it.
+  const holdSkill = () => gt < storyUntil || gt < skillAt || !!(boss && boss.dead && !boss.final);
   function skillLine(k) {
-    if (gt < storyUntil || gt < skillAt) { if (skillQ.indexOf(k) < 0) skillQ.push(k); }
-    else say(k, 2, { wait: 40 });
+    if (holdSkill()) { if (skillQ.indexOf(k) < 0) skillQ.push(k); }
+    else say(k, 3, { wait: 40 });
   }
   function flushSkillLines() {
     if (!skillQ.length) return;
     if (finale) { skillQ.length = 0; return; }
-    if (GAME.state !== 'play' || gt < skillAt) return;
-    for (const k of skillQ.splice(0)) say(k, 2, { wait: 40 });
+    if (GAME.state !== 'play' || holdSkill()) return;
+    for (const k of skillQ.splice(0)) say(k, 3, { wait: 40 });
   }
   function introFirstSkill() {
     if (F.intro0) return;
@@ -2905,7 +3447,7 @@ const GAME = (() => {
     emit('boss', { on: false, type: b.type });
     remove(b.tele); b.tele = null;
     aud('stopVoice');   // drop stale fight lines ('çok az kaldı', level-ups…): the story lines come next
-    const k = b.kit.lines.bitti; if (k && hasLine(k)) say(k, 3);
+    const k = b.kit.lines.bitti; if (k && hasLine(k)) storySay(k);
     shake(0.4); C.cheerT = 2.5;
     burst('confetti', b.x, 3, b.z, {}); burst('confetti', P.pos.x, 2.5, P.pos.z, {});
     if (!b.final) sfx('cheer', { vol: 0.7 });
@@ -2916,8 +3458,241 @@ const GAME = (() => {
     // shots already flying pop with their little end burst (they must not hurt Feza during the cheer)
     for (let i = projectiles.length - 1; i >= 0; i--) if (projectiles[i].owner === 'enemy') killProjectile(i, true);
     aud('music', zdef().music || 'kale');
-    if (!b.final) later(1.5, openPortal);   // its line says the magic door opened: it opens while the boss waves goodbye
+    // the kefir giant: giftStep wakes its portal on the gift's own clock (a nap pauses the hand-over), as its 'kefirdev_yol'
+    // line reaches "Yol mağaradan geçiyor!" (a late backstop, never needed in the tests)
+    if (b.gift) later(b.gift.beat + 14, () => { const po = L && L.portalObj; if (!po || !po.active) openPortal(); });
+    else if (!b.final) later(1.5, openPortal);    // its line says the magic door opened: it opens while the boss waves goodbye
   }
+  // ── Round 4: the kefir giant's gift. Stages on the cheered-up boss (it stays, overjoyed, before it waves): it holds out a
+  // glass of kefir (05: st.give 0..1 drives the hand-over — the glass pops into its hand, the arm reaches out to Feza, the
+  // model hands it over at ~0.85, m.giftPos() = where that glass is; st.dying stays below the model's dieFrom so it stands
+  // still meanwhile) → GAME's own glass takes over at the hand-over and floats to Feza → he puts the saber away and raises
+  // it (cheer) → sips through the straw (slurp, standing still) → sparkles + full heal + 'kefir_ikram' → the treasure pops
+  // out + 'kefirdev_yol' → it waves goodbye (st.dying from dieFrom to 1: the model's happy hops, wave and twirl). Times
+  // in s after it cheered up. ──
+  const GIFT = { give: 2.0, hand: 0.85, fly: 0.8, raise: 0.45, drink: 1.1, loot: 0.35, bye: 0.5, lock: 0.3, byeDur: 3.2 };
+  function giftTimes() {
+    const t = {}; t.offer = GIFT.give * GIFT.hand; t.catch = t.offer + GIFT.fly; t.drink = t.catch + GIFT.raise; t.drunk = t.drink + GIFT.drink;
+    t.loot = t.drunk + GIFT.loot; t.bye = t.loot + GIFT.bye; return t;
+  }
+  // the model's goodbye starts at st.dying = dieFrom (05: EDEF.kefirdev.give.to + 0.05; before that it just stands there happy)
+  const giftFrom = b => clamp(((b.def.give && b.def.give.to) || 0.45) + 0.05, 0, 0.9);
+  const GT = giftTimes();
+  const lineLen = k => (hasLine(k) && typeof AUD.estimate === 'function' ? AUD.estimate(k) || 0 : 0);
+  // When the 'kefirdev_yol' line should start (bitti now, ikram once he drank, yol right after).
+  function giftYol() {
+    const ik = Math.max(GT.drunk, lineLen('kefirdev_bitti') + 0.3);
+    return clamp(ik + lineLen('kefir_ikram') + 0.3, GT.bye + 1.5, 9.5);
+  }
+  // When the portal wakes: as 'kefirdev_yol' reaches "Yol mağaradan geçiyor!" (≈ 1.2 s before its end). Round 4 QA: it
+  // woke as the line started, the giant had already vanished ("Kefir Devi diyor ki…" over an empty plaza) and a kid who
+  // tapped the portal cut the line. Now the giant waves happily while it is quoted and twirls away just before.
+  function giftBeat() {
+    const y = giftYol();
+    return clamp(y + lineLen('kefirdev_yol') - 1.2, y + 1.5, y + 6);
+  }
+  function kefirGlassTpl() {   // a tall glass of fizzy kefir with a striped straw (liquid + foam follow the level while he sips)
+    if (R.glass) return R.glass;
+    const g = new THREE.Group();
+    // (every part is drawn in the transparent pass after Feza's x-ray twin, without writing depth: held in front of him, an
+    // opaque glass made the x-ray paint his blue silhouette all over it)
+    const XO = { transparent: true, depthWrite: false };
+    const gl = new Kit();
+    gl.add(G.cyl(1, 0.84, 20, true), '#ffffff', [0, 0.13, 0], 0, [0.085, 0.26, 0.085]);
+    gl.add(G.cyl(0.84, 0.84, 20), '#ffffff', [0, 0.008, 0], 0, [0.075, 0.016, 0.075]);
+    const glass = new THREE.Mesh(gl.build(), stdMat({ color: '#f2faff', transparent: true, opacity: 0.3, roughness: 0.04, metalness: 0.1, depthWrite: false }));
+    const dc = new Kit();   // a pink rim, a pink band with white dots and a pink-and-white striped straw: it reads as a drink
+    dc.add(G.torus(TAU, 0.16, 20), '#ff6f9a', [0, 0.262, 0], [Math.PI / 2, 0, 0], 0.086);
+    dc.add(G.cyl(0.92, 0.9, 20, true), '#ff6f9a', [0, 0.1, 0], 0, [0.087, 0.05, 0.087]);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; dc.add(G.sphere(8), '#ffffff', [Math.sin(a) * 0.078, 0.1, Math.cos(a) * 0.078], 0, [0.012, 0.012, 0.012]); }
+    for (let i = 0; i < 6; i++) dc.add(G.cyl(1, 1, 10), i % 2 ? '#ffffff' : '#ff4f86', [0.03 - 0.004 * i, 0.12 + i * 0.045, 0.012], [0, 0, 0.09], [0.012, 0.045, 0.012]);
+    const deco = new THREE.Mesh(dc.build(), vcMat(Object.assign({ roughness: 0.35, emissive: '#80203c', emissiveIntensity: 0.12 }, XO)));
+    const lq = new Kit();
+    lq.add(G.cyl(0.97, 0.86, 20), '#fffaf2', [0, 0.5, 0], 0, [0.078, 1, 0.078]);   // spans y 0..1: scale.y = the level
+    const liquid = new THREE.Mesh(lq.build(), stdMat(Object.assign({ color: '#fffaf2', roughness: 0.3, emissive: '#fff1dc', emissiveIntensity: 0.35 }, XO)));
+    liquid.position.y = 0.016; liquid.scale.y = 0.2;
+    const fm = new Kit();
+    fm.add(G.sphere(16), '#ffffff', [0, 0, 0], 0, [0.078, 0.028, 0.078]);
+    fm.add(G.sphere(10), '#ffffff', [0.03, 0.02, 0.02], 0, 0.022); fm.add(G.sphere(10), '#ffffff', [-0.028, 0.018, -0.015], 0, 0.018);
+    const foam = new THREE.Mesh(fm.build(), vcMat(Object.assign({ roughness: 0.55, emissive: '#fff6ea', emissiveIntensity: 0.45 }, XO)));
+    foam.position.y = 0.216;
+    g.add(liquid, foam, glass, deco);   // (children 0 / 1 = liquid / foam: glassLevel; no meshes in userData — clone() JSON-copies it)
+    liquid.renderOrder = 25; foam.renderOrder = 26; deco.renderOrder = 26; glass.renderOrder = 27;   // (the x-ray twin is 20)
+    g.scale.setScalar(1.35);
+    g.rotation.order = 'YXZ';
+    return (R.glass = g);
+  }
+  function glassLevel(g, k) {   // 1 = full, 0 = empty
+    const lq = g.children[0], fm = g.children[1];
+    if (lq) { lq.scale.y = Math.max(0.005, 0.2 * k); lq.visible = k > 0.02; }
+    if (fm) { fm.position.y = 0.016 + 0.2 * k + 0.004; fm.scale.setScalar(0.4 + 0.6 * k); fm.visible = k > 0.02; }
+  }
+  function giftHand(b) {   // where the kefir giant holds out the glass: the model's (05: m.giftPos), else in front of its belly
+    if (b.m.giftPos) { try { const v = b.m.giftPos(_v); if (v) return _v; } catch (err) { warnOnce('giftPos', err); } }
+    return _v.set(b.x + Math.sin(b.face) * (b.r + 0.25), Math.max(0.9, b.height * 0.42), b.z + Math.cos(b.face) * (b.r + 0.25));
+  }
+  const _gm = new THREE.Vector3(), GLASS_S = 1.8;
+  function sipSpot(out) {   // where the glass stands while he sips: in front of his chest, the straw's end at his mouth
+    const f = P.face, rx = Math.cos(f), rz = -Math.sin(f);
+    return out.set(P.pos.x + Math.sin(f) * 0.26 - rx * 0.05, 0.42, P.pos.z + Math.cos(f) * 0.26 - rz * 0.05);
+  }
+  function giftStep(b, dt) {
+    const g = b.gift, s = b.st;
+    // Feza napping (a meteor still falling cheered it up): the hand-over waits — the giant keeps holding the glass out, a glass
+    // already in the air hovers — and goes on once he is awake at the checkpoint (Round 4 QA: the glass was 'caught' by the
+    // sleeping Feza, he then drank it 13 m away with a lit saber, and the drink lock survived the wake-up)
+    const asleep = g.stage < 4 && (P.dead || GAME.state !== 'play');
+    if (asleep) g.held = true;
+    else if (g.held) {   // awake: the glass flies over to him from where it is
+      g.held = false; C.lockT = 0;
+      if (g.stage >= 1 && g.glass) {   // (a far checkpoint: a longer, gentler flight that still lands at GT.catch)
+        const p = g.glass.position, far = Math.hypot(p.x - P.pos.x, p.z - P.pos.z);
+        g.stage = 1; g.x0 = p.x; g.y0 = p.y; g.z0 = p.z; g.fly0 = GT.offer - clamp(far / 8 - GIFT.fly, 0, 1.2); g.t = g.fly0;
+      }
+    }
+    const t = asleep ? g.t : (g.t += dt);
+    // overjoyed (05: st.dying ≥ 0 = the happy pose) but below dieFrom: it stands still while it gives
+    s.dying = Math.min(0.02, giftFrom(b) * 0.5); s.give = t < GIFT.give && !(g.stage >= 1 && t < GT.offer) ? Math.min(0.999, t / GIFT.give) : 1;   // (a replayed flight after a nap: the hand-over is done)
+    s.move = 0; s.windup = -1; s.attack = -1; s.hurt = 0; s.frozen = false; s.air = 0;
+    s.phase = 'idle'; s.phaseT = 0;
+    s.breath = s.stomp = s.roar = s.fireball = -1;
+    if (b.y > 0) b.y = Math.max(0, b.y - dt * 6);
+    b.face = dampAngle(b.face, t < GT.drink ? Math.atan2(P.pos.x - b.x, P.pos.z - b.z) : CAM.yaw || 0, 4, dt);
+    if (g.stage === 0 && !g.popped && t >= GIFT.give * 0.06) {   // the glass pops into its hand with a fizz
+      g.popped = true;
+      const h = giftHand(b);
+      sfx('cork', { x: b.x, z: b.z, vol: 0.8, pitch: 1.2 }); sfx('fizz', { x: b.x, z: b.z, vol: 0.6, pitch: 1.2 });
+      burst('fizz', h.x, h.y, h.z, { count: 12, scale: 1.1 }); burst('sparkle', h.x, h.y, h.z, { count: 10, color: '#fff3c4' });
+    }
+    const gl = g.glass;
+    // handed over: GAME's glass takes over from the one in its hand (Feza far away: a bit earlier, so the longer, gentler
+    // flight still lands at GT.catch — 13 m in 0.8 s was a zip)
+    let far = 0;
+    if (g.stage === 0) { const hv = giftHand(b); far = Math.hypot(hv.x - P.pos.x, hv.z - P.pos.z); }
+    if (g.stage === 0 && !asleep && t >= GT.offer - clamp(far / 8 - GIFT.fly, 0, 1.2)) {
+      g.stage = 1; g.fly0 = t;
+      const h = giftHand(b), o = kefirGlassTpl().clone();
+      glassLevel(o, 1); o.position.copy(h); o.scale.setScalar(GLASS_S * 0.8); scene.add(o);
+      g.glass = o; g.x0 = h.x; g.y0 = h.y; g.z0 = h.z;
+      sfx('whoosh', { x: b.x, z: b.z, vol: 0.4, pitch: 1.5 }); burst('sparkle', h.x, h.y, h.z, { count: 8, color: '#ffffff' });
+    }
+    if (g.stage === 1 && gl) {   // it floats over to Feza in a soft arc, twinkling
+      const f0 = g.fly0 !== undefined ? g.fly0 : GT.offer, k = clamp((t - f0) / (GT.catch - f0), 0, 1), e = smooth01(k);
+      sipSpot(_gm); _gm.y = 1.1;
+      gl.position.set(lerp(g.x0, _gm.x, e), lerp(g.y0, _gm.y, e) + 1.1 * Math.sin(Math.PI * k), lerp(g.z0, _gm.z, e));
+      gl.scale.setScalar(GLASS_S * (0.8 + 0.2 * k)); gl.rotation.set(0, P.face + k * TAU, 0.2 * Math.sin(k * Math.PI));
+      if (Math.random() < dt * 30) emitP(gl.position.x, gl.position.y, gl.position.z, frand(-0.3, 0.3), frand(0.2, 0.8), frand(-0.3, 0.3), 0.7, 0.24, 0, '#fff3c4', '#ffffff', 2);
+      if (k >= 1 && !asleep) {   // caught: saber away, glass up (a little cheer)
+        g.stage = 2;
+        // (a Kasırga cast just before the catch kept him whirling through the whole drink: 08_skills ends it when P.spin is 0)
+        P.spin = 0; P.castT = 0; C.castT = -1; C.swing = null;
+        if (H && typeof H.retract === 'function' && H.bladeOn !== false) { try { H.retract(); } catch (err) { warnOnce('H.retract', err); } sfx('saberOff', { vol: 0.6 }); }
+        C.lockT = GT.drunk - t + GIFT.lock; C.lockFace = CAM.yaw || 0; C.cheerT = GIFT.raise;
+        emit('gift', { stage: 'drink', x: P.pos.x, z: P.pos.z, dur: GT.drunk - t });   // (UI may frame Feza while he drinks)
+        sfx('pop', { pitch: 1.4, vol: 0.6 }); burst('sparkle', gl.position.x, gl.position.y, gl.position.z, { count: 12, color: '#ffffff' });
+      }
+    }
+    if ((g.stage === 2 || g.stage === 3) && gl) {
+      C.lockFace = CAM.yaw || 0;
+      if (g.stage === 2) {   // raised in his hand
+        const hh = H && H.hand && H.hand.lengthSq() > 0 ? H.hand : sipSpot(_gm);
+        gl.position.set(hh.x, Math.max(hh.y + 0.06, 0.9), hh.z); gl.rotation.set(0, P.face, 0); gl.scale.setScalar(GLASS_S);
+        if (t >= GT.drink && !asleep) { g.stage = 3; C.cheerT = 0; sfx('slurp', { vol: 0.9 }); }
+      } else {   // sipping through the straw while the kefir goes down (glug, glug)
+        const k = clamp((t - GT.drink) / GIFT.drink, 0, 1), e0 = Math.min(1, k * 4);
+        sipSpot(_gm);
+        gl.position.lerp(_gm, e0 < 1 ? 0.35 : 1); gl.position.y += 0.012 * Math.sin(t * 22) * (1 - k);
+        gl.rotation.set(-0.14 * e0, P.face, 0.05 * Math.sin(t * 9));
+        glassLevel(gl, 1 - smooth01(k));
+        if (Math.random() < dt * 16) emitP(_gm.x, _gm.y + 0.35, _gm.z, frand(-0.2, 0.2), frand(0.5, 1.1), frand(-0.2, 0.2), 0.6, 0.16, 0, '#dff4ff', '#ffffff', 2);
+        if (k >= 1 && !asleep) giftDrunk(b);
+      }
+    }
+    if (g.stage === 4 && t >= GT.loot) giftLoot(b);
+    // the usual goodbye: waves, hops, twirls and vanishes in sparkles (the model's part after dieFrom) — timed to vanish just
+    // before its portal wakes, so it is still there, waving, when the narrator says "Kefir Devi diyor ki…"
+    if (g.stage === 5 && t >= (g.byeAt || GT.bye)) {
+      const from = giftFrom(b);
+      g.stage = 6; g.bye = true; b.dieT = from; b.dieDur = GIFT.byeDur / (1 - from); s.give = 1;
+      later(Math.max(0, (g.beat || t) - t), () => { const po = L && L.portalObj; if (!po || !po.active) openPortal(); });
+    }
+  }
+  function giftDrunk(b) {   // "Ahh!": the glass pops into sparkles, Feza cheers, full of energy again
+    const g = b.gift;
+    g.stage = 4;
+    if (g.glass) { const p = g.glass.position; burst('sparkle', p.x, p.y, p.z, { count: 18, color: '#fff6d8' }); burst('fizz', p.x, p.y, p.z, { count: 14, scale: 1.2 }); killGlass(g); }
+    const hp0 = P.hp; heal(1, true);   // (its xp may have levelled him up = already full: no '+1'; the '+' only over his head)
+    if (P.hp - hp0 >= 1) ftext(P.pos.x, 2.3, P.pos.z, '+' + Math.round(P.hp - hp0), 'heal');
+    // (not a wall of green '+': a few, with happy hearts and kefir fizz a moment later — Round 4 QA: everything at once at
+    // body height hid Feza completely for half a second. Round 4 QA 2: the hearts 'above his head' sat right on the happy
+    // giant's smile behind him from the high camera: a little smaller, lower and on the camera side of Feza)
+    const cyw = CAM.yaw || 0;
+    burst('heal', P.pos.x, 0.8, P.pos.z, { count: 5 }); burst('cheer', P.pos.x + Math.sin(cyw) * 0.6, 1.6, P.pos.z + Math.cos(cyw) * 0.6, { scale: 0.6 });
+    kefirMoustache();   // …and a white kefir moustache on his lip for a few seconds
+    later(0.25, () => { burst('sparkle', P.pos.x, 1.6, P.pos.z, { count: 8, color: '#fff3c4' }); burst('fizz', P.pos.x, 1.2, P.pos.z, { count: 8, scale: 1.1 }); });
+    fx('ring', P.pos.x, P.pos.z, { r0: 0.3, r1: 2.4, dur: 0.5, color: '#ffe9c4', width: 0.35, k: 0.8, edge: 0.35 });
+    fx('lightFlash', P.pos.x, P.pos.z, '#fff4dc', 2, 0.5);
+    sfx('heart', { pitch: 1.1 }); sfx('levelup', { vol: 0.35, pitch: 1.3 });
+    C.cheerT = 1.9; C.lockT = Math.max(C.lockT, 0.35);
+    emit('gift', { stage: 'drunk', x: P.pos.x, z: P.pos.z });
+    if (hasLine('kefir_ikram')) storySay('kefir_ikram');
+    igniteSaber(1.2);   // vvzzum: the lightsaber comes back on after the cheer
+  }
+  function giftLoot(b) {   // the promised treasure + coins burst out of the happy giant
+    const g = b.gift;
+    g.stage = 5; g.looted = true;
+    spawnCoins(b.x, b.z, b.giftGold || Math.round(b.gold), 40, 3.5);
+    if (b.giftItem) spawnItem(b.giftItem, b.x, b.z); else spawnCoins(b.x, b.z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
+    b.giftItem = null;
+    // (Round 4 QA 2: confetti and fizz at face height of the 3 m bottle covered its big smile: confetti above the cap, the
+    // fizz low on both sides of it)
+    const rx = Math.cos(b.face) * 0.9, rz = -Math.sin(b.face) * 0.9;
+    burst('confetti', b.x, 3.4, b.z, {});
+    burst('fizz', b.x + rx, 1.2, b.z + rz, { count: 10, scale: 1.4 }); burst('fizz', b.x - rx, 1.2, b.z - rz, { count: 10, scale: 1.4 });
+    sfx('chest', { x: b.x, z: b.z, vol: 0.6, pitch: 1.2 });
+    if (hasLine('kefirdev_yol')) storySay('kefirdev_yol');
+  }
+  function killGlass(g) { if (g && g.glass) { removeObj(g.glass); g.glass = null; } }
+  // The kefir moustache (Round 4): a white milk moustache on Feza's upper lip after the giant's kefir; after MUST.life s it
+  // shrinks away. One small merged mesh (1 draw call) on the head bone, opaque and writing the hero's stencil like 04's
+  // materials (drawn before the x-ray pass, which would otherwise paint his blue silhouette over it). Gone on a zone change
+  // or a new game (clearWorld / resetPlayer).
+  const MUST = { life: 5, out: 0.3, pop: 0.15 };
+  let must = null;   // { obj, t } while he wears it
+  function moustacheTpl() {
+    if (R.must) return R.must;
+    const k = new Kit(), sph = G.sphere(16, 10);
+    for (const sd of [-1, 1]) {   // a plump curve per side, tilted down toward the cheek, with a little curl up at the end
+      k.add(sph, '#ffffff', [sd * 0.038, 0, 0], [0, 0, -sd * 0.35], [0.045, 0.018, 0.022]);
+      k.add(sph, '#ffffff', [sd * 0.074, 0.01, -0.004], null, [0.022, 0.0145, 0.015]);
+    }
+    const mat = vcMat({ roughness: 0.35, emissive: '#fff4e8', emissiveIntensity: 0.25 });
+    mat.stencilWrite = true; mat.stencilRef = 1; mat.stencilFunc = THREE.AlwaysStencilFunc;
+    mat.stencilZPass = THREE.ReplaceStencilOp; mat.stencilFail = THREE.KeepStencilOp; mat.stencilZFail = THREE.KeepStencilOp;
+    const o = new THREE.Mesh(k.build(), mat);
+    // on the upper lip, the back half in the skin (head bone space: the face surface is at z ≈ 0.27 there; the mouth is just
+    // below, so the open cheering smile shows under it and from the high camera it sits over his mouth)
+    o.name = 'kefirMoustache'; o.position.set(0, 0.18, 0.262); o.renderOrder = 5; o.frustumCulled = false; o.castShadow = false;
+    // 04 draws (and caches) the hat portraits by moving Feza into its own little scene, also in the background while he
+    // wears it (the giant's treasure lands 0.35 s later: a hat's portrait is baked right then): there it folds to nothing
+    o.onBeforeRender = function (rd, sc) { if (sc !== scene) this.matrixWorld.makeScale(0, 0, 0); };
+    return (R.must = o);
+  }
+  function kefirMoustache() {
+    removeMoustache();
+    const head = H && H.bones && H.bones.head;
+    if (!head) return;
+    const o = moustacheTpl();
+    o.scale.setScalar(0.01); head.add(o);
+    must = { obj: o, t: 0 };
+  }
+  function moustacheStep(dt) {
+    if (!must) return;
+    const t = (must.t += dt), k = t - MUST.life;
+    if (k >= MUST.out || !must.obj.parent) { removeMoustache(); return; }
+    must.obj.scale.setScalar(k > 0 ? Math.max(0.01, 1 - smooth01(k / MUST.out)) : Math.min(1, 0.01 + t / MUST.pop));
+  }
+  function removeMoustache() { if (must) { removeObj(must.obj); must = null; } }
   function bossGone(b) {   // it waved and vanished in sparkles
     burst('magic', b.x, 1.5, b.z, { count: 40, color: b.kit.col || '#ffb0f0' }); burst('sparkle', b.x, 1.5, b.z, { count: 30 });
     fx('lightFlash', b.x, b.z, '#ffc0f0', 6, 0.6);
@@ -2939,7 +3714,8 @@ const GAME = (() => {
     // 'Sihirli kapı! İçine gir…' — not when the boss's happy line already said the door opened (kraljole, usta), and
     // dropped if it cannot start soon (it used to play 10–13 s later, often inside the next zone)
     const bk = boss && boss.kit && boss.kit.lines && boss.kit.lines.bitti, bt = bk && hasLine(bk) ? String(AUD.LINES[bk]) : '';
-    if (hasLine('kapi') && !/kap[ıi]/i.test(bt)) say('kapi', 2, { wait: 6 });
+    // (the kefir giant: its 'kefirdev_yol' line is just starting and already says where the road goes)
+    if (hasLine('kapi') && !/kap[ıi]/i.test(bt) && !(boss && boss.gift)) say('kapi', 2, { wait: 6 });
     emit('portalOpen', { x: po.x, z: po.z });
   }
   function spawnCrystal() {
@@ -2959,7 +3735,13 @@ const GAME = (() => {
     const k = smooth01(crystal.t / 1.8);
     crystal.obj.position.y = -3 + 3 * k + (k >= 1 ? 0.12 * Math.sin(crystal.t * 2) : 0);
     crystal.obj.rotation.y += dt * 0.7;
-    if (k >= 1 && !crystal.ready) { crystal.ready = true; say('kristal', 3); }   // 'touch it' only once it can be touched
+    // 'touch it' only once it can be touched — and only after the dragon's story line (Round 4 QA: touchable at +5.7 s while
+    // 'ejderha_bitti' was still on "…arkadaş istiyormuş", Feza already stood there: victory cut the story's last words and
+    // 'kristal' was never heard). Not said when he is touching it already (its subtitle would flash for one frame).
+    if (k >= 1 && !crystal.ready && !storyTalking(true)) {
+      crystal.ready = true;
+      if (dist2(crystal.x, crystal.z, P.pos.x, P.pos.z) > 2.4 * 2.4) say('kristal', 3);
+    }
     if (Math.random() < dt * 10) emitP(crystal.x + frand(-1, 1), frand(0.3, 2.5), crystal.z + frand(-1, 1), 0, frand(0.5, 1.2), 0, 1, 0.3, 0, '#ff9ae0', '#ffffff', 2);
   }
   function victory() {
@@ -3042,7 +3824,7 @@ const GAME = (() => {
         fx('ring', o.x, o.z, { r0: 0.4, r1: 1.4, dur: 0.35, color: '#ffd84a', width: 0.2 });
         return 'object';
       }
-      C.drag = true; C.mode = 'move'; C.targetE = null; C.targetObj = null; C.route = null; C.routeTried = false;
+      C.drag = true; C.mode = 'move'; C.targetE = null; C.targetObj = null; C.route = null; C.routeTried = false; C.dragRoute = null; C.dragWinT = -1;
       C.progGx = NaN; C.autoBrk = 0;   // a fresh net-progress window (tapWalkProgress)
       const g =typeof groundFromScreen === 'function' ? groundFromScreen(sx, sy, 0) : null;
       if (g) { C.tx = g.x; C.tz = g.z; C.hasT = true; fx('ring', g.x, g.z, { r0: 0.1, r1: 0.75, dur: 0.3, color: '#8fe8ff', width: 0.14 }); }
@@ -3051,9 +3833,12 @@ const GAME = (() => {
     move(sx, sy) {
       C.sx = sx; C.sy = sy;
       // a finger that follows a hopping enemy keeps attacking it; only a real drag turns into walking
-      if (C.mode && C.mode !== 'move' && Math.hypot(sx - C.downSx, sy - C.downSy) > 90) { C.mode = 'move'; C.drag = true; C.targetE = null; C.targetObj = null; }
+      if (C.mode && C.mode !== 'move' && Math.hypot(sx - C.downSx, sy - C.downSy) > 90) { C.mode = 'move'; C.drag = true; C.targetE = null; C.targetObj = null; C.dragWinT = -1; }
     },
-    up() { C.drag = false; C.mode = null; },
+    up() {   // (a way round found while dragging: the walk to the last point goes on along it)
+      if (C.drag && C.dragRoute && C.dragRoute.length) { C.route = C.dragRoute; C.routeTried = true; }
+      C.drag = false; C.mode = null; C.dragRoute = null;
+    },
     key(x, z) {
       x = x || 0; z = z || 0;
       const yaw = CAM.yaw || 0, c = Math.cos(yaw), s = Math.sin(yaw);
@@ -3085,13 +3870,16 @@ const GAME = (() => {
       const bx = boss ? boss.x : P.pos.x, bz = boss ? boss.z : P.pos.z, R2 = 26 * 26;
       for (const c of coins) if (dist2(c.x, c.z, bx, bz) < R2) gold += c.value;
       for (const o of loot) if (o.kind === 'item' && o.item && dist2(o.x, o.z, bx, bz) < R2) bag.push(plainItem(o.item));
+      // (the kefir giant's reward before it popped out: Kaydet during the glass of kefir keeps it too)
+      if (boss && boss.gift && !boss.gift.looted) { gold += boss.giftGold || 0; if (boss.giftItem) bag.push(plainItem(boss.giftItem)); }
     } else if (won && finalZone()) bossDone = P.zone;
     return {
-      v: 1, sv: SAVE_V, t: Date.now(), zone, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
+      v: 1, sv: SAVE_V, t: Date.now(), zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
       bag,
       equip: { weapon: P.bag.indexOf(P.equip.weapon), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
-      flags: Object.assign({ intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]), bossDone }, first),
+      flags: Object.assign({ intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]), bossDone,
+        yolculuk: !!F.yolculuk }, first),
     };
   }
   // Parent's wish: nothing is saved by itself — every launch starts a new game, and progress is kept only when the
@@ -3143,15 +3931,32 @@ const GAME = (() => {
     bag.forEach((c, k) => { if (re[k] < 0) re[k] = re[best.get(lookKey(c))]; });
     for (const slot of ['weapon', 'hat', 'cape']) if (equip[slot] >= 0) equip[slot] = re[equip[slot]];
     const L1 = clamp(Math.floor(lvl), 1, 99);
-    // Round 3 put the volcano (zone 2) before the castle: a save from before (no sv, or sv < 3) in the castle moves on to 3.
-    let zn = Math.max(0, Math.floor(zone));
-    if (!(typeof s.sv === 'number' && s.sv >= 3) && zn >= 2) zn += 1;
-    const ZL = zones(); if (ZL) zn = Math.min(zn, ZL.length - 1);
+    const ZL = zones();
+    const zn = saveZone(s, Math.max(0, Math.floor(zone)), ZL);
+    const flags = s.flags && typeof s.flags === 'object' ? Object.assign({}, s.flags) : {};
+    // the crystal-waiting flag names a zone index too (the castle): it moves with the zones
+    if (typeof flags.bossDone === 'number' && flags.bossDone >= 0) flags.bossDone = saveZone(s, Math.floor(flags.bossDone), ZL, true);
     return Object.assign({}, s, {
       sv: SAVE_V, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
-      ng: clamp(Math.floor(ng), 0, 99), zone: zn, bag: slim, equip,
-      skills: Array.isArray(s.skills) ? s.skills : [], flags: s.flags && typeof s.flags === 'object' ? s.flags : {},
+      ng: clamp(Math.floor(ng), 0, 99), zone: zn, zid: ZL && ZL[zn] ? ZL[zn].id : s.zid, bag: slim, equip,
+      skills: Array.isArray(s.skills) ? s.skills : [], flags,
     });
+  }
+  // A save's zone index in today's ZONES. From sv 4 on the save names its zone (zid). Older ones by index: Round 3 put the
+  // volcano before the castle (no sv / sv < 3: zone ≥ 2 → +1), Round 4 the kefir valley after the forest (sv < 4: zone ≥ 1 →
+  // +1; an older save gets both steps, in that order). That gives an index in the Round 4 order (ZORDER), mapped by id onto
+  // the ZONES this build really has. noId: ignore zid (a flag that names an index of its own).
+  function saveZone(s, zn, ZL, noId) {
+    if (!noId && typeof s.zid === 'string' && ZL) { const k = ZL.findIndex(z => z && z.id === s.zid); if (k >= 0) return k; }
+    const sv = typeof s.sv === 'number' ? s.sv : 0;
+    if (sv < 3 && zn >= 2) zn += 1;
+    if (sv < 4 && zn >= 1) zn += 1;
+    if (ZL) {
+      const k = ZL.findIndex(z => z && z.id === ZORDER[zn]);
+      if (k >= 0) zn = k;
+      zn = Math.min(zn, ZL.length - 1);
+    }
+    return zn;
   }
   function applySave(s) {
     P.lvl = s.lvl || 1; P.xp = s.xp || 0; P.gold = s.gold || 0; P.potions = clamp(s.potions ?? DIFF.potions, 0, P.maxPotions); P.ng = s.ng || 0;
@@ -3163,7 +3968,7 @@ const GAME = (() => {
     // Skills come from the level (saves by index are unreliable: the skill list changed from 6 to 3).
     GAME.skills.forEach((sk, i) => { sk.cd = 0; sk.unlocked = i === 0 ? !!(fl.intro0 || P.lvl >= 2 || (s.skills && s.skills[0])) : P.lvl >= (sk.def.lvl || 1); });
     F = { zl: { 0: !!fl.zl0 }, kapi: {}, intro0: !!fl.intro0, baykus: !!fl.baykus, sandik: !!fl.sandik, nese: !!fl.nese, canta: !!fl.canta,
-      bossDone: typeof fl.bossDone === 'number' ? fl.bossDone : -1 };
+      bossDone: typeof fl.bossDone === 'number' ? fl.bossDone : -1, yolculuk: fl.yolculuk !== undefined ? !!fl.yolculuk : true };   // (an older save: its journey was told long ago)
     skillQ.length = 0;
     for (const t in FIRST_LINE) F[FIRST_LINE[t]] = !!fl[FIRST_LINE[t]];
     P.dead = false; P.spin = 0; P.shield = 0;
@@ -3195,8 +4000,17 @@ const GAME = (() => {
     } else resetPlayer();
     C.playT = 0; C.lastHurt = gt - 99;
     if (!plus && useTitleLevel()) startHere(); else loadZone(0);
+    yolWant = false;
     if (plus) say('tekrar', 3);
-    else { say('giris1', 3); say('giris2', 3); }
+    else {
+      say('giris1', 3);
+      const w = say('giris2', 3) || lineLen('giris1') + 0.3 + lineLen('giris2');   // (AUD.say: s until giris2 has ended)
+      // (Round 4 QA: the first skill's line could be dropped from AUD's full queue at the start — it waits for the intro)
+      skillAt = Math.max(skillAt, gt + w + 0.6);
+      // (Round 4) the whole journey, once per game: forest, kefir valley, cave, volcano, the dragon's castle — at the first
+      // calm moment after giris2 (the owl first if Feza stands at it): see yolculukStep
+      yolWant = !F.yolculuk && hasLine('yolculuk');
+    }
   }
   function continueGame() {
     if (!inited) init();
@@ -3206,7 +4020,7 @@ const GAME = (() => {
       console.warn('[GAME] unusable save, starting a new game', err);
       GAME.clearSave(); newGame({ plus: false }); return;
     }
-    C.playT = 0; C.lastHurt = gt - 99;
+    C.playT = 0; C.lastHurt = gt - 99; yolWant = false;
     if (s.zone === 0 && useTitleLevel()) startHere(); else loadZone(s.zone || 0);
     say(s.plus ? 'tekrar' : 'hos_geldin', 3);
   }
@@ -3355,6 +4169,7 @@ const GAME = (() => {
     if (hitstop > 0) { hitstop -= dt; dt *= 0.1; }
     gt += dt;
     GAME.time = gt;
+    if (speaking()) talkAt = gt;
     runTimers();
     const st = GAME.state;
     flushSkillLines();
@@ -3365,7 +4180,15 @@ const GAME = (() => {
       if (st === 'transition' && H) { C.transT += dt; H.root.scale.setScalar(baseScale * Math.max(0.05, 1 - C.transT / 0.7)); P.face += dt * 12; }
     }
     if (L) {
-      actT -= dt; if (actT <= 0) { actT = 0.3; activate(false); }
+      actT -= dt; if (actT <= 0) { actT = 0.3; activate(false); flushFirst(); }
+      if (st === 'play' && (mooT -= dt) <= 0) {   // (the kefir valley's ambience: 'moo', rare, never in a fight)
+        // Round 4 QA: one busy moment used to throw away a whole 45–90 s cycle (0 moos in 240 s of play): a moment that is
+        // not calm (a fight nearby, the boss, a story, the narrator talking) retries in a few s; after a moo 25–45 s
+        if (!dairyZone()) mooT = frand(25, 45);
+        else if (P.dead || finale || gt < storyUntil || (boss && (boss.dead ? boss.gift && !boss.gift.bye : boss.aggro)) || speaking()
+          || enemies.some(e => e.aggro && (e.boss || e.dist < 12))) mooT = frand(3, 6);
+        else { mooT = frand(25, 45); const a = frand(0, TAU); sfx('moo', { x: P.pos.x + Math.sin(a) * 11, z: P.pos.z + Math.cos(a) * 11, vol: 0.8, pitch: frand(0.95, 1.08) }); }
+      }
       tokT -= dt; if (tokT <= 0) { tokT = 0.2; assignTokens(); }
       flowT -= dt;
       if (flowT <= 0 && hasLevel() && LEVEL.flowTo && !P.dead) {
@@ -3381,6 +4204,7 @@ const GAME = (() => {
     separate();
     for (let i = dying.length - 1; i >= 0; i--) {
       const e = dying[i], s = e.st;
+      if (e.gift && !e.gift.bye) { e.t += dt; s.t = e.t; giftStep(e, dt); place(e); anim(e, dt); continue; }   // the kefir hand-over first
       e.dieT += dt / e.dieDur; e.t += dt;
       s.dying = Math.min(1, e.dieT); s.t = e.t; s.move = 0; s.windup = -1; s.attack = -1; s.frozen = false; s.hurt = 0;
       if (e.boss) {   // the overjoyed boss turns its happy face to the camera for its goodbye (it kept any facing before)
@@ -3407,6 +4231,7 @@ const GAME = (() => {
     updateMarkers(dt);
     updateBars(dt);
     updateHero(dt);
+    moustacheStep(dt);
   }
   function titleUpdate(dt) {
     if (!inited) return;
@@ -3479,6 +4304,10 @@ const GAME = (() => {
     blade() { return bladeColor(); },
     hidden(e) { return !!e && hidden(e); },
     stats() { return Object.assign({}, STATS); },
+    // the walk controller (drag / tap-walk / routes) and a route to a point, for the walking tests
+    ctl() { return { drag: C.drag, hasT: C.hasT, tx: C.tx, tz: C.tz, vel: C.vel, blockT: C.blockT, route: C.route ? C.route.length : 0, dragRoute: C.dragRoute ? C.dragRoute.length : 0,
+      dragPlanAt: C.dragPlanAt, dragWinT: C.dragWinT, portalHold: C.portalHold, lockT: C.lockT, target: C.targetE ? 'enemy' : C.targetObj ? C.targetObj.type : null }; },
+    route(tx, tz) { const r = routeTo(tx, tz); return r ? r.map(q => [+q.x.toFixed(2), +q.z.toFixed(2)]) : null; },
     fr() { return Object.assign({}, FR); },
     hurt(n = 10) { const g = P.god; P.god = false; C.invuln = 0; const r = hurtPlayer(n); P.god = g; return r; },
     win() { if (boss && !boss.dead) damage(boss, boss.hp + 1, { silent: true, force: true }); return !!boss; },

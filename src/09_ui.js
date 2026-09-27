@@ -33,7 +33,7 @@ const UI = (() => {
     M.EMODEL = get(() => (typeof EMODEL !== 'undefined' ? EMODEL : null));
     M.EDEF = get(() => (typeof EDEF !== 'undefined' ? EDEF : null));
   }
-  const zoneCount = () => (M.ZONES && M.ZONES.length) || 4;
+  const zoneCount = () => (M.ZONES && M.ZONES.length) || 5;   // Round 4: orman, kefir, magara, yanardag, kale
   const warned = {};
   function warn(k, e) { if (!warned[k]) { warned[k] = 1; console.warn('[UI] ' + k, e); } }
   function safe(k, f) { try { return f(); } catch (e) { warn(k, e); return undefined; } }
@@ -167,6 +167,32 @@ const UI = (() => {
       '<path d="M41.5 77Q50 87 58.5 77Q50 80 41.5 77Z" fill="#7a2030" stroke="#1f6a50" stroke-width="2" stroke-linejoin="round"/>' +
       '<path d="M46 81.6Q50 84.6 54 81.6Q50 80.2 46 81.6Z" fill="#ff7aa0"/>' +
       '<ellipse cx="29" cy="74" rx="5.4" ry="3.1" fill="#ff6fb0" opacity=".55"/><ellipse cx="71" cy="74" rx="5.4" ry="3.1" fill="#ff6fb0" opacity=".55"/></svg>',
+    // Köpüklü Kefir Devi — a friendly glass kefir bottle: creamy kefir inside with fizzy bubbles, foam in the neck, its bottle
+    // cap worn like a little crown (tilted), a label with a smiling face, tiny arms (one waving)
+    kefirdev: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 -4 100 100">' +
+      '<g stroke="#2a4a7a" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">' +
+      '<path d="M19.5 60C11 57 5.5 50 6 41.5C11.5 41 16.5 46 22 53Z" fill="#a8d8f4"/><path d="M80.5 64C88 65 92 69 92.5 75.5C88 77 83.5 74.5 79.5 71Z" fill="#a8d8f4"/>' +
+      '<path d="M41 13H59V22.5C59 28.5 81 31.5 83 43.5V97C83 101 80 103 76 103H24C20 103 17 101 17 97V43.5C19 31.5 41 28.5 41 22.5Z" fill="#bfe3ff"/></g>' +
+      '<path d="M44.4 18.5H55.6V24C55.6 31 77.4 34 79.4 45V99H20.6V45C22.6 34 44.4 31 44.4 24Z" fill="#fffdf6"/>' +
+      '<g fill="#fff" stroke="#a9d2f0" stroke-width="1.3"><circle cx="46.4" cy="19" r="3.2"/><circle cx="50.6" cy="17.2" r="3.7"/><circle cx="54.2" cy="19.3" r="2.8"/></g>' +
+      '<path d="M22.5 44C27 35 40 32.5 41.8 25" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" opacity=".95"/>' +
+      '<g transform="rotate(-9 50 10)" stroke-linejoin="round">' +
+      '<path d="M35 13L36.2 2.5L41.8 8L46 0.5L50 7L54 0.5L58.2 8L63.8 2.5L65 13Z" fill="#ffd23f" stroke="#7a4205" stroke-width="2.2"/>' +
+      '<rect x="33.5" y="10.5" width="33" height="7.5" rx="3.4" fill="#ff6aa4" stroke="#8a2a56" stroke-width="2.2"/>' +
+      '<g fill="#fff8ee" stroke="#7a4205" stroke-width="1"><circle cx="36.2" cy="2.5" r="1.7"/><circle cx="46" cy="0.5" r="1.7"/><circle cx="54" cy="0.5" r="1.7"/><circle cx="63.8" cy="2.5" r="1.7"/></g>' +
+      '<path d="M50 16.6C46.6 14.4 46.6 11.6 48.3 11.6C49.2 11.6 50 12.4 50 13.1C50 12.4 50.8 11.6 51.7 11.6C53.4 11.6 53.4 14.4 50 16.6Z" fill="#fff"/></g>' +
+      '<g fill="#fff" stroke="#9cc8ea" stroke-width="1.2"><circle cx="30" cy="41" r="2.3"/><circle cx="69" cy="40" r="1.9"/><circle cx="61" cy="36.5" r="1.3"/><circle cx="38" cy="36" r="1.2"/><circle cx="27" cy="95" r="1.6"/><circle cx="73" cy="95.5" r="1.4"/></g>' +
+      '<rect x="22" y="46" width="56" height="44" rx="11" fill="#7cc8f6" stroke="#2a4a7a" stroke-width="2.3"/>' +
+      '<ellipse cx="50" cy="69" rx="21.5" ry="19" fill="#fff8ec"/>' +
+      '<g fill="#ff6aa0"><path d="M25.6 58.4C23.4 57 23.4 55.2 24.5 55.2C25.1 55.2 25.6 55.7 25.6 56.2C25.6 55.7 26.1 55.2 26.7 55.2C27.8 55.2 27.8 57 25.6 58.4Z"/>' +
+      '<path d="M74.4 58.4C72.2 57 72.2 55.2 73.3 55.2C73.9 55.2 74.4 55.7 74.4 56.2C74.4 55.7 74.9 55.2 75.5 55.2C76.6 55.2 76.6 57 74.4 58.4Z"/></g>' +
+      '<g fill="#fff"><circle cx="25.5" cy="83" r="1.2"/><circle cx="74.5" cy="83" r="1.2"/></g>' +
+      '<g stroke="#2a4a7a" stroke-width="2.1"><ellipse cx="39.5" cy="65" rx="7.6" ry="8.8" fill="#fff"/><ellipse cx="60.5" cy="65" rx="7.6" ry="8.8" fill="#fff"/></g>' +
+      '<circle cx="40.4" cy="67" r="5.1" fill="#1f2d4a"/><circle cx="59.6" cy="67" r="5.1" fill="#1f2d4a"/>' +
+      '<circle cx="38.4" cy="64" r="2.1" fill="#fff"/><circle cx="57.6" cy="64" r="2.1" fill="#fff"/>' +
+      '<path d="M42 76.5Q50 86 58 76.5Q50 79.5 42 76.5Z" fill="#6a1a3a" stroke="#2a4a7a" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M46 81Q50 83.8 54 81Q50 79.6 46 81Z" fill="#ff7aa0"/>' +
+      '<ellipse cx="29" cy="75" rx="4.8" ry="2.9" fill="#ff6fa0" opacity=".6"/><ellipse cx="71" cy="75" rx="4.8" ry="2.9" fill="#ff6fa0" opacity=".6"/></svg>',
     // any other boss: a smiling golden star
     bstar: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
       '<path d="M50 12L60.5 37.5L88 39L67 56.5L74 84L50 69L26 84L33 56.5L12 39L39.5 37.5Z" fill="#ffd23f" stroke="#7a4205" stroke-width="3" stroke-linejoin="round"/>' +
@@ -387,6 +413,7 @@ const UI = (() => {
     const bbar = el('div', 'u-bossbar', brow);
     D.bossTrail = el('div', 'u-bosstrail', bbar);
     D.bossFill = el('div', 'u-bossfill', bbar);
+    D.bossFizz = el('div', 'u-bossfizz', D.bossFill, '<i></i>');   // Kefir Devi: fizzy bubbles rising in its bar (ui.css; hidden for the others)
 
     // toast, banner, item card, subtitles
     D.toast = el('div', 'u-toast', hud);
@@ -774,20 +801,44 @@ const UI = (() => {
   }
 
   // ───────────────────────── Minimap ─────────────────────────
-  const MM = { L: null, W: 0, H: 0, S: 4, base: null, mask: null, rev: null, seen: null, lx: -1e9, lz: -1e9, dirty: false, px: 0, bg: null, front: null, spr: {} };
+  const MM = { L: null, W: 0, H: 0, S: 4, base: null, mask: null, rev: null, seen: null, lx: -1e9, lz: -1e9, dirty: false, px: 0, bg: null, front: null, spr: {}, theme: '' };
+  // Minimap backdrop (the unexplored / non-walkable part) per zone theme. Kefir Vadisi: a blueberry-milk pool with little
+  // milk bubbles (its floors — creamy yogurt, biscuit path, cheese plazas — read bright on it); elsewhere the night-blue dots.
+  const MAP_BG = {
+    _: { c0: '#2a3566', c1: '#0c1028', dot: 'rgba(160,190,255,0.10)', r: 0.006 },
+    dairy: { c0: '#6a62c4', c1: '#231c5a', dot: 'rgba(255,246,228,0.2)', r: 0.011, ring: 'rgba(255,250,240,0.16)' },
+  };
+  function mapBg() {
+    const px = MM.px, cx = px / 2, B = MAP_BG[MM.theme] || MAP_BG._;
+    MM.bg = MM.bg && MM.bg.width === px ? MM.bg : cnv(px);
+    const c = MM.bg.getContext('2d');
+    const g = c.createRadialGradient(cx, cx * 0.8, px * 0.05, cx, cx, cx);
+    g.addColorStop(0, B.c0); g.addColorStop(1, B.c1);
+    c.clearRect(0, 0, px, px); c.fillStyle = g; c.fillRect(0, 0, px, px);
+    c.fillStyle = B.dot;
+    let n = 0;
+    for (let y = px * 0.04; y < px; y += px * 0.07) for (let x = px * 0.04; x < px; x += px * 0.07) {
+      n++;
+      const r = px * B.r * (B.ring ? 0.6 + ((n * 7) % 5) * 0.2 : 1), ox = B.ring ? ((n * 13) % 7 - 3) * px * 0.006 : 0;   // milk bubbles: uneven sizes
+      c.beginPath(); c.arc(x + ox, y, r, 0, TAU); c.fill();
+    }
+    if (B.ring) {   // a few bigger bubble rings with a tiny highlight
+      c.lineWidth = Math.max(1, px * 0.006); c.strokeStyle = B.ring;
+      for (let i = 0; i < 9; i++) {
+        const x = px * (0.12 + ((i * 37) % 80) / 100), y = px * (0.1 + ((i * 53) % 82) / 100), r = px * (0.022 + (i % 3) * 0.008);
+        c.beginPath(); c.arc(x, y, r, 0, TAU); c.stroke();
+        c.fillStyle = B.ring; c.beginPath(); c.arc(x - r * 0.35, y - r * 0.35, r * 0.25, 0, TAU); c.fill();
+      }
+    }
+  }
   function mapResize() {
     const css = D.map.clientWidth || 166, px = Math.max(48, Math.round(css * S.dpr));
     if (px === MM.px) return;
     MM.px = px; D.map.width = D.map.height = px;
     const cx = px / 2;
-    MM.bg = cnv(px); let c = MM.bg.getContext('2d');
-    let g = c.createRadialGradient(cx, cx * 0.8, px * 0.05, cx, cx, cx);
-    g.addColorStop(0, '#2a3566'); g.addColorStop(1, '#0c1028');
-    c.fillStyle = g; c.fillRect(0, 0, px, px);
-    c.fillStyle = 'rgba(160,190,255,0.10)';
-    for (let y = px * 0.04; y < px; y += px * 0.07) for (let x = px * 0.04; x < px; x += px * 0.07) { c.beginPath(); c.arc(x, y, px * 0.006, 0, TAU); c.fill(); }
-    MM.front = cnv(px); c = MM.front.getContext('2d');
-    g = c.createRadialGradient(cx, cx, cx * 0.68, cx, cx, cx);
+    mapBg();
+    MM.front = cnv(px); let c = MM.front.getContext('2d');
+    let g = c.createRadialGradient(cx, cx, cx * 0.68, cx, cx, cx);
     g.addColorStop(0, 'rgba(8,4,26,0)'); g.addColorStop(1, 'rgba(8,4,26,0.7)');
     c.fillStyle = g; c.fillRect(0, 0, px, px);
     c.save(); c.translate(cx * 0.62, cx * 0.42); c.rotate(-0.6); c.scale(1, 0.45);
@@ -840,6 +891,8 @@ const UI = (() => {
   }
   function mapReset(L) {
     MM.L = L; MM.base = null; MM.lx = MM.lz = -1e9;
+    const th = (L && L.Z && L.Z.theme) || '';
+    if (th !== MM.theme) { MM.theme = th; if (MM.px) mapBg(); }
     if (!L || !L.grid || !L.W || !L.H) return;
     const W = MM.W = L.W, H = MM.H = L.H, s = MM.S = clamp(Math.floor(480 / Math.max(W, H)), 2, 5);
     let src = L.mapCanvas && L.mapCanvas.width ? L.mapCanvas : null;
@@ -869,7 +922,7 @@ const UI = (() => {
   function gridCanvas(L) {   // fallback base when LEVEL gave no (or an empty) mapCanvas
     const c = cnv(L.W, L.H), x = c.getContext('2d'), img = x.createImageData(L.W, L.H), d = img.data;
     const theme = (L.Z && L.Z.theme) || 'forest';
-    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : theme === 'volcano' ? '#e0a47a' : '#94d470');
+    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : theme === 'volcano' ? '#e0a47a' : theme === 'dairy' ? '#fff0d2' : '#94d470');
     const r = Math.round(Math.pow(col.r, 1 / 2.2) * 255), gg = Math.round(Math.pow(col.g, 1 / 2.2) * 255), b = Math.round(Math.pow(col.b, 1 / 2.2) * 255);
     for (let i = 0; i < L.W * L.H; i++) {
       if (!L.grid[i]) continue;
@@ -878,7 +931,7 @@ const UI = (() => {
     }
     x.putImageData(img, 0, 0);
     if (L.path && L.path.length > 1) {   // soft path line so the way forward reads on the map
-      x.strokeStyle = 'rgba(255,238,190,0.45)'; x.lineWidth = 2; x.lineCap = x.lineJoin = 'round';
+      x.strokeStyle = theme === 'dairy' ? 'rgba(214,150,70,0.6)' : 'rgba(255,238,190,0.45)'; x.lineWidth = 2; x.lineCap = x.lineJoin = 'round';   // (dairy: the biscuit-crumb trail)
       x.beginPath(); L.path.forEach((p, i) => (i ? x.lineTo(p.x, p.z) : x.moveTo(p.x, p.z))); x.stroke();
     }
     return c;
@@ -998,7 +1051,9 @@ const UI = (() => {
   function hudTick(dt) {
     const g = M.GAME; if (!g || !S.hud || S.menu) return;   // menus dim the HUD: don't redraw under the blur
     const P = g.P;
-    ORB.target = clamp(P.hp / Math.max(1, P.maxHp), 0, 1);
+    const hpf = clamp(P.hp / Math.max(1, P.maxHp), 0, 1);
+    if (hpf - ORB.target > 0.25 && !P.dead) ORB.heal = 1;   // a big heal (the Kefir Devi's kefir, a level-up): the orb glows warm as it fills
+    ORB.target = hpf;
     orbDraw(dt);
     const low = ORB.target < 0.3 && !P.dead;
     if (low !== last.low) { last.low = low; D.orb.classList.toggle('low', low); }
@@ -1192,11 +1247,12 @@ const UI = (() => {
   // WebGL / EMODEL, or while EMODEL does not know that boss yet — a cute inline SVG stands in. Never a fierce 🐲/🐉 emoji.
   const BOSS_UI = {   // ad: name fallback · lines: voice key prefixes · disc/halo: badge colours (CSS .b-<type> matches disc)
     kraljole: { ad: 'Kral Jöle', svg: SVG.kraljole, lines: ['kraljole_'], disc: ['#fbf6ff', '#e6d8ff', '#b99cf2'], halo: 'rgba(80,220,235,0.85)' },
+    kefirdev: { ad: 'Köpüklü Kefir Devi', svg: SVG.kefirdev, lines: ['kefirdev_'], disc: ['#eaf7ff', '#b4e0fc', '#5494dc'], halo: 'rgba(130,205,255,0.9)' },
     kostebekusta: { ad: 'Usta Köstebek', svg: SVG.kostebekusta, lines: ['usta_'], disc: ['#fffaf0', '#ffe3b0', '#f5b86a'], halo: 'rgba(255,190,80,0.85)' },
     lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', svg: SVG.lavkaplumbaga, lines: ['kaplumbaga_'], disc: ['#fff8f0', '#ffd6b0', '#ff9f6a'], halo: 'rgba(255,130,60,0.85)' },
     ejderha: { ad: 'Huysuz Ejderha', svg: SVG.dragon, lines: ['ejderha_', 'ejder'], disc: ['#fff6fc', '#ffc9ec', '#f59ad6'], halo: 'rgba(255,90,140,0.85)' },
   };
-  const BOSS_ORDER = ['kraljole', 'kostebekusta', 'lavkaplumbaga', 'ejderha'];   // when ZONES has no boss fields yet
+  const BOSS_ORDER = ['kraljole', 'kefirdev', 'kostebekusta', 'lavkaplumbaga', 'ejderha'];   // when ZONES has no boss fields yet
   const bossUi = t => BOSS_UI[t] || { ad: 'Kocaman Huysuz', svg: SVG.bstar, lines: [], disc: BOSS_UI.ejderha.disc, halo: BOSS_UI.ejderha.halo };
   const BP = {};   // type → { url, cv, tried, img }
   const bpRec = t => BP[t] || (BP[t] = { url: null, cv: null, tried: false, img: null });
@@ -1213,6 +1269,9 @@ const UI = (() => {
   // wins over both. Tests: UI._BF.
   const BOSS_FIT = {
     kraljole: { y0: 0, y1: 1, dx: 0.12, dy: 0.24, fill: 0.9 },
+    // the bottle seen from the front (from above its white shoulders hide the neck): the whole crown cork on top (05 moved the
+    // label face up: cork top ≈ y 2.76), the smiling label face and a bit of the glass shoulders, so it reads as a bottle
+    kefirdev: { over: true, dx: 0.1, dy: -0.05, cam: { cx: 0, cy: 1.9, cz: 0.75, rad: 1.25 } },
     kostebekusta: { dx: 0.12, dy: 0.14, cam: { cx: 0, cy: 2.0, cz: 0.45, rad: 1.12 } },
     lavkaplumbaga: { dx: 0.12, dy: 0.2, cam: { cx: 0, cy: 1.26, cz: 1.62, rad: 1.0 } },   // the face fills the badge (reads at 58 px), lava-crack shell around
     _: { y0: 0, y1: 1, dx: 0.15, dy: 0.25, fill: 0.9 },
@@ -1259,7 +1318,7 @@ const UI = (() => {
       m.root.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
       sc.add(m.root); m.root.updateMatrixWorld(true);
       // camera: the dragon's head close-up (DRG_CAM), a model's own hint, or a generous first framing that is tightened below
-      const F = DRG_CAM, fit = BOSS_FIT[type] || BOSS_FIT._, hint = m.portrait || fit.cam;
+      const F = DRG_CAM, fit = BOSS_FIT[type] || BOSS_FIT._, hint = (fit.over && fit.cam) || m.portrait || fit.cam;   // (over: the UI's close-up wins)
       const cam = new THREE.PerspectiveCamera(drg ? F.fov : 24, 1, 0.1, 60);
       let c, rad, dir, auto = false;
       if (drg) { c = new THREE.Vector3(F.cx, F.cy, F.cz); rad = F.rad; dir = new THREE.Vector3(F.dx, F.dy, 1); }
@@ -1377,6 +1436,11 @@ const UI = (() => {
   // ───────────────────────── Banners, toasts, cards, subtitles ─────────────────────────
   const BQ = [];
   let bTimer = 0, bBusy = false;
+  // milk drips under the Kefir Vadisi zone ribbon (stretched to the ribbon's width; drawn like the ribbon's cream)
+  const ZONE_DRIP = '<svg class="u-zdrip" viewBox="0 0 400 34" preserveAspectRatio="none"><path d="M0 0H400V4C392 4 390 8 384 8C376 8 377 4 366 4' +
+    'C356 4 354 13 352 22C350 30 340 30 339 22C338 12 336 6 326 5C312 4 306 10 296 9C286 8 284 4 272 4C262 4 262 9 258 16C255 22 247 22 246 15' +
+    'C245 8 242 5 232 5C216 5 212 11 196 11C182 11 180 4 168 4C158 4 156 10 154 20C152 32 140 32 139 21C138 10 134 5 122 5C108 5 104 10 92 10' +
+    'C82 10 80 4 70 4C60 4 58 8 56 14C54 20 46 20 45 14C44 8 40 4 30 4C20 4 18 8 10 8C4 8 4 4 0 4Z"/></svg>';
   function banner(o) {
     for (let i = BQ.length - 1; i >= 0; i--) if (BQ[i].kind === o.kind && (o.kind === 'level' || o.kind === 'zone')) BQ.splice(i, 1);   // newest wins
     if (BQ.length > 4) BQ.shift();
@@ -1388,12 +1452,15 @@ const UI = (() => {
     if (!o) { bBusy = false; return; }
     bBusy = true;
     const b = D.banner;
-    b.className = 'u-banner ' + (o.kind || '');
+    b.className = 'u-banner ' + (o.kind || '') + (o.theme ? ' t-' + o.theme : '');
     let h = '';
     if (o.rays) h += '<div class="u-rays"></div>';
     if (o.kind === 'zone') {
-      if (o.small) h += `<div class="u-zsm">✦ ${esc(o.small)} ✦</div>`;
-      h += `<div class="u-zrib"><div class="u-btitle">${ol(o.title, 'u-gold-t')}</div></div>`;
+      const dairy = o.theme === 'dairy', mk = dairy ? '<span class="u-zmk">🥛</span>' : '✦';
+      if (o.small) h += `<div class="u-zsm">${mk} ${esc(o.small)} ${mk}</div>`;
+      const rib = `<div class="u-zrib"><div class="u-btitle">${ol(o.title, 'u-gold-t')}</div></div>`;
+      // Kefir Vadisi: a creamy ribbon with milk dripping from its lower edge
+      h += dairy ? `<div class="u-zwrap">${rib}${ZONE_DRIP}</div>` : rib;
       if (o.pips && o.pips.n > 1) {   // where we are on the journey: one gem per zone (done · here · still ahead)
         let p = '';
         for (let i = 0; i < o.pips.n; i++) p += `<i class="${i < o.pips.i ? 'd' : i === o.pips.i ? 'c' : ''}"></i>`;
@@ -1405,6 +1472,11 @@ const UI = (() => {
       if (o.sub) h += `<div class="u-bsub">${ol(o.sub)}</div>`;
     }
     b.innerHTML = h;
+    b.style.removeProperty('--zs');
+    if (o.kind === 'zone') {   // a long name ("Köstebek ve Salyangoz Mağarası") on a narrow portrait screen: the ribbon shrinks to fit
+      const rib = b.querySelector('.u-zrib'), w = rib ? rib.offsetWidth : 0, max = (innerWidth || 1024) * 0.94;
+      if (w > max) b.style.setProperty('--zs', Math.max(0.4, max / w).toFixed(3));
+    }
     void b.offsetWidth;
     b.classList.add('on');
     clearTimeout(bTimer);
@@ -1476,7 +1548,10 @@ const UI = (() => {
     if (L) for (const k in L) if (L[k] === text) return k;
     return A && A.current;
   }
-  const SUB_EMO = { baykus: '🦉', ilk_salyangoz: '🐌', ilk_kostebek: '⛏️', ilk_kaplumbaga: '🐢', ilk_ateskusu: '🐥' };
+  const SUB_EMO = { baykus: '🦉', ilk_salyangoz: '🐌', ilk_kostebek: '⛏️', ilk_kaplumbaga: '🐢', ilk_ateskusu: '🐥',
+    // Kefir Vadisi (Round 4): the valley, its creatures, and the glass of kefir the happy Kefir Devi gives Feza
+    kefir: '🥛', ilk_yogurt: '🥣', ilk_kaymak: '🍯', ilk_kopuk: '🫧', ilk_peynir: '🧀', kefir_ikram: '🥛', yolculuk: '🗺️' };
+  const SUB_MILK = { kefir: 1, ilk_yogurt: 1, ilk_kaymak: 1, ilk_kopuk: 1, ilk_peynir: 1, kefir_ikram: 1 };   // their icon sits on a milky-blue disc (ui.css .u-subico.milk)
   // Title screen: the spoken "Oyna düğmesine bas…" line sits just above the Oyna / Devam Et buttons, never on them. Measured
   // from the buttons' layout box (offsetTop ignores their entry/breathing transforms); other screens use the CSS positions.
   function subPlace() {
@@ -1499,10 +1574,12 @@ const UI = (() => {
   function subtitle(text) {
     clearTimeout(subHide);
     if (text) {
-      const key = lineKey(text), bt = lineBoss(key);   // a boss's lines: that boss's friendly portrait (cached at its zone load)
+      // a boss's lines: that boss's friendly portrait (cached at its zone load); a line with its own icon keeps it (the
+      // glass of kefir while Feza drinks, even if EDEF lists that line with the Kefir Devi)
+      const key = lineKey(text), emo = SUB_EMO[key], bt = emo ? null : lineBoss(key);
       if (bt) D.subIco.innerHTML = bossHTML(bt);
-      else D.subIco.textContent = SUB_EMO[key] || '✨';
-      D.subIco.classList.toggle('drg', !!bt); D.subIco.dataset.b = bt || '';
+      else D.subIco.textContent = emo || '✨';
+      D.subIco.classList.toggle('drg', !!bt); D.subIco.classList.toggle('milk', !bt && !!SUB_MILK[key]); D.subIco.dataset.b = bt || '';
       subPlace();
       D.subTxt.textContent = text;
       D.sub.classList.add('on');
@@ -1535,15 +1612,22 @@ const UI = (() => {
     const Z = M.ZONES && M.ZONES[i | 0];
     safe('TEX.ensure', () => T.ensure(Z && Z.theme ? Z.theme : i | 0));
   }
-  // Zone a "Devam Et" will load. Saves from before the volcano (no sv or sv < 3) at zone ≥ 2 continue one zone later (GAME
-  // moves them the same way: the castle is index 3 now).
+  // Zone a "Devam Et" will load (GAME's saveZone does the same): the save's zone id (zid, sv 4) when ZONES knows it, else
+  // the index — saves from before the volcano (no sv or sv < 3) at zone ≥ 2 first move one zone on (Round 3), then saves
+  // from before Kefir Vadisi (sv < 4) at zone ≥ 1 move one more (Round 4: the kefir zone is index 1, the castle index 4).
   function savedZone() {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
       if (!s || typeof s.zone !== 'number') return -1;
+      if (typeof s.zid === 'string' && M.ZONES && M.ZONES.findIndex) {
+        const k = M.ZONES.findIndex(Z => Z && Z.id === s.zid);
+        if (k >= 0) return k;
+      }
       let z = s.zone | 0;
-      if (!(s.sv >= 3) && z >= 2 && zoneCount() >= 4) z++;
-      return clamp(z, 0, zoneCount() - 1);
+      const sv = typeof s.sv === 'number' ? s.sv : 0, n = zoneCount();
+      if (sv < 3 && z >= 2 && n >= 4) z++;
+      if (sv < 4 && z >= 1 && n >= 5) z++;
+      return clamp(z, 0, n - 1);
     } catch (e) { return -1; }
   }
 
@@ -1602,7 +1686,13 @@ const UI = (() => {
     const g = M.GAME;
     const has = !!(g && g.hasSave && safe('hasSave', () => g.hasSave()));
     D.contBtn.classList.toggle('u-hide', !has); D.playBtn.classList.remove('u-hide');
-    D.playBtn.classList.add('main'); D.contBtn.classList.remove('main');
+    // With a save (parent's wish): a big green "Devam Et" first and an orange "Baştan Başla" beside it (a new game from the
+    // forest; the save itself stays until the next Kaydet). Without a save: just "Oyna".
+    D.playBtn.innerHTML = has ? SVG.again + '<span>Baştan Başla</span>' : SVG.play + '<span>Oyna</span>';
+    D.playBtn.classList.toggle('g', !has); D.playBtn.classList.toggle('o', has);
+    D.contBtn.classList.toggle('g', has); D.contBtn.classList.toggle('b', !has);
+    D.contBtn.style.order = has ? '-1' : '';
+    D.playBtn.classList.toggle('main', !has); D.contBtn.classList.toggle('main', has);
     S.titleIdle = 0; S.titleSaid = 0;
     setMode('title');
     aud('music', 'title');
@@ -1615,7 +1705,8 @@ const UI = (() => {
     S.titleIdle += dt;
     if (S.titleIdle < (S.titleSaid ? 25 : 1.5) || (A.speaking && A.speaking())) return;
     S.titleIdle = 0; S.titleSaid++;
-    aud('say', 'basla', { prio: 1 });   // "Oyna düğmesine bas…" ("Devam Et" is the parent's choice)
+    const cont = !D.contBtn.classList.contains('u-hide');
+    aud('say', cont ? 'devam' : 'basla', { prio: 1 });   // "Devam Et düğmesine bas…" with a save, else "Oyna düğmesine bas…"
   }
   async function startGame(cont) {
     const g = M.GAME;
@@ -1717,7 +1808,11 @@ const UI = (() => {
       await fade(1, 0.5, 'load');
       D.conf.innerHTML = '';
       clearBanners(); clearCards(); hideBoss(); S.cine = null;
-      aud('stopVoice');   // lines from the old run must not play into the new one
+      // lines from the old run must not play into the new one — except the ending line itself, if a quick tap came before
+      // it was over ("…Sen gerçek bir kahramansın!"): it finishes and 'tekrar' simply follows it
+      // (GAME stops everything else just before it says 'son')
+      const A = M.AUD;
+      if (!(A && A.current === 'son')) aud('stopVoice');
       newGameWithIntro(g);   // state 'end' → GAME makes it a new game+
       setMode('play'); refreshAllSkills(); portraitSoon(0);
       renderNow(); await frames(2);
@@ -1771,8 +1866,13 @@ const UI = (() => {
     D.bossName.innerHTML = ol(ad);
     D.bossIco.innerHTML = bossHTML(t);
     measureBossBar();
-    D.bossFill.style.transform = `scaleX(${S.bossFrac})`; D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
+    bossFill(S.bossFrac); D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
     D.boss.classList.add('on');
+  }
+  // The fill shrinks with scaleX; its bubble layer is scaled back (1/frac), so the bubbles stay round at any health.
+  function bossFill(f) {
+    D.bossFill.style.transform = `scaleX(${f.toFixed(4)})`;
+    if (D.boss.dataset.b === 'kefirdev') D.bossFizz.style.transform = `scaleX(${(1 / Math.max(0.02, f)).toFixed(4)})`;
   }
   function hideBoss() { S.boss = false; D.boss.classList.remove('on'); }
 
@@ -1794,7 +1894,7 @@ const UI = (() => {
       if (S.mode === 'title') setMode('play');
       const ng = g.P && g.P.ng ? ` · Macera ${g.P.ng + 1}` : '';
       const zi = clamp(d.index | 0, 0, 98), nZ = Math.max(zoneCount(), zi + 1);
-      banner({ kind: 'zone', title: d.name || (Z && Z.ad) || 'Yeni Yer', small: `${zi + 1}. Bölge${ng}`, pips: { n: nZ, i: zi }, dur: 3.2 });
+      banner({ kind: 'zone', title: d.name || (Z && Z.ad) || 'Yeni Yer', small: `${zi + 1}. Bölge${ng}`, pips: { n: nZ, i: zi }, dur: 3.2, theme: (Z && Z.theme) || '' });
     });
     on('portal', async () => {
       while (S.busy) await new Promise(r => setTimeout(r, 100));   // never drop it: GAME waits in 'transition' for us
@@ -1843,7 +1943,7 @@ const UI = (() => {
     on('boss', d => { if (d.on) showBoss(d); else hideBoss(); });
     on('bossHp', d => {
       S.bossFrac = clamp(d.frac, 0, 1);
-      D.bossFill.style.transform = `scaleX(${S.bossFrac.toFixed(4)})`;
+      bossFill(S.bossFrac);
       if (D.boss.animate) D.boss.animate([{ filter: 'brightness(1.6)' }, { filter: 'brightness(1)' }], { duration: 200 });
     });
     on('victory', () => { hideBoss(); if (S.menu) closeMenu(); setTimeout(() => { if (g.state === 'end' && S.mode === 'play') showVictory(); }, 2600); });
@@ -1853,6 +1953,13 @@ const UI = (() => {
         const L = g.L, Z = M.ZONES && g.P && M.ZONES[g.P.zone | 0];
         S.cine = { t: 0, bx: d.x, bz: d.z, fin: !!(L && L.crystalSpot) || !!(Z && Z.final) || d.type === 'ejderha' };
       }
+    });
+    // The Kefir Devi's glass of kefir (GAME 'gift' {stage: 'drink' | 'drunk', x, z, dur}): the story camera moves in close on
+    // Feza while he drinks it, stays for his cheer, then goes back to the happy giant and its portal (updateCamera, cineTick).
+    on('gift', d => {
+      const c = S.cine; if (!c || c.fin !== false) return;
+      if (d.stage === 'drink') { c.drink = 1; c.dT = 0; c.dDur = clamp(Number(d.dur) || 1.6, 0.5, 4); }
+      else if (d.stage === 'drunk') { c.drink = 2; c.dT = 0; }
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
@@ -2041,9 +2148,33 @@ const UI = (() => {
   }
   // Mid-boss story beat (S.cine, fin false): 0–4.6 s the cheering boss, then the portal that woke up — with Feza when both fit,
   // else (a far portal) a short flight to the portal (until CINE.back) and back to Feza (CINE.panEnd). Final boss: CINE.fin.
-  const CINE = { boss: 4.6, end: 7.5, back: 8.0, panEnd: 9.0, fin: 9.5 };
+  const CINE = { boss: 4.6, end: 7.5, back: 8.0, panEnd: 9.0, fin: 9.5, wait: 22 };
   const cineEnd = c => (c.fin === false ? (c.pan ? CINE.panEnd : CINE.end) : CINE.fin);
+  // A boss with a longer goodbye (the Kefir Devi first hands Feza a glass of kefir, he drinks it, then its portal wakes up):
+  // the camera stays on Feza and the boss until the portal is awake (at most CINE.wait s), then shows the portal as usual.
+  // The Kefir Devi's gift: close on Feza while he drinks (CINE_DRINK.hold s more for his cheer after the last sip), then back.
+  const CINE_DRINK = { hold: 1.4, late: 0.6 };
+  const DRINK_F = [0.13, 0.09, 0.05, 0.02, 0];   // look-at fractions of 8 m toward the giant (≤ 1 m)
+  function cineTick(dt) {
+    const c = S.cine, g = M.GAME, L = g && g.L, po = c.fin === false && L ? L.portalObj : null;
+    c.t += dt;
+    if (c.drink) {
+      c.dT += dt;
+      if (c.drink === 1 && c.dT > c.dDur + CINE_DRINK.late) { c.drink = 2; c.dT = 0; }   // (no 'drunk' came: go on anyway)
+      else if (c.drink === 2 && c.dT > CINE_DRINK.hold) c.drink = 0;
+    }
+    if (po && po.active === false && c.t > CINE.boss - 0.05 && (c.wait || 0) < CINE.wait) {
+      c.wait = (c.wait || 0) + dt; c.t = CINE.boss - 0.05;
+      const b = g.boss;   // (it may walk over to Feza with the glass: follow it while it is still there)
+      if (b && !b.gone && b.m && b.m.root && b.m.root.visible && Number.isFinite(b.x)) { c.bx = b.x; c.bz = b.z; }
+    }
+    if (c.t > cineEnd(c) && !c.drink) { const mid = c.fin === false; S.cine = null; if (mid) armPortalWatch(); }
+  }
   const PAN_F = [0, 0.12, 0.24, 0.36, 0.48];
+  function fitCheerBoss(c, b, dy) {   // the cheering boss, shrinking in its goodbye (dy 0..1), or where it stood
+    if (b && dy < 1) fitBoss(b, Math.max(0.3, 1 - dy));
+    else { fitAdd(c.bx, 0, c.bz); fitAdd(c.bx, c.wait ? clamp((b && b.height) || 2.2, 2.2, 3.4) : 2.2, c.bz); }   // (waiting: the whole boss)
+  }
   // Title: while the spoken prompt shows, Feza steps up the screen so its box never covers his legs (his head stays under the logo).
   const _tv = new THREE.Vector3(), _ta = { x: 0, y: 0, vis: false }, _tb = { x: 0, y: 0, vis: false };
   let titleLiftM = 0;
@@ -2078,10 +2209,33 @@ const UI = (() => {
       const c = S.cine, L = g.L, po = c.fin === false && L ? L.portalObj || L.exit : null;
       pitch = 0.74; ty = 1.3; k = 1.3;
       let fit = true;
-      if (c.t < CINE.boss) {
-        if (g.boss && c.t < 3.2) fitBoss(g.boss, Math.max(0.3, 1 - c.t / 3.2));
-        else { fitAdd(c.bx, 0, c.bz); fitAdd(c.bx, 2.2, c.bz); }
-        fitSolve('cheer', px, pz, c.bx, c.bz, ty, pitch, 1.15, 1.7);
+      const b = g.boss, gf = b && b.gift, gl = gf && gf.stage === 1 && gf.glass ? gf.glass.position : null;
+      if (c.drink) {
+        // the Kefir Devi's gift: close on Feza while he drinks his glass of kefir (a lower view sees the glass from the side),
+        // a little wider for his cheer after the last sip, then a gentle move back to the giant and its portal
+        // (the aim leans up to ~1 m toward the giant when that still fits: Feza a little lower, its smile in the background)
+        pitch = 0.54; ty = 0.9; k = 2.4;
+        const bd = Math.hypot(c.bx - px, c.bz - pz), s = bd > 0.5 ? 8 / bd : 0;
+        fitSolve('drink', px, pz, px + (c.bx - px) * s, pz + (c.bz - pz) * s, ty, pitch, c.drink === 2 ? 0.56 : 0.42, c.drink === 2 ? 0.95 : 0.8, false, DRINK_F);
+      } else if (gl && c.t < CINE.boss) {   // …and before that, the glass floating over to him from the giant's hand: follow it in
+        fitAdd(gl.x, gl.y - 0.35, gl.z); fitAdd(gl.x, gl.y + 0.45, gl.z);
+        pitch = 0.68; ty = 1.1; k = 2.2;
+        fitSolve('glass', px, pz, gl.x, gl.z, ty, pitch, 0.62, 1.7);
+      } else if (c.t < CINE.boss) {
+        // the boss while it is still there: its happy goodbye shrinks it (GAME's st.dying 0..1; −1 while it still stands
+        // there, e.g. the Kefir Devi handing Feza its glass of kefir), else the usual 3.2 s
+        const dy = b && b.st && typeof b.st.dying === 'number' ? Math.max(0, b.st.dying) : c.t / 3.2;
+        // A portal that wakes up while the boss still waves (1.5 s in) joins the shot, so the kid sees the gate light up
+        // while its line plays — when boss, gate and Feza all fit (decided once as it wakes; else the gate gets its own
+        // shot after CINE.boss, as before)
+        const pa = po && L.portalObj && L.portalObj.active !== false ? L.portalObj : null;
+        let done = false;
+        if (pa && c.poFit !== false) {
+          fitCheerBoss(c, b, dy); fitAdd(pa.x, 0.2, pa.z + 0.9); fitAdd(pa.x, 2.6, pa.z); fitAdd(pa.x - 1.5, 1.2, pa.z); fitAdd(pa.x + 1.5, 1.2, pa.z);
+          done = fitSolve('cheerP', px, pz, (c.bx + pa.x) / 2, (c.bz + pa.z) / 2, ty, pitch, 1.15, 1.8, true) >= 0;
+          if (c.poFit === undefined) c.poFit = done;
+        }
+        if (!done) { fitCheerBoss(c, b, dy); fitSolve('cheer', px, pz, c.bx, c.bz, ty, pitch, 1.15, 1.7); }
       } else if (po) {   // mid-boss: the portal that just woke up
         pitch = 0.72;
         if (!c.pan) {   // Feza and the portal together (a far one may zoom out a little more)…
@@ -2184,7 +2338,7 @@ const UI = (() => {
         if (!SILENT && M.AUD && M.AUD.setListener) { try { M.AUD.setListener(P.pos.x, P.pos.z); } catch (e) { warn('AUD.setListener', e); } }
       }
       if (S.atkHeld && S.t >= S.atkNext) { attack(); S.atkNext = S.t + 0.27; }
-      if (S.cine && (S.cine.t += dt) > cineEnd(S.cine)) { const mid = S.cine.fin === false; S.cine = null; if (mid) armPortalWatch(); }
+      if (S.cine) cineTick(dt);
     }
     if (HOLDS.length || S.menu === 'pause') holdTick();
     if (CORNERS.length) cornerTick();
@@ -2251,7 +2405,7 @@ const UI = (() => {
     _S: S, _D: D, _TC: TITLE_CAM, _DC: DRG_CAM, _BF: BOSS_FIT, _FIT: FIT, _FL: FL,
     _dragon() { DRG.tried = false; DRG.url = DRG.cv = null; return dragonPortrait(); },   // tests: render the dragon portrait again
     _boss(t) { const R = bpRec(t); R.tried = false; R.url = R.cv = null; return bossPortrait(t); },   // tests: (re)render a boss portrait
-    _bossHTML: t => bossHTML(t), _bossSvg: t => bossSvg(t), _savedZone: () => savedZone(), _goal: () => MV.goal,
+    _bossHTML: t => bossHTML(t), _bossSvg: t => bossSvg(t), _savedZone: () => savedZone(), _goal: () => MV.goal, _mapTheme: () => MM.theme, _CINE: CINE,
     _step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) step(dt, dt, i === n - 1); },   // tests: deterministic frames
   };
 })();

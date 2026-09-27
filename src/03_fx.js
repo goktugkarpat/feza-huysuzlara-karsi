@@ -201,6 +201,22 @@ const FX = (() => {
     t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
     return t;
   }
+  // Ground marker under a kefir fizz bubble: a soft dark core (where it is) fading out through a soft pink glow (a coloured
+  // halo that shows on the pale yogurt floor as well as on the biscuit path). Linear colours, straight alpha; colour-bleeds into the
+  // transparent texels so mipmaps have no dark fringe.
+  function buildFizzMarkTex() {
+    const N = 64, data = new Uint8Array(N * N * 4), cc = lin('#2a1824'), cr = lin('#ff78b8');
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const r = Math.hypot((i + 0.5) / N - 0.5, (j + 0.5) / N - 0.5) * 2, k = (j * N + i) * 4;
+      const ac = 0.46 * (1 - sstep(0.3, 0.68, r)), ar = 0.22 * sstep(0.34, 0.6, r) * (1 - sstep(0.7, 0.98, r));
+      const A = ar + ac * (1 - ar), wr = A > 1e-3 ? ar / A : r > 0.55 ? 1 : 0;
+      for (let q = 0; q < 3; q++) data[k + q] = Math.round(255 * (cr[q] * wr + cc[q] * (1 - wr)));
+      data[k + 3] = Math.round(255 * A);
+    }
+    const t = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+    t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
+    return t;
+  }
   function buildGlowTex() {   // small radial glow for projectile halos (sprites)
     const N = 64, data = new Uint8Array(N * N * 4), o = [0, 0, 0, 0];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -220,16 +236,17 @@ const FX = (() => {
   const uScale = { value: 1000 }, uMaxPt = { value: 256 };
   let SA = null, SN = null, atlas = null, glowTex = null, blobTex = null;
   const PT_VS = `attribute vec4 aCol; attribute vec4 aMisc; uniform float uScale, uMaxPt;
-    varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr;
+    varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr, vSoft;
     void main() {
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       gl_Position = projectionMatrix * mv;
       gl_PointSize = min(uMaxPt, aMisc.x * uScale / max(0.2, -mv.z));
       if (aMisc.x <= 0.0 || aCol.a <= 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       vCol = aCol; vRot = vec2(cos(aMisc.y), sin(aMisc.y));
-      vCell = vec2(mod(aMisc.z + 0.01, 4.0) - 0.01, floor(aMisc.z / 4.0 + 0.01)); vStr = aMisc.w;
+      float sh = aMisc.z; vSoft = step(15.5, sh); sh -= 16.0 * vSoft;   // shape + 16 = soft shading (milk / kefir: no grey belly)
+      vCell = vec2(mod(sh + 0.01, 4.0) - 0.01, floor(sh / 4.0 + 0.01)); vStr = aMisc.w;
     }`;
-  const PT_FS = `uniform sampler2D uAtlas; varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr;
+  const PT_FS = `uniform sampler2D uAtlas; varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr, vSoft;
     void main() {
       vec2 p = vec2(gl_PointCoord.x - 0.5, 0.5 - gl_PointCoord.y);
       p = vec2(vRot.x * p.x + vRot.y * p.y, -vRot.y * p.x + vRot.x * p.y);
@@ -238,7 +255,8 @@ const FX = (() => {
       float a = t.a * vCol.a;
       if (dot(p, p) > 0.25 || a < 0.003) discard;
       float m = max(max(vCol.r, vCol.g), vCol.b);
-      gl_FragColor = vec4(mix(vCol.rgb * t.r, vec3(max(m, 1.0)), t.g), a);
+      float sd = mix(t.r, 1.0 - (1.0 - t.r) * 0.5, vSoft);
+      gl_FragColor = vec4(mix(vCol.rgb * sd, vec3(max(m, 1.0)), t.g), a);
       ${CHUNK_OUT}
     }`;
   function makeSys(cap, add) {
@@ -270,7 +288,7 @@ const FX = (() => {
     sp.add = add; sp.shape = shape; sp.x = x; sp.y = y; sp.z = z; sp.vx = 0; sp.vy = 0; sp.vz = 0;
     sp.life = 1; sp.size = 0.3; sp.size1 = undefined; sp.color = C.W1; sp.color1 = undefined; sp.alpha = 1;
     sp.grav = 0; sp.drag = 0; sp.rot = Math.random() * TAU; sp.spin = 0; sp.pop = 0; sp.fade = 1; sp.flick = 0; sp.bounce = 0;
-    sp.orbit = 0; sp.ox = undefined; sp.oz = undefined; sp.wob = 0; sp.stretch = 1; sp.delay = 0; sp.phase = undefined; sp.glow = 1;
+    sp.orbit = 0; sp.ox = undefined; sp.oz = undefined; sp.wob = 0; sp.stretch = 1; sp.delay = 0; sp.phase = undefined; sp.glow = 1; sp.soft = 0;
     return sp;
   }
   function emitRaw(p) {
@@ -284,7 +302,7 @@ const FX = (() => {
     const g = p.glow || 1, c0 = lin(p.color ?? C.W1), c1 = p.color1 == null ? c0 : lin(p.color1);
     d[o + R0] = c0[0] * g; d[o + G0] = c0[1] * g; d[o + B0] = c0[2] * g; d[o + R1] = c1[0] * g; d[o + G1] = c1[1] * g; d[o + B1] = c1[2] * g;
     d[o + AL] = p.alpha ?? 1; d[o + GRV] = (p.grav || 0) * k; d[o + DRG] = p.drag || 0;
-    d[o + ROT] = p.rot ?? Math.random() * TAU; d[o + SPN] = p.spin || 0; d[o + SHP] = p.shape || 0;
+    d[o + ROT] = p.rot ?? Math.random() * TAU; d[o + SPN] = p.spin || 0; d[o + SHP] = (p.shape || 0) + (p.soft ? 16 : 0);
     d[o + POP] = p.pop || 0; d[o + FAD] = p.fade || 1; d[o + FLK] = p.flick || 0; d[o + BNC] = p.bounce || 0;
     d[o + OX] = bx + ((p.ox ?? p.x) - bx) * k; d[o + OZ] = bz + ((p.oz ?? p.z) - bz) * k; d[o + ORB] = p.orbit || 0;
     d[o + WOB] = (p.wob || 0) * k; d[o + STR] = p.stretch || 1; d[o + PHS] = p.phase ?? Math.random() * TAU;
@@ -366,6 +384,14 @@ const FX = (() => {
       LFL0: hueNorm(lin('#ffa830'), 1.35), LFL1: hueNorm(lin('#ff561a'), 0.95), EMB0: lin('#ffc84a', 2.2), EMB1: lin('#ff5a1a', 1.5),
       CRUST: lin('#8a5a48'), ASH: lin('#c6b4ae'), ASHL: lin('#d8c8c0'), STEAM: lin('#fffaf5'),
       ROCKC: ['#6a4430', '#8a5c3c', '#a87a52'].map(h => lin(h)), JELLY: '#ff5fb0',
+      // Kefir Vadisi (Round 4): milk and kefir stay just under 1 (never bloom into a white blob; normal blend, so however many
+      // overlap they stay creamy); droplets use the soft atlas shading (p.soft: a light cool belly, not grey) + a white glint.
+      // Crumbs: golden biscuit browns. Sparkles: pastel strawberry / blueberry / honey / mint.
+      MILK: lin('#fbfbff', 0.97), MILKW: lin('#fff5e4', 0.97), MILKC: lin('#f2f4ff', 0.95), MILKP: lin('#fff9f0', 0.9),
+      KEFIR: lin('#fff3dc', 0.96), KEFIRB: ['#fff6e6', '#ffeef4', '#eef6ff', '#f2fff4'].map(h => lin(h, 0.97)),
+      KEFG: ['#ffa8cc', '#9fd4ff', '#ffe08a', '#b5f5d0', '#d5b8ff'].map(h => lin(h, 2.1)),
+      KEFR: ['#ffa4cf', '#9ccfff', '#c4acff', '#9eecc2', '#ffd978'].map(h => lin(h)),   // bubble rims: pastel, but coloured enough to read on cream
+      CRUMB: ['#e3ad5c', '#c98a3c', '#f0cb86', '#b0702e', '#dca050'].map(h => lin(h)), OAT: lin('#f4e2b8'), CRUMBD: lin('#efdcb6'),
     };
   }
   const N = (n, K) => Math.max(1, Math.round(n * K));
@@ -384,7 +410,8 @@ const FX = (() => {
   const MAIN = { hit: 6, crit: 12, sparkle: 8, cheer: 6, coin: 5, dust: 6, step: 2, levelup: 22, ice: 10, fire: 8, smoke: 6, heal: 7, magic: 8,
     portal: 6, spore: 6, ghost: 5, debris: 10, zzz: 3, embers: 8, confetti: 28, star: 1, shadowPuff: 6, zap: 6,
     slime: 2, dirt: 8, bubblePop: 7, bubbles: 3, bubble: 7, pop: 7, glitter: 3, dig: 8, mud: 8, clods: 8, trail: 2,
-    lava: 12, magma: 12, erupt: 16, eruption: 16, volcano: 16, steam: 4, vent: 4, jelly: 9, splat: 9 };
+    lava: 12, magma: 12, erupt: 16, eruption: 16, volcano: 16, steam: 4, vent: 4, jelly: 9, splat: 9,
+    milk: 12, cream: 12, yogurt: 12, splash: 12, fizz: 10, kefir: 10, foam: 6, fizzPop: 8, crumbs: 10, crumb: 10, biscuit: 10 };
   const B = {
     // opts.color (the saber's blade colour, or a projectile's colour): the flash, ring and energy streaks take that hue and
     // a few crackling sparks fly off — a "zap". The cute yellow stars stay. No coloured droplets (a red blade must never
@@ -802,10 +829,144 @@ const FX = (() => {
       }
       twinkles(N(4, K), x, y, z, 0.35, cg, 0.32);
     },
+    // ── Kefir Vadisi (Round 4) ── Milk, kefir and crumbs are NORMAL-blend particles with colours just under 1: creamy, and
+    // however many overlap they never add up to a bloomed white blob. Only the tiny pastel sparkles are additive.
+    // Creamy milk splash: a crown of glossy droplets stretched along their flight (they bounce once and lie as beads), a
+    // central jet, a soft spray puff, a creamy puddle sheen spreading on the floor and a few pastel sparkles.
+    // opts: {color (tint: kefir cream, strawberry milk…), dir, scale (< 0.7: a small plop without the puddle), count,
+    // ring: true | radius (a soft cream splash ring on the ground; off by default — GAME draws its own damage rings)}.
+    milk(x, y, z, o, K) {
+      const t = o.color ? hueNorm(lin(o.color), 0.97) : null, cols = t ? [t, t, [t[0] * 0.95, t[1] * 0.95, t[2] * 0.95]] : [C.MILK, C.MILKW, C.MILKC];
+      const gy = Math.max(0.04, y), dx = o.dir ? o.dir.x * 1.3 : 0, dz = o.dir ? o.dir.z * 1.3 : 0, big = bk >= 0.7;
+      let q = P(0, SH.RING, x, gy + 0.32, z); q.size = 0.5; q.size1 = 1.5; q.life = 0.26; q.alpha = 0.7; q.fade = 1.4; q.rot = 0; q.color = cols[1]; emitRaw(q);
+      for (let i = 0, n = N(7, K); i < n; i++) {   // the crown wall: creamy lobes flung up and out in a ring, soon falling back
+        const a = (i / n) * TAU + frand(-0.2, 0.2), s = frand(0.8, 1.3);
+        q = P(0, SH.SMOKE, x + Math.cos(a) * 0.22, gy + 0.08, z + Math.sin(a) * 0.22);
+        q.vx = Math.cos(a) * s + dx * 0.5; q.vz = Math.sin(a) * s + dz * 0.5; q.vy = frand(1.7, 2.4); q.grav = 7; q.drag = 1.2;
+        q.size = frand(0.3, 0.38); q.size1 = q.size * 1.35; q.life = frand(0.32, 0.42); q.alpha = 0.95; q.fade = 2.2; q.pop = 0.07; q.spin = frand(-2, 2); q.color = cols[i % 2]; emitRaw(q);
+      }
+      for (let i = 0, n = N(12, K); i < n; i++) {   // splash droplets
+        const a = (i / n) * TAU + frand(-0.25, 0.25), s = frand(1.3, 3.0);
+        q = P(0, SH.DOT, x + Math.cos(a) * 0.15, gy + 0.08, z + Math.sin(a) * 0.15);
+        q.vx = Math.cos(a) * s + dx; q.vz = Math.sin(a) * s + dz; q.vy = frand(2.8, 5.0);
+        q.grav = 11; q.bounce = 0.12; q.drag = 0.35; q.stretch = 1.8; q.soft = 1; q.size = frand(0.15, 0.25); q.size1 = q.size * 0.55;
+        q.life = frand(0.65, 0.95); q.fade = 3; q.pop = 0.05; q.color = cols[i % 3]; q.delay = frand(0, 0.05); emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // the jet in the middle (the classic milk-drop splash)
+        q = P(0, SH.DOT, x + frand(-0.05, 0.05), gy + 0.12, z + frand(-0.05, 0.05)); q.vx = frand(-0.3, 0.3) + dx * 0.3; q.vz = frand(-0.3, 0.3) + dz * 0.3;
+        q.vy = frand(4.4, 6.0); q.grav = 11; q.bounce = 0.1; q.drag = 0.2; q.stretch = 2.2; q.soft = 1; q.size = frand(0.2, 0.28); q.size1 = q.size * 0.6;
+        q.life = frand(0.8, 1.0); q.fade = 3; q.pop = 0.05; q.color = cols[0]; q.delay = 0.06 + i * 0.05; emitRaw(q);
+      }
+      for (let i = 0, n = N(2, K); i < n; i++) {   // soft spray
+        q = P(0, SH.SMOKE, x + frand(-0.15, 0.15), gy + 0.2, z + frand(-0.15, 0.15)); radial(q, 0.4, 1.0, 0.6, 1.1); q.vx += dx * 0.4; q.vz += dz * 0.4;
+        q.drag = 3; q.size = frand(0.34, 0.42); q.size1 = q.size * 2.3; q.life = frand(0.45, 0.6); q.alpha = 0.55; q.fade = 2; q.pop = 0.08; q.spin = frand(-1, 1); q.color = cols[2]; q.delay = 0.04; emitRaw(q);
+      }
+      if (big) for (let i = 0; i < 2; i++) {   // creamy puddle sheen spreading on the floor, fading slowly (capped: a big slam gets a
+        const sz = (i ? 0.6 : 0.9) * Math.min(1, 1.3 / bk);   // bigger crown, never a wide white haze)
+        q = P(0, SH.GLOW, x + frand(-0.1, 0.1) + dx * 0.12, sz * 0.22, z + frand(-0.1, 0.1) + dz * 0.12);
+        q.size = sz; q.size1 = sz * 1.6; q.life = frand(1.0, 1.3); q.alpha = 0.45; q.fade = 2.5; q.rot = 0; q.color = t || C.MILKP; q.delay = 0.1 + i * 0.05; emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // pastel sparkles
+        q = P(1, SH.SPARK, x + frand(-0.45, 0.45), gy + frand(0.15, 0.6), z + frand(-0.45, 0.45)); q.vy = frand(0.3, 0.9);
+        q.size = frand(0.18, 0.28); q.size1 = 0.03; q.life = frand(0.45, 0.7); q.pop = 0.08; q.flick = frand(14, 22); q.rot = frand(-0.3, 0.3);
+        q.color = C.KEFG[(i + ((Math.random() * 5) | 0)) % 5]; q.delay = frand(0.03, 0.15); emitRaw(q);
+      }
+      if (o.ring) ring(x, z, { r0: 0.25 * bk, r1: (o.ring > 0.3 ? o.ring : 1.6) * bk, dur: 0.42, color: o.color || '#fff0dc', k: 0.6, edge: 0.3, width: 0.45 * bk });
+    },
+    // Rising sparkly kefir fizz: glossy cream beads and pastel film bubbles wobbling up (buoyant, speeding up a little), each
+    // bubble popping at the top with a tiny pastel sparkle, plus glitter. opts: {color (tints the cream beads), dir + speed (a foamy
+    // spray along dir instead of rising: the Kefir Devi's shake / geyser), scale, count}. Cheap: fine to emit often (the
+    // bubbling kefir spring, a river surface, a happy kefir creature).
+    fizz(x, y, z, o, K) {
+      const tint = o.color ? hueNorm(lin(o.color), 0.97) : null, dir = o.dir, spd = o.speed || 4;
+      let q;
+      for (let i = 0, n = N(10, K); i < n; i++) {
+        const bead = i % 3 === 0, sz = bead ? frand(0.08, 0.13) : frand(0.17, 0.32), L = frand(0.75, 1.25), dl = frand(0, 0.25), ph = frand(0, TAU);
+        const x0 = x + frand(-0.28, 0.28), y0 = y + frand(-0.1, 0.15), z0 = z + frand(-0.28, 0.28), wob = frand(0.35, 0.75);
+        q = P(0, bead ? SH.DOT : SH.RING, x0, y0, z0); q.soft = 1;
+        let xe, ye, ze;
+        if (dir) {   // spray: pushed along dir, slowed by drag, then floating up
+          const s = spd * frand(0.55, 1.1), dg = 1.6, e = (1 - Math.exp(-dg * L)) / dg;
+          q.vx = dir.x * s + frand(-0.7, 0.7); q.vz = dir.z * s + frand(-0.7, 0.7); q.vy = frand(0.6, 2.0); q.drag = dg;
+          xe = x0 + q.vx * e; ze = z0 + q.vz * e; ye = y0 + q.vy * e + 0.4 * L * L;
+        } else {
+          q.vx = frand(-0.25, 0.25); q.vz = frand(-0.25, 0.25); q.vy = frand(0.5, 1.1);
+          xe = x0 + q.vx * L; ze = z0 + q.vz * L; ye = y0 + q.vy * L + 0.8 * L * L;
+        }
+        xe += wob / 4.2 * (Math.sin(4.2 * L + ph) - Math.sin(ph));
+        q.grav = -1.6; q.wob = wob; q.phase = ph;
+        q.size = sz; q.size1 = sz * 1.3; q.life = L; q.alpha = 0.95; q.fade = 6; q.pop = 0.14; q.rot = frand(-0.5, 0.5); q.delay = dl;
+        q.color = bead ? tint || C.KEFIRB[i & 3] : C.KEFR[i % 5]; emitRaw(q);
+        if (!bead) {   // pop sparkle where the bubble ends up
+          q = P(1, SH.SPARK, xe, ye, ze); q.size = frand(0.2, 0.3); q.size1 = 0.03; q.life = 0.3; q.pop = 0.05; q.flick = 22; q.rot = frand(-0.3, 0.3);
+          q.color = C.KEFG[i % 5]; q.delay = dl + L * 0.93; emitRaw(q);
+        }
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // glitter rising with them
+        q = P(1, i & 1 ? SH.SPARK : SH.STAR, x + frand(-0.3, 0.3), y + frand(0, 0.3), z + frand(-0.3, 0.3));
+        q.vx = dir ? dir.x * spd * 0.5 : frand(-0.2, 0.2); q.vz = dir ? dir.z * spd * 0.5 : frand(-0.2, 0.2); q.vy = frand(0.6, 1.3); q.drag = 1.2; q.wob = 0.5;
+        q.size = frand(0.15, 0.24); q.size1 = 0.03; q.life = frand(0.6, 0.9); q.flick = 18; q.spin = frand(-4, 4); q.color = C.KEFG[(Math.random() * 5) | 0]; q.delay = frand(0, 0.3); emitRaw(q);
+      }
+    },
+    // Foamy kefir spray (the geyser from the Kefir Devi's bottle): soft cream foam clumps thrown along dir that swell and melt
+    // away, with fizz bubbles in them. opts: {dir, speed, color, scale, count}.
+    foam(x, y, z, o, K) {
+      const c = o.color ? hueNorm(lin(o.color), 0.96) : null, dir = o.dir, spd = o.speed || 4;
+      for (let i = 0, n = N(6, K); i < n; i++) {
+        const s = spd * frand(0.5, 1.05), q = P(0, SH.SMOKE, x + frand(-0.12, 0.12), y + frand(-0.1, 0.1), z + frand(-0.12, 0.12)); radial(q, 0.3, 1.1, 0.4, 1.4);
+        if (dir) { q.vx += dir.x * s; q.vz += dir.z * s; }
+        q.drag = 2.2; q.grav = -0.3; q.wob = 0.4; q.size = frand(0.3, 0.42); q.size1 = q.size * 2.3; q.life = frand(0.8, 1.2); q.alpha = 0.92; q.fade = 2.4; q.pop = 0.12;
+        q.spin = frand(-1.2, 1.2); q.color = c || (i & 1 ? C.MILKW : C.MILK); q.delay = i * 0.02; emitRaw(q);
+      }
+      B.fizz(x, y, z, o, K * 0.6);
+    },
+    // A kefir bubble pops (the 'fizz' projectile does this by itself when GAME removes it): the pink film flicks out as a
+    // ring, milky droplets spray and fall, pastel sparkles twinkle and a few baby bubbles fizz upward. opts: {color, scale}.
+    fizzPop(x, y, z, o, K) {
+      const c = o.color ? hueNorm(lin(o.color), 0.97) : C.KEFIR;
+      // the film flicks out in the bubble's own pink (the 'fizz' projectile's film band), so the pop reads on the cream floor
+      let q = P(0, SH.RING, x, y, z); q.size = 0.5; q.size1 = 1.3; q.life = 0.2; q.color = lin(FIZZ_FILM_A); q.alpha = 0.9; q.fade = 1.3; emitRaw(q);
+      q = P(1, SH.RING, x, y, z); q.size = 0.45; q.size1 = 1.2; q.life = 0.16; q.color = C.KEFG[0]; q.alpha = 0.3; q.fade = 1.3; emitRaw(q);
+      for (let i = 0, n = N(8, K); i < n; i++) {
+        q = P(0, SH.DOT, x, y, z); radial(q, 1.4, 3.0, 0.6, 2.4); q.grav = 9; q.drag = 0.8; q.bounce = 0.1; q.stretch = 1.6; q.soft = 1;
+        q.size = frand(0.07, 0.12); q.size1 = q.size * 0.6; q.life = frand(0.45, 0.65); q.fade = 3; q.color = i & 1 ? C.MILK : c; emitRaw(q);
+      }
+      for (let i = 0, n = N(6, K); i < n; i++) {
+        q = P(1, SH.SPARK, x + frand(-0.3, 0.3), y + frand(-0.25, 0.3), z + frand(-0.3, 0.3)); q.vx = frand(-0.5, 0.5); q.vy = frand(0.3, 1.1); q.vz = frand(-0.5, 0.5);
+        q.size = frand(0.2, 0.32); q.size1 = 0.03; q.life = frand(0.45, 0.7); q.pop = 0.08; q.flick = frand(14, 22); q.rot = frand(-0.3, 0.3);
+        q.color = C.KEFG[i % 5]; q.delay = frand(0, 0.08); emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {
+        q = P(0, i ? SH.RING : SH.DOT, x + frand(-0.2, 0.2), y + frand(-0.1, 0.1), z + frand(-0.2, 0.2)); q.vy = frand(0.6, 1.2); q.grav = -1; q.wob = 0.5; q.soft = 1;
+        q.size = frand(0.08, 0.14); q.size1 = q.size * 1.3; q.life = frand(0.6, 0.9); q.fade = 6; q.pop = 0.1; q.color = i ? C.KEFR[i % 5] : c; q.delay = 0.05; emitRaw(q);
+      }
+    },
+    // Biscuit crumbs: golden chips (faceted and rounded) and round bits hop out, tumble and bounce, a pale oat flake or two
+    // flutter down, and a light biscuit-dust puff. opts: {color (biscuit tone), dir, scale, count}.
+    crumbs(x, y, z, o, K) {
+      const v = o.color ? [lin(o.color, 0.72), lin(o.color), lin(o.color, 1.18)] : C.CRUMB, dx = o.dir ? o.dir.x * 1.4 : 0, dz = o.dir ? o.dir.z * 1.4 : 0;
+      const gy = Math.max(0.05, y);
+      let q;
+      for (let i = 0, n = N(10, K); i < n; i++) {
+        const sh = i % 3 === 0 ? SH.SQUARE : i % 3 === 1 ? SH.SHARD : SH.DOT;
+        q = P(0, sh, x + frand(-0.15, 0.15), gy + 0.05, z + frand(-0.15, 0.15)); radial(q, 1.0, 2.8, 2.4, 4.8); q.vx += dx; q.vz += dz;
+        q.grav = 12; q.bounce = 0.35; q.drag = 0.3; q.size = sh === SH.DOT ? frand(0.1, 0.15) : frand(0.14, 0.23);
+        q.life = frand(0.8, 1.2); q.spin = frand(-10, 10); q.fade = 4; q.color = v[i % v.length]; q.delay = frand(0, 0.03); emitRaw(q);
+      }
+      for (let i = 0, n = N(2, K); i < n; i++) {   // oat flakes flutter
+        q = P(0, SH.PETAL, x + frand(-0.1, 0.1), gy + 0.1, z + frand(-0.1, 0.1)); radial(q, 0.6, 1.5, 2.2, 3.4); q.vx += dx * 0.6; q.vz += dz * 0.6;
+        q.grav = 5; q.drag = 1.6; q.wob = 0.9; q.bounce = 0.1; q.size = frand(0.16, 0.22); q.life = frand(1.0, 1.3); q.spin = frand(-6, 6); q.fade = 4; q.color = C.OAT; emitRaw(q);
+      }
+      for (let i = 0, n = N(2, K); i < n; i++) {   // biscuit dust
+        q = P(0, SH.SMOKE, x + frand(-0.2, 0.2), gy + 0.1, z + frand(-0.2, 0.2)); radial(q, 0.4, 1.0, 0.2, 0.6); q.vx += dx * 0.5; q.vz += dz * 0.5;
+        q.drag = 3; q.size = frand(0.32, 0.45); q.size1 = q.size * 2.1; q.life = frand(0.5, 0.75); q.alpha = 0.6; q.fade = 2; q.pop = 0.1; q.spin = frand(-1, 1); q.color = C.CRUMBD; emitRaw(q);
+      }
+    },
   };
   // Friendly aliases (other modules may guess a name): all fall back to a real preset instead of the generic sparkle.
   B.bubble = B.bubblePop; B.pop = B.bubblePop; B.glitter = B.bubbles; B.dig = B.dirt; B.mud = B.dirt; B.clods = B.dirt; B.trail = B.slime;
   B.magma = B.lava; B.eruption = B.erupt; B.volcano = B.erupt; B.vent = B.steam; B.splat = B.jelly;
+  B.cream = B.milk; B.yogurt = B.milk; B.splash = B.milk; B.kefir = B.fizz; B.crumb = B.crumbs; B.biscuit = B.crumbs;
   let warnedKind = null;
   function burst(kind, x, y, z, o) {
     if (!ready) init();
@@ -1449,6 +1610,12 @@ const FX = (() => {
     rock: { core: 'rock', col: '#9a6a44', haloCol: '#ffe2b8', halo: 0.85, hk: 0.3, r: 0.25, shadow: 1 },
     lavaball: { core: 'lava', col: '#ff8a2a', halo: 1.5, hk: 1.05, r: 0.3, halo2: '#ff9a30', shadow: 2 },
     ember: { core: 'ember', col: '#ff7a1c', halo: 0.8, hk: 0.95, r: 0.09, halo2: '#ffb040' },
+    // Round 4 (Kefir Vadisi): the foam puffs' and the Kefir Devi's slow kefir bubble — a glossy bubble half full of pastel
+    // kefir, fizzing inside; pops with sparkles by itself (popKind 'fizzPop') when GAME removes it. It must stay easy to
+    // spot over the pale yogurt floor: tinted kefir, a pink-lilac film band with a berry outline (shader), a soft pink aura
+    // drawn with normal blending (an additive glow vanishes on a bright floor) and a ground marker with a dark core and a
+    // pink ring (shadow 3). haloA = the aura's opacity (normal blending).
+    fizz: { core: 'fizz', col: '#aee6ff', haloCol: '#ff9ccf', halo: 1.75, hk: 1, haloA: 0.6, r: 0.31, pop: 1, popKind: 'fizzPop', shadow: 3 },
   };
   // Last colour GAME asked for per kind: FX.trail(kind, x, y, z) has no colour, so the trail matches the projectile.
   const lastCol = {};
@@ -1479,7 +1646,7 @@ const FX = (() => {
     return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uHot: { value: new THREE.Color(h[0], h[1], h[2]) }, uMid: { value: new THREE.Color(m[0], m[1], m[2]) },
       uCrust: { value: new THREE.Color(k[0], k[1], k[2]) } }, vertexShader: LAVA_VS, fragmentShader: LAVA_FS });
   }
-  let ROCK_GEO = null, EMBER_GEO = null, SHADOW_GEO = null, SHADOW_DARK = null, SHADOW_GLOW = null;
+  let ROCK_GEO = null, EMBER_GEO = null, SHADOW_GEO = null, SHADOW_DARK = null, SHADOW_GLOW = null, SHADOW_FIZZ = null;
   function rockGeo() {   // soft lumpy dirt clod (radius ~1) with a few pebbles stuck in it
     const base = new THREE.IcosahedronGeometry(1, 3), p = base.attributes.position, v = new THREE.Vector3(), key = [], nrm = new Map();
     const lump = (x, y, z) => 0.74 + 0.3 * vnoise(x * 2.1 + 5, z * 2.1 + y * 1.7) + 0.16 * vnoise(x * 5.3 + 1, y * 5.3 - z * 2.6);
@@ -1537,6 +1704,87 @@ const FX = (() => {
     return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uTint: { value: new THREE.Color(tint) } }, vertexShader: BUB_VS, fragmentShader: BUB_FS,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
   }
+  // Kefir bubble (Round 4): a glossy bubble half full of pastel kefir. Below the sloshing kefir line the kefir shows through
+  // the film (top-left shading into a deeper cool belly, beads of fizz rising, a bright meniscus under the line); above it you
+  // look through the pink-tinted dome onto the kefir's lighter top surface (ray/plane hit in object space: vC = camera in
+  // object space), where little fizz bubbles appear and pop. The kid must spot and dodge it over the pale yogurt floor, so
+  // the edge reads like a cartoon bubble: a shimmering pink ↔ lilac film band, a crisp berry outline (both measured in
+  // screen-radius terms, rho, so they stay a few pixels wide at gameplay zoom), a round white glint and a small second one.
+  // Normal blending, body colours under 1 (only the glint blooms).
+  const FIZZ_VS = `varying vec3 vN, vV, vO, vC;
+    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vO = position;
+      vC = (inverse(modelMatrix) * vec4(cameraPosition, 1.0)).xyz;
+      gl_Position = projectionMatrix * mv; }`;
+  const FIZZ_FS = `uniform float uT; uniform vec3 uCream, uShade, uTop, uLine, uDome, uFilmA, uFilmB; varying vec3 vN, vV, vO, vC;
+    vec3 hue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+    float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float beads(vec3 p) {   // one little ring-shaped bubble in about half the cells of a 3D grid
+      vec3 ci = floor(p), cf = fract(p) - 0.5;
+      float r = h3(ci);
+      vec3 o = vec3(h3(ci + 3.1), h3(ci + 7.7), h3(ci + 1.9)) - 0.5;
+      float d = length(cf - o * 0.5), rr = 0.1 + 0.1 * r;
+      return step(0.5, r) * (smoothstep(rr + 0.05, rr, d) - 0.55 * smoothstep(rr - 0.02, rr - 0.08, d));
+    }
+    void main() {
+      vec3 n = normalize(vN), v = normalize(vV);
+      float nd = clamp(dot(n, v), 0.0, 1.0), rho = sqrt(1.0 - nd * nd);   // rho ≈ distance from the centre in bubble radii on screen
+      vec3 L = normalize(vec3(-0.45, 0.7, 0.55));
+      float lev = 0.06 + 0.07 * sin(vO.x * 2.6 + uT * 3.3) + 0.045 * sin(vO.z * 3.4 - uT * 2.4);
+      vec3 rd = normalize(vO - vC);
+      vec3 col; float a;
+      if (vO.y < lev) {
+        float lam = clamp(dot(n, L) * 0.55 + 0.45, 0.0, 1.0);
+        col = mix(uShade, uCream, smoothstep(0.1, 0.95, lam));
+        col += 0.12 * beads(vO * 4.2 - vec3(0.0, uT * 1.1, 0.0)) * nd;
+        col = mix(col, uTop, exp(-(lev - vO.y) * 26.0) * 0.8);
+        a = 0.97;
+      } else {
+        float t = (lev - vC.y) / min(rd.y, -1e-3);
+        vec3 hp = vC + rd * t;
+        if (rd.y < -0.02 && dot(hp, hp) < 0.97) {
+          float e = dot(hp.xz, hp.xz) / max(1e-3, 0.97 - lev * lev);
+          col = uTop * (0.95 + 0.05 * sin(hp.x * 7.0 + uT * 3.0) * sin(hp.z * 6.0 - uT * 2.0));
+          col += 0.3 * beads(vec3(hp.x * 4.0, uT * 0.7, hp.z * 4.0));
+          col = mix(col, uShade, smoothstep(0.35, 1.0, e) * 0.5);
+          a = 0.93;
+        } else { col = uDome; a = 0.4; }
+        col = mix(col, uDome, 0.08);   // seen through the pink-tinted dome
+      }
+      col *= 0.74 + 0.34 * clamp(dot(n, L) * 0.5 + 0.5, 0.0, 1.0);   // round: lighter top-left, deeper bottom-right
+      // film band toward the edge: pink ↔ lilac shimmer with a hint of rainbow, then the berry outline
+      float band = smoothstep(0.6, 0.78, rho);
+      float sw = 0.5 + 0.5 * sin(rho * 9.0 + vO.y * 3.2 + vO.x * 1.7 + uT * 1.8);
+      vec3 film = mix(mix(uFilmA, uFilmB, sw), hue(fract(rho * 0.8 + vO.y * 0.45 + uT * 0.2)) * 0.9, 0.18);
+      col = mix(col, film, band * 0.92); a = max(a, band * 0.94);
+      float line = smoothstep(0.86, 0.93, rho);
+      col = mix(col, uLine, line); a = max(a, line);
+      // round cartoon glint top-left (blooms a little), a soft sheen around it and a small glint bottom-right
+      float h1 = max(dot(n, normalize(L + v)), 0.0), h2 = max(dot(n, normalize(vec3(0.5, -0.45, 0.7) + v)), 0.0);
+      float s1 = smoothstep(0.972, 0.988, h1), s2 = smoothstep(0.986, 0.995, h2);
+      col = mix(col, vec3(1.4), s1) + vec3(0.22) * pow(h1, 24.0) * (1.0 - s1);
+      col = mix(col, vec3(1.0), s2 * 0.75);
+      a = max(a, max(s1, s2 * 0.8));
+      gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+      ${CHUNK_OUT}
+    }`;
+  // col = GAME's shot colour: it tints the kefir (clearly: a pastel of it, so the bubble never melts into the pale yogurt
+  // floor; creamy/white colours fall back to lilac), shading into a deeper, cooler belly. The film band (pink ↔ lilac),
+  // the berry outline, the dome tint and the halo are the bubble's own colours, the same for every shot colour.
+  const FIZZ_CREAM = '#fff6ea', FIZZ_LILAC = '#b8a2ff', FIZZ_FILM_A = '#ff8fc8', FIZZ_FILM_B = '#b89cff', FIZZ_LINE = '#b0529f', FIZZ_DOME = '#ffe0f0';
+  function fizzMat(col) {
+    let t = hueNorm(lin(col), 0.95);
+    const sat = 1 - Math.min(t[0], t[1], t[2]) / Math.max(t[0], t[1], t[2], 1e-4);
+    if (sat < 0.35) { const l = hueNorm(lin(FIZZ_LILAC), 0.95), w = 1 - sstep(0.15, 0.35, sat); t = t.map((v, i) => v + (l[i] - v) * w); }
+    const k = lin(FIZZ_CREAM, 0.95), mixc = (a, b, w) => [0, 1, 2].map(i => a[i] + (b[i] - a[i]) * w);
+    // mid-tone pastels (brightest channel ≈ 0.7-0.8): brighter ones get washed out to white by the tone mapping
+    const c = mixc(k, t, 0.75).map(v => v * 0.86), tp = mixc(k, t, 0.9).map(v => v * 0.8), lil = hueNorm(lin(FIZZ_LILAC), 0.95);
+    const sh = mixc(t, lil, 0.35).map(v => v * 0.5), C3 = a => new THREE.Color(a[0], a[1], a[2]);
+    return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uCream: { value: C3(c) }, uShade: { value: C3(sh) }, uTop: { value: C3(tp) },
+      uLine: { value: new THREE.Color(FIZZ_LINE) }, uDome: { value: new THREE.Color(FIZZ_DOME) },
+      uFilmA: { value: new THREE.Color(FIZZ_FILM_A) }, uFilmB: { value: new THREE.Color(FIZZ_FILM_B) } },
+      vertexShader: FIZZ_VS, fragmentShader: FIZZ_FS, transparent: true, depthWrite: false });
+  }
   const projMats = new Map(), projs = [];
   let STAR_GEO = null, SHARD_GEO = null;
   function starGeo() {
@@ -1573,6 +1821,8 @@ const FX = (() => {
         return rimify(vcMat(o), 0xffe0b8, 0.28, 2.6);
       });
       core = new THREE.Mesh(ROCK_GEO, m); core.scale.setScalar(D.r); core.castShadow = false;
+    } else if (D.core === 'fizz') {
+      core = new THREE.Mesh(G.sphere(24), projMat('fizz|' + col, () => fizzMat(col))); core.scale.setScalar(D.r); core.renderOrder = 24;
     } else if (D.core === 'lava') {
       core = new THREE.Mesh(G.sphere(24), projMat('lava|' + col, () => lavaMat(col))); core.scale.setScalar(D.r);
     } else if (D.core === 'ember') {   // hot yellow heart inside an additive orange flame teardrop
@@ -1601,8 +1851,10 @@ const FX = (() => {
       core = new THREE.Mesh(G.sphere(16), m); core.scale.setScalar(D.r);
     }
     g.add(core);
-    const hc = D.haloCol || col;
-    const hm = projMat('halo|' + hc + '|' + D.hk, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc).multiplyScalar(D.hk), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+    const hc = color && D.haloFromCol ? color : D.haloCol || col;
+    const hm = D.haloA   // normal-blended aura (reads on bright floors) vs the usual additive glow
+      ? projMat('haloN|' + hc + '|' + D.haloA, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc), opacity: D.haloA, depthWrite: false, transparent: true }))
+      : projMat('halo|' + hc + '|' + D.hk, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc).multiplyScalar(D.hk), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     const halo = new THREE.Sprite(hm); halo.scale.setScalar(D.halo); g.add(halo);
     let halo2 = null, shadow = null;
     if (D.halo2) {
@@ -1610,11 +1862,11 @@ const FX = (() => {
       halo2 = new THREE.Sprite(hm2); halo2.scale.setScalar(D.halo * 0.6); g.add(halo2);
     }
     if (D.shadow) {   // ground marker: kept on the floor under the projectile by stepProjs (starts at the usual flight height)
-      shadow = new THREE.Mesh(SHADOW_GEO, D.shadow === 2 ? SHADOW_GLOW : SHADOW_DARK);
-      shadow.scale.setScalar(D.r * (D.shadow === 2 ? 5.5 : 3.4)); shadow.position.y = 0.035 - 0.85; shadow.renderOrder = 9; g.add(shadow);
+      shadow = new THREE.Mesh(SHADOW_GEO, D.shadow === 2 ? SHADOW_GLOW : D.shadow === 3 ? SHADOW_FIZZ : SHADOW_DARK);
+      shadow.scale.setScalar(D.r * (D.shadow === 2 ? 5.5 : D.shadow === 3 ? 3.8 : 3.4)); shadow.position.y = 0.035 - 0.85; shadow.renderOrder = 9; g.add(shadow);
     }
     g.userData.fxp = { kind, core, halo, halo2, hs: D.halo, cs: core.scale.x, t: Math.random() * 10, seen: false, age: 0, star: D.core === 'star', shard: D.core === 'shard',
-      bub: D.core === 'bubble', pop: D.pop || 0, popCol: color || null, lp: D.pop ? new THREE.Vector3() : null,
+      bub: D.core === 'bubble', pop: D.pop || 0, popKind: D.popKind || 'bubblePop', popCol: color || null, lp: D.pop ? new THREE.Vector3() : null,
       look: D.core, glint, shadow, ss: shadow ? shadow.scale.x : 0, glow: D.shadow === 2 };
     projs.push(g);
     return g;
@@ -1626,7 +1878,7 @@ const FX = (() => {
       if (!g.parent || !inScene(g)) {   // removed by GAME (hit / swatted / expired), or a warm-up copy never shown in play
         u.age += dt;
         if (u.seen || u.age > 3) {
-          if (u.seen && u.pop) burst('bubblePop', u.lp.x, u.lp.y, u.lp.z, { scale: u.pop, color: u.popCol });   // bubbles always pop
+          if (u.seen && u.pop) burst(u.popKind, u.lp.x, u.lp.y, u.lp.z, { scale: u.pop, color: u.popCol });   // bubbles always pop
           projs[i] = projs[projs.length - 1]; projs.pop();
         }
         continue;
@@ -1650,6 +1902,9 @@ const FX = (() => {
           u.glint.position.set(-0.4, 0.52, 0.75).applyQuaternion(camera.quaternion).applyQuaternion(_q).multiplyScalar(0.97);
           u.glint.quaternion.copy(_q).multiply(camera.quaternion);
         }
+      } else if (u.look === 'fizz') {   // soft wobble + a slow bob (the kefir inside sloshes in the shader)
+        const w = Math.sin(u.t * 6.1) * 0.06, w2 = Math.sin(u.t * 4.3 + 1.1) * 0.045;
+        u.core.scale.set(u.cs * (1 + w), u.cs * (1 - w + w2), u.cs * (1 + w2)); u.core.position.y = Math.sin(u.t * 2.7) * 0.05;
       } else if (u.look === 'rock') { u.core.rotation.x += dt * 7; u.core.rotation.z = Math.sin(u.t * 3) * 0.35; }   // tumbling clod
       else if (u.look === 'lava') { u.core.rotation.y += dt * 1.4; u.core.scale.setScalar(u.cs * (1 + Math.sin(u.t * 11) * 0.04)); }
       else if (u.look === 'ember') {   // flickering flame
@@ -1711,6 +1966,20 @@ const FX = (() => {
           q.size = frand(0.1, 0.16); q.size1 = 0.02; q.life = frand(0.3, 0.5); q.flick = 20; q.rot = frand(-0.3, 0.3); q.color = C.EMB0; emitRaw(q);
         }
         break;
+      case 'fizz': {   // tiny cream beads and pastel baby bubbles wobbling up behind it, pastel glitter now and then
+        const tc = color || lastCol.fizz, tint = tc ? hueNorm(lin(tc), 0.97) : null;
+        if (Math.random() < 0.4) {
+          const bead = Math.random() < 0.5;
+          q = P(0, bead ? SH.DOT : SH.RING, x + frand(-0.2, 0.2), y + frand(-0.18, 0.1), z + frand(-0.2, 0.2)); q.vx = frand(-0.15, 0.15); q.vy = frand(0.3, 0.7); q.vz = frand(-0.15, 0.15);
+          q.grav = -1; q.wob = 0.5; q.soft = 1; q.size = bead ? frand(0.05, 0.08) : frand(0.08, 0.13); q.size1 = q.size * 1.25; q.life = frand(0.5, 0.8); q.fade = 6; q.pop = 0.1;
+          q.color = bead ? tint || C.KEFIRB[(Math.random() * 4) | 0] : C.KEFR[(Math.random() * 5) | 0]; emitRaw(q);
+        }
+        if (Math.random() < 0.25) {
+          q = P(1, SH.SPARK, x + frand(-0.25, 0.25), y + frand(-0.2, 0.2), z + frand(-0.25, 0.25)); q.vy = frand(0.1, 0.4);
+          q.size = frand(0.12, 0.2); q.size1 = 0.02; q.life = frand(0.35, 0.55); q.flick = 18; q.rot = 0; q.color = C.KEFG[(Math.random() * 5) | 0]; emitRaw(q);
+        }
+        break;
+      }
       case 'star': burst('star', x, y, z); break;
       case 'spore':
         q = P(0, SH.DOT, x, y, z); q.vx = frand(-0.2, 0.2); q.vy = frand(0.1, 0.4); q.vz = frand(-0.2, 0.2); q.size = frand(0.1, 0.16); q.size1 = 0.03; q.life = 0.5; q.color = C.SPORE; emitRaw(q);
@@ -1992,6 +2261,7 @@ const FX = (() => {
     SHADOW_GEO = keep(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
     SHADOW_DARK = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: 0x2a1824, transparent: true, opacity: 0.4, depthWrite: false }));
     SHADOW_GLOW = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: new THREE.Color('#ff7020').multiplyScalar(0.5), transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false }));
+    SHADOW_FIZZ = keep(new THREE.MeshBasicMaterial({ map: keep(buildFizzMarkTex()), transparent: true, depthWrite: false }));
     ICE_MAT = keep(rimify(vcMat({ roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.42, flatShading: true, emissive: 0x1a78c0, emissiveIntensity: 0.4, envMapIntensity: 1.8, depthWrite: false }), 0xbff0ff, 0.6, 2.2));
     initText();
     // pre-create a few pooled meshes and compile their shaders now (no hitch on first use)

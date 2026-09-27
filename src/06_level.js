@@ -1,9 +1,13 @@
 /* ── Bölgeler ve seviye: seviye üretimi, görseller, çarpışma, yol bulma ──
-   ZONES: dört bölgenin tanımı (sıra = kayıttaki bölge numarası). Her bölgenin sonunda büyük bir bölüm sonu canavarı arenası var.
+   ZONES: beş bölgenin tanımı (sıra = kayıttaki bölge numarası). Her bölgenin sonunda büyük bir bölüm sonu canavarı arenası var.
+   Bölge 1 = Kefir Vadisi (Feza'nın isteği): süt ve kefir nehirleri, yoğurt tepeleri, peynirler, bisküvi köprüler.
    LEVEL.generate() saf veri üretir, LEVEL.build() sahneyi kurar (bkz. src/SPEC.md). */
 const ZONES = [
   { id: 'orman', ad: 'Huysuz Orman', theme: 'forest', line: 'orman', music: 'orman', size: 100, rooms: 8, side: 3,
     enemies: { jole: 4, mantar: 2, yarasa: 2, goblin: 3 }, elites: ['jole', 'goblin'], hpMult: 1, dmgMult: 1, xpMult: 1, gold: 1, ilvl: 1, boss: 'kraljole' },
+  { id: 'kefir', ad: 'Kefir Vadisi', theme: 'dairy', line: 'kefir', music: 'kefir', size: 100, rooms: 8, side: 3,
+    enemies: { yogurt: 4, kaymak: 3, kopuk: 3, peynir: 1, jole: 2 }, variants: { jole: ['muhallebi'] }, elites: ['yogurt', 'kaymak'],
+    hpMult: 1.4, dmgMult: 1.2, xpMult: 1.35, gold: 1.5, ilvl: 2, boss: 'kefirdev' },
   { id: 'magara', ad: 'Köstebek ve Salyangoz Mağarası', theme: 'cave', line: 'magara', music: 'magara', size: 100, rooms: 9, side: 3,
     enemies: { kostebek: 4, salyangoz: 3, yarasa: 2, golem: 1 }, elites: ['kostebek', 'salyangoz'], hpMult: 1.8, dmgMult: 1.4, xpMult: 1.7, gold: 2, ilvl: 4, boss: 'kostebekusta' },
   { id: 'yanardag', ad: 'Lav Yanardağı', theme: 'volcano', line: 'yanardag', music: 'yanardag', size: 100, rooms: 8, side: 3,
@@ -15,9 +19,9 @@ const ZONES = [
 
 const LEVEL = (function () {
   'use strict';
-  const BIG = ['golem'];                   // at most one of these per pack
+  const BIG = ['golem', 'peynir'];         // at most one of these per pack (the golem; Kefir Vadisi's big cheese wedge)
   const MARGIN = { x: 16, n: 18, s: 15 };  // empty border (trees / rock / wall mass) around the playable area
-  const ARENA_R = 11.5;                    // boss arena radius (forest / cave / volcano; the castle keeps its 26×22 m hall)
+  const ARENA_R = 11.5;                    // boss arena radius (forest / dairy / cave / volcano; the castle keeps its 26×22 m hall)
   // Gameplay camera pitch, captured once at load (core has applied its default and any ?kam override by now). All occlusion
   // math uses it, never the live CAM.pitch the UI animates (title 0.32, victory 0.78), so a seed always builds the same level.
   const LV_PITCH = CAM.pitch || 0.86, LV_PK = 1 / Math.tan(LV_PITCH);   // floor distance hidden behind 1 m of height
@@ -289,7 +293,7 @@ const LEVEL = (function () {
         for (let j = rm.z - rm.hh; j < rm.z + rm.hh; j++) for (let i = rm.x - rm.hw; i < rm.x + rm.hw; i++) if (inb(i, j)) grid[idx(i, j)] = 1;
         continue;
       }
-      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : rm.kind === 'boss' ? 0.4 : theme === 'cave' ? 1.0 : theme === 'volcano' ? 0.8 : 0.7;
+      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : rm.kind === 'boss' ? 0.4 : theme === 'cave' ? 1.0 : theme === 'volcano' || theme === 'dairy' ? 0.8 : 0.7;
       for (let j = Math.floor(rm.z - e); j <= rm.z + e; j++) for (let i = Math.floor(rm.x - e); i <= rm.x + e; i++) {
         if (!inb(i, j)) continue;
         const x = i + 0.5, z = j + 0.5, dx = x - rm.x, dz = z - rm.z;
@@ -730,7 +734,7 @@ const LEVEL = (function () {
     if (!ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12 && cpD(x, z) >= 10)) ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12);
 
     // breakables: small clusters against the walls
-    const kindsBy = { forest: ['barrel', 'crate', 'vase'], cave: ['crate', 'barrel', 'vase'], volcano: ['vase', 'crate', 'barrel'], castle: ['vase', 'vase', 'barrel', 'crate'] }[L.theme] || ['barrel', 'crate', 'vase'];
+    const kindsBy = { forest: ['barrel', 'crate', 'vase'], dairy: ['barrel', 'vase', 'barrel', 'crate'], cave: ['crate', 'barrel', 'vase'], volcano: ['vase', 'crate', 'barrel'], castle: ['vase', 'vase', 'barrel', 'crate'] }[L.theme] || ['barrel', 'crate', 'vase'];   // dairy: barrel = copper milk can, vase = milk jug
     rooms.forEach((rm, ri) => {
       if (rm.kind === 'boss') return;
       const nCl = rm.kind === 'start' ? (zi === 0 ? 1 : 0) : rm.kind === 'side' ? 1 : RNG.int(1, 2);
@@ -1420,7 +1424,7 @@ const LEVEL = (function () {
         let nx = q[0] * a + q[3] * b + q[6] * c, ny = q[1] * a + q[4] * b + q[7] * c, nz = q[2] * a + q[5] * b + q[8] * c;
         const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1; nor[o] = nx / l; nor[o + 1] = ny / l; nor[o + 2] = nz / l;
         col[o] = (C ? C[i * 3] : 1) * tr; col[o + 1] = (C ? C[i * 3 + 1] : 1) * tg; col[o + 2] = (C ? C[i * 3 + 2] : 1) * tb;
-        if (U) { uv[(vo + i) * 2] = U[i * 2]; uv[(vo + i) * 2 + 1] = U[i * 2 + 1]; }
+        if (U) { uv[(vo + i) * 2] = U[i * 2]; uv[(vo + i) * 2 + 1] = it.uy !== undefined ? it.uy : U[i * 2 + 1]; }
       }
       if (g.index) { const I = g.index.array; for (let k = 0; k < I.length; k++) idx[io + k] = I[k] + vo; io += I.length; }
       else { for (let k = 0; k < n; k++) idx[io + k] = vo + k; io += n; }
@@ -1528,7 +1532,9 @@ const LEVEL = (function () {
       key: shiny ? 'decorS' : 'decor',
       uniforms: { uTime: TIME.u },
       vDecl: 'uniform float uTime;',
-      vBegin: `if (uv.x > 25.0) { float lvS = max(0.0, position.y) * 0.09;
+      vBegin: `if (uv.x > 45.0) { float lvB = uv.y;   // bobbing on the milk (Kefir Vadisi's cereal rings): each item has its phase in uv.y
+        transformed.y += sin(uTime * 1.5 + lvB) * 0.025; transformed.xz += vec2(sin(uTime * 0.55 + lvB * 1.7), cos(uTime * 0.47 + lvB * 2.3)) * 0.06; }
+        else if (uv.x > 25.0) { float lvS = max(0.0, position.y) * 0.09;
         transformed.x += sin(uTime * 2.1 + position.x * 0.9 + position.z * 0.7) * lvS; transformed.z += cos(uTime * 1.7 + position.x * 0.6) * lvS * 0.6; }`,
     });
     rimify(m, 0xffffff, shiny ? 0.16 : 0.1, 2.6);
@@ -1570,6 +1576,13 @@ const LEVEL = (function () {
     M.pillar = makePillarMat();
     M.roofC = M.brick;   // castle battlement roof: same bricks, own merge key (no shadow casting)
     M.coin = keep(stdMat({ color: 0xffffff, vertexColors: true, metalness: 0.8, roughness: 0.4 }));
+    M.food = makeDecorMat(true); M.food.roughness = 0.55; M.food.metalness = 0;   // Kefir Vadisi's cheese, biscuits, berries (casts shadows)
+    M.gloss = M.shiny;   // the same glossy decor material under its own merge key: tiny walk-over things (no shadows, not drawn far away)
+    M.copper = keep(rimify(stdMat({ color: 0xffffff, vertexColors: true, metalness: 0.92, roughness: 0.24 }), 0xffe8d0, 0.22, 2.4));   // polished copper güğüms
+    // glossy strained yogurt (hills, bowls): a soft normal and a big tile, so the hills read as smooth glossy mousse (nk 0.6 / 3.6 m printed the
+    // spatula lips as wrinkles), with a creamy sheen on the rim (only Kefir Vadisi uses it)
+    M.yog = makeTriMat('yogurt', { key: 'rock', rough: 0.24, m: 6, aoH: 0.35, ao: 0.8, nk: 0.25 });
+    M.yog.userData.u.uRim.value.set(1, 0.98, 0.96, 0.3);
   }
 
   // ── Floor: one plane, splat of 3 textures by a baked mask (R path, G wall AO, B plaza/rug, A outside) ──
@@ -1588,12 +1601,18 @@ const LEVEL = (function () {
     }
     return out;
   }
+  const LIQ_TEX = [null, 'lava', 'milk'];   // FLOOR[theme].lava → the liquid's TEX surface
   const FLOOR = {
     forest: { a: 'grass', b: 'dirt', c: 'cobble', tA: 0xdce6c8, tB: 0xf2e6da, tC: 0xf6ecdc, rough: [0.92, 0.96, 0.82], crispB: 0, crispC: 0, ao: 0.62, border: 0, out: 0x1e3a18, outAmt: 0.45, anti: 1, macro: 0xffe890 },
     cave: { a: 'caveFloor', b: 'caveSand', c: 'moss', lumC: 1.05, cScale: 1.6, tA: 0xb6b2c6, tB: 0xc8bec8, tC: 0x2a7a80, rough: [0.55, 0.95, 0.9], crispB: 0, crispC: 0, ao: 0.75, border: 0, out: 0x04050a, outAmt: 0.92, anti: 1, macro: 0x9cc0ff, speck: [0x7affe0, 2.6] },
     castle: { a: 'castleFloor', b: 'carpet', c: 'carpet', lumC: 1.5, tA: 0xe2dcf0, tB: 0xffffff, tC: 0x2e9aa4, tA2: 0xf8e4c8, tC2: 0xc8303e, rough: [0.3, 0.95, 0.95], crispB: 1, crispC: 1, ao: 0.62, border: 1, out: 0x2c2248, outAmt: 1, anti: 0, macro: 0xffffff },
     // basalt slabs, an ash path, paved bridges / checkpoint discs; the lava itself is drawn by the same floor shader (uLava)
     volcano: { a: 'basalt', b: 'ash', c: 'cobble', lumC: 1.1, tA: 0xf2f0f2, tB: 0xfff6ee, tC: 0xb8a498, rough: [0.8, 0.96, 0.82], crispB: 0, crispC: 0, ao: 0.62, border: 0, out: 0x5a3a2c, outAmt: 0.58, anti: 0, macro: 0xfff0e4, lava: 1 },   // out: warm mid-brown (bright volcano, no black holes)
+    // Kefir Vadisi: strained-yogurt ground, a biscuit-crumb trail, cheese-slab plazas; milk / kefir drawn by the same shader (lava: 2)
+    // (tA × tAk: a clean, bright yogurt white — a butter tint on the already creamy texture read as tan wet sand, darker than the milk
+    // (tAk 1.1 with the near-white TEX 'yogurt'; it was 1.2 for the older, creamier one);
+    // tC × tCk: a cool lift so the cheese stays butter-yellow under the warm sun instead of orange; ao: the soft band inside the walkable edge)
+    dairy: { a: 'yogurt', b: 'biscuit', c: 'cheese', tA: 0xfbfbff, tAk: 1.1, tB: 0xf4f0ec, tC: 0xf4f8ff, tCk: 1.18, rough: [0.46, 0.9, 0.56], crispB: 0, crispC: 0, ao: 0.38, border: 0, out: 0xf2cccc, outAmt: 0.42, anti: 1, macro: 0xfff0ea, lava: 2 },
   };
   // ── Volcano ground: which non-walkable ground is lava (at the floor mask's 4 px/m) ──
   // Lava fills most of the ground next to the floor — always on the camera side, where it is flat and hides nothing — and the rest
@@ -1658,7 +1677,12 @@ const LEVEL = (function () {
     const lava = boxBlur(raw, MW, MH, 1);
     for (let k = 0; k < n; k++) if (fl[k]) lava[k] = 0;   // never on walkable floor, even blurred
     const V = L._volc = { lava, MW, MH, P, dA, arena: ar || null, bridges: [] };
-    // bridges: corridor stretches (outside both rooms) with lava close on both sides
+    liquidBridges(L, V);
+    return V;
+  }
+  // Bridges: corridor stretches (outside both rooms) with the liquid (lava / milk, V.lava at 4 px/m) close on both sides
+  function liquidBridges(L, V) {
+    const { lava, MW, MH, P } = V;
     const lavaAt = (x, z) => lava[clamp(Math.floor(z * P), 0, MH - 1) * MW + clamp(Math.floor(x * P), 0, MW - 1)];
     const edge = (x, z, nx, nz) => { for (let d = 0; d < 4.5; d += 0.1) if (!isFloor(L, x + nx * d, z + nz * d)) return d; return 9; };
     for (const l of L.links) {
@@ -1687,12 +1711,178 @@ const LEVEL = (function () {
     }
     return V;
   }
+  // The liquid field of a level (volcano lava or Kefir Vadisi milk), or null
+  const liqOf = L => (L && (L._volc || L._dairy)) || null;
+
+  // ── Kefir Vadisi ground: which non-walkable ground is milk / kefir (4 px/m, V.lava like the volcano's lava) and how it flows ──
+  // Milk rivers meander through the valley (bands along the zero line of a warped noise) and kefir ponds fill its hollows. Like the
+  // lava, the liquid fills most of the ground next to the floor on the camera side (flat, hides nothing), with a wavy shore 0.3–0.9 m
+  // off the walkable cells; behind the rooms (north) the glossy yogurt hills take over. The boss arena ("Kefir Pınarı") is ringed by a
+  // kefir moat with yogurt cliffs to the north, and its middle holds the spring: a shallow bubbling kefir pool on the cheese plaza
+  // (walkable: the kefir giant stands in it). V.flow (RGBA, 2 px/m): rg = direction, b = speed, a = what flows (0 strawberry milk,
+  // 0.5 milk, 1 kefir — continuous, so the linear filter blends neighbours without a false third colour).
+  function dairyField(L) {
+    const P = MPX, W = L.W, H = L.H, MW = W * P, MH = H * P, n = MW * MH, grid = L.grid, seed = (L.seed & 0xffff) + 53;
+    const fl = new Uint8Array(n);
+    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * W, o = py * MW; for (let px = 0; px < MW; px++) fl[o + px] = grid[row + ((px / P) | 0)]; }
+    const D = chamfer(MW, MH, fl, 1);   // mask pixels to the nearest floor pixel
+    const up = new Float32Array(W * H), dn = new Float32Array(W * H);   // metres to floor straight north (camera side) / south (behind a room)
+    for (let i = 0; i < W; i++) {
+      let lf = -99; for (let j = 0; j < H; j++) { if (grid[j * W + i]) lf = j; up[j * W + i] = j - lf; }
+      lf = 1e9; for (let j = H - 1; j >= 0; j--) { if (grid[j * W + i]) lf = j; dn[j * W + i] = lf - j; }
+    }
+    const ar = L.rooms.find(r => r.kind === 'boss' && !r.hw);
+    let dA = null;
+    if (ar) { const src = new Uint8Array(W * H); for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) src[j * W + i] = grid[j * W + i] && inRoom(ar, i + 0.5, j + 0.5, -1.5) ? 1 : 0; dA = chamfer(W, H, src, 1); }
+    const Uc = new Float32Array(W * H), Dc = new Float32Array(W * H), Ac = dA ? new Float32Array(W * H) : null;
+    for (let c = 0; c < W * H; c++) {
+      const i = c % W;
+      let u = Math.min(20, up[c]);
+      for (let di = 1; di <= 4; di++) { if (i - di >= 0) u = Math.min(u, up[c - di] + 1.6 * di); if (i + di < W) u = Math.min(u, up[c + di] + 1.6 * di); }
+      Uc[c] = u; Dc[c] = Math.min(20, dn[c]);
+      if (Ac) Ac[c] = Math.min(30, dA[c]);
+    }
+    const bil = (F, x, z) => {
+      const fx = clamp(x - 0.5, 0, W - 1.001), fz = clamp(z - 0.5, 0, H - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, k = j * W + i;
+      return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + W] * (1 - tx) + F[k + W + 1] * tx) * tz;
+    };
+    // the rivers: along the zero line of a warped signed noise (smooth, so its gradient gives the current's direction too)
+    const rivN = (x, z) => {
+      const wx = x + vnoise(x / 11, z / 11, seed + 8) * 3.4, wz = z + vnoise(x / 11, z / 11, seed + 9) * 3.4;
+      return vnoise(wx / 13, wz / 13, seed + 1) + 0.3 * vnoise(wx / 5.5, wz / 5.5, seed + 2);
+    };
+    const pondN0 = (x, z) => smooth01((vnoise(x / 9.5, z / 9.5, seed + 3) - 0.18) / 0.3);
+    // both are smooth: evaluated once on a 0.5 m lattice and sampled bilinearly (the mask has 16 pixels per m², the lattice 4)
+    const FP = 2, FW = W * FP, FH = H * FP, NL = (FW + 1) * (FH + 1), RN = new Float32Array(NL), PN = new Float32Array(NL);
+    const N3 = new Float32Array(NL), NWX = new Float32Array(NL), NWZ = new Float32Array(NL), NSH = new Float32Array(NL);   // small noises too
+    for (let b = 0; b <= FH; b++) for (let a = 0; a <= FW; a++) {
+      const k = b * (FW + 1) + a, x = a / FP, z = b / FP;
+      RN[k] = rivN(x, z); PN[k] = pondN0(x, z); N3[k] = vnoise(x / 3.1, z / 3.1, seed + 4);
+      NWX[k] = vnoise(x / 2.3, z / 2.3, seed + 5); NWZ[k] = vnoise(x / 2.3, z / 2.3, seed + 6); NSH[k] = vnoise(x / 2.6, z / 2.6, seed);
+    }
+    const lat = (F, x, z) => {
+      const fx = clamp(x * FP, 0, FW - 0.001), fz = clamp(z * FP, 0, FH - 0.001), a = fx | 0, b = fz | 0, tx = fx - a, tz = fz - b, k = b * (FW + 1) + a;
+      return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + FW + 1] * (1 - tx) + F[k + FW + 2] * tx) * tz;
+    };
+    const rivL = (x, z) => lat(RN, x, z), pondN = (x, z) => lat(PN, x, z);
+    const hkF = new Float32Array(n), nfF = new Float32Array(n);
+    for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+      const k = py * MW + px;
+      if (fl[k]) continue;
+      const x = (px + 0.5) / P, z = (py + 0.5) / P, d = D[k] / P;
+      const river = 1 - smooth01((Math.abs(rivL(x, z)) - 0.09) / 0.1), pond = pondN(x, z);
+      let hk = 0.46 - 0.6 * Math.max(river, pond * 0.9) + clamp(d - 6, 0, 8) * 0.035 + lat(N3, x, z) * 0.12;   // hill factor
+      const wa = 1.1 * smooth01((d - 0.4) / 1.6), wx = x + lat(NWX, x, z) * wa, wz = z + lat(NWZ, x, z) * wa;
+      const u = bil(Uc, wx, wz), cam = 1 - smooth01((u - 6.25) / 1.5);
+      hk -= 0.46 * Math.max(0, 1 - u / 9) * cam;                                          // camera side: milk
+      hk += 0.3 * (1 - cam) * (1 - smooth01((bil(Dc, wx, wz) - 5.75) / 1.5));            // behind a room: yogurt hills
+      if (Ac) {   // kefir moat · yogurt cliffs north of the arena
+        const a = bil(Ac, x, z), cl = (1 - smooth01((a - 9.5) / 1.0)) * smooth01((ar.z - 3 - z) / 2 + 0.5), moat = 1 - smooth01((a - 4.7) / 1.0);
+        hk += Math.max(0, 0.6 - hk) * cl;
+        hk = hk * (1 - moat) - moat;
+      }
+      hk = Math.max(hk, 1 - Math.min(x, z, W - x, H - z) / 4);   // no milk at the map's border (the mask is clamped beyond it)
+      hkF[k] = hk; nfF[k] = 1;
+    }
+    const hkB = boxBlur(hkF, MW, MH, 3), nfB = boxBlur(nfF, MW, MH, 3);
+    // The shore follows a blurred floor coverage (not the distance to the 1 m cells), so it runs in soft curves instead of the
+    // cells' staircase; its level wobbles a little (0.35–0.85 m off a straight floor edge)
+    const flF = new Float32Array(n); for (let k = 0; k < n; k++) flF[k] = fl[k];
+    let fb = boxBlur(flF, MW, MH, 4); fb = boxBlur(fb, MW, MH, 3);
+    const raw = new Float32Array(n);
+    for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+      const k = py * MW + px;
+      if (fl[k]) continue;
+      const x = (px + 0.5) / P, z = (py + 0.5) / P, d = D[k] / P;
+      const lvl = 0.2 + 0.07 * lat(NSH, x, z) + 0.035 * vnoise(x / 1.1, z / 1.1, seed + 7);
+      const hill = smooth01((hkB[k] / Math.max(1e-3, nfB[k]) - 0.14) / 0.16 + 0.5);
+      raw[k] = smooth01((lvl - fb[k]) / 0.05 + 0.5) * smooth01((d - 0.28) / 0.1) * (1 - hill);
+    }
+    const liq = boxBlur(raw, MW, MH, 1);
+    for (let k = 0; k < n; k++) if (fl[k]) liq[k] = 0;   // never on walkable floor, even blurred…
+    const spring = ar ? { x: ar.x, z: ar.z, r: 2.05 } : null;
+    if (spring) {   // …except the spring: a shallow round kefir pool in the middle of the arena
+      const e = spring.r + 0.5;
+      for (let py = Math.max(0, Math.floor((spring.z - e) * P)); py <= Math.min(MH - 1, Math.ceil((spring.z + e) * P)); py++)
+        for (let px = Math.max(0, Math.floor((spring.x - e) * P)); px <= Math.min(MW - 1, Math.ceil((spring.x + e) * P)); px++) {
+          const k = py * MW + px, dd = hyp((px + 0.5) / P - spring.x, (py + 0.5) / P - spring.z);
+          liq[k] = Math.max(liq[k], clamp((spring.r - dd) / 0.22 + 0.5, 0, 1));
+        }
+    }
+    const V = L._dairy = { lava: liq, MW, MH, P, dA, arena: ar || null, bridges: [], spring, floorD: D };
+    liquidBridges(L, V);
+    // under the biscuit bridges the milk comes right up to the walkable edge (the deck's ends overhang it; no bank of crumbs under the
+    // rails), wherever there is milk a metre further out: the same smooth shore (the blurred floor coverage) at a level just off the
+    // edge, easing back to the usual shore level within ~0.4 m past the bridge's ends (no notch, no cell staircase)
+    const liqS = (x, z) => liq[clamp(Math.floor(z * P), 0, MH - 1) * MW + clamp(Math.floor(x * P), 0, MW - 1)];
+    for (const b of V.bridges) {
+      const Q = b.pts, cum = [0];
+      for (let i = 1; i < Q.length; i++) cum.push(cum[i - 1] + hyp(Q[i].x - Q[i - 1].x, Q[i].z - Q[i - 1].z));
+      const tot = cum[cum.length - 1], em = Math.max(...Q.map(q => Math.max(q.e1, q.e2))) + 1.6;
+      const xs = Q.map(q => q.x), zs = Q.map(q => q.z);
+      const x0 = Math.max(0, Math.floor((Math.min(...xs) - em) * P)), x1 = Math.min(MW - 1, Math.ceil((Math.max(...xs) + em) * P));
+      const y0 = Math.max(0, Math.floor((Math.min(...zs) - em) * P)), y1 = Math.min(MH - 1, Math.ceil((Math.max(...zs) + em) * P));
+      for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+        const k = py * MW + px;
+        if (fl[k]) continue;
+        const x = (px + 0.5) / P, z = (py + 0.5) / P;
+        let best = null;
+        for (let i = 1; i < Q.length; i++) {   // the nearest segment: along the bridge (the end ones extended), sideways from it
+          const a = Q[i - 1], c = Q[i], sx = c.x - a.x, sz = c.z - a.z, l2 = sx * sx + sz * sz || 1e-6, l = Math.sqrt(l2);
+          let t = ((x - a.x) * sx + (z - a.z) * sz) / l2;
+          if (t < 0 && i > 1) t = 0; if (t > 1 && i < Q.length - 1) t = 1;
+          const lat = ((x - a.x) * sz - (z - a.z) * sx) / l, dd = Math.abs(lat) + Math.max(0, -t, t - 1) * l;
+          if (best && dd >= best.dd) continue;
+          const ea = (x - a.x) * a.nx + (z - a.z) * a.nz >= 0 ? a.e1 : a.e2, ec = (x - c.x) * c.nx + (z - c.z) * c.nz >= 0 ? c.e1 : c.e2;   // (e1 lies along +n)
+          best = { dd, lat, along: cum[i - 1] + t * l, nx: sz / l, nz: -sx / l, e: lerp(ea, ec, clamp(t, 0, 1)) };
+        }
+        if (!best || Math.abs(best.lat) > best.e + 1.3) continue;
+        const sd = best.lat >= 0 ? 1 : -1, taper = smooth01((Math.min(best.along, tot - best.along) + 0.45) / 0.4);
+        if (taper <= 0 || liqS(x + best.nx * sd * 1.0, z + best.nz * sd * 1.0) < 0.5) continue;
+        const lv = lerp(0.2 + 0.07 * lat(NSH, x, z), 0.47, taper);
+        liq[k] = Math.max(liq[k], smooth01((lv - fb[k]) / 0.05 + 0.5) * smooth01((D[k] / P - 0.02) / 0.1));
+      }
+    }
+    // the current: along the rivers (perpendicular to the noise gradient), round the moat, outward from the spring; kefir in the
+    // ponds, the moat and the spring, milk in the rivers
+    const F = new Uint8Array(FW * FH * 4);
+    for (let py = 0; py < FH; py++) for (let px = 0; px < FW; px++) {
+      const x = (px + 0.5) / FP, z = (py + 0.5) / FP, k0 = py * (FW + 1) + px, rn = (RN[k0] + RN[k0 + 1] + RN[k0 + FW + 1] + RN[k0 + FW + 2]) / 4;
+      let gx = RN[k0 + 1] + RN[k0 + FW + 2] - RN[k0] - RN[k0 + FW + 1], gz = RN[k0 + FW + 1] + RN[k0 + FW + 2] - RN[k0] - RN[k0 + 1], gl = hyp(gx, gz) || 1;
+      let fx = -gz / gl, fz = gx / gl;
+      const rv = 1 - smooth01((Math.abs(rn) - 0.09) / 0.16);
+      let sp = 0.3 + 0.7 * rv, kef = clamp(pondN(x, z) * (1 - rv * 0.8) + (vnoise(x / 17, z / 17, seed + 11) * 0.5 + 0.2) * (1 - rv), 0, 1);
+      let stb = rv * smooth01((vnoise(x / 21, z / 21, seed + 13) - 0.05) / 0.3);   // some river stretches run with strawberry milk
+      if (ar) {
+        const dx = x - ar.x, dz = z - ar.z, r = hyp(dx, dz) || 1;
+        const m = dA ? 1 - smooth01((bil(Ac, x, z) - 4.7) / 1.0) : 0;
+        if (m > 0) { fx = lerp(fx, -dz / r, m); fz = lerp(fz, dx / r, m); sp = lerp(sp, 0.55, m); kef = lerp(kef, 1, m); stb *= 1 - m; }
+        if (r < spring.r + 0.6) { fx = dx / r; fz = dz / r; sp = 0.4; kef = 1; stb = 0; }
+        gl = hyp(fx, fz) || 1; fx /= gl; fz /= gl;
+      }
+      const o = (py * FW + px) * 4;
+      F[o] = Math.round((fx * 0.5 + 0.5) * 255); F[o + 1] = Math.round((fz * 0.5 + 0.5) * 255); F[o + 2] = Math.round(clamp(sp, 0, 1) * 255); F[o + 3] = Math.round(clamp(0.5 + 0.5 * kef * (1 - stb) - 0.5 * stb, 0, 1) * 255);   // a: 0 strawberry · 0.5 milk · 1 kefir
+    }
+    V.flow = { data: F, W: FW, H: FH };
+    return V;
+  }
   function buildMask(L) {
-    const P = MPX, MW = L.W * P, MH = L.H * P, n = MW * MH, seed = L.seed & 0xffff, VL = L._volc && L._volc.lava;
+    const P = MPX, MW = L.W * P, MH = L.H * P, n = MW * MH, seed = L.seed & 0xffff, LQ = liqOf(L), VL = LQ && LQ.lava;
     const wall = new Float32Array(n);
-    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) wall[o + px] = L.grid[row + ((px / P) | 0)] ? 0 : VL ? 1 - VL[o + px] : 1; }   // volcano: lava is no wall (no AO, no dark ground)
+    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) wall[o + px] = L.grid[row + ((px / P) | 0)] ? 0 : VL ? 1 - VL[o + px] : 1; }   // volcano / dairy: the liquid is no wall (no AO, no dark ground)
     let g = boxBlur(wall, MW, MH, 3); g = boxBlur(g, MW, MH, 2);
     let a = boxBlur(g, MW, MH, 7); a = boxBlur(a, MW, MH, 7);
+    if (L.theme === 'dairy') {   // the yogurt valley: G = a smooth floor coverage (0.5 = the walkable edge, in soft curves instead of the
+      // cells' staircase); the shader outlines the walkable yogurt with it (a thin golden lip and a soft band inside), no dark AO
+      const fc = new Float32Array(n);
+      for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) fc[o + px] = L.grid[row + ((px / P) | 0)]; }
+      g = boxBlur(fc, MW, MH, 3); g = boxBlur(g, MW, MH, 2);
+      // "outside" (the pink strawberry-yogurt ground): starts right at the floor's edge instead of metres out
+      const wo = new Float32Array(n);
+      for (let k = 0; k < n; k++) wo[k] = wall[k] * smooth01((LQ.floorD[k] / P - 0.1) / 0.5);
+      a = boxBlur(wo, MW, MH, 3); a = boxBlur(a, MW, MH, 2);
+      for (let k = 0; k < n; k++) a[k] = Math.min(1, a[k] * 1.6);
+    }
     const Rm = new Float32Array(n), Bm = new Float32Array(n);
     const band = (pts, hw, ramp, dst, na) => {
       for (let s = 1; s < pts.length; s++) {
@@ -1759,6 +1949,20 @@ const LEVEL = (function () {
       if (ar) disc(ar.x, ar.z, 3.3, 0.9, Bm, 0.35);   // the arena island: a round paved dais in the middle where the boss waits
       if (ar && L.exit) band([{ x: ar.x, z: ar.z }, { x: L.exit.x, z: L.exit.z + 0.6 }], 1.35, 0.9, Bm, 0.3);   // …and a paved walk from it to the portal
     }
+    if (L.theme === 'dairy') {   // biscuit-crumb trails, cheese-slab plazas (start, checkpoints, portal, the arena's round plaza)
+      band(L.path, 1.2, 1.4, Rm, 0.5);
+      for (const l of L.links) if (!l.main) band(curvePts(l), 0.8, 1.2, Rm, 0.35);
+      for (const b of (LQ && LQ.bridges) || []) for (let i = 1; i < b.pts.length; i++) {   // the crumb trail runs wall to wall over the biscuit bridges
+        const p0 = b.pts[i - 1], p1 = b.pts[i];
+        band([p0, p1], Math.max(p0.e1, p0.e2, p1.e1, p1.e2) + 0.2, 0.6, Rm, 0.1);
+      }
+      disc(L.start.x, L.start.z - 0.4, 2.5, 1.2, Bm, 0.15);   // (little edge noise: the plazas end in a clean round rind)
+      for (const c of L.checkpoints) disc(c.x, c.z, 2.1, 1.0, Bm, 0.12);
+      if (L.exit) disc(L.exit.x, L.exit.z + 0.6, 2.6, 1.1, Bm, 0.12);
+      const ar = LQ && LQ.arena;
+      if (ar) disc(ar.x, ar.z, ar.r * 0.5, 1.0, Bm, 0.15);   // Kefir Pınarı: the round cheese plaza around the spring
+      if (ar && L.exit) band([{ x: ar.x, z: ar.z }, { x: L.exit.x, z: L.exit.z + 0.6 }], 1.35, 0.9, Bm, 0.1);
+    }
     const D = new Uint8Array(n * 4);
     for (let k = 0; k < n; k++) { D[k * 4] = Rm[k] * 255; D[k * 4 + 1] = g[k] * 255; D[k * 4 + 2] = Bm[k] * 255; D[k * 4 + 3] = a[k] * 255; }
     const t = new THREE.DataTexture(D, MW, MH, THREE.RGBAFormat, THREE.UnsignedByteType);
@@ -1789,9 +1993,9 @@ const LEVEL = (function () {
   function buildGlowTex(L, B) {
     const m = R.mat['floor-' + L.theme];
     if (!m) return;
-    const styled = L.rooms.filter(r => r.style === 0), V = L._volc;
+    const styled = L.rooms.filter(r => r.style === 0), V = liqOf(L);
     if (!B.glows.length && !styled.length && !V) { m.userData.u.tGlow.value = blackTex(); return; }
-    const gp = V ? V.P : GPX, GW = L.W * gp, GH = L.H * gp, acc = new Float32Array(GW * GH * 3);   // volcano: 4 px/m (alpha carries the lava)
+    const gp = V ? V.P : GPX, GW = L.W * gp, GH = L.H * gp, acc = new Float32Array(GW * GH * 3);   // volcano / dairy: 4 px/m (alpha carries the lava / milk)
     for (const g of B.glows) {
       const rx = g.r * g.sx, rz = g.r * g.sz;
       const x0 = Math.max(0, Math.floor((g.x - rx) * gp)), x1 = Math.min(GW - 1, Math.ceil((g.x + rx) * gp));
@@ -1804,7 +2008,7 @@ const LEVEL = (function () {
         acc[o] += cr * f; acc[o + 1] += cg * f; acc[o + 2] += cb * f;
       }
     }
-    if (V) {   // the lava's warm light on the floor next to it: a soft orange band along every shore
+    if (V && V === L._volc) {   // the lava's warm light on the floor next to it: a soft orange band along every shore
       let bl = boxBlur(V.lava, GW, GH, 4); bl = boxBlur(bl, GW, GH, 3);
       const c = lin(0xff8a3c), k = 0.4;
       for (let i = 0, n = GW * GH; i < n; i++) { const f = bl[i] * k; acc[i * 3] += c.r * f; acc[i * 3 + 1] += c.g * f; acc[i * 3 + 2] += c.b * f; }
@@ -1823,6 +2027,19 @@ const LEVEL = (function () {
     t.minFilter = t.magFilter = THREE.LinearFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.needsUpdate = true;
     B.dispose.push(t);
     m.userData.u.tGlow.value = t;
+    if (m.userData.u.uRip) {   // Kefir Vadisi: the spring + up to 3 waterfall splashes ripple the milk (the 3 nearest the hero: LEVEL.update)
+      const rs = [], sp = V && V.spring;
+      if (sp) rs.push([sp.x, sp.z, sp.r, 1]);
+      B.rip = { fixed: rs.length, src: V && V === L._dairy ? (B.falls || []).map(f => [f.x + Math.sin(f.yaw) * 0.6, f.z + Math.cos(f.yaw) * 0.6, 2.4, 2]) : [], t: 0, u: m.userData.u.uRip };
+      for (const q of B.rip.src) if (rs.length < 4) rs.push(q);
+      m.userData.u.uRip.value.forEach((v, i) => (rs[i] ? v.set(rs[i][0], rs[i][1], rs[i][2], rs[i][3]) : v.set(0, 0, 0, 0)));
+    }
+    if (V && V.flow && m.userData.u.tFlow) {   // Kefir Vadisi: the milk's current (rg direction, b speed, a kefir)
+      const F = V.flow, ft = new THREE.DataTexture(F.data, F.W, F.H, THREE.RGBAFormat, THREE.UnsignedByteType);
+      ft.minFilter = ft.magFilter = THREE.LinearFilter; ft.generateMipmaps = false; ft.wrapS = ft.wrapT = THREE.ClampToEdgeWrapping; ft.needsUpdate = true;
+      B.dispose.push(ft);
+      m.userData.u.tFlow.value = ft;
+    }
   }
   function floorMat(theme) {   // one kept material per theme (shared program): zone changes never recompile it
     const key = 'floor-' + theme;
@@ -1835,23 +2052,29 @@ const LEVEL = (function () {
         tMask: { value: null }, tNoise: { value: noise }, tA: { value: A.map }, tAn: { value: A.normalMap }, tB: { value: Bt.map }, tBn: { value: Bt.normalMap },
         tC: { value: C.map }, tCn: { value: C.normalMap },
         uSc: { value: new THREE.Vector4(1 / tM(th.a), 1 / tM(th.b), 1 / (tM(th.c) * (th.cScale || 1)), th.anti && LV_HQ ? 1 : 0) }, uMaskInv: { value: new THREE.Vector2(1, 1) },
-        uTintA: { value: lin(th.tA) }, uTintB: { value: lin(th.tB) }, uTintC: { value: lin(th.tC) }, uRough: { value: new THREE.Vector3(...th.rough) },
-        uTintA2: { value: lin(th.tA2 ?? th.tA) }, uTintC2: { value: lin(th.tC2 ?? th.tC) },
+        uTintA: { value: lin(th.tA, th.tAk ?? 1) }, uTintB: { value: lin(th.tB) }, uTintC: { value: lin(th.tC, th.tCk ?? 1) }, uRough: { value: new THREE.Vector3(...th.rough) },
+        uTintA2: { value: lin(th.tA2 ?? th.tA, th.tAk ?? 1) }, uTintC2: { value: lin(th.tC2 ?? th.tC, th.tCk ?? 1) },
         uMode: { value: new THREE.Vector4(th.crispB, th.crispC, th.ao, th.border) }, uOut: { value: new THREE.Vector4(oc.r, oc.g, oc.b, th.outAmt) },
         uTrim: { value: lin(0xffcf5a, 0.9) }, uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 },
         tGlow: { value: blackTex() }, uTime: TIME.u, uSpeck: { value: th.speck ? lin(th.speck[0], th.speck[1]) : new THREE.Color(0, 0, 0) },
-        // lava (volcano): TEX.lava scrolled + wobbled; tGlow.a = 1 - lava there. x on · y 1/tile · z shore rim · w emissive gain
-        tLava: { value: th.lava ? surf('lava').map : blackTex() },
-        uLava: { value: new THREE.Vector4(th.lava ? 1 : 0, 1 / (th.lava ? tM('lava') : 6), 0.55, 1) },
-        uLavaT: { value: th.lava && !(texOK() && TEX.lava) ? lin(0xff8a30) : new THREE.Color(1, 1, 1) },
+        // liquid: lava (volcano, x = 1): TEX.lava scrolled + wobbled · milk / kefir (dairy, x = 2): TEX.milk moved along tFlow (a flow
+        // map), lit and glossy. tGlow.a = 1 - liquid there. x mode · y 1/tile · z shore rim · w emissive gain
+        tLava: { value: th.lava ? surf(LIQ_TEX[th.lava]).map : blackTex() }, tLavaN: { value: th.lava === 2 ? surf('milk').normalMap : blackTex() },
+        tFlow: { value: blackTex() },
+        uLava: { value: new THREE.Vector4(th.lava || 0, 1 / (th.lava ? tM(LIQ_TEX[th.lava]) : 6), 0.55, 1) },
+        uLavaT: { value: th.lava && !(texOK() && TEX[LIQ_TEX[th.lava]]) ? (th.lava === 2 ? lin(0xffffff, 1.2) : lin(0xff8a30)) : new THREE.Color(1, 1, 1) },
+        // milk (cool, glossy bluish white) / kefir (warm ivory) / strawberry milk (pastel pink) tints, liquid roughness
+        uLiqA: { value: lin(0xeaf3ff, 1.1) }, uLiqB: { value: lin(0xfff8e4, 1.08) }, uLiqC: { value: lin(0xffcfdc, 1.05) }, uLiqR: { value: th.lava === 2 ? 0.16 : 0.8 },
+        uEdge: { value: lin(0xf0b45a) },   // Kefir Vadisi: the golden lip along the walkable edge
+        uRip: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 0, 0)) },   // dairy: ripple sources (x, z, radius, kind: 1 the arena's kefir spring, 2 a waterfall's splash)
     };
     lvShade(m, {
       key: 'floor',
       uniforms: U,
       vDecl: 'varying vec3 vLvW;',
       vBegin: 'vLvW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
-      fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow, tLava; uniform vec4 uSc, uMode, uOut, uLava; uniform vec2 uMaskInv;
-        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT; uniform float uLumC, uTime; varying vec3 vLvW;
+      fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow, tLava, tLavaN, tFlow; uniform vec4 uSc, uMode, uOut, uLava; uniform vec2 uMaskInv;
+        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT, uLiqA, uLiqB, uLiqC, uEdge; uniform vec4 uRip[4]; uniform float uLumC, uTime, uLiqR; varying vec3 vLvW;
         ${GLSL_NOISE}
         float lvHB(float h1, float h2, float t) {   // height-aware blend weight of layer 2
           t = clamp(t, 0.0, 1.0);
@@ -1865,22 +2088,31 @@ const LEVEL = (function () {
         vec4 lvN = texture2D(tNoise, lvXZ * 0.027);      // r: brightness · g: macro tint, rug-edge noise · b: anti-tiling, path-edge noise
         vec2 lvU = vec2(lvXZ.x, -lvXZ.y);
         vec2 uA = lvU * uSc.x, uB = lvU * uSc.y, uC = lvU * uSc.z;
-        vec4 cA = texture2D(tA, uA), nA = texture2D(tAn, uA);
-        vec3 nAu = nA.xyz * 2.0 - 1.0;
-        if (uSc.w > 0.5) {   // a second rotated, rescaled sample hides the tiling
-          vec2 uA2 = mat2(0.8, 0.6, -0.6, 0.8) * lvU * uSc.x * 0.61 + vec2(0.37, 0.71);
-          vec4 cA2 = texture2D(tA, uA2), nA2 = texture2D(tAn, uA2);
-          vec3 n2 = nA2.xyz * 2.0 - 1.0; n2.xy = vec2(0.8 * n2.x + 0.6 * n2.y, -0.6 * n2.x + 0.8 * n2.y);
-          float k2 = smoothstep(0.32, 0.68, lvN.b);
-          cA = mix(cA, cA2, k2); nAu = mix(nAu, n2, k2); nA.a = mix(nA.a, nA2.a, k2);
+        vec4 cA = vec4(0.8), nA = vec4(0.5, 0.5, 1.0, 0.5), cB = cA, nB = nA, cC = cA, nC = nA;
+        vec3 nAu = vec3(0.0, 0.0, 1.0);
+        if (uLava.x < 0.5 || lvGs.a > 0.004) {   // (pure lava / milk pixels never show the ground: skip its 8–10 texture reads; the
+          // liquid covers every pixel of those quads fully, so the skipped derivatives can't show either)
+          cA = texture2D(tA, uA); nA = texture2D(tAn, uA);
+          nAu = nA.xyz * 2.0 - 1.0;
+          if (uSc.w > 0.5) {   // a second rotated, rescaled sample hides the tiling
+            vec2 uA2 = mat2(0.8, 0.6, -0.6, 0.8) * lvU * uSc.x * 0.61 + vec2(0.37, 0.71);
+            vec4 cA2 = texture2D(tA, uA2), nA2 = texture2D(tAn, uA2);
+            vec3 n2 = nA2.xyz * 2.0 - 1.0; n2.xy = vec2(0.8 * n2.x + 0.6 * n2.y, -0.6 * n2.x + 0.8 * n2.y);
+            float k2 = smoothstep(0.32, 0.68, lvN.b);
+            cA = mix(cA, cA2, k2); nAu = mix(nAu, n2, k2); nA.a = mix(nA.a, nA2.a, k2);
+          }
+          cB = texture2D(tB, uB); nB = texture2D(tBn, uB); cC = texture2D(tC, uC); nC = texture2D(tCn, uC);
         }
-        vec4 cB = texture2D(tB, uB), nB = texture2D(tBn, uB), cC = texture2D(tC, uC), nC = texture2D(tCn, uC);
         float fwB = fwidth(lvM.r) * 0.7 + 0.004, fwC = fwidth(lvM.b) * 0.7 + 0.004;
         float wB = uMode.x > 0.5 ? smoothstep(0.5 - fwB, 0.5 + fwB, lvM.r) : lvHB(nA.a, nB.a, lvM.r + (lvN.b - 0.5) * 0.3);
-        float wC = uMode.y > 0.5 ? smoothstep(0.5 - fwC, 0.5 + fwC, lvM.b) : lvHB(mix(nA.a, nB.a, wB), nC.a, lvM.b + (lvN.g - 0.5) * 0.3);
+        float wC = uMode.y > 0.5 || uLava.x > 1.5 ? smoothstep(0.5 - fwC, 0.5 + fwC, lvM.b) : lvHB(mix(nA.a, nB.a, wB), nC.a, lvM.b + (lvN.g - 0.5) * 0.3);   // (Kefir Vadisi: clean cheese-slab edges)
         vec3 lvCol = mix(cA.rgb * mix(uTintA2, uTintA, lvGs.a), cB.rgb * uTintB, wB);
         vec3 cCc = uLumC > 0.5 ? vec3(mix(0.42, dot(cC.rgb, vec3(0.5, 0.35, 0.15)) * 2.4, uLumC - 0.5)) : cC.rgb;   // rugs / cave moss: recoloured from the texture's luminance (uLumC-0.5 = contrast)
         lvCol = mix(lvCol, cCc * mix(uTintC2, uTintC, lvGs.a), wC);
+        if (uLava.x > 1.5) {   // Kefir Vadisi: the cheese plazas end in a bevelled golden rind band instead of clipped tiles
+          float rb = wC * (1.0 - smoothstep(0.62, 0.66 + fwC, lvM.b)), bev = smoothstep(0.5, 0.66, lvM.b);
+          lvCol = mix(lvCol, vec3(0.86, 0.52, 0.16) * (0.72 + 0.45 * bev) * (0.9 + 0.2 * cC.r), rb);
+        }
         float lvTrim = 0.0;
         if (uMode.x > 0.5) lvTrim += (smoothstep(0.5 - fwB, 0.5 + fwB, lvM.r) - smoothstep(0.64 - fwB, 0.64 + fwB, lvM.r)) * (1.0 - smoothstep(0.5 - fwC, 0.5 + fwC, lvM.b));
         if (uMode.y > 0.5) lvTrim += smoothstep(0.5 - fwC, 0.5 + fwC, lvM.b) - smoothstep(0.64 - fwC, 0.64 + fwC, lvM.b);
@@ -1888,6 +2120,15 @@ const LEVEL = (function () {
         lvCol = mix(lvCol, uTrim * (0.75 + 0.5 * cA.r), lvTrim);
         lvCol *= mix(0.8, 1.12, lvN.r) * mix(vec3(1.0), uMacro, smoothstep(0.42, 0.78, lvN.g) * 0.6 * (1.0 - wB) * (1.0 - wC));
         float lvAOv = 1.0 - smoothstep(0.02, 0.55, lvM.g) * uMode.z;
+        if (uLava.x > 1.5) {   // Kefir Vadisi: G = smooth floor coverage (0.5 = the walkable edge): a soft warm band just inside it and a thin
+          // golden lip on it, so the walkable yogurt reads at a glance against the milk and the hills (no dark AO anywhere else)
+          float fwE = fwidth(lvM.g) * 0.8 + 0.003;
+          float onF = smoothstep(0.5 - fwE, 0.5 + fwE, lvM.g);
+          float band = onF * (1.0 - smoothstep(0.5, 0.8, lvM.g)), lipE = onF * (1.0 - smoothstep(0.545, 0.575 + fwE, lvM.g));
+          lvAOv = 1.0 - band * uMode.z * 0.5;
+          lvCol *= mix(vec3(1.0), vec3(0.88, 0.77, 0.62), band * 0.9);
+          lvCol = mix(lvCol, uEdge * (0.85 + 0.3 * cA.r), lipE * 0.6);
+        }
         lvCol *= mix(1.0, lvAOv, 0.85);
         if (uMode.w > 0.0) {   // castle: darker inlaid border along the walls with a thin gold line
           float fg = fwidth(lvM.g) * 0.7 + 0.003;
@@ -1897,8 +2138,66 @@ const LEVEL = (function () {
           lvCol = mix(lvCol, uTrim, ln * 0.85); lvTrim = max(lvTrim, ln);
         }
         lvCol = mix(lvCol, uOut.rgb, smoothstep(0.25, 0.95, lvM.a) * uOut.a);
-        float lvLv = 0.0; vec3 lvLvE = vec3(0.0);
-        if (uLava.x > 0.5) {   // volcano: molten lava wherever the baked lava mask says so (never on walkable floor)
+        float lvLv = 0.0, lvLqSh = 0.0; vec3 lvLvE = vec3(0.0), lvLqN = vec3(0.0, 0.0, 1.0);
+        if (uLava.x > 1.5) {   // Kefir Vadisi: flowing milk, kefir and strawberry milk (lit and glossy), fizzy bubbles popping, a foamy lip on the shore
+          float lq = 1.0 - lvGs.a;
+          if (lq > 0.002) {
+            vec4 fw = texture2D(tFlow, lvXZ * uMaskInv);
+            vec2 fd = (fw.rg * 2.0 - 1.0) * fw.b;                      // current: direction × speed (0..1)
+            float kef = clamp(fw.a * 2.0 - 1.0, 0.0, 1.0), stb = clamp(1.0 - fw.a * 2.0, 0.0, 1.0);   // a: 0 strawberry milk · 0.5 milk · 1 kefir
+            // flow map, two phases half a cycle apart (each restarts while the other is fully visible); the phase is offset by the
+            // noise so the whole river never pulses at once
+            float lt = uTime * 0.2 + lvN.r * 2.3;
+            float p0 = fract(lt), p1 = fract(lt + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * p0);
+            vec2 lu = lvU * uLava.y, fu = vec2(fd.x, -fd.y) * 2.2 * uLava.y;   // tiles moved per cycle (lvU = (x, -z))
+            vec2 u0 = lu - fu * p0, u1 = lu - fu * p1 + vec2(0.37, 0.21);
+            vec4 m0 = texture2D(tLava, u0), m1 = texture2D(tLava, u1);
+            vec4 n0 = texture2D(tLavaN, u0), n1 = texture2D(tLavaN, u1);
+            vec3 q0 = n0.xyz * 2.0 - 1.0, q1 = n1.xyz * 2.0 - 1.0;
+            vec3 mc = mix(m1.rgb, m0.rgb, w0) * uLavaT;
+            vec3 mq = mix(q1, q0, w0); mq.xy *= 0.8; mq = normalize(mq);
+            float mh = mix(n1.a, n0.a, w0);                                  // ripple / bubble height
+            vec3 liq = mc * (uLiqA + (uLiqB - uLiqA) * kef + (uLiqC - uLiqA) * stb);
+            liq *= mix(vec3(1.0), vec3(0.92, 0.96, 1.03), smoothstep(0.45, 1.0, lq) * (1.0 - kef * 0.6));   // a touch cooler out in the deep
+            // fizzy bubbles: rise, grow and pop in place (more in the kefir), each leaving a tiny ring. In the arena's spring (uRip[0]
+            // kind 1; only floor round it, so the switch never shows) they are ~3× bigger, so the pops read from the camera
+            float inSp = uRip[0].w > 0.5 && uRip[0].w < 1.5 ? 1.0 - step(uRip[0].z + 0.3, length(lvXZ - uRip[0].xy)) : 0.0;
+            vec2 bp = lvXZ * mix(3.0, 1.5, inSp), bi = floor(bp); float bh = lvH21(bi);
+            vec2 bo = fract(bp) - 0.5 - (vec2(lvH21(bi + 3.7), lvH21(bi + 9.2)) - 0.5) * mix(0.5, 0.3, inSp);
+            float life = fract(uTime * (0.22 + bh * 0.3) + bh * 13.0), bmax = mix(0.07 + 0.12 * fract(bh * 7.3), 0.13 + 0.13 * fract(bh * 7.3), inSp);
+            float br = bmax * smoothstep(0.0, 0.75, life), bd = length(bo);
+            float bon = step(bh, 0.08 + 0.46 * kef) * smoothstep(0.45, 0.8, lq);
+            float film = (1.0 - smoothstep(br - 0.012, br, bd)) * (1.0 - step(0.9, life)) * bon;
+            float brim = smoothstep(br - 0.035, br - 0.01, bd) * film;
+            float pr = bmax * (1.0 + (life - 0.9) * mix(9.0, 4.0, inSp));
+            float ring = smoothstep(0.018, 0.0, abs(bd - pr)) * step(0.9, life) * (1.0 - (life - 0.9) * 10.0) * bon;
+            liq = mix(liq, liq * mix(vec3(0.95, 0.97, 1.02), vec3(0.86, 0.9, 0.98), inSp), film * 0.6);   // thin film: a little see-through, cooler
+            liq += (vec3(0.12, 0.12, 0.12) * brim + vec3(0.08, 0.08, 0.08) * ring) * (1.0 + inSp);   // (the spring's big bubbles: a brighter rim)
+            if (film > 0.01) mq = normalize(mix(mq, vec3(vec2(bo.x, -bo.y) / max(br, 0.02) * 0.9, 1.0), film));
+            for (int ri = 0; ri < 4; ri++) {   // ripple sources: the spring (rings welling up from its middle, a creamy bulge) and the waterfalls' splashes
+              vec4 rp = uRip[ri];
+              if (rp.w < 0.5) continue;
+              vec2 sd = lvXZ - rp.xy; float sr = length(sd), sk = 1.0 - smoothstep(rp.z * 0.55, rp.z * 1.05, sr);
+              if (sk < 0.001) continue;
+              float wv = sin(sr * (rp.w > 1.5 ? 7.0 : 9.0) - uTime * (rp.w > 1.5 ? 4.0 : 3.2)) * sk * (0.35 + 0.65 * smoothstep(0.0, 0.6, sr));
+              vec2 sdir = sd / max(sr, 1e-3);
+              mq = normalize(mq + vec3(sdir.x, -sdir.y, 0.0) * wv * 0.45);
+              liq *= 1.0 + 0.05 * wv;
+              liq = mix(liq, vec3(1.0, 0.97, 0.9) * uLavaT, (1.0 - smoothstep(0.0, rp.z * 0.35, sr)) * (rp.w > 1.5 ? 0.5 : 0.35));   // the creamy bulge / the foam where the milk falls in
+            }
+            // glossy streaks gliding with the current (the same flow-advected phases): the liquid reads as moving even in a still frame
+            float sn = mix(texture2D(tNoise, u1 * 0.45).g, texture2D(tNoise, u0 * 0.45).g, w0);
+            lvLqSh = smoothstep(0.55, 0.78, sn) * smoothstep(0.3, 0.75, lq);
+            // the bank: the ground a little darker and wetter just before the liquid (it sits lower); a bright foamy lip where they meet
+            lvCol *= 1.0 - 0.3 * smoothstep(0.0, 0.07, lq) * (1.0 - smoothstep(0.1, 0.3, lq));
+            float lip = smoothstep(0.08, 0.15, lq) * (1.0 - smoothstep(0.22, 0.45, lq));
+            lip *= smoothstep(0.15, 0.55, mh * 0.8 + lip * 0.5);   // broken up into foam by the ripples
+            liq = mix(liq, vec3(1.02, 1.01, 0.99) * uLavaT, lip * 0.9);
+            lvLv = smoothstep(0.07, 0.15, lq);
+            lvLqN = mq;
+            lvCol = mix(lvCol, liq, lvLv);
+          }
+        } else if (uLava.x > 0.5) {   // volcano: molten lava wherever the baked lava mask says so (never on walkable floor)
           lvLv = 1.0 - lvGs.a;
           if (lvLv > 0.002) {
             // TEX.lava (brightness = heat) in two drifting layers wobbled by the noise; brightness² → emission: the molten rivers
@@ -1922,15 +2221,16 @@ const LEVEL = (function () {
           lvSp = smoothstep(0.1, 0.02, length(so)) * step(0.55, h) * wC * (1.0 - smoothstep(0.25, 0.8, lvM.a)) * (0.55 + 0.45 * sin(uTime * 1.7 + h * 40.0));
         }`,
       fNormal: `vec3 lvNt = normalize(mix(mix(nAu, nB.xyz * 2.0 - 1.0, wB), nC.xyz * 2.0 - 1.0, wC));
-        lvNt = normalize(mix(lvNt, vec3(0.0, 0.0, 1.0), lvLv));
+        lvNt = normalize(mix(lvNt, lvLqN, lvLv));
         vec3 lvWn = normalize(vec3(lvNt.x, lvNt.z, -lvNt.y));
         normal = normalize((viewMatrix * vec4(lvWn, 0.0)).xyz);
-        roughnessFactor = mix(mix(mix(mix(uRough.x, uRough.y, wB), uRough.z, wC), 0.3, lvTrim), 0.8, lvLv);
+        roughnessFactor = mix(mix(mix(mix(uRough.x, uRough.y, wB), uRough.z, wC), 0.3, lvTrim), uLiqR, lvLv);
         metalnessFactor = lvTrim * 0.9;`,
       fAO: 'reflectedLight.indirectDiffuse *= lvAOv; reflectedLight.indirectSpecular *= lvAOv * lvAOv;',
       // baked coloured light pools (crystals, torches, lamps, stained glass) with a gentle shimmer
       fOut: `vec3 lvGl = lvGs.rgb * ${GLOW_K.toFixed(1)};
-        outgoingLight += lvGl * (diffuseColor.rgb + 0.07) * (0.86 + 0.14 * sin(uTime * 1.9 + vLvW.x * 0.41 + vLvW.z * 0.53)) + uSpeck * lvSp + lvLvE * lvLv;`,
+        outgoingLight += lvGl * (diffuseColor.rgb + 0.07) * (0.86 + 0.14 * sin(uTime * 1.9 + vLvW.x * 0.41 + vLvW.z * 0.53)) + uSpeck * lvSp + lvLvE * lvLv;
+        if (uLava.x > 1.5) outgoingLight += vec3(0.95, 0.97, 1.0) * lvLv * (0.05 + 0.3 * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 3.0)) + vec3(0.17, 0.19, 0.22) * lvLqSh * lvLv;   // milk: a soft glossy sheen + streaks moving with the current`,
     });
     return (R.mat[key] = keep(m));
   }
@@ -1941,12 +2241,12 @@ const LEVEL = (function () {
     const c = document.createElement('canvas'); c.width = L.W; c.height = L.H;
     const g = c.getContext('2d'), id = g.createImageData(L.W, L.H), M = L._mask;
     const pal = { forest: [[112, 178, 86], [206, 164, 110], [196, 190, 176]], cave: [[98, 112, 150], [176, 160, 132], [90, 170, 160]], castle: [[168, 156, 196], [196, 52, 64], [140, 100, 200]],
-      volcano: [[132, 112, 104], [214, 186, 156], [186, 160, 140]] }[L.theme] || [[150, 150, 150], [200, 180, 150], [180, 180, 180]];
+      volcano: [[132, 112, 104], [214, 186, 156], [186, 160, 140]], dairy: [[238, 228, 212], [218, 168, 96], [246, 206, 92]] }[L.theme] || [[150, 150, 150], [200, 180, 150], [180, 180, 180]];
     for (let j = 0; j < L.H; j++) for (let i = 0; i < L.W; i++) {
       if (!L.grid[j * L.W + i]) continue;
       const k = ((j * MPX + 2) * M.W + i * MPX + 2) * 4, pr = M.data[k] / 255, pb = M.data[k + 2] / 255, ao = M.data[k + 1] / 255;
       const w1 = pr > 0.5 ? 1 : 0, w2 = pb > 0.5 && L.theme !== 'cave' ? 1 : 0;
-      const o = (j * L.W + i) * 4, sh = 1 - ao * 0.35;
+      const o = (j * L.W + i) * 4, sh = L.theme === 'dairy' ? 1 : 1 - ao * 0.35;   // (dairy: G is the floor coverage, not AO)
       for (let c3 = 0; c3 < 3; c3++) id.data[o + c3] = (w2 ? pal[2][c3] : w1 ? pal[1][c3] : pal[0][c3]) * sh;
       id.data[o + 3] = 255;
     }
@@ -1965,6 +2265,11 @@ const LEVEL = (function () {
     // bright, warm and cheerful: a peach sky-fog, a strong warm sun, orange bounce light from the lava
     volcano: { moss: [0xc8b8a8, 0], rim: [0xffb888, 0.15], fog: [0xf2ac84, 30, 78], hemiSky: 0xfff0e6, hemiGround: 0x6a3a2c, hemi: 0.85, sunColor: 0xfff2e4, sun: 2.3, sunOffset: [-12, 26, 14],
       env: [0xffe0cc, 0xffbc98, 0x4a2a20, 0.85], bloom: 0.55, exposure: 1.0, fezaLight: 0.35, fezaLightColor: 0xffc890, sat: 1.06 },
+    // a bright, creamy pastel morning: peach-pink haze, a warm soft sun, a pale sky and creamy bounce light (the ground is white:
+    // the sun is softer than the forest's so nothing blows out)
+    // (neutral creamy bounce light, a paler haze, less saturation and a lighter vignette: the pink/tan cast made the yogurt read as sand)
+    dairy: { moss: [0xf4ead8, 0], rim: [0xfff0f4, 0.1], fog: [0xf6e6de, 36, 92], hemiSky: 0xfff8f0, hemiGround: 0xf2ede4, hemi: 0.55, sunColor: 0xfff2e0, sun: 1.9, sunOffset: [-12, 26, 14],
+      env: [0xcfe0ff, 0xfff2e6, 0xe8dccc, 0.55], bloom: 0.28, exposure: 1.0, fezaLight: 0, fezaLightColor: 0xffd9a0, sat: 1.06, vig: 0.2 },
   };
 
   // ── Instancing (chunked ~16 m for frustum culling) and merged static decor per chunk ──
@@ -1978,7 +2283,8 @@ const LEVEL = (function () {
     return { arr, item };
   }
   function dec(B, matKey, geo, m, col) {
-    const key = matKey + '|' + Math.floor(m.elements[12] / CHUNK) + '|' + Math.floor(m.elements[14] / CHUNK);
+    if (matKey === 'food') matKey = 'shiny';   // cheese, biscuits and berries share the glossy decor chunks (fewer draw calls)
+    const ck = B.ck || CHUNK, key = matKey + '|' + Math.floor(m.elements[12] / ck) + '|' + Math.floor(m.elements[14] / ck);
     const arr = B.dec[key] || (B.dec[key] = []), item = { geo, m, c: col || null };
     arr.push(item);
     return { arr, item };
@@ -1993,13 +2299,14 @@ const LEVEL = (function () {
     const near = (x0, z0, sz) => satCount(L, x0 - 6, z0 - 6, x0 + sz + 6, z0 + sz + 6) > 0;
     for (const kind in B.inst) {
       const K = KIND[kind], list = B.inst[kind], chunks = new Map();
-      for (const it of list) { const key = Math.floor(it.x / CHUNK) * 4096 + Math.floor(it.z / CHUNK); let a = chunks.get(key); if (!a) chunks.set(key, a = []); a.push(it); }
+      const ck = B.ck || CHUNK;
+      for (const it of list) { const key = Math.floor(it.x / ck) * 4096 + Math.floor(it.z / ck); let a = chunks.get(key); if (!a) chunks.set(key, a = []); a.push(it); }
       const geo = kgeo(kind), mat = R.mat[K.mat];
       for (const [key, a] of chunks) {
         const im = new THREE.InstancedMesh(geo, mat, a.length), anyCol = a.some(it => it.c);
         for (let i = 0; i < a.length; i++) { im.setMatrixAt(i, a[i].m); if (anyCol) im.setColorAt(i, a[i].c || WHITE); }
         const cx = Math.floor(key / 4096), cz = key - cx * 4096;
-        const cast = K.shadow === true || (K.shadow === 'near' && near(cx * CHUNK, cz * CHUNK, CHUNK));
+        const cast = K.shadow === true || (K.shadow === 'near' && near(cx * ck, cz * ck, ck));
         if (K.proxy) {   // cheap stand-ins cast the shadow instead of the detailed mesh
           im.castShadow = false;
           if (cast) for (const it of a) {
@@ -2025,15 +2332,16 @@ const LEVEL = (function () {
       B.g.add(im);
     }
   }
-  const DEC_CAST = { prop: 1, stone: 1, plaster: 1, roof: 1, brick: 1, rock: 1, shiny: 1, gold: 1, coin: 1, soil: 1 };
+  // (yog: the yogurt hills cast through cheap low-poly stand-ins, 'yogSh', instead of their detailed meshes)
+  const DEC_CAST = { prop: 1, stone: 1, plaster: 1, roof: 1, brick: 1, rock: 1, shiny: 1, gold: 1, coin: 1, soil: 1, food: 1, copper: 1, yogSh: 1 };
   function finishDecor(L, B) {
     for (const key in B.dec) {
-      const mk = key.split('|')[0], mesh = new THREE.Mesh(mergeList(B.dec[key]), R.mat[mk]);
-      mesh.receiveShadow = mk !== 'glow' && mk !== 'window';
+      const mk = key.split('|')[0], sh = mk === 'yogSh', mesh = new THREE.Mesh(mergeList(B.dec[key]), sh ? R.mat.proxy || (R.mat.proxy = keep(new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))) : R.mat[mk]);
+      mesh.receiveShadow = mk !== 'glow' && mk !== 'window' && !sh;
       mesh.castShadow = !!DEC_CAST[mk];
-      mesh.name = 'decor-' + mk;
+      mesh.name = sh ? 'shadow-proxy' : 'decor-' + mk;
       B.g.add(mesh);
-      if (mk === 'decor') { const bs = mesh.geometry.boundingSphere; B.far.push({ o: mesh, x: bs.center.x, z: bs.center.z, r: bs.radius }); }
+      if (mk === 'decor' || mk === 'gloss') { const bs = mesh.geometry.boundingSphere; B.far.push({ o: mesh, x: bs.center.x, z: bs.center.z, r: bs.radius }); }
     }
   }
   // Would a volume (radius cr, heights yb..yt) standing at (x,z) hide any floor from the gameplay camera?
@@ -2365,6 +2673,10 @@ const LEVEL = (function () {
         a = smoothstep(0.0, 0.08, f) * smoothstep(1.0, 0.85, f); vF = f * 25.0 + ph * 6.0;
       } else if (kind < 6.5) { float an = t * 0.45 * prm + ph * 6.28;   // blossom drifting in lazy loops on the breeze, slowly turning
         p += vec3(cos(an) * 1.3 + sin(an * 2.3) * 0.3, sin(t * 0.9 + ph * 9.0) * 0.2 + sin(an * 1.7) * 0.3, sin(an) * 0.9); vF = t * 0.8 * (prm - 0.4) * sign(ph - 0.5) + ph * 6.28;
+      } else if (kind > 9.5) {   // fizzy kefir bubble: wobbles up ~1.2 m, grows a little, pops (normal blending)
+        float f = fract(t * prm + ph);
+        p += vec3(sin(f * 7.0 + ph * 30.0) * 0.07, f * 1.25, cos(f * 6.0 + ph * 20.0) * 0.07);
+        a = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.86, 1.0, f)); s *= 0.55 + 0.65 * f; vF = f;
       } else if (kind > 8.5) {   // lava ember: drifts up ~3 m, glowing, fading
         float f = fract(t * prm + ph);
         p += vec3(sin(f * 5.0 + ph * 30.0) * 0.35 + f * 0.5, f * 3.2, cos(f * 4.0 + ph * 20.0) * 0.3);
@@ -2394,6 +2706,12 @@ const LEVEL = (function () {
         vec3 hc = vCol.g > 0.5 && vCol.b < 0.3 ? vec3(1.0, 0.5, 0.16) : vec3(1.0, 0.8, 0.26);   // yellow blossoms get an orange heart
         col = mix(col, hc, heart);
         gl_FragColor = vec4(col, max(petal, heart) * vA);
+      } else if (vK > 9.5) {   // fizzy bubble: a thin bright rim, a faint film, a glint
+        float rim = smoothstep(0.5, 0.43, d) * smoothstep(0.3, 0.41, d), film = smoothstep(0.5, 0.4, d) * 0.16;
+        float gl = smoothstep(0.12, 0.03, length(c - vec2(-0.15, 0.16)));
+        float al = max(max(rim * 0.85, film), gl);
+        if (al * vA < 0.01) discard;
+        gl_FragColor = vec4(mix(vCol, vec3(1.25), gl) * (0.85 + 0.25 * rim), al * vA);
       } else if (vK > 4.5 && vK < 5.5) {
         float r = vF; vec2 q = mat2(cos(r), sin(r), -sin(r), cos(r)) * c;
         float al = smoothstep(0.4, 0.28, length(q * vec2(1.0, 1.9)));
@@ -3323,7 +3641,7 @@ const LEVEL = (function () {
     for (const f of list) {   // f: base (x, z), facing yaw (toward +z locally), height h, width w
       const cs = Math.cos(f.yaw), sn = Math.sin(f.yaw), v0 = pos.length / 3;
       for (let r = 0; r <= NR; r++) {
-        const t = r / NR, y = f.h * (1 - Math.pow(t, 1.25)), back = -1.25 * Math.pow(1 - t, 2) - 0.05, w = f.w * (0.78 + 0.3 * t);
+        const t = r / NR, y = f.h * (1 - Math.pow(t, 1.25)), back = -1.25 * Math.pow(1 - t, 2) - 0.05, w = f.wt ? lerp(f.wt, f.w * 1.08, Math.pow(t, 0.7)) : f.w * (0.78 + 0.3 * t);   // (wt: poured from a jug's mouth)
         for (let c = 0; c <= NC; c++) {
           const u = c / NC, lx = (u - 0.5) * w + Math.sin(t * 7 + f.ph + u * 3) * 0.03, lz = back + Math.sin(u * Math.PI) * 0.08;
           pos.push(f.x + lx * cs + lz * sn, y, f.z - lx * sn + lz * cs);
@@ -3336,7 +3654,7 @@ const LEVEL = (function () {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('aF', new THREE.Float32BufferAttribute(fa, 2));
     g.setIndex(idx); g.computeBoundingSphere();
     B.dispose.push(g);
-    const m = new THREE.Mesh(g, lavafallMat()); m.name = 'lavafalls'; m.renderOrder = 1;
+    const m = new THREE.Mesh(g, B.fallMat === 'milk' ? milkfallMat() : lavafallMat()); m.name = B.fallMat === 'milk' ? 'milkfalls' : 'lavafalls'; m.renderOrder = 1;
     B.g.add(m);
   }
   function buildVolcano(L, B) {
@@ -3616,6 +3934,1376 @@ const LEVEL = (function () {
       const x = rnd() * W, z = rnd() * H;
       if (!grid[Math.floor(z) * W + Math.floor(x)]) continue;
       B.pts.add.push({ x, y: 0.6 + rnd() * 2.2, z, kind: 1, ph: rnd(), size: 0.07, prm: 0.5 + rnd() * 0.5, col: lin(0xffd0a0, 1.1) });
+    }
+  }
+  // ════════════════════════════════════════════════════════════════════════════════════════════════
+  //  Kefir Vadisi (theme 'dairy', Feza's own zone). Milk and kefir rivers (floor shader), glossy yogurt hills in fruit pastels,
+  //  giant cheese wheels and wedges, butter, stacked yogurt pots, copper milk jugs (güğüm), butter churns (yayık), milk and kefir
+  //  bottles, honey pots, giant berries, yogurt bowls, cereal rings bobbing in the milk, white fences with little bells, biscuit
+  //  bridges, milk waterfalls, the "Kefir Vadisi" sign, and the boss arena Kefir Pınarı. No insects anywhere near the dairy.
+  // ════════════════════════════════════════════════════════════════════════════════════════════════
+  const POT_COL = [0xf6a0b8, 0x8ec0f0, 0xa8dc9a, 0xf8d870, 0xc4a8f0, 0xffb890];   // yogurt-pot labels / foil lids
+  const SWIRL_TINT = [0xffffff, 0xfffcfa, 0xffdce8, 0xeee4ff, 0xe4f6ec];
+  const HILL_TINT = [0xfffcf6, 0xfffcf6, 0xfff8ee, 0xffd8e2, 0xffe4ec, 0xeadfff, 0xfff0c2, 0xffe2cc, 0xd4f6e0, 0xe0f4ff];   // plain, strawberry, blueberry, vanilla, apricot, mint, sky (no khaki greens)
+  const CEREAL_COL = [0xff8fb8, 0xffd84a, 0x8ad870, 0xffa050, 0xb890f0, 0x80c0ff];
+  const v2s = pts => pts.map(p => new THREE.Vector2(p[0], p[1]));
+  const smoothProfile = (pts, n) => new THREE.SplineCurve(v2s(pts)).getPoints(n);
+  const profR = (prof, y) => { for (let i = 1; i < prof.length; i++) if (y <= prof[i][1]) { const a = prof[i - 1], b = prof[i]; return a[0] + (b[0] - a[0]) * (y - a[1]) / Math.max(1e-6, b[1] - a[1]); } return prof[prof.length - 1][0]; };
+  function kits(...names) { const o = {}; for (const n of names) o[n] = new Kit(); return o; }
+  function buildKits(o) { const D = {}; for (const k in o) if (o[k].parts.length) D[k] = keep(o[k].build()); return D; }
+  function putD(B, D, m, tint) { const vis = []; for (const k in D) vis.push(dec(B, k, D[k], m, tint || null)); return vis; }
+  // Add a built (colour-baked) geometry to a Kit, keeping its vertex colours (mergeParts calls the colour function once per vertex, in order)
+  function subAdd(k, geo, pos, rot, scl) {
+    const C = geo.attributes.color, n = C.count, cs = new Array(n);
+    for (let i = 0; i < n; i++) cs[i] = new THREE.Color(C.getX(i), C.getY(i), C.getZ(i));
+    let i = 0;
+    return k.add(geo, () => cs[(i++) % n], pos, rot, scl);
+  }
+
+  // Yogurt hills (radius 1 at scale 1): 0 a soft round mound · 1 a taller blob (both gently lumpy, the base sagging out a little) ·
+  // 2 a soft-serve swirl (a fat tube coiling up round a core to a curled tip) · 3 a small low-poly mound (fillers along the edges)
+  const DOLLOP_PROF = [
+    [[0.001, 0], [0.95, 0], [1.02, 0.06], [1.0, 0.18], [0.9, 0.4], [0.72, 0.6], [0.48, 0.76], [0.24, 0.855], [0.1, 0.884], [0.001, 0.89]],   // (flat-tangent tops)
+    [[0.001, 0], [0.96, 0], [1.03, 0.07], [0.98, 0.2], [0.86, 0.42], [0.66, 0.64], [0.4, 0.82], [0.18, 0.912], [0.07, 0.936], [0.001, 0.94]],
+    null,
+    [[0.001, 0], [0.95, 0], [1.0, 0.1], [0.85, 0.4], [0.5, 0.7], [0.001, 0.78]],
+  ];
+  const DOLLOP_TOP = [0.91, 0.96, 1.05, 0.8];
+  function dollopWarp(v) {   // the gentle lumps of a mound
+    const rnd = mulberry32(4700 + v * 7), ph = rnd() * TAU, ph2 = rnd() * TAU;
+    return (x, y, z) => {   // (the height wobble fades out toward the axis: the lathe's apex vertices stay together — no pinched, dark tip)
+      const a = Math.atan2(z, x), k = 1 + 0.04 * Math.sin(3 * a + ph) + 0.025 * Math.sin(5 * a + ph2 + y * 3), rr = Math.min(1, Math.hypot(x, z) / 0.45);
+      return [x * k, y * (1 + 0.03 * Math.sin(2 * a + ph) * rr * rr), z * k];
+    };
+  }
+  function dollopGeo(v) {
+    const key = 'dollop' + v;
+    if (R.geo[key]) return R.geo[key];
+    let g;
+    if (v === 2) {
+      const pts = [], turns = 2.7, TS = 64, RS2 = 8;
+      for (let i = 0; i <= 60; i++) { const t = i / 60, a = t * turns * TAU, r = 0.7 * (1 - t) + 0.03 * (1 - t); pts.push(new THREE.Vector3(Math.cos(a) * r, 0.18 + t * 0.8, Math.sin(a) * r)); }
+      // (no curled tip: the coil closes on the axis, where hill() sets a cherry — soft-serve, never a pointy coil)
+      const curve = new THREE.CatmullRomCurve3(pts), tube = new THREE.TubeGeometry(curve, TS, 1, RS2, false), P = tube.attributes.position, c = new THREE.Vector3();
+      for (let i = 0; i <= TS; i++) {
+        const t = i / TS, rr = 0.3 * (1 - t * 0.6) * (1 - smooth01((t - 0.9) / 0.1) * 0.9);
+        curve.getPointAt(t, c);
+        for (let j = 0; j <= RS2; j++) { const k = i * (RS2 + 1) + j; P.setXYZ(k, c.x + (P.getX(k) - c.x) * rr, c.y + (P.getY(k) - c.y) * rr, c.z + (P.getZ(k) - c.z) * rr); }
+      }
+      tube.computeVertexNormals();
+      const core = new THREE.LatheGeometry(smoothProfile([[0.001, 0], [0.8, 0], [0.84, 0.1], [0.7, 0.32], [0.4, 0.56], [0.001, 0.66]], 6), 14);
+      const k = new Kit(); k.add(tube, 0xffffff); k.add(core, 0xffffff);
+      g = k.build();
+    } else {
+      const warp = dollopWarp(v);
+      g = new THREE.LatheGeometry(smoothProfile(DOLLOP_PROF[v], v === 3 ? 6 : 11), v === 3 ? 12 : 18);
+      const P = g.attributes.position;
+      for (let i = 0; i < P.count; i++) { const q = warp(P.getX(i), P.getY(i), P.getZ(i)); P.setXYZ(i, q[0], q[1], q[2]); }
+      weldNormals(g);
+    }
+    markUV(g, 0);
+    return (R.geo[key] = keep(g));
+  }
+  for (let v = 0; v < 4; v++) KIND['yog' + v] = { mat: 'yog', shadow: v === 3 ? false : 'near', proxy: v === 3 ? null : { c: [0.42, 0.85, 0.5] }, recv: true,
+    geo: () => { const k = new Kit(); k.add(dollopGeo(v), 0xffffff); return k.build(); } };
+
+  // Swiss cheese: 0 a wheel · 1 a wheel with a wedge cut out (the wedge lies beside it) · 2 a big wedge · 3 two small wheels stacked.
+  // Extruded sectors with bevelled edges; the rind (outer wall) is deeper gold; round "eyes" on the top and the cut faces.
+  function cheeseData(v) {
+    const key = 'cheese' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('food'), k = K.food, rnd = mulberry32(4100 + v * 13);
+    const body = new THREE.Color(0xf8cf52), rind = new THREE.Color(0xeaa434), deep = new THREE.Color(0xb27418), lipC = new THREE.Color(0xf4c048);
+    const _a = new THREE.Vector3(), _n = new THREE.Vector3(), zf = new THREE.Vector3(0, 0, 1);
+    const holeG = R.geo.hole || (R.geo.hole = keep(new THREE.CircleGeometry(1, 12)));
+    const hole = (c, n, r) => {   // an "eye": dark golden in the middle, lighter toward its lip (reads as a crater from above)
+      const q = new THREE.Quaternion().setFromUnitVectors(zf, n), cx = c.x + n.x * 0.004, cy = c.y + n.y * 0.004, cz = c.z + n.z * 0.004;
+      k.add(holeG, (x, y, z) => deep.clone().lerp(lipC, Math.pow(clamp(Math.hypot(x - cx, y - cy, z - cz) / r, 0, 1), 1.6)), [cx, cy, cz], q, r);
+    };
+    const piece = (a0, a1, rad, h, M) => {
+      const full = a1 - a0 >= TAU - 1e-3, sh = new THREE.Shape(), bt = 0.035, bs = 0.03;
+      if (full) sh.absarc(0, 0, rad, 0, TAU, false);
+      else {
+        sh.moveTo(0, 0);
+        for (const f of [0.35, 0.7, 0.96]) sh.lineTo(Math.cos(a0) * rad * f, Math.sin(a0) * rad * f);
+        sh.absarc(0, 0, rad, a0, a1, false);
+        for (const f of [0.96, 0.7, 0.35]) sh.lineTo(Math.cos(a1) * rad * f, Math.sin(a1) * rad * f);
+        sh.lineTo(0, 0);
+      }
+      const g = new THREE.ExtrudeGeometry(sh, { depth: h - 2 * bt, bevelEnabled: true, bevelThickness: bt, bevelSize: bs, bevelSegments: 2, curveSegments: Math.max(4, Math.round((a1 - a0) / TAU * 32)) });
+      g.rotateX(-Math.PI / 2); g.translate(0, bt, 0); g.applyMatrix4(M);   // shape angle a → world direction (cos a, 0, -sin a)
+      const Mi = M.clone().invert(), p = new THREE.Vector3();
+      k.add(g, (x, y, z) => { p.set(x, y, z).applyMatrix4(Mi); const r = Math.hypot(p.x, p.z); return r > rad + 0.012 ? rind : body.clone().lerp(rind, smooth01((r - rad * 0.86) / (rad * 0.14)) * 0.3); });
+      const pts = [], nTop = Math.round((a1 - a0) / TAU * 10 * rad) + 2;
+      for (let t = 0; t < 80 && pts.length < nTop; t++) {   // eyes on the top
+        const a = a0 + (a1 - a0) * (0.06 + 0.88 * rnd()), rr = (0.035 + Math.pow(rnd(), 2) * 0.1) * Math.max(0.7, rad), rho = (0.12 + 0.82 * Math.sqrt(rnd())) * (rad - rr - 0.05);
+        const x = Math.cos(a) * rho, z = -Math.sin(a) * rho;
+        if (!full && (Math.sin(a - a0) * rho < rr + 0.04 || Math.sin(a1 - a) * rho < rr + 0.04)) continue;   // clear of the cut edges
+        if (pts.some(q => Math.hypot(q[0] - x, q[1] - z) < q[2] + rr + 0.03)) continue;
+        pts.push([x, z, rr]);
+        hole(_a.set(x, h, z).applyMatrix4(M), _n.set(0, 1, 0).transformDirection(M), rr);
+      }
+      if (!full) for (const [ang, sg] of [[a0, 1], [a1, -1]]) {   // …and on the two cut faces
+        const nx = sg * Math.sin(ang), nz = sg * Math.cos(ang), fp = [];
+        for (let t = 0; t < 40 && fp.length < 3; t++) {
+          const rr = 0.03 + rnd() * 0.065, rho = 0.14 + rnd() * (rad - 0.28), y = rr + 0.05 + rnd() * Math.max(0, h - 2 * rr - 0.1);
+          if (y > h - rr - 0.04 || fp.some(q => Math.hypot(q[0] - rho, q[1] - y) < q[2] + rr + 0.03)) continue;
+          fp.push([rho, y, rr]);
+          hole(_a.set(Math.cos(ang) * rho + nx * bs, y, -Math.sin(ang) * rho + nz * bs).applyMatrix4(M), _n.set(nx, 0, nz).transformDirection(M), rr);
+        }
+      }
+    };
+    const I = new THREE.Matrix4(), cm = (x, y, z, ry) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(1, 1, 1));
+    if (v === 0) piece(0, TAU, 0.95, 0.52, I);
+    else if (v === 1) { piece(0.8, TAU, 0.95, 0.52, I); piece(0, 0.8, 0.88, 0.5, cm(Math.cos(0.4) * 0.55 + 0.25, 0, -Math.sin(0.4) * 0.55 + 0.1, -0.35)); }
+    else if (v === 2) piece(-0.45, 0.45, 1.15, 0.62, cm(-0.62, 0, 0, 0));
+    else if (v === 3) { piece(0, TAU, 0.62, 0.36, I); piece(0, TAU, 0.5, 0.32, cm(0.06, 0.36, -0.04, 0.5)); }
+    else { piece(0, TAU, 0.8, 0.34, I); piece(0, TAU, 0.56, 0.33, cm(0, 0.34, 0, 0.6)); }   // 4: the checkpoint's pedestal (top at 0.67)
+    return (R.geo[key] = buildKits(K));
+  }
+  // A butter block on a little wooden board, a butter curl on top, a knife stuck in
+  function butterData() {
+    if (R.geo.butter) return R.geo.butter;
+    const K = kits('shiny', 'prop', 'coin');
+    K.prop.add(R.geo.bBoard || (R.geo.bBoard = keep(boxUV(1.1, 0.08, 0.72, 0.6))), 0xf2dcc0, [0, 0.04, 0]);
+    K.shiny.add(G.rbox(), (x, y) => new THREE.Color(0xfbe07a).lerp(new THREE.Color(0xfff2b8), clamp((y - 0.12) / 0.34, 0, 1)), [0, 0.28, 0], 0, [0.78, 0.4, 0.5]);
+    K.shiny.add(G.torus(Math.PI * 1.4, 0.4, 14), 0xfff0a8, [-0.12, 0.49, 0.04], [Math.PI / 2, 0, 0.4], [0.09, 0.09, 0.12]);
+    K.coin.push([0.16, 0.47, 0.06], [0, 0.5, -0.5]);
+    K.coin.add(G.box(), 0xe8ecf2, [0, 0.08, 0], 0, [0.07, 0.24, 0.012]);
+    K.coin.add(G.cyl(1, 1, 8), 0x8ab8e8, [0, 0.28, 0], 0, [0.03, 0.18, 0.03]);
+    K.coin.pop();
+    return (R.geo.butter = buildKits(K));
+  }
+  // Yogurt pots (0 one · 1 three in a pyramid · 2 two stacked · 3 six in a pyramid): a tapered cup wrapped in a pastel label with
+  // a fruit printed on a white window (front and back), a shiny metallic foil lid with a printed centre and a pull tab. The top
+  // pot is open: its foil is peeled back low over the rim (the yogurt creatures' look), creamy yogurt inside, a spoon stuck in it
+  // and a strawberry on top — food, never a white bowl with a lid standing up behind it.
+  const POT_FRUIT = [0xe8323e, 0x3c4a9c, 0x7ac04a, 0xffc830, 0x7a4ab8, 0xff8a3a];   // the fruit printed on each label colour
+  // pot body: radius 1 at the top (0.84 at the foot), height 1; extra rings where the label and its stripe start / end (crisp bands)
+  const potBodyGeo = () => R.geo.potBody || (R.geo.potBody = keep(new THREE.LatheGeometry(v2s([[0.001, 0], [0.8, 0], [0.835, 0.012], [0.842, 0.04],
+    [0.853, 0.12], [0.854, 0.126], [0.888, 0.34], [0.93, 0.6], [0.95, 0.72], [0.951, 0.726], [0.958, 0.77], [0.959, 0.776], [0.97, 0.84], [0.971, 0.846], [0.99, 0.97], [1.0, 1.0]]), 16)));
+  function potData(v) {
+    const key = 'pots' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('shiny', 'yog', 'coin'), rnd = mulberry32(4200 + v * 17), R0 = 0.3, H0 = 0.46, white = new THREE.Color(0xfbf8f2), zf = new THREE.Vector3(0, 0, 1);
+    const disc = R.geo.hole || (R.geo.hole = keep(new THREE.CircleGeometry(1, 12)));
+    const pot = (x, y, z, open) => {
+      const li = Math.floor(rnd() * POT_COL.length), lab = new THREE.Color(POT_COL[li]), st = lab.clone().lerp(white, 0.75), lidIn = lab.clone().lerp(new THREE.Color(0xffffff), 0.05);
+      const lid = lab.clone().lerp(new THREE.Color(0xeef2f8), 0.62), fr = new THREE.Color(POT_FRUIT[li]);   // silvery pastel foil, the print in the label's colour
+      // the label: 0.126–0.846 of the height, a pale stripe near its top
+      K.shiny.add(potBodyGeo(), (px, py) => { const t = (py - y) / H0; return t > 0.123 && t < 0.843 ? (t > 0.723 && t < 0.773 ? st : lab) : white; }, [x, y, z], 0, [R0, H0, R0]);
+      K.shiny.add(G.torus(TAU, 0.09, 16), 0xffffff, [x, y + H0, z], [Math.PI / 2, 0, 0], R0 * 1.02);   // a thin rolled rim
+      const a0 = rnd() * TAU;
+      for (const a of [a0, a0 + Math.PI]) {   // the printed fruit on a white window, front and back
+        const t = 0.44, rr = R0 * (0.888 + (t - 0.34) / 0.26 * 0.042) + 0.004, n = new THREE.Vector3(Math.cos(a), -0.1, Math.sin(a)).normalize(), q = new THREE.Quaternion().setFromUnitVectors(zf, n);
+        const cx = x + Math.cos(a) * rr, cy = y + t * H0, cz = z + Math.sin(a) * rr, o = (d) => [cx + n.x * d, cy + n.y * d, cz + n.z * d];
+        K.shiny.add(disc, white, o(0), q, [0.105, 0.09, 1]);
+        K.shiny.add(disc, fr, o(0.003), q, [0.052, li === 0 ? 0.062 : 0.052, 1]);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);   // a little leaf above the fruit
+        K.shiny.add(disc, 0x4caa3c, [cx + n.x * 0.005 + up.x * 0.058, cy + n.y * 0.005 + up.y * 0.058, cz + n.z * 0.005 + up.z * 0.058], q, [0.03, 0.016, 1]);
+      }
+      if (open) {
+        const h = rnd() * TAU, ch = Math.cos(h), sh = Math.sin(h);
+        K.yog.add(G.sphere(14, 7), 0xfffcf4, [x, y + H0 - 0.02, z], 0, [R0 * 0.94, 0.07, R0 * 0.94]);
+        // the foil, peeled back from one side: hinged on the rim, lying low outward at ~35°, its pull tab turned up
+        K.coin.push([x + ch * R0 * 0.86, y + H0 + 0.03, z + sh * R0 * 0.86], [0, -h, 0]).push(null, [0, 0, 0.42]);
+        K.coin.add(G.cyl(1, 1, 16), (px, py, pz) => (hyp(px - (x + ch * (R0 * 0.86 + R0 * 0.62 * 0.91)), pz - (z + sh * (R0 * 0.86 + R0 * 0.62 * 0.91))) < R0 * 0.3 ? lidIn : lid), [R0 * 0.62, 0, 0], 0, [R0 * 0.62, 0.01, R0 * 0.7]);
+        K.coin.add(G.box(), lid, [R0 * 1.28, 0.025, 0], [0, 0, 0.55], [0.09, 0.01, 0.08]);
+        K.coin.pop().pop();
+        // a spoon stuck in the yogurt, leaning out on the far side, and a strawberry sitting on the cream
+        const sa = h + Math.PI + 0.6, sx = x + Math.cos(sa) * R0 * 0.35, sz = z + Math.sin(sa) * R0 * 0.35;
+        K.coin.push([sx, y + H0 + 0.02, sz], new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(Math.cos(sa) * 0.45, 1, Math.sin(sa) * 0.45).normalize()));
+        K.coin.add(G.box(), 0xe8ecf2, [0, 0.13, 0], 0, [0.034, 0.3, 0.012]);
+        K.coin.add(G.sphere(10, 6), 0xe8ecf2, [0, 0.29, 0], 0, [0.028, 0.03, 0.014]);
+        K.coin.pop();
+        const bx = x - Math.cos(sa) * R0 * 0.25, bz = z - Math.sin(sa) * R0 * 0.25, by = y + H0 + 0.07;
+        K.shiny.add(G.sphere(12, 8), (px, py) => new THREE.Color(0xc41e30).lerp(new THREE.Color(0xf0404a), clamp((py - by + 0.05) / 0.1, 0, 1)), [bx, by, bz], [0.3, 0, 0.2], [0.075, 0.09, 0.075]);
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; K.shiny.add(G.octa(), 0x4caa3c, [bx + Math.cos(a) * 0.035, by + 0.085, bz + Math.sin(a) * 0.035], [0, -a, -0.3], [0.045, 0.01, 0.02]); }
+      } else {
+        // the foil sealed over the rim, printed like the label: a coloured ring, a white circle and the fruit in the middle
+        K.coin.add(G.cyl(1, 1, 16), lid, [x, y + H0 + 0.03, z], 0, [R0 * 1.1, 0.014, R0 * 1.1]);
+        const up = [-Math.PI / 2, 0, 0], ty = y + H0 + 0.038;
+        K.shiny.add(disc, lidIn, [x, ty, z], up, R0 * 0.78);
+        K.shiny.add(disc, white, [x, ty + 0.002, z], up, R0 * 0.56);
+        K.shiny.add(disc, fr, [x, ty + 0.004, z], up, [R0 * 0.3, R0 * (li === 0 ? 0.36 : 0.3), 1]);
+        K.shiny.add(disc, 0x4caa3c, [x, ty + 0.005, z - R0 * 0.34], up, [R0 * 0.16, R0 * 0.08, 1]);
+        const ta = rnd() * TAU;
+        K.coin.add(G.box(), lid, [x + Math.cos(ta) * R0 * 1.16, y + H0 + 0.028, z + Math.sin(ta) * R0 * 1.16], [0, -ta, -0.35], [0.12, 0.012, 0.1]);   // the pull tab
+      }
+    };
+    const up = H0 + 0.03;
+    if (v === 0) pot(0, 0, 0, rnd() < 0.5);
+    else if (v === 1) { pot(-0.31, 0, 0); pot(0.31, 0, 0.02); pot(0, up, 0.01, true); }
+    else if (v === 2) { pot(0, 0, 0); pot(0.02, up, 0, true); }
+    else { for (let i = 0; i < 3; i++) pot((i - 1) * 0.62, 0, 0); for (let i = 0; i < 2; i++) pot((i - 0.5) * 0.62, up, 0.02); pot(0, 2 * up, 0.03, true); }
+    return (R.geo[key] = buildKits(K));
+  }
+  // Güğüm: a Turkish copper milk jug (round belly, narrow neck, flared mouth, domed lid, a handle from the neck to the shoulder)
+  const GUGUM_PROF = [[0.001, 0], [0.2, 0], [0.24, 0.02], [0.23, 0.05], [0.33, 0.15], [0.4, 0.3], [0.41, 0.42], [0.36, 0.56], [0.24, 0.67], [0.15, 0.75], [0.13, 0.83], [0.15, 0.92], [0.2, 0.985]];
+  const gugumCol = () => { const cu = new THREE.Color(0xe88a52), cu2 = new THREE.Color(0xffb88a), br = new THREE.Color(0xffd870);   // polished copper, brass bands
+    return (x, y) => (Math.abs(y - 0.15) < 0.024 || Math.abs(y - 0.57) < 0.024 || Math.abs(y - 0.92) < 0.018 ? br : cu.clone().lerp(cu2, smooth01((y - 0.22) / 0.14) * (1 - smooth01((y - 0.46) / 0.14)) * 0.65)); };
+  function gugumData() {
+    if (R.geo.gugum) return R.geo.gugum;
+    const K = kits('copper'), k = K.copper, cu = new THREE.Color(0xe88a52), br = new THREE.Color(0xffd870);
+    k.add(new THREE.LatheGeometry(smoothProfile([...GUGUM_PROF, [0.001, 0.99]], 24), 20), gugumCol());
+    k.add(G.hemi(16), cu, [0, 0.98, 0], 0, [0.19, 0.08, 0.19]);
+    k.add(G.sphere(10, 8), br, [0, 1.07, 0], 0, 0.035);
+    k.add(G.torus(Math.PI, 0.12, 14), cu, [0.15, 0.66, 0], [0, 0, -Math.PI / 2], [0.27, 0.27, 0.27]);
+    return (R.geo.gugum = buildKits(K));
+  }
+  // A giant güğüm pouring a waterfall: no lid, the mouth open (a copper inner lip) and brim-full of milk (the milk in the glossy
+  // non-metal chunk: on the copper it would read as chrome). Local like gugumData: base at 0, mouth centre (0, 0.975, 0), radius 0.2
+  function gugumPourData() {
+    if (R.geo.gugumP) return R.geo.gugumP;
+    const K = kits('copper', 'shiny'), cu = new THREE.Color(0xe88a52);
+    K.copper.add(new THREE.LatheGeometry(smoothProfile([...GUGUM_PROF, [0.17, 0.965], [0.001, 0.93]], 26), 20), gugumCol());
+    K.copper.add(G.torus(Math.PI, 0.12, 14), cu, [0.15, 0.66, 0], [0, 0, -Math.PI / 2], [0.27, 0.27, 0.27]);
+    K.shiny.add(G.sphere(14, 6), (x, y, z) => new THREE.Color(0xfffcf4).lerp(new THREE.Color(0xfff2dc), smooth01(Math.hypot(x, z) / 0.18)), [0, 0.962, 0], 0, [0.178, 0.018, 0.178]);
+    return (R.geo.gugumP = buildKits(K));
+  }
+  // Yayık: a tall wooden butter churn with iron hoops, a lid and the dasher's stick with its cross handle
+  function yayikData() {
+    if (R.geo.yayik) return R.geo.yayik;
+    const K = kits('prop'), k = K.prop, iron = 0x6a6470;
+    const lg = new THREE.LatheGeometry(v2s([[0.001, 0], [0.27, 0], [0.3, 0.06], [0.32, 0.5], [0.29, 0.94], [0.27, 1.0], [0.001, 1.0]]), 16), uv = lg.attributes.uv;
+    for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), w = uv.getY(i); uv.setXY(i, w * 1.1, u * 2.4); }
+    k.add(lg, 0xf2dcc0);
+    const hoop = R.geo.hoop || (R.geo.hoop = keep(markUV(new THREE.TorusGeometry(1, 0.06, 5, 16), 10)));
+    for (const [y, r] of [[0.1, 0.305], [0.5, 0.325], [0.88, 0.3]]) k.add(hoop, iron, [0, y, 0], [Math.PI / 2, 0, 0], [r, r, r]);
+    k.add(G.cyl(1, 1, 16), 0xe2c6a2, [0, 1.02, 0], 0, [0.29, 0.05, 0.29]);
+    k.add(G.cyl(1, 1, 8), 0xdab892, [0, 1.33, 0], 0, [0.035, 0.62, 0.035]);
+    k.add(G.cyl(1, 1, 8), 0xdab892, [0, 1.62, 0], [0, 0, Math.PI / 2], [0.03, 0.34, 0.03]);
+    for (const sx of [-0.17, 0.17]) k.add(G.sphere(8, 6), 0xdab892, [sx, 1.62, 0], 0, 0.042);
+    return (R.geo.yayik = buildKits(K));
+  }
+  // Milk and kefir bottles: milk white or kefir cream inside, clear glass neck, a label, a shiny foil cap
+  const BOTTLE = [[0xfbfaf6, 0x5a9ae8, 0x9cc8f4], [0xfbfaf6, 0xe85a6a, 0xf6b0b8], [0xfff2d8, 0x6ac080, 0xb8e4a8], [0xfff2d8, 0xf08ab0, 0xfac8dc]];   // [fill, cap, label]
+  const bottleBody = () => R.geo.bottle || (R.geo.bottle = keep(new THREE.LatheGeometry(smoothProfile([[0.001, 0], [0.15, 0], [0.17, 0.02], [0.175, 0.3], [0.17, 0.5], [0.15, 0.6], [0.1, 0.7], [0.08, 0.78], [0.085, 0.84], [0.001, 0.845]], 16), 16)));
+  // A giant kefir bottle pouring a waterfall: uncapped, its mouth brim-full of kefir (base at 0, mouth centre (0, 0.845, 0), radius 0.085)
+  function bottlePourData(v) {
+    const key = 'bottleP' + v;
+    if (R.geo[key]) return R.geo[key];
+    const b = BOTTLE[v % 4], F = new THREE.Color(b[0]), Gl = new THREE.Color(0xd2e4ee), Lb = new THREE.Color(b[2]), Wt = new THREE.Color(0xffffff), Mk = new THREE.Color(0xfffcf4);
+    const K = kits('shiny');
+    K.shiny.add(bottleBody(), (px, py, pz) => (py > 0.835 && Math.hypot(px, pz) < 0.07 ? Mk : py > 0.66 ? Gl : py > 0.16 && py < 0.42 ? (py > 0.26 && py < 0.31 ? Wt : Lb) : F));
+    K.shiny.add(G.torus(TAU, 0.2, 16), b[1], [0, 0.835, 0], [Math.PI / 2, 0, 0], [0.09, 0.09, 0.06]);   // a coloured lip ring where the cap was
+    return (R.geo[key] = buildKits(K));
+  }
+  function bottleParts(K, x, y, z, v, s = 1, rot = null) {
+    const b = BOTTLE[v % 4], F = new THREE.Color(b[0]), Gl = new THREE.Color(0xd2e4ee), Lb = new THREE.Color(b[2]), Wt = new THREE.Color(0xffffff);
+    const body = bottleBody();
+    if (rot) {   // lying / tilted: the fill line follows the bottle, so build it upright and place it
+      const T = kits('shiny', 'coin'); bottleParts(T, 0, 0, 0, v, 1); const D = buildKits(T);
+      subAdd(K.shiny, D.shiny, [x, y, z], rot, s); subAdd(K.coin, D.coin, [x, y, z], rot, s);
+      return;
+    }
+    K.shiny.add(body, (px, py) => { const t = (py - y) / s; return t > 0.66 ? Gl : t > 0.16 && t < 0.42 ? (t > 0.26 && t < 0.31 ? Wt : Lb) : F; }, [x, y, z], 0, s);
+    K.coin.add(G.cyl(1, 1, 14), b[1], [x, y + 0.855 * s, z], 0, [0.092 * s, 0.035 * s, 0.092 * s]);
+  }
+  function bottleData(v) {   // 0 two milk + one kefir · 1 a wooden crate of six · 2 one big kefir bottle and one lying beside it
+    const key = 'bottles' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('shiny', 'coin', 'prop'), rnd = mulberry32(4300 + v);
+    if (v === 0) { bottleParts(K, -0.22, 0, 0, 0, 1.25); bottleParts(K, 0.2, 0, 0.1, 1, 1.15); bottleParts(K, 0.02, 0, -0.26, 2 + Math.floor(rnd() * 2), 1.3); }
+    else if (v === 1) {
+      const wood = 0xf0d8b8, bx = R.geo.cBox || (R.geo.cBox = keep(boxUV(1, 1, 1, 0.5)));
+      K.prop.add(bx, wood, [0, 0.04, 0], 0, [1.1, 0.08, 0.76]);
+      for (const sz of [-1, 1]) K.prop.add(bx, wood, [0, 0.2, sz * 0.36], 0, [1.1, 0.32, 0.05]);
+      for (const sx of [-1, 1]) K.prop.add(bx, wood, [sx * 0.53, 0.2, 0], 0, [0.05, 0.32, 0.76]);
+      K.prop.add(bx, 0xe0c098, [0, 0.4, 0], 0, [1.08, 0.04, 0.05]);   // the handle bar
+      for (let i = 0; i < 6; i++) bottleParts(K, ((i % 3) - 1) * 0.33, 0.08, (i < 3 ? -0.17 : 0.17), i % 4, 1.0);
+    } else {
+      bottleParts(K, 0, 0, 0, 2 + Math.floor(rnd() * 2), 1.7);
+      bottleParts(K, 0.42, 0.17, 0.3, Math.floor(rnd() * 2), 1.1, new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0.5, -Math.PI / 2)));
+    }
+    return (R.geo[key] = buildKits(K));
+  }
+  // A glazed honey pot brimming over, drips running down its shoulder, a wooden dipper leaning in
+  function honeyData() {
+    if (R.geo.honey) return R.geo.honey;
+    const K = kits('shiny', 'prop'), s = K.shiny, pot = new THREE.Color(0xd9884a), pot2 = new THREE.Color(0xf2c07a), hon = new THREE.Color(0xf4a818), hon2 = new THREE.Color(0xffd35a);
+    const prof = [[0.001, 0], [0.24, 0], [0.33, 0.08], [0.39, 0.25], [0.37, 0.42], [0.29, 0.52], [0.27, 0.56], [0.3, 0.6], [0.28, 0.63], [0.24, 0.6], [0.001, 0.58]];
+    s.add(new THREE.LatheGeometry(v2s(prof), 20), (x, y) => (y > 0.25 && y < 0.31 ? pot2 : pot));
+    s.add(G.sphere(18, 10), (x, y) => hon.clone().lerp(hon2, clamp((y - 0.6) / 0.08, 0, 1)), [0, 0.6, 0], 0, [0.29, 0.075, 0.29]);
+    const rnd = mulberry32(4400);
+    for (let i = 0; i < 6; i++) {   // drips down the shoulder, each ending in a round drop
+      const a = i / 6 * TAU + rnd() * 0.5, L = 0.1 + rnd() * 0.2, ca = Math.cos(a), sa = Math.sin(a);
+      for (let t = 0; t <= 4; t++) { const y = 0.61 - L * t / 4, r = profR(prof.slice(0, 8), Math.max(0.25, y)) + 0.012; s.add(G.sphere(8, 6), hon, [ca * r, y, sa * r], 0, [0.032, 0.05, 0.032]); }
+      const y = 0.61 - L, r = profR(prof.slice(0, 8), Math.max(0.25, y)) + 0.025;
+      s.add(G.sphere(10, 8), hon2, [ca * r, y - 0.02, sa * r], 0, 0.045);
+    }
+    K.prop.seg([0.06, 0.55, 0.02], [0.3, 1.02, 0.12], 0.028, 0xd8b890, 0.024, 8);   // the dipper
+    K.prop.add(G.sphere(8, 6), 0xd8b890, [0.3, 1.03, 0.12], 0, 0.04);
+    return (R.geo.honey = buildKits(K));
+  }
+  // A giant strawberry, standing on its tip (glossy red, golden seeds in staggered rows, a green leafy crown) — local, ≈0.95 m tall
+  const SB_PROF = [[0.001, 0], [0.1, 0.05], [0.25, 0.2], [0.37, 0.43], [0.41, 0.62], [0.37, 0.79], [0.23, 0.9], [0.001, 0.93]];
+  function strawberryData() {
+    if (R.geo.sberry) return R.geo.sberry;
+    const K = kits('shiny', 'food'), red = new THREE.Color(0xe8323e), deep = new THREE.Color(0xc41e30), pale = new THREE.Color(0xf47a78);
+    K.shiny.add(new THREE.LatheGeometry(smoothProfile(SB_PROF, 14), 18), (x, y) => deep.clone().lerp(red, clamp(y / 0.4, 0, 1)).lerp(pale, clamp((y - 0.78) / 0.14, 0, 1) * 0.7));
+    for (let row = 0; row < 7; row++) {
+      const y = 0.1 + row * 0.105, r = profR(SB_PROF, y), n = Math.max(3, Math.round(r * 22));
+      for (let i = 0; i < n; i++) { const a = (i + (row % 2) * 0.5) / n * TAU; K.shiny.add(G.octa(), 0xfff0a0, [Math.cos(a) * r * 0.985, y, Math.sin(a) * r * 0.985], [0, -a, 0], [0.013, 0.024, 0.013]); }
+    }
+    for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; K.food.add(G.octa(), 0x4caa3c, [Math.cos(a) * 0.17, 0.9, Math.sin(a) * 0.17], [0, -a, -0.35], [0.2, 0.026, 0.075]); }
+    K.food.add(G.cyl(0.6, 1, 6), 0x5a9a3a, [0, 0.99, 0], 0, [0.025, 0.14, 0.025]);
+    return (R.geo.sberry = buildKits(K));
+  }
+  // Blueberries (0 one big berry · 1 a cluster of three): dusty blue with a little five-pointed crown
+  function blueberryData(v) {
+    const key = 'bberry' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('food'), b1 = new THREE.Color(0x3c4a9c), b2 = new THREE.Color(0x8290cc), dk = new THREE.Color(0x262c5c);
+    const berry = (x, y, z, r) => {
+      K.food.add(G.sphere(16, 12), (px, py) => b1.clone().lerp(b2, clamp((py - y) / r * 0.5 + 0.35, 0, 1) * 0.6), [x, y, z], 0, [r, r * 0.9, r]);
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; K.food.add(G.cone(4), dk, [x + Math.cos(a) * r * 0.15, y + r * 0.86, z + Math.sin(a) * r * 0.15], [0, -a, -1.2], [r * 0.07, r * 0.2, r * 0.07]); }
+    };
+    if (v === 0) berry(0, 0.33, 0, 0.36);
+    else { berry(-0.2, 0.25, 0.05, 0.27); berry(0.22, 0.22, 0.1, 0.24); berry(0.02, 0.2, -0.22, 0.22); }
+    return (R.geo[key] = buildKits(K));
+  }
+  // A glazed bowl of yogurt with strawberry halves, blueberries, a mint leaf and a honey swirl on top, a spoon in it
+  function bowlData(v) {
+    const key = 'bowl' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('shiny', 'yog', 'coin', 'food'), glaze = new THREE.Color([0x9ecbf0, 0xf6b8c8, 0xfff0b0, 0xc8e8c0][v % 4]), Wt = new THREE.Color(0xffffff), rnd = mulberry32(4500 + v);
+    const prof = [[0.001, 0], [0.22, 0], [0.26, 0.03], [0.42, 0.14], [0.56, 0.3], [0.62, 0.42], [0.6, 0.445], [0.56, 0.43], [0.52, 0.32], [0.4, 0.2], [0.001, 0.15]];
+    K.shiny.add(new THREE.LatheGeometry(v2s(prof), 24), (x, y) => (y > 0.4 ? Wt : glaze));
+    K.yog.add(G.sphere(20, 8), 0xfffcf6, [0, 0.37, 0], 0, [0.545, 0.055, 0.545]);
+    const red = new THREE.Color(0xe63a44), inner = new THREE.Color(0xfcc8c4);
+    for (let i = 0; i < 3; i++) {   // strawberry halves, cut face up
+      const a = i / 3 * TAU + 0.3, x = Math.cos(a) * 0.27, z = Math.sin(a) * 0.27, cx = x, cz = z;
+      K.shiny.add(G.hemi(12), red, [x, 0.44, z], [Math.PI, 0, 0], [0.11, 0.06, 0.13]);
+      K.shiny.add(R.geo.hole || (R.geo.hole = keep(new THREE.CircleGeometry(1, 12))), (px, py, pz) => inner.clone().lerp(red, Math.pow(clamp(Math.hypot((px - cx) / 0.11, (pz - cz) / 0.13), 0, 1), 3)), [x, 0.442, z], [-Math.PI / 2, 0, 0], [0.11, 0.13, 1]);
+    }
+    for (let i = 0; i < 5; i++) { const a = rnd() * TAU, r = 0.1 + rnd() * 0.3; K.food.add(G.sphere(10, 8), 0x3c4a9c, [Math.cos(a) * r, 0.44, Math.sin(a) * r], 0, [0.055, 0.05, 0.055]); }
+    K.food.add(G.octa(), 0x52b84a, [-0.05, 0.445, -0.02], [0, 0.6, 0], [0.12, 0.02, 0.05]); K.food.add(G.octa(), 0x62c858, [0.04, 0.45, -0.07], [0, -0.5, 0], [0.1, 0.02, 0.045]);
+    for (const [r, y] of [[0.19, 0.428], [0.1, 0.432]]) K.shiny.add(G.torus(TAU, 0.08, 20), 0xf6b020, [0.02, y, 0.03], [Math.PI / 2, 0, 0], [r, r, r * 0.7]);
+    K.coin.push([0.34, 0.46, 0.18], [0.35, 0.3, -0.75]);
+    K.coin.add(G.box(), 0xe6eaf0, [0, 0.24, 0], 0, [0.05, 0.48, 0.014]);
+    K.coin.add(G.sphere(12, 8), 0xe6eaf0, [0, -0.02, 0], 0, [0.075, 0.1, 0.025]);
+    K.coin.pop();
+    return (R.geo[key] = buildKits(K));
+  }
+  // Things bobbing in the milk (decor, uv 50 = bob; each item's phase goes into uv.y): cereal rings, blueberries, strawberry slices
+  const floatGeo = v => R.geo['float' + v] || (R.geo['float' + v] = [
+    () => marked(G.torus(TAU, 0.42, 16), 50), () => marked(G.sphere(12, 8), 50), () => marked(G.cyl(1, 1, 14), 50)][v]());
+  // White fence posts and rails (wood), little golden bells with a red bow
+  function bellData() {
+    if (R.geo.bell) return R.geo.bell;
+    const K = kits('coin', 'decor');
+    K.coin.add(new THREE.LatheGeometry(v2s([[0.001, 0.12], [0.03, 0.118], [0.045, 0.09], [0.058, 0.03], [0.075, 0.0], [0.07, -0.01], [0.001, 0.01]]), 14), 0xf6c040);
+    K.coin.add(G.sphere(8, 6), 0xd89a20, [0, -0.02, 0], 0, 0.022);
+    K.decor.add(G.octa(), 0xe84a5a, [-0.035, 0.14, 0], [0, 0, 0.5], [0.04, 0.025, 0.015]); K.decor.add(G.octa(), 0xe84a5a, [0.035, 0.14, 0], [0, 0, -0.5], [0.04, 0.025, 0.015]);
+    K.decor.add(G.sphere(6, 4), 0xd83a4a, [0, 0.14, 0], 0, 0.018);
+    return (R.geo.bell = buildKits(K));
+  }
+  // Biscuit bridges: Petit-Beurre planks (golden, toasted rim, rows of dots), wafer-roll rails, sandwich-cookie posts (a cherry on the end ones)
+  function biscuitData() {
+    if (R.geo.biscuit) return R.geo.biscuit;
+    const plank = new Kit(), gold = new THREE.Color(0xf2c878), toast = new THREE.Color(0xc98a3e), dot = new THREE.Color(0xb87834);
+    plank.add(G.rbox(1), (x, y, z) => gold.clone().lerp(toast, smooth01((Math.max(Math.abs(x) / 0.23, Math.abs(z) / 0.5) - 0.74) / 0.26)), [0, 0, 0], 0, [0.46, 0.035, 1.0]);
+    const dotG = R.geo.dot6 || (R.geo.dot6 = keep(new THREE.CircleGeometry(1, 6)));
+    for (let i = 0; i < 6; i++) for (const sx of [-0.1, 0.1]) plank.add(dotG, dot, [sx, 0.0185, (i - 2.5) * 0.15], [-Math.PI / 2, 0, 0], 0.018);
+    const wafer = new Kit(), wl = new THREE.Color(0xf6dca8), wd = new THREE.Color(0x8a5232);
+    wafer.add(G.cyl(1, 1, 12), (x, y, z) => (((Math.atan2(y, x) / TAU + z * 2.5) % 1 + 1) % 1 < 0.5 ? wl : wd), [0, 0, 0], [Math.PI / 2, 0, 0], [0.055, 1, 0.055]);
+    const post = new Kit(), ck = 0x6a3a22, cr = 0xfff4e4;
+    for (let i = 0; i < 3; i++) { post.add(G.cyl(1, 1, 18), ck, [0, 0.06 + i * 0.17, 0], 0, [0.17, 0.09, 0.17]); if (i < 2) post.add(G.cyl(1, 1, 18), cr, [0, 0.145 + i * 0.17, 0], 0, [0.15, 0.08, 0.15]); }
+    const cherry = new Kit();
+    cherry.add(G.sphere(14, 10), 0xe01c34, [0, 0.52, 0], 0, 0.1);
+    cherry.add(G.cyl(0.5, 1, 5), 0x4a8a3a, [0.03, 0.66, 0], [0, 0, -0.3], [0.012, 0.18, 0.012]);
+    return (R.geo.biscuit = { plank: keep(plank.build()), wafer: keep(wafer.build()), post: keep(post.build()), cherry: keep(cherry.build()) });
+  }
+  // The "Kefir Vadisi" / "Kefir Pınarı" sign board: cream wood with a cow-spotted frame, the name in round letters, a milk bottle
+  function signTex(text) {
+    const key = 'sign' + text;
+    return R.tex[key] || (R.tex[key] = canvasTex(512, 256, (g, w, h) => {
+      const rr = (x, y, ww, hh, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + ww, y, x + ww, y + hh, r); g.arcTo(x + ww, y + hh, x, y + hh, r); g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + ww, y, r); g.closePath(); };
+      g.fillStyle = '#f6efe2'; rr(0, 0, w, h, 38); g.fill();
+      g.save(); rr(0, 0, w, h, 38); g.clip();
+      const rnd = mulberry32(text.length * 97 + 5);
+      g.fillStyle = '#2e2a2c';
+      for (let i = 0; i < 26; i++) {   // cow spots around the frame
+        const side = i % 4, t = rnd(), x = side < 2 ? t * w : side === 2 ? rnd() * 34 : w - rnd() * 34, y = side === 0 ? rnd() * 30 : side === 1 ? h - rnd() * 30 : t * h;
+        g.beginPath(); g.ellipse(x, y, 14 + rnd() * 22, 10 + rnd() * 14, rnd() * 3, 0, TAU); g.fill();
+      }
+      g.restore();
+      g.fillStyle = '#fffaf0'; rr(30, 30, w - 60, h - 60, 26); g.fill();
+      g.lineWidth = 5; g.strokeStyle = '#f2a0b8'; rr(30, 30, w - 60, h - 60, 26); g.stroke();
+      // a little kefir bottle on the left
+      g.fillStyle = '#e4f0f6'; rr(64, 78, 44, 104, 14); g.fill(); g.fillRect(76, 58, 20, 26);
+      g.fillStyle = '#fff4dc'; rr(64, 108, 44, 74, 14); g.fill();
+      g.fillStyle = '#7ac48c'; g.fillRect(73, 50, 26, 12);
+      g.fillStyle = '#f7a8c0'; g.fillRect(64, 128, 44, 22);
+      g.fillStyle = '#3a2418'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const words = text.split(' ');
+      g.font = 'bold 68px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
+      g.fillText(words[0], w / 2 + 38, h / 2 - 34);
+      g.font = 'bold 60px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
+      g.fillText(words.slice(1).join(' '), w / 2 + 38, h / 2 + 36);
+      g.fillStyle = '#f28aa8';
+      for (const [x, y] of [[430, 60], [455, 200], [140, 205]]) { g.beginPath(); g.arc(x, y, 7, 0, TAU); g.fill(); }
+    }));
+  }
+  // Posts, back plank, cow spots, bells (decor chunks) now; the painted board itself after fixReach (finishSigns), if its solid stayed
+  function makeSign(L, B, x, z, text, yaw = 0, solid = true) {
+    const M = mat4(x, 0, z, yaw), put = (mk2, geo, m, col) => dec(B, mk2, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+    const vis = [];
+    vis.push(put('prop', G.box(), mat4(0, 1.3, -0.01, 0, 1.74, 0.92, 0.07, -0.08), lin(0xf0dcc0)));   // the back plank
+    for (const sx of [-0.72, 0.72]) {
+      vis.push(put('prop', G.cyl(1, 1, 10), mat4(sx, 0.9, -0.06, 0, 0.065, 1.8, 0.065), lin(0xfbf6ee)));
+      for (let i = 0; i < 3; i++) vis.push(put('decor', G.sphere(8, 6), mat4(sx + (i - 1) * 0.02, 0.35 + i * 0.3, -0.0, i * 1.7, 0.05, 0.07, 0.02), lin(0x2e2a2c)));   // cow spots on the posts
+      vis.push(put('coin', G.sphere(10, 8), mat4(sx, 1.82, -0.06, 0, 0.07), lin(0xf6c040)));
+    }
+    const bl = bellData();
+    for (const k in bl) vis.push(put(k, bl[k], mat4(0.62, 0.72, 0.05, 0), null));
+    const so = solid ? propSolid(L, x - Math.sin(yaw) * 0.05, z - Math.cos(yaw) * 0.05, 0.78, 'sign', vis) : null;
+    B.signs.push({ x, z, text, yaw, so });
+    return so;
+  }
+  function finishSigns(L, B) {
+    for (const sg of B.signs || []) {
+      if (sg.so && !L.solids.includes(sg.so)) continue;   // taken out by fixReach (its posts went with it)
+      const mk = 'sign-' + sg.text, bm = R.mat[mk] || (R.mat[mk] = keep(new THREE.MeshStandardMaterial({ map: signTex(sg.text), roughness: 0.72, metalness: 0 })));
+      const board = new THREE.Mesh(R.geo.signBoard || (R.geo.signBoard = keep(new THREE.PlaneGeometry(1.62, 0.81))), bm);
+      board.position.set(sg.x + Math.sin(sg.yaw) * 0.03, 1.3, sg.z + Math.cos(sg.yaw) * 0.03); board.rotation.set(-0.08, sg.yaw, 0, 'YXZ');
+      board.receiveShadow = true; board.name = 'sign';
+      B.g.add(board);
+    }
+  }
+  // A cow-patterned mailbox on a post, its little red flag up
+  function mailboxData() {
+    if (R.geo.mailbox) return R.geo.mailbox;
+    const K = kits('decor', 'prop'), d = K.decor;
+    K.prop.add(G.box(), 0xf0dcc0, [0, 0.45, 0], 0, [0.1, 0.9, 0.1]);
+    d.add(G.rbox(), 0xfbf8f2, [0, 1.0, 0], 0, [0.36, 0.3, 0.56]);
+    d.add(halfCyl(), 0xfbf8f2, [0, 1.14, 0], [Math.PI / 2, 0, Math.PI / 2], [0.18, 0.56, 0.18]);
+    const rnd = mulberry32(4601);
+    for (let i = 0; i < 7; i++) { const sd = i % 2 ? 1 : -1, y = 0.92 + rnd() * 0.25, z = (rnd() - 0.5) * 0.44; d.add(G.sphere(8, 6), 0x2e2a2c, [sd * 0.181, y, z], 0, [0.006, 0.05 + rnd() * 0.04, 0.06 + rnd() * 0.05]); }
+    d.add(G.box(), 0xe84a5a, [0.2, 1.12, -0.1], 0, [0.02, 0.2, 0.03]); d.add(G.box(), 0xe84a5a, [0.2, 1.2, -0.02], 0, [0.02, 0.08, 0.14]);
+    d.add(G.sphere(8, 6), 0xf4c8a0, [0, 1.02, 0.285], 0, [0.05, 0.05, 0.01]);   // the door knob
+    return (R.geo.mailbox = buildKits(K));
+  }
+  // A cute smiling cow grazing on the meadow (the valley's milk comes from somewhere): white with black patches, a pink muzzle, big
+  // shiny eyes, little horns, a golden bell on a red collar. Local: facing +z, ≈1.3 m long, 1.35 m to the horn tips. v 1: head a bit lower.
+  // split: the head (with its collar and bell) and the tail as separate geometries round their pivots (the neck, the tail root) for the
+  // few animated cows → { body: {shiny}, head, tail, neck: [x, y, z], tailAt: [x, y, z] }
+  function cowData(v, split) {
+    const key = 'cow' + v + (split ? 's' : '');
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('shiny', 'coin'), k = K.shiny, W0 = new THREE.Color(0xfbf8f2), BK = new THREE.Color(0x34302e), PK = new THREE.Color(0xf7b6c0), HOOF = 0x6a5a52;
+    const spots = [[0.3, 0.86, 0.12, 0.2], [-0.36, 0.72, -0.24, 0.24], [0.08, 0.98, -0.42, 0.2], [-0.24, 0.6, 0.34, 0.16], [0.4, 0.58, -0.3, 0.15]];
+    const patch = (x, y, z) => spots.some(q => Math.hypot(x - q[0], (y - q[1]) * 1.2, z - q[2]) < q[3]) ? BK : W0;
+    k.add(G.sphere(22, 16), patch, [0, 0.74, 0], 0, [0.42, 0.37, 0.62]);   // the body
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      k.add(G.cyl(0.9, 1, 10), (x, y) => (y < 0.09 ? new THREE.Color(HOOF) : W0), [sx * 0.21, 0.24, sz * 0.36], 0, [0.085, 0.48, 0.085]);
+    }
+    k.add(G.sphere(12, 8), PK, [0, 0.42, -0.16], 0, [0.13, 0.08, 0.15]);   // udder
+    const hy = v ? 0.92 : 1.04, hz = v ? 0.66 : 0.6, rx = v ? 0.35 : 0.1;
+    const NK = split ? [0, hy - 0.16, hz - 0.3] : [0, 0, 0], TL = split ? [0, 0.95, -0.58] : [0, 0, 0];   // pivots: the neck (inside the body's front), the tail root
+    const kh = split ? new Kit() : k, kb = split ? kh : K.coin, kt = split ? new Kit() : k;
+    kh.push([-NK[0], hy - NK[1], hz - NK[2]], [rx, 0, 0]);
+    kh.add(G.sphere(20, 14), (x, y, z) => (Math.hypot(x + NK[0] - 0.12, y + NK[1] - hy - 0.1, z + NK[2] - hz) < 0.1 ? BK : W0), [0, 0, 0], 0, [0.27, 0.25, 0.27]);   // head (one patch round an eye)
+    kh.add(G.sphere(18, 12), PK, [0, -0.08, 0.2], 0, [0.22, 0.14, 0.15]);   // muzzle
+    for (const sx of [-1, 1]) {
+      kh.add(G.sphere(8, 6), 0x9a5a64, [sx * 0.07, -0.05, 0.345], 0, [0.025, 0.035, 0.012]);   // nostrils
+      kh.add(G.sphere(14, 10), 0xffffff, [sx * 0.105, 0.08, 0.215], 0, [0.075, 0.085, 0.05]);   // big eyes
+      kh.add(G.sphere(12, 8), 0x2a1c18, [sx * 0.1, 0.075, 0.255], 0, [0.05, 0.06, 0.03]);
+      kh.add(G.sphere(8, 6), 0xffffff, [sx * 0.1 + 0.018, 0.1, 0.28], 0, 0.015);   // glints
+      kh.add(G.sphere(8, 6), 0xf8a0b0, [sx * 0.19, -0.02, 0.18], 0, [0.05, 0.03, 0.02]);   // blush
+      kh.add(G.sphere(10, 8), (x, y, z) => (Math.abs(x + NK[0]) > 0.33 ? PK : W0), [sx * 0.29, 0.08, -0.02], [0, 0, sx * 0.5], [0.11, 0.05, 0.07]);   // ears
+      kh.add(G.cone(8), 0xf6ead0, [sx * 0.13, 0.25, -0.02], [0, 0, -sx * 0.5], [0.035, 0.12, 0.035]);   // little horns
+    }
+    kh.add(G.torus(Math.PI * 0.7, 0.18, 12), 0x5a2a30, [0, -0.1, 0.345], [0, 0, Math.PI * 1.15], [0.07, 0.05, 0.05]);   // a smile
+    kh.add(G.torus(TAU, 0.14, 16), 0xe84a5a, [0, -0.2, -0.04], [1.3, 0, 0], [0.2, 0.2, 0.2]);   // collar
+    kh.pop();
+    kb.push([-NK[0], hy - (v ? 0.36 : 0.37) - NK[1], hz + (v ? 0.1 : 0.05) - NK[2]], [rx, 0, 0]);   // the bell (animated cows: on the glossy head mesh)
+    kb.add(new THREE.LatheGeometry(v2s([[0.001, 0.12], [0.03, 0.118], [0.045, 0.09], [0.058, 0.03], [0.075, 0.0], [0.07, -0.01], [0.001, 0.01]]), 12), 0xf6c040, [0, 0, 0], 0, 1.1);
+    kb.pop();
+    kt.seg([-TL[0], 0.95 - TL[1], -0.58 - TL[2]], [0.06 - TL[0], 0.5 - TL[1], -0.72 - TL[2]], 0.022, W0, 0.018, 6);   // tail
+    kt.add(G.sphere(8, 6), BK, [0.065 - TL[0], 0.46 - TL[1], -0.73 - TL[2]], 0, [0.05, 0.08, 0.05]);
+    if (split) return (R.geo[key] = { body: buildKits({ shiny: k }), head: keep(kh.build()), tail: keep(kt.build()), neck: NK, tailAt: TL });
+    return (R.geo[key] = buildKits(K));
+  }
+  // A few cows come alive (the paddock cow and at most one near the route): head and tail as two small meshes on a group (+2 draw calls
+  // each). The head nods, dips to graze every 4–7 s, the tail swishes; when Feza comes within 3.5 m she turns her head to him once, a
+  // little cheer of hearts pops over her and (rarely, ≥ 20 s apart) she moos
+  let mooAt = -99;
+  function liveCow(B, x, z, yaw, s, v) {
+    const D = cowData(v, true), vis = putD(B, D.body, mat4(x, 0, z, yaw, s));
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.set(0, yaw, 0, 'YXZ'); g.scale.setScalar(s); g.name = 'cow';
+    const head = new THREE.Mesh(D.head, R.mat.shiny), tail = new THREE.Mesh(D.tail, R.mat.shiny);
+    head.position.set(...D.neck); tail.position.set(...D.tailAt); head.rotation.order = 'YXZ';
+    head.castShadow = tail.castShadow = true; head.receiveShadow = true;
+    g.add(head, tail); B.g.add(g);
+    const c = { x, z, yaw, s, head, tail, ph: Math.random() * TAU, dipT: 2 + Math.random() * 4, dip: 0, look: 0, lookT: 0, near: false, cheered: 0, vis };
+    (B.cows || (B.cows = [])).push(c);
+    if (B.cows.length === 1) B.anim.push((dt, hx, hz) => {
+      const t = TIME.t;
+      for (const q of B.cows) {
+        const dx = hx - q.x, dz = hz - q.z, d = Math.hypot(dx, dz);
+        if (d < 3.5 && !q.near) {   // Feza came over: look at him (once per visit), a little cheer, now and then a moo
+          q.near = true; q.lookT = 3.2; q.cheered++;
+          if (typeof FX !== 'undefined' && FX.burst) FX.burst('cheer', q.x, 1.6 * q.s, q.z, { scale: 0.35 });
+          if (typeof AUD !== 'undefined' && AUD.sfx && !AUD.current && t - mooAt > 20) { mooAt = t; AUD.sfx('moo', { x: q.x, z: q.z, vol: 0.9 }); }   // (never over the narrator)
+        } else if (d > 6) q.near = false;
+        if (d > 30) continue;   // (far away: no animation work)
+        q.lookT = Math.max(0, q.lookT - dt);
+        let want = 0;
+        if (q.lookT > 0) { let a = Math.atan2(dx, dz) - q.yaw; a = Math.atan2(Math.sin(a), Math.cos(a)); want = clamp(a, -0.75, 0.75); }
+        q.look += (want - q.look) * Math.min(1, dt * 4);
+        if ((q.dipT -= dt) <= 0 && q.lookT <= 0) { q.dipT = 4 + Math.random() * 3; q.dip = 2.2; }   // bend down to graze now and then
+        const gz = q.dip > 0 ? Math.sin(Math.PI * Math.min(1, (2.2 - q.dip) / 2.2)) : 0; q.dip = Math.max(0, q.dip - dt);
+        q.head.rotation.x = 0.07 * Math.sin(1.3 * t + q.ph) + 0.6 * gz * (q.lookT > 0 ? 0 : 1);
+        q.head.rotation.y = q.look;
+        q.tail.rotation.z = 0.35 * Math.sin(3 * t + q.ph);
+      }
+    });
+    return vis;
+  }
+  // Milk waterfalls: glossy creamy ribbons pouring into the milk (same ribbon mesh as the lavafalls): warm bright white, broad soft
+  // streaks sliding down, rounder in the middle, a glossy highlight running down the centre
+  const MILKFALL_FS = `uniform float uTime, fogNear, fogFar; uniform vec3 fogColor; uniform sampler2D tNoise; varying vec2 vF; varying float vFogD;
+    void main() {
+      float x = vF.x, v = vF.y;   // x: 0..1 across · v: metres down from the lip (+ a phase)
+      float e = smoothstep(0.0, 0.16, x) * smoothstep(1.0, 0.84, x);
+      float s1 = texture2D(tNoise, vec2(x * 1.1 + 0.3, v * 0.12 - uTime * 0.55)).g, s2 = texture2D(tNoise, vec2(x * 2.3 + 0.7, v * 0.2 - uTime * 0.95)).b;
+      if (e * (0.85 + 0.4 * s1) < 0.3) discard;   // a soft wobbly edge
+      vec3 col = vec3(1.0, 0.985, 0.955) * (0.84 + 0.12 * s2 + 0.08 * sin(x * 3.14159));   // broad soft streaks, a rounded pour
+      float hi = smoothstep(0.15, 0.0, abs(x - 0.42 - 0.05 * sin(v * 2.1 - uTime * 3.0))) * (0.55 + 0.45 * s1);
+      col += vec3(0.15, 0.16, 0.17) * hi;   // the glossy highlight running down
+      col *= mix(0.86, 1.0, e);
+      col = mix(col, fogColor, smoothstep(fogNear, fogFar, vFogD));
+      gl_FragColor = vec4(col, 1.0);
+      #include <colorspace_fragment>
+    }`;
+  function milkfallMat() {
+    return R.mat.milkfall || (R.mat.milkfall = keep(new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uTime: TIME.u, tNoise: { value: texOK() && TEX.noise ? TEX.noise : blackTex() } }, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)),
+      vertexShader: LAVAFALL_VS, fragmentShader: MILKFALL_FS, side: THREE.DoubleSide, fog: true,
+    })));
+  }
+  // Giant props that stand on the ground (outside or inside the rooms): footprint radius / top at scale 1, weight
+  const DPROP = [
+    { id: 'cheese0', r: 1.0, h: 0.56, w: 3, d: () => cheeseData(0) }, { id: 'cheese1', r: 1.6, h: 0.56, w: 2, out: 1, d: () => cheeseData(1) },
+    { id: 'cheese2', r: 0.95, h: 0.66, w: 2.5, d: () => cheeseData(2) }, { id: 'cheese3', r: 0.66, h: 0.72, w: 2, d: () => cheeseData(3) },
+    { id: 'butter', r: 0.6, h: 0.62, w: 1.2, d: butterData }, { id: 'pots0', r: 0.36, h: 0.72, w: 1, d: () => potData(0) },
+    { id: 'pots1', r: 0.66, h: 1.2, w: 2, d: () => potData(1) }, { id: 'pots2', r: 0.36, h: 1.2, w: 1.2, d: () => potData(2) },
+    { id: 'pots3', r: 0.98, h: 1.7, w: 1.2, d: () => potData(3) }, { id: 'gugum', r: 0.44, h: 1.1, w: 2.2, d: gugumData },
+    { id: 'yayik', r: 0.36, h: 1.72, w: 1.3, d: yayikData }, { id: 'bottles0', r: 0.45, h: 1.12, w: 1.6, d: () => bottleData(0) },
+    { id: 'bottles1', r: 0.66, h: 0.9, w: 1.2, d: () => bottleData(1) }, { id: 'bottles2', r: 0.7, h: 1.45, w: 1.2, d: () => bottleData(2) },
+    { id: 'honey', r: 0.42, h: 1.05, w: 1.8, d: honeyData }, { id: 'sberry', r: 0.45, h: 1.02, w: 2.2, d: strawberryData },
+    { id: 'bberry0', r: 0.38, h: 0.66, w: 1.2, d: () => blueberryData(0) }, { id: 'bberry1', r: 0.5, h: 0.5, w: 1.5, d: () => blueberryData(1) },
+    { id: 'bowl', r: 0.64, h: 0.62, w: 1.8, d: v => bowlData(v || 0) },
+  ];
+  const DPROP_W = DPROP.map(p => p.w);
+  function buildDairy(L, B) {
+    const rnd = B.rnd, W = L.W, H = L.H, grid = L.grid, dW = L.dWall, V = L._dairy || dairyField(L), M = L._mask;
+    const dF = L._dF = chamfer(W, H, grid, 1);
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const wpickA = w => { let t = 0; for (const x of w) t += x; let r = rnd() * t; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) return i; } return w.length - 1; };
+    const liqAt = (x, z) => V.lava[clamp(Math.floor(z * V.P), 0, V.MH - 1) * V.MW + clamp(Math.floor(x * V.P), 0, V.MW - 1)];
+    const nearLiq = (x, z, r) => { let m = liqAt(x, z); for (let k = 0; k < 8; k++) m = Math.max(m, liqAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; };
+    const nearLiqMin = (x, z, r) => { let m = liqAt(x, z); for (let k = 0; k < 8; k++) m = Math.min(m, liqAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; };
+    const cellOf = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i < 0 || j < 0 || i >= W || j >= H ? -1 : j * W + i; };
+    const maskAt = (x, z, ch) => { const px = clamp(Math.floor(x * MPX), 0, M.W - 1), py = clamp(Math.floor(z * MPX), 0, M.H - 1); return M.data[(py * M.W + px) * 4 + ch] / 255; };
+    const gapAt = (x, z) => southGap(L, x, z), capAt = g => southCap(g, 0.62, 1.0);
+    const ar = V.arena, inArena = (x, z, pad = 0) => !!ar && inRoom(ar, x, z, pad);
+    const bridgeD = (x, z) => { let d = 1e9; for (const b of V.bridges) for (const q of b.pts) d = Math.min(d, hyp(q.x - x, q.z - z)); return d; };
+    const busy = (x, z, pad) => (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3.4 + pad) || L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 2.4 + pad) ||
+      L.chests.some(q => hyp(q.x - x, q.z - z) < 1.3 + pad) || L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + pad) || (L.start && hyp(L.start.x - x, L.start.z - z) < 1.5 + pad) ||
+      (L.boss && hyp(L.boss.x - x, L.boss.z - z) < 4 + pad);
+    const RS = L.dairyDecor = { hills: 0, swirls: 0, toppings: 0, fill: 0, props: 0, inRoom: 0, floats: 0, islets: 0, fences: 0, bells: 0, meadow: 0, falls: 0,
+      bridges: V.bridges.length, bubbles: 0, sign: 0, arena: 0, spots: [] };   // for tests / debugging
+    const taken = [];   // big things placed so far: {x, z, r}
+    const clear = (x, z, r) => taken.every(q => hyp(q.x - x, q.z - z) >= q.r + r);
+    const hillTint = v => lin(pick(v === 2 ? SWIRL_TINT : HILL_TINT), v === 2 ? 1.1 + rnd() * 0.05 : 0.96 + rnd() * 0.06);   // swirls: bright white or pastel only (never a brownish cream)
+    // one yogurt hill (instanced): width s, depth sz, height factor sy; returns its apex
+    const hl = [];   // hills placed so far {x, z, r}
+    const hill = (x, z, s, sy, sz, v) => {
+      if (v === undefined) v = rnd() < 0.15 ? 2 : rnd() < 0.5 ? 1 : 0;
+      if (v !== 3) hl.push({ x, z, r: Math.max(s, sz) });
+      const m = mat4(x, -0.04 * sy, z, rnd() * TAU, s, sy, sz);
+      dec(B, 'yog', dollopGeo(v), m, hillTint(v));   // merged per chunk with everything else made of yogurt (one draw call)
+      if (v !== 3) dec(B, 'yogSh', dollopLo(v), m, null);   // its shadow comes from a low-poly stand-in
+      if (v === 2) {   // a glossy cherry on the soft-serve's top
+        const rc = 0.1 * Math.max(0.6, Math.min(s, sz)), cy = 0.96 * sy + rc * 0.75;
+        dec(B, 'shiny', G.sphere(12, 8), mat4(x, cy, z, 0, rc, rc * 0.92, rc), lin(0xe0182e));
+        dec(B, 'shiny', G.cyl(0.5, 1, 5), mat4(x + rc * 0.2, cy + rc * 1.3, z, 0, rc * 0.12, rc * 1.4, rc * 0.12, 0, -0.35), lin(0x4a8a3a));
+      }
+      if (v === 2) RS.swirls++; else if (v !== 3) RS.hills++; else RS.fill++;
+      return { x, y: (DOLLOP_TOP[v] - 0.04) * sy, z, v };
+    };
+    // a topping on a hill's crown: a strawberry, blueberries, or a honey pot sunk in
+    const topping = (ap, s, capH) => {
+      const roll = rnd(), ry = rnd() * TAU;
+      if (roll < 0.5 && ap.y + 0.95 * s * 0.5 <= capH) { const D = strawberryData(); putD(B, D, mat4(ap.x, ap.y - 0.08 * s, ap.z, ry, s * 0.5, s * 0.5, s * 0.5, 0.2, 0.15)); }
+      else if (ap.y + 0.5 * s * 0.55 <= capH) { const D = blueberryData(1); putD(B, D, mat4(ap.x, ap.y - 0.1 * s, ap.z, ry, s * 0.55)); }
+      else return;
+      RS.toppings++;
+    };
+
+    const fenceRun = (run, a) => {   // run: [{x, z}] posts ≤ 2.3 m apart
+      if (run.length < 2) return 0;
+      const white = lin(0xfdf8f0);
+      run.forEach((q, i) => {
+        dec(B, 'shiny', G.rbox(1), mat4(q.x, 0.36, q.z, a, 0.11, 0.72, 0.11), white);   // white painted posts with little pointed tops
+        dec(B, 'shiny', G.cone(4), mat4(q.x, 0.78, q.z, Math.PI / 4 + a, 0.1, 0.13, 0.1), white);
+        taken.push({ x: q.x, z: q.z, r: 0.3 }); RS.fences++;
+        if (!i) return;
+        const p = run[i - 1], l = hyp(q.x - p.x, q.z - p.z), ya = Math.atan2(q.x - p.x, q.z - p.z), mx = (q.x + p.x) / 2, mz = (q.z + p.z) / 2;
+        for (const y of [0.3, 0.6]) dec(B, 'shiny', G.box(), mat4(mx, y, mz, ya, 0.05, 0.09, l), lin(0xf6eee4));
+        if (i % 2 === 1) { putD(B, bellData(), mat4(mx, 0.38, mz, ya + Math.PI / 2, 1.3)); RS.bells++; if (RS.bells === 1) RS.spots.push({ id: 'fence', x: mx, z: mz }); }
+      });
+      return run.length;
+    };
+    // A milk waterfall's cliff and splash: a big dollop behind the lip, smaller ones at its sides, a creamy rounded roll where the milk
+    // pours over, a foam cushion and fizz at its foot. (dx, dz): from the milk into the cliff; h: the fall's height
+    // The milk pours out of a giant tipped güğüm (every other fall: a big kefir bottle) lying on the cliff dollop, its mouth at the lip;
+    // → the mouth's width (the ribbon starts that narrow), or 0 where even a small one would hide floor (then a creamy rounded lip)
+    let pours = 0;
+    const pourSource = (lx, lz, dx, dz, h) => {
+      const jug = pours % 2 === 0, el = 0.26;   // the axis ~15° above level (tipped ~75° over), the mouth toward the milk and the camera
+      const ax = new THREE.Vector3(-dx * Math.cos(el), Math.sin(el), -dz * Math.cos(el)).normalize();
+      const up = new THREE.Vector3(0, 1, 0).addScaledVector(ax, -ax.y).normalize(), zz = new THREE.Vector3().crossVectors(up, ax);
+      const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(up, ax, zz));   // (the güğüm's handle on top)
+      const mY = jug ? 0.975 : 0.845, mR = jug ? 0.2 : 0.085, bY = jug ? 0.41 : 0.3, bR = jug ? 0.41 : 0.175, ce = Math.cos(el);
+      for (const s of jug ? [1.5, 1.3, 1.1] : [2.4, 2.1, 1.8]) {
+        const mc = new THREE.Vector3(lx, h + 0.02, lz).addScaledVector(up, mR * s * 0.85), base = mc.clone().addScaledVector(ax, -mY * s);
+        const belly = base.clone().addScaledVector(ax, bY * s), mid = base.clone().addScaledVector(ax, mY * s * 0.5);
+        const top = Math.max(belly.y + bR * s * ce, mc.y + mR * s * ce, jug ? base.y + 0.66 * s * ax.y + 0.42 * s * up.y : 0);
+        if (hides(L, mid.x, mid.z, 0.55 * s + mY * s * 0.35, 0, top, 0.1)) continue;
+        putD(B, jug ? gugumPourData() : bottlePourData(2 + (pours >> 1) % 2), new THREE.Matrix4().compose(base, q, new THREE.Vector3(s, s, s)));
+        pours++; RS.pours = pours;
+        return mR * s * 2;
+      }
+      return 0;
+    };
+    const placeFallCliff = (x, z, dx, dz, h, w) => {
+      const bx = x + dx * 1.9, bz = z + dz * 1.9;
+      hill(bx, bz, 1.9, h + 0.35, 1.7, 1); taken.push({ x: bx, z: bz, r: 1.9 });
+      for (const sd of [-1, 1]) { const px = bx - dz * sd * 1.9 - dx * 0.2, pz = bz + dx * sd * 1.9 - dz * 0.2; if (!hides(L, px, pz, 1.3, 0, (h + 0.1) * 0.85, 0.15)) hill(px, pz, 1.5, (h + 0.1) * (0.7 + rnd() * 0.2), 1.4, rnd() < 0.5 ? 2 : 0); }
+      const lx = x + dx * 1.28, lz = z + dz * 1.28;   // the pour lip (the ribbon's top is 1.3 m back)
+      const mw = pourSource(lx, lz, dx, dz, h);
+      // a glossy tongue of milk where it leaves the mouth (without a jug: the creamy rounded roll where it pours over the cliff)
+      if (mw) dec(B, 'gloss', G.sphere(12, 6), mat4(lx - dx * 0.04, h + 0.01, lz - dz * 0.04, Math.atan2(dx, dz), mw * 0.5, 0.07, 0.16), lin(0xfffaf0));
+      else dec(B, 'gloss', G.sphere(16, 8), mat4(lx, h - 0.02, lz, Math.atan2(dx, dz), w * 0.56, 0.13, 0.24), lin(0xfffaf0));
+      for (let k = 0; k < 7; k++) {   // the foam cushion: bright glossy bubbly blobs where the milk lands
+        const a = rnd() * TAU, r = k ? 0.3 + rnd() * 0.45 : 0, sc = k ? 0.16 + rnd() * 0.14 : 0.42;
+        dec(B, 'gloss', G.sphere(12, 6), mat4(x - dx * 0.25 + Math.cos(a) * r, -0.02, z - dz * 0.25 + Math.sin(a) * r * 0.7, 0, sc * 1.2, sc * 0.55, sc), lin(0xffffff, 1.05));
+      }
+      for (let p = 0; p < 12; p++) B.pts.norm.push({ x: x - dx * 0.4 + (rnd() - 0.5) * 1.1, y: 0.03, z: z - dz * 0.4 + (rnd() - 0.5) * 0.7, kind: 10, ph: rnd(), size: 0.12 + rnd() * 0.08, prm: 0.35 + rnd() * 0.3, col: lin(0xffffff, 1.08) });
+      return mw;
+    };
+    // Where a waterfall could pour toward the camera in a window [x0,x1]×[z0,z1]: the milk's edge with meadow behind it (northward),
+    // hiding no floor; the best spot is the closest to (tx, tz). → {x, z, nx, nz, h} or null
+    const fallSpot = (x0, x1, z0, z1, tx, tz, tries = 1500) => {
+      let best = null;
+      for (let t = 0; t < tries; t++) {
+        const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
+        if (liqAt(x, z) < 0.9 || nearLiqMin(x, z, 0.5) < 0.8 || (ar && inArena(x, z, 7))) continue;
+        for (let k = 0; k < 7; k++) {
+          const a = -Math.PI / 2 + (k - 3) * 0.35, nx = Math.cos(a), nz = Math.sin(a);
+          let d = 0.3;
+          while (d < 3 && liqAt(x + nx * d, z + nz * d) > 0.1) d += 0.2;
+          if (d >= 3) continue;
+          const bx = x + nx * (d - 0.25), bz = z + nz * (d - 0.25), hx = bx + nx * 1.9, hz = bz + nz * 1.9, c1 = cellOf(hx, hz), c2 = cellOf(bx + nx * 0.8, bz + nz * 0.8);
+          if (c1 < 0 || c2 < 0 || grid[c1] || grid[c2] || liqAt(hx, hz) > 0.1 || !clear(hx, hz, 1.6) || !clear(bx, bz, 0.8) || bridgeD(bx, bz) < 2.2 || B.falls.some(f => hyp(f.x - bx, f.z - bz) < 6)) continue;
+          if (hl.some(q => hyp(q.x - hx, q.z - hz) < q.r * 0.6)) continue;
+          let h = 2.2;
+          while (h > 1.2 && (hides(L, bx, bz, 0.8, 0, h + 0.5, 0.1) || hides(L, hx, hz, 1.6, 0, h + 0.4, 0.15))) h -= 0.25;
+          if (h <= 1.2) continue;
+          const sc = hyp(bx - tx, bz - tz) + Math.abs(a + Math.PI / 2) * 2 - h + rnd() * 0.5;
+          if (!best || sc < best.sc) best = { x: bx, z: bz, nx, nz, h, sc };
+        }
+      }
+      return best;
+    };
+    const addFall = (f, route) => {
+      const w = 1.1 + rnd() * 0.35, F = { x: f.x, z: f.z, yaw: Math.atan2(-f.nx, -f.nz), h: f.h, w, ph: rnd() * 5, route };
+      B.falls.push(F);
+      const mw = placeFallCliff(f.x, f.z, f.nx, f.nz, f.h, w);
+      if (mw) F.wt = mw * 1.15;   // the ribbon starts as wide as the mouth it pours from
+      RS.falls++;
+    };
+    // 00. the arrival, staged like a postcard (first, so the hills and props fill in round it): the "Kefir Vadisi" sign ~4 m
+    // north-west of the start, fully in the first view, with the cow mailbox and a crate of milk bottles at its sides; a cow in a
+    // little paddock (white fence arc with bells) on the meadow behind it, and a milk waterfall pouring into the milk nearby
+    {
+      const S = L.rooms[0], sx0 = L.start.x, sz0 = L.start.z;
+      const signOK = (x, z, hid, lk = 2.2) => { const c = cellOf(x, z); return c >= 0 && grid[c] && dW[c] >= 0.75 && hiddenBehind(L, x, z, 0.9, 2.1) <= hid && linkDist(L, x, z) >= lk &&
+        !L.path.some(p => hyp(p.x - x, p.z - z) < 2.0) && !busy(x, z, 1.2) && gapOKL(L, x, z, 0.8); };
+      let best = null;
+      for (let t = 0; t < 900; t++) {   // in the first view: 3–5.5 m north of the start, best a little to the west
+        const x = sx0 - 5.2 + rnd() * 10.4, z = sz0 - 5.5 + rnd() * 2.6;
+        if (!signOK(x, z, 3, 1.8)) continue;
+        const k = Math.abs(z - (sz0 - 4.1)) + Math.abs(x - (sx0 - 2.3)) * 0.35 + hiddenBehind(L, x, z, 0.9, 2.1) * 0.4 + rnd() * 0.2;
+        if (!best || k < best.k) best = { x, z, k };
+      }
+      if (!best) for (let t = 0; t < 500; t++) {   // else against the start room's north wall (hides nothing)
+        const a = -Math.PI / 2 + (rnd() - 0.5) * 2.4, dd = S.r * (0.45 + rnd() * 0.75), x = S.x + Math.cos(a) * dd, z = S.z + Math.sin(a) * dd;
+        if (z > sz0 - 2.2 || !signOK(x, z, 0)) continue;
+        const k = hyp(x - sx0, z - sz0) * 0.25 + Math.abs(x - sx0) * 0.15 + rnd() * 0.3;
+        if (!best || k < best.k) best = { x, z, k };
+      }
+      if (!best) {   // just north of the start room, off the floor
+        let r = 1;
+        while (r < 14 && isFloor(L, sx0, sz0 - r)) r += 0.25;
+        best = { x: sx0 + 0.4, z: sz0 - r - 0.9 };
+        makeSign(L, B, best.x, best.z, 'Kefir Vadisi', 0, false);
+      } else makeSign(L, B, best.x, best.z, 'Kefir Vadisi', 0, true);
+      RS.sign = { x: best.x, z: best.z };
+      taken.push({ x: best.x, z: best.z, r: 1.2 });
+      for (const sd of [1, -1]) {   // the mailbox and a milk crate at its sides, where there is room
+        const x = best.x + sd * 1.35, z = best.z + 0.1, c = cellOf(x, z);
+        if (c < 0 || (grid[c] ? !gapOKL(L, x, z, 0.4) || L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + 0.5) || L.path.some(p => hyp(p.x - x, p.z - z) < 1.8) || linkDist(L, x, z) < 2 : nearLiq(x, z, 0.5) > 0.1)) continue;
+        const D = sd > 0 ? mailboxData() : bottleData(1), vis = putD(B, D, mat4(x, 0, z, sd > 0 ? -0.3 : 0.2));
+        if (grid[c]) propSolid(L, x, z, sd > 0 ? 0.32 : 0.55, 'dairy', vis);
+        taken.push({ x, z, r: 0.5 });
+      }
+      // the cow in her paddock: on the meadow behind the sign (north / west of it), in view, never hiding floor
+      let cow = null;
+      for (let t = 0; t < 900; t++) {
+        const x = best.x - 7 + rnd() * 11, z = best.z - 6.5 + rnd() * 5.5, c = cellOf(x, z);
+        if (c < 0 || grid[c] || dF[c] < 1.7 || z > sz0 - 3 || nearLiq(x, z, 1.3) > 0.05 || !clear(x, z, 1.6) || (V.dA && V.dA[c] < 7)) continue;
+        if (hides(L, x, z, 0.85, 0, 1.45, 0.1) || gapAt(x, z) <= 5) continue;
+        const k = hyp(x - best.x, z - best.z) + Math.abs(x - sx0) * 0.2 + rnd() * 0.5;
+        if (!cow || k < cow.k) cow = { x, z, k };
+      }
+      if (cow) {
+        let fx = 0, fz = 0;   // she looks at the sign, a little toward the camera
+        fx = best.x - cow.x; fz = best.z - cow.z + 1.5;
+        liveCow(B, cow.x, cow.z, Math.atan2(fx, fz), 1.15, 0);   // (she comes alive: nods, grazes, swishes her tail, looks at Feza)
+        taken.push({ x: cow.x, z: cow.z, r: 1.3 }); RS.spots.push({ id: 'cow', x: cow.x, z: cow.z }); RS.cows = RS.cowV = 1;
+        for (let m = 0; m < 6; m++) { const a = rnd() * TAU, r = 0.9 + rnd() * 0.8; dec(B, 'decor', rnd() < 0.6 ? tuftGeo(Math.floor(rnd() * 3)) : flowerGeo(pick([0, 1, 2])), mat4(cow.x + Math.cos(a) * r, 0, cow.z + Math.sin(a) * r, rnd() * TAU, 1 + rnd() * 0.4), null); }
+        // a fence arc round her on the side facing the room (posts only where they stand on the meadow and hide nothing)
+        const face = Math.atan2(best.z - cow.z, best.x - cow.x), run = [];
+        for (let a = face - 1.5; a <= face + 1.5; a += 0.5) {
+          const x = cow.x + Math.cos(a) * 1.9, z = cow.z + Math.sin(a) * 1.9, c = cellOf(x, z);
+          const ok = c >= 0 && !grid[c] && liqAt(x, z) < 0.1 && dF[c] >= 0.6 && !hides(L, x, z, 0.12, 0, 0.85, 0) && !busy(x, z, 0.3);
+          if (ok) run.push({ x, z }); else { fenceRun(run, a); run.length = 0; }
+        }
+        fenceRun(run, face);
+      }
+      // a milk waterfall into the milk in the first view, pouring toward the camera
+      const fall = fallSpot(sx0 - 8, sx0 + 8, sz0 - 9.5, sz0 - 3, best.x, best.z - 1);
+      if (fall) { addFall(fall, true); RS.startFall = { x: fall.x, z: fall.z }; }
+    }
+    // 000. a milk waterfall or two along the route, near the biscuit bridges (so one is on screen while walking), pouring toward the camera
+    for (const br of V.bridges.slice().sort((p, q) => (q.main ? 1 : 0) - (p.main ? 1 : 0))) {
+      if (RS.falls >= 3) break;
+      const q = br.pts[br.pts.length >> 1], f = fallSpot(q.x - 6.5, q.x + 6.5, q.z - 7, q.z + 1.5, q.x, q.z - 3, 900);
+      if (f) addFall(f, true);
+    }
+    // 0. a few cute cows grazing on the meadows beside the rooms (never in the milk, never hiding floor); the hills keep clear of them
+    for (let t = 0, made = 0, want = 2 + Math.floor(rnd() * 3); t < 3000 && made < want; t++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] < 1.6 || dF[c] > 5.5 || (V.dA && V.dA[c] < 7) || nearLiq(x, z, 1.2) > 0.05 || nearLiq(x, z, 2.2) > 0.4 || !clear(x, z, 6)) continue;
+      const g = gapAt(x, z), s = 1.1 + rnd() * 0.25;
+      if (g <= 5 || hides(L, x, z, 0.75 * s, 0, 1.35 * s, 0.1)) continue;   // on the camera side a cow would stand in the way
+      let fx = 0, fz = 0;   // face the nearest floor (a little toward the camera)
+      for (let a = 0; a < 16; a++) { const dx = Math.cos(a * TAU / 16), dz = Math.sin(a * TAU / 16); for (let d = 1; d < 7; d += 0.5) if (isFloor(L, x + dx * d, z + dz * d)) { fx += dx / d; fz += dz / d; break; } }
+      const yaw = Math.atan2(fx + (rnd() - 0.5) * 0.6, fz + 0.5);
+      if ((B.cows || []).length < 2 && L.path.some(p => hyp(p.x - x, p.z - z) < 7)) liveCow(B, x, z, yaw, s, made % 2);   // one more live cow, near the route
+      else putD(B, cowData(made % 2), mat4(x, 0, z, yaw, s));
+      taken.push({ x, z, r: 1.1 * s }); RS.spots.push({ id: 'cow', x, z });
+      for (let m = 0; m < 5; m++) { const a = rnd() * TAU, r = 0.9 + rnd() * 0.8; dec(B, 'decor', rnd() < 0.6 ? tuftGeo(Math.floor(rnd() * 3)) : flowerGeo(pick([0, 1, 2])), mat4(x + Math.cos(a) * r, 0, z + Math.sin(a) * r, rnd() * TAU, 1 + rnd() * 0.4), null); }
+      made++; RS.cows = made + (RS.cowV || 0);
+    }
+    // 0b. white fences with little bells along some room rims (on the hill ground just outside the floor, never in the milk; before the
+    // hills). Posts are collected into runs and only runs of 2+ posts are built, always with rails (and bells): no lone white sticks
+    for (const rm of L.rooms) {
+      if (rm.kind === 'boss' || rnd() < 0.15) continue;
+      const a0 = rnd() * TAU, span = 0.9 + rnd() * 1.1, step = 1.55 / (rm.r || 6);
+      let run = [];
+      for (let a = a0; a < a0 + span; a += step) {
+        const e = arenaEdge(L, rm, a, 4);
+        let ok = !!e, x = 0, z = 0;
+        if (ok) {
+          x = e.x + e.dx * 0.45; z = e.z + e.dz * 0.45;
+          const c = cellOf(x, z);
+          ok = c >= 0 && !grid[c] && liqAt(x, z) < 0.12 && nearLiq(x, z, 0.25) < 0.3 && linkDist(L, x, z) > 2.2 && clear(x, z, 0.3) && !B.noDec[c] && !busy(x, z, 0.4);
+        }
+        if (ok && run.length && hyp(run[run.length - 1].x - x, run[run.length - 1].z - z) >= 2.3) { fenceRun(run, a); run = []; }
+        if (ok) run.push({ x, z }); else { fenceRun(run, a); run = []; }
+      }
+      fenceRun(run, a0 + span);
+    }
+    // 0c. a rim along the whole shore (no view shows a long bare edge): every ~3.5 m of the floor's edge a giant dairy thing — on the
+    // hill ground beside the floor, or half sunk in the milk; low on the camera side and never hiding floor (before the hills,
+    // which then fill in round them)
+    {
+      const edge = [];
+      for (let j = 1; j < H - 1; j++) for (let i = 1; i < W - 1; i++) {
+        const c = j * W + i;
+        if (!grid[c]) continue;
+        const nx = (grid[c + 1] ? 0 : 1) - (grid[c - 1] ? 0 : 1), nz = (grid[c + W] ? 0 : 1) - (grid[c - W] ? 0 : 1);
+        if (nx || nz) edge.push([i + 0.5, j + 0.5, nx, nz]);
+      }
+      for (let i = edge.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)), t = edge[i]; edge[i] = edge[k]; edge[k] = t; }
+      const byId = id => DPROP.find(p => p.id === id);
+      const DRY = ['cheese2', 'cheese0', 'cheese3', 'pots1', 'pots2', 'pots0', 'bottles2', 'bottles0', 'bottles1', 'sberry', 'bberry1', 'bberry0', 'bowl', 'honey', 'butter', 'gugum'].map(byId);
+      const WET = ['cheese2', 'cheese2', 'cheese0', 'pots1', 'pots2', 'bottles2', 'sberry', 'sberry', 'bberry1', 'bberry0', 'bowl'].map(byId);
+      const rim = [];
+      RS.rim = 0;
+      for (const [cx, cz, nx0, nz0] of edge) {
+        if (rim.some(q => hyp(q[0] - cx, q[1] - cz) < 3.4) || inArena(cx, cz, 2.5) || bridgeD(cx, cz) < 3.4) continue;
+        const l = hyp(nx0, nz0), nx = nx0 / l, nz = nz0 / l;
+        for (const off of [1.15, 1.7, 2.3]) {
+          const x = cx + nx * off + (rnd() - 0.5) * 0.6, z = cz + nz * off + (rnd() - 0.5) * 0.6, c = cellOf(x, z);
+          if (c < 0 || grid[c] || (V.dA && V.dA[c] < 5.4) || busy(x, z, 0.5)) continue;
+          const lv = liqAt(x, z), wet = lv > 0.8;
+          if (wet ? nearLiqMin(x, z, 0.7) < 0.7 : lv > 0.1 || nearLiq(x, z, 0.5) > 0.35) continue;
+          const P = wet ? WET[Math.floor(rnd() * WET.length)] : DRY[Math.floor(rnd() * DRY.length)], sink = wet ? 0.1 + rnd() * 0.1 : 0, cap = capAt(gapAt(x, z)) + sink;
+          let sc = (wet ? 0.95 : 0.9) + rnd() * 0.35;
+          if (P.h * sc > cap) sc = cap / P.h;
+          const rr = P.r * sc;
+          if (sc < 0.55 || dF[c] < rr * 0.75 + 0.15 || !clear(x, z, rr + 0.35) || hides(L, x, z, rr * 0.8, 0, P.h * sc - sink, 0.1)) continue;
+          taken.push({ x, z, r: rr });
+          putD(B, P.d(Math.floor(rnd() * 4)), mat4(x, -sink, z, rnd() * TAU, sc));
+          if (wet) for (let m = 0; m < 3; m++) { const b = rnd() * TAU, r = rr + 0.15 + rnd() * 0.3; B.pts.norm.push({ x: x + Math.cos(b) * r, y: 0.02, z: z + Math.sin(b) * r, kind: 10, ph: rnd(), size: 0.1 + rnd() * 0.06, prm: 0.25 + rnd() * 0.2, col: lin(0xffffff, 1.05) }); }
+          RS.spots.push({ id: 'rim:' + P.id, x, z });
+          rim.push([cx, cz]); RS.rim++; RS.props++;   // (props: every giant thing beside the floor, the rim included)
+          break;
+        }
+      }
+    }
+    // 1. yogurt hills: round and low on the camera side, big soft dollops (some soft-serve swirls, some with fruit on top) elsewhere
+    for (let z0 = 0; z0 < H; z0 += 1.9) for (let x0 = 0; x0 < W; x0 += 1.9) {
+      const x = x0 + rnd() * 1.75, z = z0 + rnd() * 1.75, c = cellOf(x, z);
+      if (c < 0 || grid[c]) continue;
+      const d = dF[c], lv = liqAt(x, z), g = gapAt(x, z);
+      if (d < 0.6 || d > 13.5 || lv > 0.3 || (V.dA && V.dA[c] < 5.4)) continue;
+      if (d > 5.5 && rnd() < (d > 9 ? 0.3 : 0.1)) continue;   // (the ground behind the rooms is covered too, no bare peach plain)
+      if (nearLiq(x, z, 0.8) > 0.5 || !clear(x, z, 0.6) || bridgeD(x, z) < 3.4) continue;   // the shores stay open (bridges, the moat, the milk's lip); the cows keep their meadow
+      if (g <= 5) {   // camera side: low and round
+        const s = Math.min(d + 0.6, 0.7 + rnd() * 0.5), sz = Math.min(d + 0.6, s * (0.8 + rnd() * 0.4));
+        if (nearLiq(x, z, s + 0.2) > 0.5 || !clear(x, z, s * 0.85)) continue;
+        const sy = Math.max(0.22, Math.min(s * (0.45 + rnd() * 0.35), capAt(g) / DOLLOP_TOP[0]));
+        hill(x, z, s, sy, sz, rnd() < 0.5 ? 0 : 1);
+        continue;
+      }
+      const near = d < 3.2;
+      if (near && rnd() < 0.45) continue;   // room for the giant props and the meadow next to the floor
+      const s = Math.min(d + 0.5, near ? 0.8 + rnd() * 0.5 : d > 7 ? 1.9 + rnd() * 1.3 : 1.3 + rnd() * 1.0), sz = Math.min(d + 0.5, s * (0.8 + rnd() * 0.4));   // the skirt covers ≤ 0.5 m of the floor's edge
+      if (nearLiq(x, z, Math.max(s, sz) + 0.2) > 0.5 || !clear(x, z, Math.max(s, sz) * 0.85)) continue;   // (fences and cows keep clear of the dollops)
+      let hy = near ? 0.55 + rnd() * 0.35 : 0.8 + rnd() * 0.5;
+      // (not hiding floor straight north of it, nor diagonally past a room corner: Feza standing there would turn into the x-ray silhouette)
+      const cornerHides = (yt) => satCount(L, x - s - 0.5, z - s - Math.max(0, yt - 0.5) * LV_PK, x + s + 0.5, z - s * 0.4) > 0;
+      for (const h of [hy, 0.62, 0.45, 0.32]) { hy = h; if (!hides(L, x, z, s * 0.9, 0, 1.0 * s * h + 0.15, 0.15) && (h === 0.32 || !cornerHides(1.0 * s * h + 0.15))) break; }
+      const ap = hill(x, z, s, s * hy, sz);
+      if (d < 6 && rnd() < 0.3 && ap.v !== 2) { const capH = hides(L, ap.x, ap.z, 0.4 * s, 0, ap.y + 0.5 * s, 0.1) ? ap.y : 99; topping(ap, Math.min(1.3, s * 0.8), capH); }
+    }
+    // 2. little cream dollops along the shore-less edges of the floor (soften the cells' staircase)
+    for (let z0 = 0; z0 < H; z0 += 1.3) for (let x0 = 0; x0 < W; x0 += 1.3) {
+      const x = x0 + rnd() * 1.2, z = z0 + rnd() * 1.2, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 3.5 || dF[c] < 0.6 || liqAt(x, z) > 0.15 || (V.dA && V.dA[c] < 5.4) || rnd() < 0.5 || nearLiq(x, z, 0.6) > 0.4 || !clear(x, z, 0.5) || bridgeD(x, z) < 3.2) continue;
+      const s = 0.38 + rnd() * 0.3;
+      hill(x, z, s, Math.min(s * (0.5 + rnd() * 0.4), capAt(gapAt(x, z)) / DOLLOP_TOP[3]), s * (0.8 + rnd() * 0.4), 3);
+    }
+    // 3. the meadow: clover tufts, daisies and little strawberry bushes on the hill ground next to the floor
+    for (let n = 0, tries = 0; n < W * H / 55 && tries < W * H; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 2.6 || dF[c] < 0.5 || liqAt(x, z) > 0.05 || nearLiq(x, z, 0.5) > 0.3 || B.noDec[c] || (V.dA && V.dA[c] < 5.4) || bridgeD(x, z) < 3) continue;
+      n++;
+      const roll = rnd();
+      if (roll < 0.14) {   // a strawberry bush (foliage) with red berries
+        const g = gapAt(x, z), k = 0.65 + rnd() * 0.3, ky = Math.min(k, southCap(g, 0.8, 1.1) / 1.05);
+        if (hides(L, x, z, 0.95 * k, 0, 1.05 * ky, 0.85) || nearLiq(x, z, 0.95 * k) > 0.15) continue;
+        const m = mat4(x, 0, z, rnd() * TAU, k, ky, k);
+        inst(B, 'bush', m, lin(pick(PAL.green), 0.95 + rnd() * 0.1));
+        dec(B, 'gloss', berryDotsGeo(), m, null);   // (no shadows for the little berries)
+      } else {
+        for (let m = 0, cnt = 3 + Math.floor(rnd() * 5); m < cnt; m++) {
+          const px = x + (rnd() - 0.5) * 1.4, pz = z + (rnd() - 0.5) * 1.4, cc = cellOf(px, pz);
+          if (cc < 0 || grid[cc] || liqAt(px, pz) > 0.02) continue;
+          if (rnd() < 0.55) dec(B, 'decor', tuftGeo(Math.floor(rnd() * 3)), mat4(px, 0, pz, rnd() * TAU, 0.9 + rnd() * 0.5), null);
+          else dec(B, 'decor', flowerGeo(rnd() < 0.5 ? 0 : pick([1, 2, 3, 5])), mat4(px, 0, pz, rnd() * TAU, 0.8 + rnd() * 0.35), null);
+        }
+      }
+      RS.meadow++;
+    }
+    // 3b. clover, daisies and tufts further out on the hill ground (sparser), so the pink ground between the hills is never bare
+    for (let n = 0, tries = 0; n < W * H / 80 && tries < W * H; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] <= 2.6 || dF[c] > 10 || liqAt(x, z) > 0.05 || nearLiq(x, z, 0.5) > 0.3 || B.noDec[c] || (V.dA && V.dA[c] < 5.4) || hl.some(q => hyp(q.x - x, q.z - z) < q.r * 0.9)) continue;
+      n++;
+      for (let m = 0, cnt = 3 + Math.floor(rnd() * 5); m < cnt; m++) {
+        const px = x + (rnd() - 0.5) * 1.6, pz = z + (rnd() - 0.5) * 1.6, cc = cellOf(px, pz);
+        if (cc < 0 || grid[cc] || liqAt(px, pz) > 0.02) continue;
+        if (rnd() < 0.5) dec(B, 'decor', tuftGeo(Math.floor(rnd() * 3)), mat4(px, 0, pz, rnd() * TAU, 0.9 + rnd() * 0.5), null);
+        else dec(B, 'decor', flowerGeo(rnd() < 0.5 ? 0 : pick([1, 2, 3, 5])), mat4(px, 0, pz, rnd() * TAU, 0.8 + rnd() * 0.35), null);
+      }
+      RS.meadow++;
+    }
+    // 4. giant dairy things on the ground beside the floor (outside the walkable area): cheese, pots, jugs, churns, bottles, honey, berries
+    for (let n = 0, tries = 0; n < 60 && tries < 4000; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 3.8 || dF[c] < 0.7 || (V.dA && V.dA[c] < 5.4) || bridgeD(x, z) < 3) continue;
+      const P = DPROP[wpickA(DPROP_W)], g = gapAt(x, z), cap = capAt(g);
+      let s = 1.15 + rnd() * 0.4;
+      if (P.h * s > cap) s = cap / P.h;
+      if (s < 0.6 || nearLiq(x, z, P.r * s + 0.1) > 0.35 || !clear(x, z, P.r * s + 1.1) || hides(L, x, z, P.r * s * 0.8, 0, P.h * s, 0.1)) continue;
+      taken.push({ x, z, r: P.r * s });
+      putD(B, P.d(Math.floor(rnd() * 4)), mat4(x, 0, z, rnd() * TAU, s));
+      RS.spots.push({ id: P.id, x, z });
+      n++; RS.props++;
+    }
+    // 5. inside the rooms, against a wall (never in a corridor, never hiding floor, leaving a real gap or none): a few big props (solids)
+    const roomSpot = (x, z, r, h) => !inArena(x, z, -1.5) && linkDist(L, x, z) >= 2.5 && gapOKL(L, x, z, r) && hiddenBehind(L, x, z, r, h) === 0 &&
+      !L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + r + 1.1) && !L.spawns.some(q => hyp(q.x - x, q.z - z) < 1.6) &&
+      !L.chests.some(q => hyp(q.x - x, q.z - z) < 2.5) && !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 3) && !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < 4) &&
+      !L.path.some(p => hyp(p.x - x, p.z - z) < 2.8) && hyp(x - L.start.x, z - L.start.z) > 2.5;
+    const IN_ROOM = DPROP.filter(p => !p.out && p.r <= 0.7);
+    for (let n = 0; n < W * H / 10 && RS.inRoom < 12; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || !grid[c] || dW[c] > 1.4 || dW[c] < 0.8) continue;
+      const P = IN_ROOM[Math.floor(rnd() * IN_ROOM.length)], s = 0.8 + rnd() * 0.25, r = P.r * s + 0.05;
+      if (!roomSpot(x, z, r, P.h * s)) continue;
+      propSolid(L, x, z, r, 'dairy', putD(B, P.d(Math.floor(rnd() * 4)), mat4(x, 0, z, rnd() * TAU, s)));
+      RS.spots.push({ id: 'in:' + P.id, x, z });
+      RS.inRoom++;
+    }
+    // 5b. treats on the yogurt floor (walk-over, all ≲ 0.15 m): glossy jam dollops, a few rainbow sprinkles, piped cream rosettes with a
+    // berry on top, blueberries and strawberry halves, banana slices, mini biscuits — the rooms read like a decorated cake, not a bare
+    // plain (and never like litter: no confetti carpets, no puddles, no brown clumps on the white; granola only along the crumb trail)
+    {
+      const SPR = [0xff6a9a, 0xffd23a, 0x6ad0ff, 0x8ae070, 0xb88af0, 0xff9a4a];   // (no white: it read as litter next to the coins)
+      const ROS = [0xffffff, 0xffffff, 0xffc2d6, 0xeee4ff, 0xfff0c8];
+      // strawberry sauce (light pink), raspberry (pink), blueberry, apricot — no crimson: a deep red blob on the white yogurt read as a spill
+      const JAM = [0xff7c9e, 0xf0607a, 0xff7c9e, 0x6a4ab8, 0xf0a030];
+      const BERRY = [0x3c4a9c, 0x3c4a9c, 0x4a58b0, 0xd8203c], BLUE = [0x3c4a9c, 0x3c4a9c, 0x4a58b0, 0x34448e];   // BLUE: loose berries next to a jam dollop (no red drop beside a blob)
+      const BD = biscuitData();
+      const okAt = (x, z, pad) => isFloor(L, x, z) && isFloor(L, x + pad, z) && isFloor(L, x - pad, z) && isFloor(L, x, z + pad) && isFloor(L, x, z - pad) &&
+        maskAt(x, z, 0) < 0.35 && maskAt(x, z, 2) < 0.4 && !inArena(x, z, 1) && hyp(x - L.start.x, z - L.start.z) > 1.3 &&
+        !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 2.4) && !L.chests.some(q => hyp(q.x - x, q.z - z) < 1.1) && !L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + 0.15) &&
+        !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3);
+      const spr = (x, z) => { if (okAt(x, z, 0.05)) dec(B, 'decor', G.octa(), mat4(x, 0.016, z, rnd() * TAU, 0.03, 0.022, 0.08), lin(pick(SPR))); };
+      const berry = (x, y, z, r, cols) => dec(B, 'gloss', G.sphere(6, 4), mat4(x, y + r * 0.8, z, 0, r, r * 0.9, r), lin(pick(cols || BERRY)));
+      const rosette = (x, z, sc) => { dec(B, 'gloss', rosetteGeo(), mat4(x, -0.004, z, rnd() * TAU, sc, sc * (0.9 + rnd() * 0.12), sc), lin(pick(ROS))); berry(x, 0.64 * sc, z, 0.13 * sc + 0.008); RS.rosettes = (RS.rosettes || 0) + 1; };
+      const near = (x, z, r) => { const a = rnd() * TAU, d = r * Math.sqrt(rnd()); return [x + Math.cos(a) * d, z + Math.sin(a) * d]; };
+      RS.treats = 0;
+      for (const rm of L.rooms) {
+        if (rm.kind === 'boss') continue;
+        const rr = rm.r || Math.min(rm.hw, rm.hh), area = Math.PI * rr * rr;
+        for (let n = 0, want = Math.min(60, area * 0.15); n < want; n++) { const [x, z] = near(rm.x, rm.z, rr * 1.05); spr(x, z); }   // a few loose sprinkles
+        for (let k = 0, want = clamp(Math.round(area / 12), 5, 26), t = 0; k < want && t < want * 25; t++) {   // little clusters of treats
+          const [x, z] = near(rm.x, rm.z, rr * 0.95);
+          if (!okAt(x, z, 0.9)) continue;
+          k++; RS.treats++;
+          const roll = rnd();
+          if (roll < 0.3) {   // a light sprinkle drift round a rosette
+            rosette(x, z, 0.19 + rnd() * 0.03);
+            for (let m = 0, c = 14 + Math.floor(rnd() * 9); m < c; m++) { const [px, pz] = near(x, z, 1.0); if (hyp(px - x, pz - z) > 0.26) spr(px, pz); }
+          } else if (roll < 0.55) {   // a glossy jam dollop with a berry on it and a blueberry or two beside it
+            const s = 0.95 + rnd() * 0.3;
+            dec(B, 'gloss', jamDollopGeo(), mat4(x, 0, z, rnd() * TAU, s, s * (0.9 + rnd() * 0.2), s), lin(pick(JAM)));
+            berry(x + 0.03 * s, 0.03 * s, z - 0.02 * s, 0.05 + rnd() * 0.015);
+            for (let m = 0, c = 1 + Math.floor(rnd() * 2); m < c; m++) { const [px, pz] = near(x, z, 0.7); if (hyp(px - x, pz - z) > 0.3 && okAt(px, pz, 0.06)) berry(px, 0, pz, 0.05 + rnd() * 0.02, BLUE); }
+          } else if (roll < 0.75) {   // berries: blueberries round a strawberry half or two
+            for (let m = 0, c = 1 + Math.floor(rnd() * 2); m < c; m++) { const [px, pz] = near(x, z, 0.35); if (okAt(px, pz, 0.1)) dec(B, 'gloss', sbHalfGeo(), mat4(px, 0, pz, rnd() * TAU, 0.12 + rnd() * 0.03), null); }
+            for (let m = 0, c = 4 + Math.floor(rnd() * 4); m < c; m++) { const [px, pz] = near(x, z, 0.75); if (okAt(px, pz, 0.06)) berry(px, 0, pz, 0.05 + rnd() * 0.02); }
+          } else if (roll < 0.88) {
+            if (rnd() < 0.55) {   // banana slices fanned out, a blueberry or two beside them
+              for (let m = 0, c = 3 + Math.floor(rnd() * 3), a0 = rnd() * TAU; m < c; m++) {
+                const a = a0 + m * 0.9 + rnd() * 0.3, d = m ? 0.09 + rnd() * 0.08 : 0, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
+                if (okAt(px, pz, 0.1)) { const r = 0.085 + rnd() * 0.015; dec(B, 'gloss', bananaGeo(), mat4(px, m * 0.004, pz, rnd() * TAU, r, 0.12, r, (rnd() - 0.5) * 0.12, (rnd() - 0.5) * 0.12), null); }
+              }
+              for (let m = 0, c = 1 + Math.floor(rnd() * 2); m < c; m++) { const [px, pz] = near(x, z, 0.45); if (hyp(px - x, pz - z) > 0.22 && okAt(px, pz, 0.06)) berry(px, 0, pz, 0.05 + rnd() * 0.02); }
+            } else {   // mini Petit-Beurre biscuits, each with a blueberry on top
+              for (let m = 0, c = 2 + Math.floor(rnd() * 2); m < c; m++) {
+                const [px, pz] = m ? near(x, z, 0.4) : [x, z];
+                if (m && hyp(px - x, pz - z) < 0.26) continue;
+                if (!okAt(px, pz, 0.16)) continue;
+                dec(B, 'food', BD.plank, mat4(px, 0.012, pz, rnd() * TAU, 0.5, 0.62, 0.27, (rnd() - 0.5) * 0.06, (rnd() - 0.5) * 0.06), lin(0xffffff, 0.96 + rnd() * 0.08));
+                dec(B, 'gloss', G.sphere(8, 6), mat4(px, 0.058, pz, 0, 0.042, 0.037, 0.042), lin(rnd() < 0.8 ? 0x3c4a9c : 0xd8203c));
+              }
+            }
+          } else {   // a little row of rosettes with a few sprinkles
+            const a = rnd() * Math.PI, c = 2 + Math.floor(rnd() * 2);
+            for (let m = 0; m < c; m++) { const px = x + Math.cos(a) * (m - (c - 1) / 2) * 0.5, pz = z + Math.sin(a) * (m - (c - 1) / 2) * 0.5; if (okAt(px, pz, 0.22)) rosette(px, pz, 0.18 + rnd() * 0.03); }
+            for (let m = 0; m < 7; m++) { const [px, pz] = near(x, z, 1.0); spr(px, pz); }
+          }
+        }
+      }
+      // granola: only on the crumb trail's edges (it spills from the biscuit path, never lies alone on the white yogurt)
+      RS.granola = 0;
+      for (let n = 0, tries = 0, want = Math.round(L.path.length * 0.35); n < want && tries < want * 30; tries++) {
+        const q = L.path[Math.floor(rnd() * L.path.length)], a = rnd() * TAU, d = 0.8 + rnd() * 1.4, x = q.x + Math.cos(a) * d, z = q.z + Math.sin(a) * d, r0 = maskAt(x, z, 0);
+        if (r0 < 0.4 || r0 > 0.75 || maskAt(x, z, 2) > 0.3 || !isFloor(L, x, z) || inArena(x, z, 1) || L.solids.some(o => hyp(o.x - x, o.z - z) < o.r + 0.2) || L.chests.some(o => hyp(o.x - x, o.z - z) < 1)) continue;
+        dec(B, 'decor', granolaGeo(n % 3), mat4(x, 0, z, rnd() * TAU, 1.1 + rnd() * 0.4), null);
+        n++; RS.granola++;
+      }
+    }
+    // 6. in the milk: cereal rings, blueberries and strawberry slices bobbing on it, now and then a cheese-wheel islet
+    for (let n = 0, tries = 0; n < 150 && tries < 6000; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 9 || liqAt(x, z) < 0.9 || nearLiqMin(x, z, 0.5) < 0.8 || inArena(x, z, -2)) continue;
+      if (dF[c] > 1.6 && dF[c] < 6 && RS.islets < 8 && rnd() < 0.06 && bridgeD(x, z) > 3.5 && nearLiqMin(x, z, 1.5) > 0.8) {   // a cheese islet (low)
+        const s = Math.min(0.8 + rnd() * 0.3, (capAt(gapAt(x, z)) + 0.2) / 0.56);
+        if (s > 0.55 && !hides(L, x, z, 0.8 * s, 0, 0.5 * s, 0.1)) { putD(B, cheeseData(2), mat4(x, -0.12 * s, z, rnd() * TAU, s)); RS.islets++; continue; }
+      }
+      const v = rnd() < 0.6 ? 0 : rnd() < 0.6 ? 1 : 2, ph = rnd() * 60;
+      const m = v === 0 ? mat4(x, 0.025, z, rnd() * TAU, 0.2, 0.2, 0.2, Math.PI / 2 + (rnd() - 0.5) * 0.3) : v === 1 ? mat4(x, 0.03, z, rnd() * TAU, 0.13, 0.11, 0.13) : mat4(x, 0.02, z, rnd() * TAU, 0.16, 0.035, 0.16);
+      const h = dec(B, 'decor', floatGeo(v), m, v === 0 ? lin(pick(CEREAL_COL)) : v === 1 ? lin(0x3c4a9c) : lin(0xf06a70));
+      h.item.uy = ph;
+      n++; RS.floats++;
+    }
+    // 8. biscuit bridges: planks across the corridor, wafer-roll rails on sandwich-cookie posts, cherries on the end posts
+    {
+      const BD = biscuitData();
+      for (const b of V.bridges) {
+        const P = b.pts;
+        // (each plank's overhanging ends get a thick toasted edge standing a little proud of the milk: it reads as a biscuit deck, not boards on the path)
+        const plank = (x, y, z, ya, w) => {
+          dec(B, 'food', BD.plank, mat4(x, y, z, ya, 1, 1, w), lin(0xffffff, 0.94 + rnd() * 0.1));
+          const sx = Math.sin(ya), sz = Math.cos(ya);
+          for (const sd of [1, -1]) dec(B, 'food', G.rbox(1), mat4(x + sx * sd * (w / 2 - 0.03), 0.022, z + sz * sd * (w / 2 - 0.03), ya, 0.46, 0.085, 0.07), lin(0xc98a3e));
+        };
+        for (let i = 0; i < P.length; i++) {   // a plank every ~0.5 m (the crumb trail under it runs wall to wall)
+          const q = P[i], w = q.e1 + q.e2 + 0.5, cx = q.x + q.nx * (q.e1 - q.e2) / 2, cz = q.z + q.nz * (q.e1 - q.e2) / 2;
+          plank(cx, 0.006, cz, Math.atan2(q.nx, q.nz), w);
+          if (i < P.length - 1) {
+            const q2 = P[i + 1], w2 = q2.e1 + q2.e2 + 0.5, c2x = q2.x + q2.nx * (q2.e1 - q2.e2) / 2, c2z = q2.z + q2.nz * (q2.e1 - q2.e2) / 2;
+            plank((cx + c2x) / 2, 0.004, (cz + c2z) / 2, Math.atan2(q.nx + q2.nx, q.nz + q2.nz), (w + w2) / 2);
+          }
+        }
+        for (const sd of [1, -1]) {
+          let last = null;
+          for (let i = 0; i < P.length; i += 2) {
+            const q = P[Math.min(i, P.length - 1)], e = sd > 0 ? q.e1 : q.e2, x = q.x + q.nx * sd * (e + 0.3), z = q.z + q.nz * sd * (e + 0.3);
+            const end = i === 0 || i >= P.length - 2;
+            dec(B, 'food', BD.post, mat4(x, 0, z, rnd() * TAU, end ? 1.15 : 0.9), null);
+            if (end) dec(B, 'shiny', BD.cherry, mat4(x, end ? 0.03 : 0, z, rnd() * TAU, 1.1), null);
+            if (liqAt(x, z) > 0.5) {   // standing in the milk: a flat ring of foam round its foot, a couple of fizzy bubbles
+              dec(B, 'gloss', G.torus(TAU, 0.3, 16), mat4(x, 0.01, z, rnd() * TAU, (end ? 1.15 : 0.9) * 0.24, (end ? 1.15 : 0.9) * 0.24, 0.1, Math.PI / 2), lin(0xffffff, 1.05));
+              for (let m = 0; m < 2; m++) { const b = rnd() * TAU, r = 0.28 + rnd() * 0.15; B.pts.norm.push({ x: x + Math.cos(b) * r, y: 0.02, z: z + Math.sin(b) * r, kind: 10, ph: rnd(), size: 0.1 + rnd() * 0.05, prm: 0.25 + rnd() * 0.2, col: lin(0xffffff, 1.05) }); }
+              RS.postFoam = (RS.postFoam || 0) + 1;
+            }
+            if (last) { const l = hyp(x - last.x, z - last.z), ya = Math.atan2(x - last.x, z - last.z); dec(B, 'food', BD.wafer, mat4((x + last.x) / 2, 0.42, (z + last.z) / 2, ya, 1, 1, l), null); }
+            last = { x, z };
+          }
+        }
+        for (const q of P) { const c = cellOf(q.x, q.z); if (c >= 0) B.noDec[c] = 1; }
+      }
+    }
+    // 10. the boss arena
+    if (ar) dairyArena(L, B, V, { rnd, liqAt, nearLiq, cellOf, gapAt, capAt, busy, taken, clear, hill, RS, pick, placeFallCliff });
+    // 11. fizzy bubbles rising over the kefir, now and then over the milk; soft pastel motes over the floor
+    for (let n = 0, tries = 0; n < 130 && tries < 5000; tries++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] > 7 || liqAt(x, z) < 0.8) continue;
+      for (let m = 0, k = 1 + Math.floor(rnd() * 3); m < k; m++)
+        B.pts.norm.push({ x: x + (rnd() - 0.5) * 0.6, y: 0.02, z: z + (rnd() - 0.5) * 0.6, kind: 10, ph: rnd(), size: 0.1 + rnd() * 0.08, prm: 0.22 + rnd() * 0.2, col: lin(pick([0xffffff, 0xfff4e8, 0xf0f6ff, 0xfff0f6]), 1.05) });
+      n++; RS.bubbles++;
+    }
+    for (let n = 0; n < 40; n++) {
+      const x = rnd() * W, z = rnd() * H;
+      if (!grid[Math.floor(z) * W + Math.floor(x)]) continue;
+      B.pts.add.push({ x, y: 0.6 + rnd() * 2.2, z, kind: 1, ph: rnd(), size: 0.08, prm: 0.5 + rnd() * 0.5, col: lin(pick([0xffd0e0, 0xfff0b0, 0xd0e8ff]), 0.9) });
+    }
+    // 12. a little pastel rainbow standing in every waterfall's spray (one merged transparent mesh: +1 draw call; only where it hides no floor)
+    {
+      const arcs = [];
+      for (const f of B.falls) {
+        const fx = Math.sin(f.yaw), fz = Math.cos(f.yaw), r = 1.05 + rnd() * 0.18, sd = rnd() < 0.5 ? -1 : 1;
+        const cx = f.x + fx * 0.6 + fz * sd * 0.3, cz = f.z + fz * 0.6 - fx * sd * 0.3;
+        if (hides(L, cx, cz, r, 0, r, 0.1)) continue;
+        arcs.push({ x: cx, y: -0.08, z: cz, r, bw: 0.36, lean: -0.3 });
+      }
+      if (arcs.length) {
+        const g = rainbowGeo(arcs), m = R.mat.rainbow || (R.mat.rainbow = keep(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.55, depthWrite: false, fog: true, side: THREE.DoubleSide })));
+        const mesh = new THREE.Mesh(g, m); mesh.name = 'fall-rainbows'; mesh.renderOrder = 2;
+        B.g.add(mesh); B.dispose.push(g);
+      }
+      RS.rainbows = arcs.length;
+    }
+    B.fallMat = 'milk';
+    if (B.falls.length) {   // the waterfalls' feet foam and fizz now and then while Feza is near (FX particles, a few at a time)
+      let ft = 0.4;
+      B.anim.push((dt, hx, hz) => {
+        if ((ft -= dt) > 0 || typeof FX === 'undefined' || !FX.burst) return;
+        ft = 0.9 + Math.random() * 0.6;
+        for (const f of B.falls) {
+          if (hyp(f.x - hx, f.z - hz) > 14) continue;
+          const sx = Math.sin(f.yaw), sz = Math.cos(f.yaw);
+          FX.burst('fizz', f.x + sx * 0.4 + (Math.random() - 0.5) * f.w * 0.6, 0.08, f.z + sz * 0.4, { count: 5 });
+        }
+      });
+    }
+  }
+  // Little red berries dotted over a strawberry bush (merged into the shiny decor chunks)
+  function berryDotsGeo() {
+    if (R.geo.berryDots) return R.geo.berryDots;
+    const k = new Kit(), rnd = mulberry32(4801);
+    for (let i = 0; i < 14; i++) {
+      const a = rnd() * TAU, e = 0.25 + rnd() * 0.9, r = 0.62;
+      const p = [Math.cos(a) * Math.cos(e) * r * 1.15, 0.4 + Math.sin(e) * r * 0.8, Math.sin(a) * Math.cos(e) * r * 1.15];
+      k.add(G.sphere(6, 4), i % 5 ? 0xe8303c : 0xf0f0f0, p, 0, i % 5 ? [0.055, 0.07, 0.055] : [0.05, 0.03, 0.05]);   // berries and a few white blossoms
+      if (i % 5) k.add(G.octa(), 0x4caa3c, [p[0], p[1] + 0.06, p[2]], 0, [0.04, 0.015, 0.04]);
+    }
+    return (R.geo.berryDots = keep(k.build()));
+  }
+  // Low-poly stand-ins that cast the yogurt hills' shadows (8 segments; the detailed hills don't cast)
+  function dollopLo(v) {
+    const key = 'dollopLo' + v;
+    if (R.geo[key]) return R.geo[key];
+    const prof = v === 2 ? [[0.001, 0], [0.84, 0], [0.8, 0.22], [0.56, 0.6], [0.24, 0.98], [0.001, 1.1]] : DOLLOP_PROF[v].filter((q, i) => i % 2 === 0 || i === DOLLOP_PROF[v].length - 1);
+    const g = new THREE.LatheGeometry(v2s(prof), 8);
+    if (v !== 2) g.scale(0.92, 0.96, 0.92);   // a little inside the lumpy hill, so it never shades the hill's own lit side
+    return (R.geo[key] = keep(g));
+  }
+  // A piped cream rosette (star nozzle): twisted ridges rising to a soft round top — cake piping, never a pointed coil. Radius 1,
+  // 0.7 high at scale 1; white vertex colour (tinted per rosette)
+  function rosetteGeo() {
+    if (R.geo.rosette) return R.geo.rosette;
+    const g = new THREE.LatheGeometry(smoothProfile([[0.001, 0], [0.84, 0], [1.0, 0.1], [0.96, 0.26], [0.8, 0.42], [0.58, 0.55], [0.36, 0.64], [0.14, 0.69], [0.001, 0.7]], 6), 16), P = g.attributes.position;   // (192 triangles)
+    for (let i = 0; i < P.count; i++) {
+      const x = P.getX(i), y = P.getY(i), z = P.getZ(i), r = Math.hypot(x, z);
+      if (r < 1e-3) continue;
+      const k = 1 + 0.14 * Math.cos((Math.atan2(z, x) + y * 2.4) * 8) * smooth01(r / 0.4);   // 8 ridges twisting up like piped cream
+      P.setXYZ(i, x * k, y, z * k);
+    }
+    weldNormals(g); markUV(g, 0);
+    return (R.geo.rosette = keep(g));
+  }
+  // Walk-over floor treats (all < 0.15 m): a strawberry half lying cut face up, a granola cluster, a honey drizzle line
+  function sbHalfGeo() {
+    if (R.geo.sbHalf) return R.geo.sbHalf;
+    const k = new Kit(), red = new THREE.Color(0xe63a44), inner = new THREE.Color(0xfcd0cc);
+    k.add(G.hemi(10), red, [0, 0.045, 0], [Math.PI, 0, 0], [0.8, 0.9, 1.0]);
+    k.add(R.geo.hole || (R.geo.hole = keep(new THREE.CircleGeometry(1, 12))), (px, py, pz) => inner.clone().lerp(red, Math.pow(clamp(Math.hypot(px / 0.8, pz), 0, 1), 3)), [0, 0.047, 0], [-Math.PI / 2, 0, 0], [0.8, 1.0, 1]);
+    for (const [x, z] of [[0, 0.5], [0.25, 0.1], [-0.25, 0.1], [0, -0.35]]) k.add(G.octa(), 0xfff0b0, [x, 0.049, z], 0, [0.06, 0.01, 0.08]);   // seeds on the cut face
+    k.add(G.octa(), 0x4caa3c, [0, 0.05, 0.95], [0, 0.3, 0], [0.34, 0.03, 0.12]);   // a bit of leaf
+    return (R.geo.sbHalf = keep(k.build()));
+  }
+  function granolaGeo(v) {
+    const key = 'granola' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), rnd = mulberry32(4900 + v), C = [0xd89a48, 0xc8843a, 0xe8b868, 0xb87434];
+    for (let i = 0; i < 6; i++) { const a = rnd() * TAU, r = rnd() * 0.07; k.add(G.dodeca(), C[i % 4], [Math.cos(a) * r, 0.02 + rnd() * 0.02, Math.sin(a) * r], [rnd() * 3, rnd() * 3, 0], 0.025 + rnd() * 0.018); }
+    for (let i = 0; i < 3; i++) { const a = rnd() * TAU, r = 0.05 + rnd() * 0.08; k.add(G.octa(), 0xf2e2bc, [Math.cos(a) * r, 0.012, Math.sin(a) * r], [0, rnd() * 3, 0.15], [0.035, 0.008, 0.024]); }   // oat flakes
+    return (R.geo[key] = keep(k.build()));
+  }
+  // A glossy jam dollop dropped on the yogurt (strawberry, raspberry, blueberry or apricot by tint): three overlapping soft lobes and a
+  // paler glossy highlight arc (a dollop, never a spiral or a puddle). ≈0.45 m across, 0.05 m high at scale 1
+  const jamDollopGeo = () => R.geo.jamDollop || (R.geo.jamDollop = keep((() => {
+    const k = new Kit(), lobe = G.sphere(12, 6);
+    k.add(lobe, 0xe6e6e6, [0, 0, 0], [0, 0.3, 0], [0.2, 0.042, 0.16]);
+    k.add(lobe, 0xe0e0e0, [0.075, 0.004, 0.05], [0, -0.5, 0], [0.13, 0.036, 0.11]);
+    k.add(lobe, 0xe0e0e0, [-0.07, 0.002, 0.055], [0, 0.9, 0], [0.12, 0.034, 0.1]);
+    k.add(lobe, 0xf0f0f0, [0.01, 0.018, -0.01], 0, [0.1, 0.032, 0.085]);   // the soft crown in the middle
+    k.add(G.torus(Math.PI * 1.1, 0.25, 12), new THREE.Color(1.5, 1.5, 1.5), [0.01, 0.047, -0.01], [-Math.PI / 2, 0, 0.5], [0.05, 0.05, 0.02]);   // paler glossy highlight
+    return k.build();
+  })()));
+  // A banana slice lying flat (radius 1, 0.2 thick at scale 1; placed at ≈0.09 m): pale cream-yellow, a deeper rim, six little seeds
+  const bananaGeo = () => R.geo.banana || (R.geo.banana = keep((() => {
+    const k = new Kit(), pale = new THREE.Color(0xfff4c2), rim = new THREE.Color(0xf6dc7a);
+    k.add(G.cyl(1, 1, 16), (x, y, z) => pale.clone().lerp(rim, smooth01((Math.hypot(x, z) - 0.72) / 0.28)), [0, 0.1, 0], 0, [1, 0.2, 1]);
+    const dot = R.geo.dot6 || (R.geo.dot6 = keep(new THREE.CircleGeometry(1, 6)));
+    for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.add(dot, 0x6a4a2e, [Math.cos(a) * 0.32, 0.202, Math.sin(a) * 0.32], [-Math.PI / 2, 0, 0], [0.09, 0.13, 1]); }
+    k.add(dot, 0xfffae0, [0, 0.203, 0], [-Math.PI / 2, 0, 0], 0.14);
+    return k.build();
+  })()));
+  // Little pastel rainbows (the waterfalls' spray, the spring after the boss): flat half-ring bands standing up, facing the gameplay camera
+  // (+z) and leaning back a little toward it, merged into one geometry. RGBA vertex colours: red outside → violet inside, soft inner and
+  // outer edges and feet fading into the spray. arcs: [{x, y, z, r (outer radius), bw (band width), lean (rad about x)}]
+  const RAINBOW = [[1, 0.5, 0.58], [1, 0.7, 0.42], [1, 0.92, 0.45], [0.55, 0.9, 0.58], [0.5, 0.76, 1], [0.76, 0.58, 1]];
+  function rainbowGeo(arcs) {
+    const TS = 28, PS = 10, pos = [], col = [], idx = [], v = new THREE.Vector3(), e = new THREE.Euler();
+    for (const a of arcs) {
+      const v0 = pos.length / 3, m = new THREE.Matrix4().compose(new THREE.Vector3(a.x, a.y, a.z), new THREE.Quaternion().setFromEuler(e.set(a.lean || 0, 0, 0)), new THREE.Vector3(1, 1, 1));
+      for (let j = 0; j <= PS; j++) {
+        const u = j / PS, rr = a.r - a.bw * u, t = u * 5, i0 = Math.min(4, Math.floor(t)), f = t - i0, c0 = RAINBOW[i0], c1 = RAINBOW[i0 + 1];
+        for (let i = 0; i <= TS; i++) {
+          const th = i / TS * Math.PI;
+          v.set(Math.cos(th) * rr, Math.sin(th) * rr, 0).applyMatrix4(m);
+          pos.push(v.x, v.y, v.z);
+          const al = Math.sin(Math.PI * u) * smooth01(Math.min(th, Math.PI - th) / 0.55);
+          col.push(lerp(c0[0], c1[0], f), lerp(c0[1], c1[1], f), lerp(c0[2], c1[2], f), al);
+        }
+      }
+      for (let j = 0; j < PS; j++) for (let i = 0; i < TS; i++) { const p = v0 + j * (TS + 1) + i, q = p + TS + 1; idx.push(p, q, p + 1, p + 1, q, q + 1); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+    g.setIndex(idx); g.computeBoundingSphere();
+    return g;
+  }
+  // A kefir-bottle crown cap (stepping stone round the spring): a flat top with a white printed ring, a crimped skirt. Radius 1, height 1
+  function bottleCapGeo() {
+    if (R.geo.bCap) return R.geo.bCap;
+    const g = new THREE.LatheGeometry(v2s([[1.07, 0], [1.0, 0.2], [0.95, 0.85], [0.84, 1], [0.52, 1], [0.5, 1], [0.001, 1]]), 21), P = g.attributes.position;   // (bottom → top: normals outward)
+    for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i), r = Math.hypot(x, z); if (r > 0.9) { const k = 1 + 0.07 * Math.cos(Math.atan2(z, x) * 21) * (1 - y); P.setX(i, x * k); P.setZ(i, z * k); } }
+    weldNormals(g);
+    const k = new Kit(); k.add(g, (x, y, z) => { const r = Math.hypot(x, z); return r > 0.42 && r < 0.6 && y > 0.95 ? new THREE.Color(0xffffff) : new THREE.Color(0xe8e8e8); });
+    return (R.geo.bCap = keep(k.build()));
+  }
+  // Kefir Pınarı: a round cheese-slab plaza (floor mask) around the bubbling kefir spring (floor shader, walkable) with a golden rind
+  // lip; a kefir moat all round with giant cheese, yogurt pots, bottles, berries and cereal rings in it (low on the camera side);
+  // yogurt cliffs to the north with milk waterfalls pouring into the moat; the "Kefir Pınarı" sign beside the portal
+  function dairyArena(L, B, V, T) {
+    const { rnd, liqAt, nearLiq, cellOf, gapAt, capAt, taken, hill, RS, pick } = T, ar = V.arena, sp = V.spring, grid = L.grid;
+    // the spring: a low raised golden rind rim with a scalloped foam collar, a glossy dome of kefir welling up and bobbing in the middle
+    // with a little fountain (a pulsing jet with a foam crown; FX fizz, foam puffs and milk plops while Feza is near), bottle-cap
+    // stepping stones round it on the cheese plaza, fizz rising, a warm light pool (all walkable, ≤ 0.3 m but the jet on its dome).
+    // After the Kefir Devi cheered up (the portal is open) the fountain plays fully and a pastel rainbow stands over it
+    if (sp) {
+      dec(B, 'food', G.torus(TAU, 0.1, 48), mat4(sp.x, 0.03, sp.z, 0, sp.r + 0.08, sp.r + 0.08, 0.62, Math.PI / 2), lin(0xeeb040));   // a golden rind rim (walkable)
+      for (let i = 0, n = 26, a0 = rnd() * TAU; i < n; i++) {   // the foam collar hugging the rim's inner side (merged: no extra draw call)
+        const a = a0 + (i + (rnd() - 0.5) * 0.4) / n * TAU, rr = 0.12 + rnd() * 0.08, d = sp.r - 0.1 + (rnd() - 0.5) * 0.06;
+        dec(B, 'gloss', G.hemi(10), mat4(sp.x + Math.cos(a) * d, 0.005, sp.z + Math.sin(a) * d, rnd() * TAU, rr * 1.15, rr * 0.55, rr), lin(pick([0xffffff, 0xfff4f8, 0xf4f8ff]), 1.04));
+      }
+      glowAt(B, sp.x, sp.z, sp.r + 3.2, 0xffd49a, 0.15);   // a soft warm light pool on the plaza round the spring (baked)
+      B.lights.push({ x: sp.x, y: 1.7, z: sp.z + 0.4, col: new THREE.Color(0xffd8a8), int: 1.1, dist: 6.5, fl: 0, ph: 0 });   // …and a warm glow on whoever stands there
+      const capG = bottleCapGeo(), CAPC = [0x8ae0a0, 0xffa8c8, 0x8cc0ff, 0xffd860, 0xff8a8a, 0xc8a8ff];
+      for (let i = 0, n = 8, a0 = rnd() * TAU; i < n; i++) {
+        const a = a0 + i / n * TAU, x = sp.x + Math.cos(a) * (sp.r + 0.62), z = sp.z + Math.sin(a) * (sp.r + 0.62);
+        if (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 2) continue;
+        dec(B, 'gloss', capG, mat4(x, 0, z, rnd() * TAU, 0.3, 0.07, 0.3), lin(CAPC[i % CAPC.length]));
+      }
+      const domeG = R.geo.kefDome || (R.geo.kefDome = keep((() => { const k = new Kit(); k.add(new THREE.LatheGeometry(smoothProfile([[0.001, 0], [1.0, 0], [0.9, 0.3], [0.62, 0.7], [0.3, 0.93], [0.001, 1.0]], 8), 24), (x, y) => new THREE.Color(0xffe4bc).lerp(new THREE.Color(0xfffcf4), Math.min(1, y * 1.3))); return k.build(); })()));   // ivory kefir, creamier at its foot
+      const dome = new THREE.Mesh(domeG, R.mat.shiny); dome.position.set(sp.x, -0.02, sp.z); dome.scale.set(0.95, 0.3, 0.95); dome.receiveShadow = true; dome.name = 'kefir-dome';
+      const jetG = R.geo.kefJet || (R.geo.kefJet = keep((() => { const k = new Kit(); k.add(new THREE.LatheGeometry(smoothProfile([[0.001, 0], [1.0, 0], [0.72, 0.12], [0.52, 0.4], [0.46, 0.8], [0.34, 0.96], [0.001, 1.0]], 10), 16), (x, y) => new THREE.Color(0xfff6e6).lerp(new THREE.Color(0xffffff), Math.min(1, y * 1.6)).multiplyScalar(1.15)); return k.build(); })()));   // a creamy white column, flared foot, round top
+      const jet = new THREE.Mesh(jetG, R.mat.shiny); jet.position.set(sp.x, 0.2, sp.z); jet.scale.set(0.2, 0.3, 0.2); jet.name = 'kefir-jet';   // the little fountain on top
+      const crownG = R.geo.kefCrown || (R.geo.kefCrown = keep((() => {   // a foam crown riding the jet's top: three puffs round a middle one
+        const k = new Kit();
+        k.add(G.sphere(12, 8), new THREE.Color(1.15, 1.15, 1.15), [0, 0.04, 0], 0, [0.13, 0.11, 0.13]);
+        for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; k.add(G.sphere(10, 8), new THREE.Color(1.12, 1.1, 1.08), [Math.cos(a) * 0.12, -0.01 + 0.015 * i, Math.sin(a) * 0.12], 0, [0.1, 0.085, 0.1]); }
+        return k.build();
+      })()));
+      const crown = new THREE.Mesh(crownG, R.mat.shiny); crown.position.set(sp.x, 0.5, sp.z); crown.name = 'kefir-crown'; crown.visible = false;
+      B.g.add(dome); B.g.add(jet); B.g.add(crown);
+      // the reward: a pastel rainbow over the spring, faded in once the portal is open (its own material: it fades on its own)
+      const rbM = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0, depthWrite: false, fog: true, side: THREE.DoubleSide });
+      const rbG = rainbowGeo([{ x: sp.x, y: -0.1, z: sp.z - 0.35, r: sp.r + 0.45, bw: 0.62, lean: -0.32 }]);
+      const rb = new THREE.Mesh(rbG, rbM); rb.name = 'spring-rainbow'; rb.visible = false; rb.renderOrder = 2;
+      B.g.add(rb); B.dispose.push(rbG, rbM);
+      const done = () => !!(L.portalObj && L.portalObj.active);   // (GAME opens the portal once the Kefir Devi cheered up)
+      let jt = 0.5, ft = 3, pt = 1, full = 0;
+      B.anim.push((dt, hx, hz) => {
+        const t = TIME.t, b = Math.sin(t * 2.4);
+        full = Math.min(1, Math.max(0, full + (done() ? dt * 0.6 : -dt * 2)));   // (before: the giant stands in the spring, the jet stays low)
+        dome.scale.set(0.95 + 0.04 * Math.sin(t * 2.4 + 1.2), 0.34 + 0.06 * b, 0.95 + 0.04 * Math.sin(t * 2.4 + 2.3));
+        const j = Math.abs(Math.sin(t * 3.1)) * 0.8 + 0.2 * Math.abs(Math.sin(t * 7.3)), j2 = 0.5 + 0.5 * Math.sin(t * 2.2) * Math.sin(t * 0.9 + 1.3);
+        const jy = lerp(0.2 + 0.05 * b, 0.25 + 0.04 * b, full), sy = lerp(0.14 + 0.3 * j, 0.3 + 0.6 * j2 + 0.06 * j, full), sw = lerp(0.2 - 0.04 * j, 0.26 - 0.05 * j2, full);
+        jet.position.y = jy; jet.scale.set(sw, sy, sw);
+        crown.visible = full > 0.02;
+        if (crown.visible) { const k = 0.4 + 0.6 * full; crown.position.y = jy + sy * 0.96; crown.scale.set(k * (1 + 0.1 * j), k * (1 - 0.08 * j), k * (1 + 0.1 * j)); crown.rotation.y = t * 0.8; }
+        rb.visible = full > 0.01; rbM.opacity = 0.85 * smooth01(full) * (0.92 + 0.08 * Math.sin(t * 0.7));
+        if (hyp(hx - sp.x, hz - sp.z) > 16 || typeof FX === 'undefined' || !FX.burst) return;
+        if ((jt -= dt) <= 0) { jt = 0.6 + Math.random() * 0.4; FX.burst('fizz', sp.x + (Math.random() - 0.5) * 0.3, 0.22, sp.z + (Math.random() - 0.5) * 0.3, { count: 8 }); }
+        if ((ft -= dt) <= 0) { ft = 3.5 + Math.random() * 2.5; FX.burst('foam', sp.x, 0.26, sp.z, { count: 3, scale: 0.6 }); }
+        if ((pt -= dt) <= 0) {   // milk plops landing in the pool round the fountain
+          pt = 0.7 + Math.random() * 0.4;
+          const a = Math.random() * TAU, r = 0.55 + Math.random() * (sp.r - 0.95);
+          FX.burst('milk', sp.x + Math.cos(a) * r, 0.03, sp.z + Math.sin(a) * r, { scale: 0.5, count: 5 });
+        }
+      });
+      for (let n = 0; n < 46; n++) {
+        const a = rnd() * TAU, r = Math.sqrt(rnd()) * sp.r * 0.9;
+        B.pts.norm.push({ x: sp.x + Math.cos(a) * r, y: 0.03, z: sp.z + Math.sin(a) * r, kind: 10, ph: rnd(), size: 0.16 + rnd() * 0.14, prm: 0.3 + rnd() * 0.25, col: lin(pick([0xffffff, 0xfff4e0, 0xf4f8ff]), 1.1) });
+      }
+      for (let n = 0; n < 10; n++) { const a = rnd() * TAU, r = rnd() * sp.r; B.pts.add.push({ x: sp.x + Math.cos(a) * r, y: 0.08, z: sp.z + Math.sin(a) * r, kind: 8, ph: rnd(), size: 0.16, prm: 0.4 + rnd() * 0.4, col: lin(0xfff0c0, 1.6) }); }
+    }
+    // a ring of piped cream rosettes with berries on the yogurt floor round the plaza, like the rim of a cake (tiny: walked over)
+    RS.rosettes = 0;
+    {
+      const M = L._mask, R0 = ar.r * 0.5 + 1.25;
+      const maskAt = (x, z, ch) => { const px = clamp(Math.floor(x * MPX), 0, M.W - 1), py = clamp(Math.floor(z * MPX), 0, M.H - 1); return M.data[(py * M.W + px) * 4 + ch] / 255; };
+      for (let a = rnd() * 0.2, i = 0; a < TAU; a += 0.23, i++) {
+        const x = ar.x + Math.cos(a) * R0, z = ar.z + Math.sin(a) * R0;
+        if (!isFloor(L, x, z) || maskAt(x, z, 0) > 0.35 || (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 2.8) || linkDist(L, x, z) < 1.6) continue;
+        if (i % 2 === 0) {   // a piped cream rosette (bright white / strawberry pink / lavender, glossy) with a berry on top
+          dec(B, 'gloss', rosetteGeo(), mat4(x, -0.01, z, rnd() * TAU, 0.3, 0.28, 0.3), lin(pick([0xffffff, 0xffffff, 0xffc2d6, 0xeee4ff])));
+          dec(B, 'gloss', G.sphere(8, 6), mat4(x, 0.2 + 0.04, z, 0, 0.05, 0.045, 0.05), lin(pick([0x3c4a9c, 0xd8203c, 0xe8323e])));
+          RS.rosettes++;
+        }
+        else if (rnd() < 0.6) putD(B, blueberryData(0), mat4(x, -0.03, z, rnd() * TAU, 0.4));
+        else putD(B, strawberryData(), mat4(x, 0.02, z, rnd() * TAU, 0.36, 0.36, 0.36, 0.5, 0.25));
+      }
+      // a few rainbow sprinkles scattered on the yogurt round the ring (no white; a light scatter, never a confetti carpet)
+      const SPR = [0xff6a9a, 0xffd23a, 0x6ad0ff, 0x8ae070, 0xb88af0, 0xff9a4a];
+      for (let n = 0; n < 80; n++) {
+        const a = rnd() * TAU, r = R0 + (rnd() - 0.35) * 2.6, x = ar.x + Math.cos(a) * r, z = ar.z + Math.sin(a) * r;
+        if (!isFloor(L, x, z) || maskAt(x, z, 0) > 0.4 || maskAt(x, z, 2) > 0.5) continue;
+        dec(B, 'decor', G.octa(), mat4(x, 0.018, z, rnd() * TAU, 0.032, 0.022, 0.085), lin(pick(SPR)));   // (8 triangles each)
+      }
+    }
+    // giant things in the moat (half sunk in the kefir), graded by how far south they stand
+    const ring = [];
+    const MOAT = ['cheese2', 'cheese2', 'pots1', 'bottles2', 'sberry', 'sberry', 'bberry1', 'bberry0', 'honey', 'gugum'].map(id => DPROP.find(p => p.id === id));
+    for (let a = rnd() * 0.3; a < TAU; a += 0.36 + rnd() * 0.16) {
+      const e = arenaEdge(L, ar, a, 6);
+      if (!e) continue;
+      const o = 1.3 + rnd() * 1.6, x = e.x + e.dx * o, z = e.z + e.dz * o, c = cellOf(x, z);
+      if (c < 0 || grid[c] || liqAt(x, z) < 0.6 || linkDist(L, x, z) < 3.2 || ring.some(q => hyp(q[0] - x, q[1] - z) < 2.1) || (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 3.2)) continue;
+      const P = MOAT[Math.floor(rnd() * MOAT.length)], cap = capAt(gapAt(x, z)) + 0.2 * 1;
+      let s = 1.0 + rnd() * 0.45, sink = 0.12 + rnd() * 0.1;
+      if ((P.h * s - sink) > cap) s = (cap + sink) / P.h;
+      if (s < 0.55 || L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 3)) continue;
+      ring.push([x, z]);
+      putD(B, P.d(Math.floor(rnd() * 4)), mat4(x, -sink, z, rnd() * TAU, s));
+      for (let m = 0; m < 3; m++) { const b = rnd() * TAU, r = P.r * s + 0.2 + rnd() * 0.3; B.pts.norm.push({ x: x + Math.cos(b) * r, y: 0.02, z: z + Math.sin(b) * r, kind: 10, ph: rnd(), size: 0.1 + rnd() * 0.06, prm: 0.25 + rnd() * 0.2, col: lin(0xffffff, 1.05) }); }
+      RS.arena++;
+    }
+    // cereal rings bobbing round the moat
+    for (let n = 0, tries = 0; n < 26 && tries < 600; tries++) {
+      const a = rnd() * TAU, e = arenaEdge(L, ar, a, 6);
+      if (!e) continue;
+      const o = 0.9 + rnd() * 3.2, x = e.x + e.dx * o, z = e.z + e.dz * o;
+      if (isFloor(L, x, z) || liqAt(x, z) < 0.9 || ring.some(q => hyp(q[0] - x, q[1] - z) < 1.3)) continue;
+      const h = dec(B, 'decor', floatGeo(0), mat4(x, 0.025, z, rnd() * TAU, 0.24, 0.24, 0.24, Math.PI / 2 + (rnd() - 0.5) * 0.3), lin(pick(CEREAL_COL)));
+      h.item.uy = rnd() * 60; n++; RS.floats++;
+    }
+    // yogurt cliffs north of the moat with little milk waterfalls
+    B.falls = B.falls || [];
+    const offs = [-0.95, -0.4, 0.4, 0.95];
+    offs.splice(Math.floor(rnd() * 4), 1);
+    for (const o of offs) {
+      const a = -Math.PI / 2 + o, dx = Math.cos(a), dz = Math.sin(a);
+      let r = ar.r * 0.8;
+      while (r < ar.r + 12 && (V.dA ? V.dA[cellOf(ar.x + dx * r, ar.z + dz * r)] < 4.7 : r < ar.r + 4.7)) r += 0.25;
+      const x = ar.x + dx * r, z = ar.z + dz * r;
+      if (liqAt(x - dx * 0.6, z - dz * 0.6) < 0.5 || (L.exit && hyp(L.exit.x - x, L.exit.z - z) < 2.5)) continue;
+      let h = 2.4 + rnd() * 0.7;
+      while (h > 1.3 && hides(L, x, z, 0.7, 0, h + 0.5, 0.1)) h -= 0.3;
+      if (h <= 1.3) continue;
+      const yaw = Math.atan2(-dx, -dz), w = 1.3 + rnd() * 0.5, F = { x, z, yaw, h, w, ph: rnd() * 5 };
+      B.falls.push(F);
+      const mw = T.placeFallCliff(x, z, dx, dz, h, w);   // the cliff behind it, the jug or bottle pouring, the foam cushion and fizz at its foot
+      if (mw) F.wt = mw * 1.15;
+      RS.falls++;
+    }
+    // "Kefir Pınarı": a sign on the arena floor beside the portal, against the north rim (hides nothing)
+    if (L.exit) for (const sd of rnd() < 0.5 ? [1, -1] : [-1, 1]) {
+      let done = false;
+      for (const off of [3.4, 3.9, 4.4, 3.0]) {
+        const x0 = L.exit.x + sd * off;
+        let z = L.exit.z + 1.2;
+        while (z > L.exit.z - 4 && isFloor(L, x0, z - 1.2)) z -= 0.25;
+        if (!isFloor(L, x0, z) || !gapOKL(L, x0, z, 0.8) || hiddenBehind(L, x0, z, 0.9, 2.1) > 0 || L.solids.some(q => hyp(q.x - x0, q.z - z) < q.r + 1) || linkDist(L, x0, z) < 2.4) continue;
+        makeSign(L, B, x0, z, 'Kefir Pınarı', -sd * 0.18, true);
+        done = true; break;
+      }
+      if (done) break;
+    }
+    // …the round rim usually has floor behind every spot (a sign there would hide it): then the sign stands just outside the floor,
+    // on the bank of the moat north of the plaza (a decoration, no solid), facing the arena; in the kefir only if there is no bank
+    if (L.exit && !B.signs.some(q => q.text === 'Kefir Pınarı')) {
+      let best = null;
+      for (const off of [3.2, 3.8, 4.5, 5.2, 6.0, 2.8]) for (const sd of [1, -1]) {
+        const x0 = L.exit.x + sd * off;
+        let z = L.exit.z + 1.5;
+        while (z > L.exit.z - 6 && isFloor(L, x0, z)) z -= 0.2;
+        if (isFloor(L, x0, z)) continue;
+        z -= 0.45;
+        if (isFloor(L, x0, z) || isFloor(L, x0 - 0.6, z) || isFloor(L, x0 + 0.6, z) || hiddenBehind(L, x0, z, 0.9, 2.1) > 0 || L.solids.some(q => hyp(q.x - x0, q.z - z) < q.r + 0.6) || hyp(L.exit.x - x0, L.exit.z - z) < 2.6) continue;
+        const k = liqAt(x0, z) * 3 + off * 0.2;
+        if (!best || k < best.k) best = { x: x0, z, sd, k };
+      }
+      if (best) makeSign(L, B, best.x, best.z, 'Kefir Pınarı', -best.sd * 0.18, false);
     }
   }
   // ── Castle: brick wall blocks (tall N/E/W, low caps on the camera side), pillars, banners, rose window ──
@@ -4095,14 +5783,45 @@ const LEVEL = (function () {
     for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [0, 1]) k.add(MK(G.box()), 0x6a6470, [a * s / 2, c * s, b * s / 2], 0, [0.1, 0.1, 0.1]);
     return k.build();
   } };
-  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], volcano: [0xe0875a, 0x6ab8c8, 0xf0b060, 0xd07aa0], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8] };
+  // Kefir Vadisi's crates: pale birch frame, slats painted pastel mint or pink with gaps, a white milk-bottle stencil on each side,
+  // no dark wood, no iron corners
+  function dCrateGeo(paint) {
+    const k = new Kit(), s = 0.78, e = 0.07, birch = 0xfbeeda, wt = 0xffffff;
+    k.add(G.box(), 0xf2e4cc, [0, s / 2, 0], 0, [s - 0.06, s - 0.08, s - 0.06]);   // the inside (seen through the gaps)
+    for (const a of [-1, 1]) for (const b of [-1, 1]) k.add(G.box(), birch, [a * (s / 2 - e / 2), s / 2, b * (s / 2 - e / 2)], 0, [e, s, e]);   // corner posts
+    for (let i = 0; i < 3; i++) {   // painted slats with gaps, all four sides
+      const y = 0.13 + i * 0.26;
+      for (const b of [-1, 1]) { k.add(G.box(), paint, [0, y, b * (s / 2 - 0.012)], 0, [s - 0.1, 0.19, 0.03]); k.add(G.box(), paint, [b * (s / 2 - 0.012), y, 0], 0, [0.03, 0.19, s - 0.1]); }
+    }
+    k.add(G.box(), birch, [0, s - 0.01, 0], 0, [s, 0.03, s]);   // the lid boards
+    for (const f of [0, 1, 2, 3]) {   // a white milk-bottle stencil on each side
+      const a = f * Math.PI / 2, nx = Math.sin(a), nz = Math.cos(a), o = s / 2 + 0.004;
+      k.add(G.box(), wt, [nx * o, 0.36, nz * o], [0, a, 0], [0.14, 0.26, 0.005]);
+      k.add(G.box(), wt, [nx * o, 0.54, nz * o], [0, a, 0], [0.07, 0.1, 0.005]);
+      k.add(G.box(), paint, [nx * (o + 0.002), 0.4, nz * (o + 0.002)], [0, a, 0], [0.1, 0.05, 0.005]);   // its label
+    }
+    return k.build();
+  }
+  KIND.dCrateM = { mat: 'food', shadow: true, geo: () => dCrateGeo(0xb8ecd0) };   // (painted: plain glossy colours, no brown wood texture)
+  KIND.dCrateP = { mat: 'food', shadow: true, geo: () => dCrateGeo(0xffc8d8) };
+  // Kefir Vadisi's barrels are little copper milk jugs (güğüm): they break with a milk splash
+  KIND.bCan = { mat: 'copper', shadow: true, geo() {   // (polished copper with brass bands and a bright rim light: never a clay pot)
+    const pts = [[0.001, 0], [0.19, 0], [0.22, 0.03], [0.3, 0.14], [0.33, 0.28], [0.3, 0.42], [0.2, 0.52], [0.13, 0.58], [0.12, 0.64], [0.15, 0.71], [0.14, 0.73], [0.001, 0.72]];
+    const k = new Kit(), cu = new THREE.Color(0xe88a52), cu2 = new THREE.Color(0xffb88a), br = new THREE.Color(0xffd870);
+    k.add(new THREE.LatheGeometry(smoothProfile(pts, 16), 16), (x, y) => (Math.abs(y - 0.14) < 0.022 || Math.abs(y - 0.44) < 0.022 || Math.abs(y - 0.66) < 0.014 ? br : cu.clone().lerp(cu2, smooth01((y - 0.16) / 0.1) * (1 - smooth01((y - 0.34) / 0.1)) * 0.6)));
+    k.add(G.hemi(12), cu, [0, 0.72, 0], 0, [0.14, 0.06, 0.14]); k.add(G.sphere(8, 6), br, [0, 0.79, 0], 0, 0.028);
+    k.add(G.torus(Math.PI, 0.12, 12), cu, [0.1, 0.48, 0], [0, 0, -Math.PI / 2], [0.19, 0.19, 0.19]);
+    return k.build();
+  } };
+  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], dairy: [0xfaf6ee, 0x9cc8f0, 0xf6b4c6, 0xf6dc8a], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], volcano: [0xe0875a, 0x6ab8c8, 0xf0b060, 0xd07aa0], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8] };
   function makeBreakables(L, B) {
-    const byKind = {};
-    L.breakables.forEach((b, i) => (byKind[b.kind] || (byKind[b.kind] = [])).push(i));
+    const byKind = {}, dairy = L.theme === 'dairy';
+    const vkOf = (b, i) => (dairy && b.kind === 'barrel' ? 'bCan' : dairy && b.kind === 'crate' ? (i % 2 ? 'dCrateM' : 'dCrateP') : b.kind);   // Kefir Vadisi's own looks
+    L.breakables.forEach((b, i) => (byKind[vkOf(b, i)] || (byKind[vkOf(b, i)] = [])).push(i));
     const objs = new Array(L.breakables.length);
-    for (const kind in byKind) {
-      const ids = byKind[kind], K = KIND[kind];
-      const im = new THREE.InstancedMesh(kgeo(kind), R.mat[K.mat], ids.length);
+    for (const vk in byKind) {
+      const ids = byKind[vk], kind = L.breakables[ids[0]].kind, K = KIND[vk];
+      const im = new THREE.InstancedMesh(kgeo(vk), R.mat[K.mat], ids.length);
       const pal = VASE_COL[L.theme] || VASE_COL.forest;
       ids.forEach((bi, n) => {
         const b = L.breakables[bi], ry = B.rnd() * TAU, sc = kind === 'vase' ? 0.95 + B.rnd() * 0.3 : 0.95 + B.rnd() * 0.12;
@@ -4110,17 +5829,18 @@ const LEVEL = (function () {
         im.setMatrixAt(n, m);
         const vc = kind === 'vase' ? pal[Math.floor(B.rnd() * pal.length)] : 0;
         im.setColorAt(n, kind === 'vase' ? lin(vc) : lin(0xffffff, 0.92 + B.rnd() * 0.12));
-        const debris = kind === 'vase' ? '#' + vc.toString(16).padStart(6, '0') : kind === 'barrel' ? '#b07a48' : '#c8965a';
+        const debris = kind === 'vase' ? '#' + vc.toString(16).padStart(6, '0') : vk === 'bCan' ? '#e8a070' : vk === 'dCrateM' ? '#b8ecd0' : vk === 'dCrateP' ? '#ffc8d8' : kind === 'barrel' ? '#b07a48' : '#c8965a';
+        const milk = dairy && kind !== 'crate';   // jugs and cans were full of milk
         objs[bi] = { x: b.x, z: b.z, r: b.solid ? b.solid.r : 0.42, kind, broken: false,
           break() {
             if (this.brokenDone) return;
             this.brokenDone = true; this.broken = true;
             if (b.solid) b.solid.alive = false;
             im.setMatrixAt(n, _m.makeScale(0, 0, 0)); im.instanceMatrix.needsUpdate = true;
-            if (typeof FX !== 'undefined' && FX.burst) { FX.burst('debris', b.x, 0.45, b.z, { color: debris, count: 12 }); FX.burst('dust', b.x, 0.2, b.z, {}); }
+            if (typeof FX !== 'undefined' && FX.burst) { FX.burst('debris', b.x, 0.45, b.z, { color: debris, count: 12 }); FX.burst(milk ? 'milk' : 'dust', b.x, milk ? 0.35 : 0.2, b.z, {}); }
           } };
       });
-      im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); im.name = 'break-' + kind;
+      im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); im.name = 'break-' + (vk === 'dCrateM' || vk === 'dCrateP' ? 'crate' : kind);
       B.g.add(im);
     }
     L.breakObjs = objs.filter(Boolean);
@@ -4146,7 +5866,8 @@ const LEVEL = (function () {
   function makeCheckpoints(L, B) {
     L.cpObjs = L.checkpoints.map(c => {
       const g = new THREE.Group(); g.position.set(c.x, 0, c.z); B.g.add(g);
-      const ped = new THREE.Mesh(pedestalGeo(), R.mat.stone); ped.castShadow = ped.receiveShadow = true; g.add(ped);
+      const ped = L.theme === 'dairy' ? new THREE.Mesh(cheeseData(4).food, R.mat.food) : new THREE.Mesh(pedestalGeo(), R.mat.stone);   // Kefir Vadisi: two stacked cheese wheels
+      ped.castShadow = ped.receiveShadow = true; g.add(ped);
       const pi = L.cpObjsN = (L.cpObjsN || 0) + 1, pool = R.cpPool[pi] || (R.cpPool[pi] = {
         cm: keep(new THREE.MeshStandardMaterial({ color: 0xff9ad8, emissive: 0xff5ac0, emissiveIntensity: 0.35, roughness: 0.12, metalness: 0.05, flatShading: true })),
         rm: keep(new THREE.MeshBasicMaterial({ color: lin(0xff8fd8, 0.6) })) });
@@ -4209,7 +5930,7 @@ const LEVEL = (function () {
   function makePortal(L, B) {
     if (!L.exit) return;
     const ex = L.exit, g = new THREE.Group(); g.position.set(ex.x, 0, ex.z); B.g.add(g);
-    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : L.theme === 'volcano' ? [0x9a8a86, 0x8c7e7c] : [0xd4ccbc, 0xc4bcae];
+    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : L.theme === 'volcano' ? [0x9a8a86, 0x8c7e7c] : L.theme === 'dairy' ? [0xfff2e2, 0xf8e6d2] : [0xd4ccbc, 0xc4bcae];
     const st = () => lin(tint[Math.floor(rnd() * 2)], 0.9 + rnd() * 0.2);
     for (const sx of [-1, 1]) {
       let y = 0;
@@ -4222,7 +5943,7 @@ const LEVEL = (function () {
     }
     k.add(G.rbox(), st(), [0, 0.07, 0.45], 0, [3.9, 0.14, 1.3]);
     k.add(G.rbox(), st(), [0, 0.05, 1.25], 0, [3.2, 0.1, 0.7]);
-    const arch = new THREE.Mesh(k.build(), R.mat.rock); arch.castShadow = arch.receiveShadow = true; g.add(arch);
+    const arch = new THREE.Mesh(k.build(), L.theme === 'dairy' ? R.mat.food : R.mat.rock); arch.castShadow = arch.receiveShadow = true; g.add(arch);   // dairy: a white-chocolate arch
     B.dispose.push(arch.geometry);
     const rune = new Kit();
     rune.add(G.torus(TAU, 0.12, 20), 0x9af0ff, [0, 3.9, 0.41], 0, [0.16, 0.16, 0.16]);
@@ -4490,14 +6211,15 @@ const LEVEL = (function () {
     const g = L.group = new THREE.Group(); g.name = 'level'; scene.add(g);
     if (L.solids.some(s => s.built)) { L.solids = L.solids.filter(s => !s.built); L._sh = null; }   // rebuilding the same L
     const th = THEME[L.theme] || THEME.forest;
-    setLighting(th); POST.saturation = th.sat;
+    setLighting(th); POST.saturation = th.sat; POST.vignette = th.vig ?? 0.32;   // (Kefir Vadisi: a lighter vignette, the others keep 0.32)
     const ru = R.mat.rock.userData.u, mc = lin(th.moss[0]);
     ru.uMoss.value.set(mc.r, mc.g, mc.b, th.moss[1]);
     const rc = lin(th.rim[0]); ru.uRim.value.set(rc.r, rc.g, rc.b, th.rim[1]);
     R.mat.stone.userData.u.uMoss.value.set(mc.r, mc.g, mc.b, th.moss[1] * 0.6);
     for (const l of LIGHTS.torches) l.intensity = 0;
     R.ptOn.value.fill(1); R.portalOn.value = 1;
-    const B = L._b = { L, g, rnd: mulberry32((L.seed ^ 0x9e3779b9) >>> 0), inst: {}, dec: {}, lights: [], pts: { add: [], norm: [] }, flames: [], slime: [], banners: [], windows: [], shelves: [], falls: [],
+    const B = L._b = { L, g, rnd: mulberry32((L.seed ^ 0x9e3779b9) >>> 0), inst: {}, dec: {}, lights: [], pts: { add: [], norm: [] }, flames: [], slime: [], banners: [], windows: [], shelves: [], falls: [], signs: [],
+      ck: CHUNK,   // 16 m everywhere (Kefir Vadisi too): its chunks are triangle-heavy, and smaller ones cull far better (it has the fewest draw calls anyway)
       anim: [], dispose: [], tmpGeo: [], glows: [], far: [], noTree: [], noDec: new Uint8Array(L.W * L.H), prox: {}, grpN: 0, ptOn: R.ptOn, ptScale: R.ptScale, slots: LIGHTS.torches.map(() => ({ c: null, k: 0 })) };
     const V = L.village;
     if (V) {
@@ -4517,14 +6239,23 @@ const LEVEL = (function () {
       if (V.well) B.noDec[Math.floor(V.well.z) * L.W + Math.floor(V.well.x)] = 1;
     }
     if (L.exit) B.noTree.push({ x: L.exit.x, z: L.exit.z - 0.5, r: 2.4 });
-    L._volc = L.theme === 'volcano' ? volcanoField(L) : null;   // lava + bridges first: the floor mask needs them
+    const bt = L.buildT = {}, lap = (k, t) => { const n2 = performance.now(); bt[k] = Math.round(n2 - t); return n2; };   // build phases (ms), for tests
+    let tp = performance.now();
+    L._volc = L.theme === 'volcano' ? volcanoField(L) : null;   // lava / milk + bridges first: the floor mask needs them
+    L._dairy = L.theme === 'dairy' ? dairyField(L) : null;
+    tp = lap('field', tp);
     buildFloor(L, B);
-    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'cave') buildCave(L, B); else if (L.theme === 'volcano') buildVolcano(L, B); else buildCastle(L, B);
+    tp = lap('floor', tp);
+    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'dairy') buildDairy(L, B); else if (L.theme === 'cave') buildCave(L, B); else if (L.theme === 'volcano') buildVolcano(L, B); else buildCastle(L, B);
     if (V) buildVillage(L, B);
+    tp = lap('theme', tp);
     L.fixedProps = fixReach(L, unProp, dropUnreachable);   // build-time rocks / props must not cut off a room, chest or checkpoint
+    tp = lap('reach', tp);
+    finishSigns(L, B);
     buildProps(L, B);
     finishBanners(B); finishSlime(B); finishWindows(B); finishLavafalls(B);
     finishInst(L, B); finishDecor(L, B); finishPoints(L, B); finishFlames(L, B); buildGlowTex(L, B);
+    lap('finish', tp);
     for (const t of B.tmpGeo) t.dispose();
     B.tmpGeo.length = 0;
     buildMapCanvas(L);
@@ -4542,6 +6273,12 @@ const LEVEL = (function () {
     R.heroU.value.set(fx, 0, fz);
     B.ptScale.value = innerHeight * renderer.getPixelRatio() / (2 * Math.tan(camera.fov * Math.PI / 360));
     for (let i = 0; i < B.anim.length; i++) B.anim[i](dt, fx, fz);
+    const rp = B.rip;
+    if (rp && rp.src.length > 4 - rp.fixed && (rp.t -= dt) <= 0) {   // more splashes than ripple slots: the nearest ones ripple
+      rp.t = 0.5;
+      const o = rp.src.slice().sort((a, b) => hyp(a[0] - fx, a[1] - fz) - hyp(b[0] - fx, b[1] - fz));
+      for (let i = rp.fixed; i < 4; i++) { const q = o[i - rp.fixed]; if (q) rp.u.value[i].set(q[0], q[1], q[2], q[3]); }
+    }
     for (let i = 0; i < B.far.length; i++) {   // small ground decor (flowers, tufts, pebbles) far from the view centre: not drawn
       const f = B.far[i], dx = f.x - fx, dz = f.z - fz, d = DECOR_FAR + f.r;
       f.o.visible = dx * dx + dz * dz < d * d;

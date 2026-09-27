@@ -26,8 +26,9 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   daha güçlüyse Feza hemen giyer. Eşya seyrek düşer ve çantada her eşyadan yalnızca bir tane olur: aynısının daha güçlüsü bulunursa eskisinin yerini alır.
   🎒 düğmesiyle çantayı açıp istediği şapkayı, pelerini ve ışın kılıcını seçebilir.
 - **Harita:** Sağ üstteki yuvarlak harita gidilecek yönü altın okla gösterir. Mor **sihirli kapıdan** geçince yeni bölgeye gidilir.
-- ⏸ düğmesi oyunu durdurur (ses, müzik, **Kaydet**, baştan başla). Oyun kendiliğinden kaydedilmez: her açılışta yeni oyun başlar.
-  Kalınan yerden sürmek isterseniz ⏸ › **Kaydet**'e basın; oyunu yeniden açınca **Oyna**'nın yanında **Devam Et** çıkar.
+- ⏸ düğmesini kısa bir an basılı tutunca oyun durur (efektler, müzik, **Kaydet**, **Baştan Başla**). Oyun kendiliğinden kaydedilmez.
+  Kalınan yerden sürmek isterseniz ⏸ › **Kaydet**'e basın; oyunu yeniden açınca **Devam Et** ve **Baştan Başla** düğmeleri çıkar.
+  **Baştan Başla** oyunu ormandan, 1. seviyeden yeniden başlatır; kayıt silinmez (yeniden **Kaydet**'e basılana kadar durur).
 - **Bilgisayarda klavye:** ok tuşları / WASD yürür, Boşluk vurur, **1 2 3** yetenekleri kullanır (tuşlar düğmelerin üstünde yazar), Q iksir, B çanta, Esc mola.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
@@ -37,11 +38,14 @@ Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihi
 
 1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
    Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
-2. **Köstebek ve Salyangoz Mağarası:** parlayan kristallerle aydınlanan mağara. Toprağın altından "pıt" diye çıkan madenci köstebekler,
+2. **Kefir Vadisi:** akan süt ve kefir nehirleri, parlak yoğurt tepecikleri, delikli dev peynirler, güğümler, yayıklar ve bisküvi köprüler.
+   Ejderhanın büyüsüyle yoğurtlar ekşimiş, kaymaklar kesilmiş: ekşi yoğurtlar, kayan kaymaklar, uçan kefir köpükleri, peynir dilimleri ve muhallebi jöleler.
+   Sonunda **Köpüklü Kefir Devi**: dev bir kefir şişesi; neşelenince Feza'ya en güzel kefirinden ikram eder.
+3. **Köstebek ve Salyangoz Mağarası:** parlayan kristallerle aydınlanan mağara. Toprağın altından "pıt" diye çıkan madenci köstebekler,
    baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri. Sonunda **Usta Köstebek**: matkap baretli dev köstebek.
-3. **Lav Yanardağı:** parlak lav gölleri, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
+4. **Lav Yanardağı:** parlak lav gölleri, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
    Sonunda **Koca Lav Kaplumbağası**: kabuğu küçük bir yanardağ; lav topları fışkırtır (düşecekleri yer kırmızı daireyle görünür).
-4. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
+5. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
    kaybolur, neşe kristali köye döner. İstenirse macera en baştan yeniden başlar.
 
 ## Dosyalar

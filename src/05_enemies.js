@@ -7,7 +7,11 @@
    (toprağa dalar: st.burrow) ve salyangoz (baloncuk üfler, canı yanınca kabuğuna saklanır) var.
    3. tur (Feza'nın isteği): yanardağda minik lav kaplumbağası (kabuğunda tüten minik yanardağ, kabuğuna girip yuvarlanır),
    ateş kuşu (alev tepeli tombul civciv), lav jölesi ve magma kaya devi; her bölümün sonunda bir boss: Kral Jöle, Usta Köstebek,
-   Koca Lav Kaplumbağası (hepsi st.phase + st.phaseT ile oynar; mutlu olunca el sallayıp parıltıyla kaybolur). */
+   Koca Lav Kaplumbağası (hepsi st.phase + st.phaseT ile oynar; mutlu olunca el sallayıp parıltıyla kaybolur).
+   4. tur (Feza'nın isteği): Kefir Vadisi — ekşi yoğurt (kapağı şapka gibi), kesik kaymak (bal şapkalı rulo), kefir köpüğü
+   (uçan baloncuk kümesi), peynir dilimi (kırmızı mum çizmeli), muhallebi jölesi ve boss Köpüklü Kefir Devi (cam şişe, içinde
+   kefir ve yükselen kabarcıklar, taç gibi gazoz kapağı; yenilince Feza'ya pipetli bir bardak kefir uzatır). Buradaki huysuz
+   yüz = komik ekşi yüz (bir göz kısık, dil dışarıda); mutlu olunca krema bembeyaz olur. */
 
 // Base stats (zone 1 scale; GAME multiplies by zone and its DIFF table). hover = flying height of the model origin.
 // Feza's request: no spiders any more (orumcek removed); the cave has moles (kostebek) and snails (salyangoz).
@@ -41,6 +45,23 @@ const EDEF = {
   lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', hp: 1300, dmg: 14, speed: 1.5, r: 1.65, height: 2.8, xp: 450, gold: 120, kind: 'boss', atkRange: 3, atkCd: 1.6, windup: 0.8, fly: false, aggro: 14,
     shot: { kind: 'lavaball', speed: 5, r: 0.5 }, lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' },
     phases: ['idle', 'move', 'erupt', 'hide', 'roll', 'stomp', 'summon', 'roar'], summon: { type: 'kaplumbaga', n: 2, at: [0.5] }, slamR: 4.2, rollSpeed: 7 },
+  // ── Round 4: Kefir Vadisi (zone 1 'kefir', theme 'dairy'; the valley also has jole variant 'muhallebi'). Their 'grumpy' face is the
+  // funny sour 😜 face. All melee in spirit, with GAME's moves: yogurt kind 'hop' (hops at Feza and bumps: st.windup = crouch,
+  // st.attack/st.air = the hop GAME carries, st.attack 1 = squashed recover), kaymak 'glide' (whooshes along a lane like the
+  // rolling turtle: st.attack = share of the lane, then 1), peynir 'slam' (leans back, flops forward at st.attack 0: the ring).
+  // line = voice key for the first time that type notices Feza; trail = a short creamy trail while it glides. ──
+  yogurt: { ad: 'Ekşi Yoğurt', eliteAd: 'Kocaman Ekşi Yoğurt', hp: 24, dmg: 6, speed: 2.5, r: 0.5, height: 0.82, xp: 12, gold: 3, kind: 'hop', atkRange: 2.4, atkCd: 1.9, windup: 0.6, fly: false, aggro: 9, line: 'ilk_yogurt' },
+  kaymak: { ad: 'Kesik Kaymak', eliteAd: 'Kocaman Kesik Kaymak', hp: 26, dmg: 6, speed: 3.5, r: 0.5, height: 0.68, xp: 13, gold: 3, kind: 'glide', atkRange: 2.4, atkCd: 2.0, windup: 0.65, fly: false, aggro: 9.5, trail: 'milk', line: 'ilk_kaymak' },
+  kopuk: { ad: 'Kefir Köpüğü', eliteAd: 'Kocaman Kefir Köpüğü', hp: 20, dmg: 6, speed: 2.3, r: 0.45, height: 0.8, xp: 12, gold: 3, kind: 'ranged', atkRange: 6.5, range: 6.5, atkCd: 2.6, windup: 0.75, fly: true, hover: 0.7, aggro: 9.5, shot: { kind: 'fizz', speed: 3.8, r: 0.36 }, line: 'ilk_kopuk' },
+  peynir: { ad: 'Peynir Dilimi', eliteAd: 'Kocaman Peynir Dilimi', hp: 80, dmg: 11, speed: 1.5, r: 0.75, height: 1.4, xp: 30, gold: 8, kind: 'slam', atkRange: 1.7, atkCd: 2.6, windup: 0.95, slamR: 1.9, fly: false, aggro: 9 },
+  // Köpüklü Kefir Devi — model timing (phaseT): shake = wind-up (wobbles + fizzes) · geyser: cap pops at 0.1, sprays 0.14–0.84 (sprayAt),
+  // cap back on ~0.9 · bubbles: puffs at fizzAt while turning left → right (the fan) · slam: crouch 0–0.2, airborne 0.2–0.8, lands at
+  // 0.8 · summon: beat ≈ 0.5. Defeat: st.dying give.from … give.to it holds out a glass of kefir (m.giftPos(); handed over at ≈ 0.4),
+  // then hops, waves and twirls away — dieDur (s) is the suggested length of that goodbye (st.give 0..1 may drive the hand-over instead).
+  kefirdev: { ad: 'Köpüklü Kefir Devi', hp: 1000, dmg: 13, speed: 1.7, r: 1.45, height: 3.0, xp: 200, gold: 50, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, fly: false, aggro: 12,
+    shot: { kind: 'fizz', speed: 4, r: 0.45 }, lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' },
+    phases: ['idle', 'move', 'shake', 'geyser', 'bubbles', 'slam', 'summon', 'roar'], summon: { type: 'kopuk', n: 3, at: [0.66, 0.33] }, slamR: 3.0,
+    cone: { angle: 0.9, len: 6 }, fizzAt: [0.4, 0.5, 0.6, 0.7, 0.8], sprayAt: [0.14, 0.84], slamAt: 0.8, give: { from: 0.05, to: 0.45 }, dieDur: 6.5 },
 };
 
 const EMODEL = (function (G0) {
@@ -51,7 +72,8 @@ const EMODEL = (function (G0) {
   // built) so a character stays about 5-8k triangles (dragon about 20k). The shared core cache G0 keeps every variant. ──
   // (the little volcano creatures come in packs inside the sun's shadow box, skinned twice: a leaner LOD keeps the volcano's
   // shadow pass in line with the other zones)
-  const LOD = { ejderha: 0.72, baby: 0.7, owl: 1, kraljole: 0.85, kostebekusta: 0.8, lavkaplumbaga: 0.8, kaplumbaga: 0.45, ateskusu: 0.5 };
+  const LOD = { ejderha: 0.72, baby: 0.7, owl: 1, kraljole: 0.85, kostebekusta: 0.8, lavkaplumbaga: 0.8, kaplumbaga: 0.45, ateskusu: 0.5,
+    yogurt: 0.55, kaymak: 0.55, kopuk: 0.5, peynir: 0.65, kefirdev: 0.8 };
   let LODK = 1;
   const sN = (n, min) => Math.max(min, Math.round(n * LODK));
   const G = {
@@ -68,7 +90,7 @@ const EMODEL = (function (G0) {
   };
 
   // ── Surface patch: per-vertex flags aFx = (unlit 0..1, gloss 0..1 | 2 = metal, texture mask, wobble weight);
-  // unlit, gloss and wobble may also be functions (x, y, z) of the model-space position (glowing lava veins). ──
+  // each may also be a function (x, y, z) of the model-space position (glowing lava veins, the cheese's waxed rind). ──
   const V_DECL = 'attribute vec4 aFx; varying vec4 vFx; uniform float uT; uniform vec4 uWob;';
   const V_BEGIN = `vFx = aFx;
     if (aFx.w > 0.0) {
@@ -345,11 +367,11 @@ const EMODEL = (function (G0) {
       let vo = 0;
       for (let i = 0; i < parts.length; i++) {
         const cnt = parts[i].geo.attributes.position.count, mm = metas[i], f = mm.fx, wf = typeof f[3] === 'function' ? f[3] : null;
-        const uf = typeof f[0] === 'function' ? f[0] : null, gf = typeof f[1] === 'function' ? f[1] : null;
+        const uf = typeof f[0] === 'function' ? f[0] : null, gf = typeof f[1] === 'function' ? f[1] : null, tf = typeof f[2] === 'function' ? f[2] : null;
         for (let v = vo; v < vo + cnt; v++) {
           fx[v * 4] = uf ? uf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[0];
           fx[v * 4 + 1] = gf ? gf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[1];
-          fx[v * 4 + 2] = f[2];
+          fx[v * 4 + 2] = tf ? tf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[2];
           fx[v * 4 + 3] = wf ? wf(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]) : f[3];
           si[v * 4] = mm.b; sw[v * 4] = 1;
           if (mm.uv) { U[v * 2] *= mm.uv[0]; U[v * 2 + 1] *= mm.uv[1]; }
@@ -437,6 +459,28 @@ const EMODEL = (function (G0) {
     r.fx(0.35, 0).add(G.sphere(14, 8), o.blushCol || '#ff86b2', [0, 0, 0], null, [er * 0.74 * k, er * 0.42 * k, er * 0.2]);
     r.fx(0, 0);
   }
+  // ── Round 4: the dairy creatures' "ekşi" (sour) face = the funny 😜 face: one eye squeezed into a > squint, the other wide
+  // open, a lopsided open grin with the tongue stuck out over the lip. Silly, never a frown, never gross. ──
+  // Squeezed eye in the eye frame (z = out of the head; the surface is at about z = inset): a rounded > chevron pointing to
+  // the nose (side s) and a tiny crinkle line at its outer corner (o.squintCheek: the cheek pushed up under it too).
+  function squintEye(r, s, o, inset) {
+    const er = o.er, t = er * (o.squintT ?? 0.17), z = inset + t * 0.35, c = o.squintCol || DARK;
+    const tip = [-s * er * 0.46, er * 0.04, z + er * 0.04], a = [s * er * 0.6, er * 0.5, z - er * 0.04], b = [s * er * 0.6, -er * 0.36, z - er * 0.04];
+    r.fx(0, 0.3).seg(a, tip, t, c, t, 8).seg(b, tip, t, c, t, 8);
+    for (const p of [tip, a, b]) r.add(G.sphere(10, 8), c, p, null, t);
+    r.seg([s * er * 1.0, er * 0.72, z - er * 0.14], [s * er * 1.22, er * 0.96, z - er * 0.24], t * 0.62, c, t * 0.5, 6);
+    if (o.squintCheek && o.skin) r.fx(o.skinFx ?? 0, 0).add(G.sphere(18, 12), o.skin, [s * er * 0.1, -er * 0.95, z - er * 0.26], null, [er * 1.0, er * 0.34, er * 0.3]);
+    r.fx(0, 0);
+  }
+  // Lopsided open grin (the corner on the squint side sq pulled up) with a round pink tongue stuck out over the lower lip.
+  function sourMouth(r, mw, o, sq) {
+    r.fx(0, 0.5).add(G.hemi(22), o.mouthIn || '#6a1f3c', [0, mw * 0.1, 0], [PI, 0, -0.2 * sq], [mw * 0.5, mw * 0.38, mw * 0.26]);
+    r.fx(0, 0.8).add(G.rbox(2), '#ffffff', [-sq * mw * 0.04, mw * 0.06, mw * 0.16], [0, 0, -0.2 * sq], [mw * 0.5, mw * 0.08, mw * 0.1]);
+    const tx = sq * mw * 0.1;
+    r.fx(0, 0.7).add(G.sphere(16, 12), o.tongue || '#ff6f9a', [tx, -mw * 0.25, mw * 0.2], [0.55, 0, 0.18 * sq], [mw * 0.24, mw * 0.29, mw * 0.13]);
+    r.fx(0, 0.4).add(G.sphere(8, 6), o.tongueD || '#e8487e', [tx + sq * mw * 0.01, -mw * 0.28, mw * 0.31], [0.55, 0, 0.18 * sq], [mw * 0.028, mw * 0.18, mw * 0.03]);
+    r.fx(0, 0);
+  }
   const heartGeo = () => extrude('heart', heartShape, 0.06, 0.035, 14);
   // Full face on a roughly spherical head (centre c, radius R): mischievous (mood 1) + overjoyed (mood 2) parts,
   // plus 'eyes' (blink / giggle squint), 'brow' and 'joy' (hearts) bones.
@@ -457,26 +501,31 @@ const EMODEL = (function (G0) {
         const [p, q] = onSphere(s * (ex + er * (o.blushX ?? 0.3)), ey - er * (o.blushY ?? 1.05), R, -er * 0.02); r.push(p, q); blush(r, er, o, k); r.pop();
       }
     };
-    // ── mischievous ──
+    // ── mischievous (o.sour: the dairy creatures' funny sour 😜 face, squinting on side sq) ──
     r.mood = 1;
+    const sq = o.sour ? (o.sourSide ?? -1) : 0, big = sq ? Object.assign({}, o, { er: er * (o.openK ?? 1.1) }) : o;
     r.on('eyes').push(c, [-tilt, 0, 0]);
-    for (const s of [-1, 1]) { const [p, q] = onSphere(s * ex, ey, R, inset); r.push(p, q); eyeOpen(r, s, o, true); r.pop(); }
+    for (const s of [-1, 1]) {
+      const [p, q] = onSphere(s * ex, ey, R, inset); r.push(p, q);
+      if (s === sq) squintEye(r, s, o, inset); else eyeOpen(r, s, big, !sq);
+      r.pop();
+    }
     r.pop();
     if (!o.noBrow) {   // arched playful brows, one raised a little higher (never slanted down toward the nose)
       r.on('brow').push(c, [-tilt, 0, 0]);
-      const bA = PI * 0.56, side = o.browSide ?? 1;
+      const bA = PI * 0.56, side = sq ? -sq : (o.browSide ?? 1);
       for (const s of [-1, 1]) {
-        const up = s === side ? er * (o.browRaise ?? 0.3) : 0;
+        const up = s === side ? er * (o.browRaise ?? (sq ? 0.46 : 0.3)) : sq ? -er * 0.08 : 0;
         const [p, q] = onSphere(s * (ex + er * 0.05), ey + er * (o.browY ?? 1.42) + up, R, -er * 0.02);
         r.push(p, q).fx(o.browGlow ? 1 : 0, 0.25).add(G.torus(bA, o.browT ?? 0.36, 14), o.browGlow ? hdr(o.browGlow, 2) : (o.browCol || DARK),
-          [0, -er * 0.34 * (o.browW ?? 1), 0], [0, 0, (PI - bA) / 2], [er * 0.68 * (o.browW ?? 1), er * (up ? 0.56 : 0.46) * (o.browH ?? 1), er * 0.42]).pop();
+          [0, -er * 0.34 * (o.browW ?? 1), 0], [0, 0, (PI - bA) / 2], [er * 0.68 * (o.browW ?? 1), er * (up > 0 ? 0.56 : 0.46) * (o.browH ?? 1), er * 0.42]).pop();
       }
       r.pop();
     }
     if (!o.noBlush) { r.on(o.bone).push(c, [-tilt, 0, 0]); blushAt(0.8); r.pop(); }
     if (!o.noMouth) {
       r.on(mBone).push(mc, [-mt, 0, 0]);
-      { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); smirk(r, mw, o); r.pop(); }
+      { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); if (sq) sourMouth(r, mw * (o.sourK ?? 1.3), o, sq); else smirk(r, mw, o); r.pop(); }
       r.pop();
     }
     // ── overjoyed ──
@@ -501,13 +550,16 @@ const EMODEL = (function (G0) {
     r.mood = 0; r.fx(0, 0);
   }
   const GOLD = '#ffc94a';
-  function crown(r, p, s, gem = '#ff5fa8') {
-    r.push(p, [-0.12, 0, 0], s).fx(0, 2);
-    r.add(G.cyl(1, 0.9, 20), GOLD, [0, 0.1, 0], null, [0.2, 0.2, 0.2]);
+  // (gl: surface — 2 = polished metal (default); the dairy elites pass 1, a glossy painted gold that stays bright in the kefir
+  // valley's soft, pale environment light, where metal mirrored it as a dull olive)
+  function crown(r, p, s, gem = '#ff5fa8', gl = 2) {
+    const gc = gl === 2 ? GOLD : '#ffc436';
+    r.push(p, [-0.12, 0, 0], s).fx(0, gl);
+    r.add(G.cyl(1, 0.9, 20), gc, [0, 0.1, 0], null, [0.2, 0.2, 0.2]);
     for (let i = 0; i < 5; i++) {
       const a = i / 5 * TAU;
-      r.add(G.cone(8), GOLD, [Math.sin(a) * 0.17, 0.27, Math.cos(a) * 0.17], null, [0.06, 0.18, 0.06]);
-      r.add(G.sphere(8, 6), GOLD, [Math.sin(a) * 0.17, 0.37, Math.cos(a) * 0.17], null, 0.035);
+      r.add(G.cone(8), gc, [Math.sin(a) * 0.17, 0.27, Math.cos(a) * 0.17], null, [0.06, 0.18, 0.06]);
+      r.add(G.sphere(8, 6), gc, [Math.sin(a) * 0.17, 0.37, Math.cos(a) * 0.17], null, 0.035);
     }
     r.fx(0.5, 1).add(G.octa(), hdr(gem, 1.4), [0, 0.1, 0.2], null, [0.06, 0.08, 0.04]);
     r.pop().fx(0, 0);
@@ -536,25 +588,58 @@ const EMODEL = (function (G0) {
   };
   // (JOLE.lava: glowing magma jelly of the volcano — hot yellow core at the bottom, floating dark basalt flakes, ember bubbles)
   JOLE.lava = ['#ff8a1c', '#ffd84a', '#e8401a'];
+  // (JOLE.muhallebi, Round 4 kefir valley: a wobbly milk pudding turned out of a fluted mould — glossy, milky ivory, 8 soft flutes
+  // (smoothed where the face is), cinnamon dusted only on its top with a few pistachio crumbs and mint, a little caramel pool
+  // around its foot; the dairy creatures' funny sour face)
+  JOLE.muhallebi = ['#fff2da', '#fffcf2', '#f0d2a0'];
   const JOLE_GP = [[0, 0], [0.39, 0], [0.5, 0.035], [0.545, 0.12], [0.535, 0.24], [0.49, 0.34], [0.462, 0.45], [0.428, 0.55], [0.37, 0.65], [0.298, 0.72], [0.2, 0.79], [0.09, 0.835], [0, 0.86]];
+  // the pudding's profile: a little foot rim, then the gumdrop the face is fitted to, a flatter top
+  const MH_P = [[0, 0], [0.42, 0], [0.55, 0.014], [0.578, 0.05], [0.562, 0.086], [0.538, 0.11], [0.546, 0.17], [0.532, 0.26], [0.495, 0.35],
+    [0.464, 0.45], [0.43, 0.55], [0.37, 0.65], [0.3, 0.72], [0.21, 0.785], [0.1, 0.83], [0, 0.846]];
+  // flute strength at height y and azimuth a (0 at the base and the top; soft at the front, where the face sits)
+  const mhFlute = (y, a) => smooth01((y - 0.1) / 0.08) * (1 - smooth01((y - 0.6) / 0.2)) * (1 - 0.78 * Math.exp(-((a / 0.62) ** 4)) * smooth01((y - 0.12) / 0.1));
+  const mhGroove = a => Math.pow(Math.abs(Math.sin(4 * a)), 4);          // 1 in the middle of each of the 8 narrow grooves
+  const mhRib = a => 0.35 - mhGroove(a);                                   // broad round ridges +, narrow grooves − (a ridge at each side)
+  function mhFluteGeo() {
+    const sg = sN(96, 64), sm = Math.max(2, Math.round(4 * LODK));
+    return gx('mhFlute@' + sg + '_' + sm, () => {
+      const v = new THREE.SplineCurve(MH_P.map(p => new THREE.Vector2(p[0], p[1]))).getPoints(MH_P.length * sm);
+      v.forEach(q => { q.x = Math.max(0, q.x); });
+      const g = new THREE.LatheGeometry(v, sg), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z), k = 1 + 0.15 * mhRib(a) * mhFlute(y, a);
+        p.setXYZ(i, x * k, y, z * k);
+      }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
   function buildJole(r, o) {
-    const lava = o.variant === 'lava';
+    const lava = o.variant === 'lava', mh = o.variant === 'muhallebi';
     let [base, light, deep] = (JOLE[o.variant] || JOLE.green).map(col);
     if (o.elite) { base = rich(base, 1.3, 0.9); deep = rich(deep, 1.3, 0.8); light = rich(light, 1.2, 0.95); }
     const H = 0.86 * 0.9;
     r.bone('body', 'root', [0, 0, 0]);
     r.push([0, 0, 0], null, [1.08, 0.9, 1.08]);
     const wob = (x, y) => smooth01((y - 0.05) / 0.62);
-    const GP = JOLE_GP;
-    const body = lathe('gumdrop', GP, 48);
+    const GP = mh ? MH_P : JOLE_GP;
+    const body = mh ? mhFluteGeo() : lathe('gumdrop', GP, 48);
     if (lava) {   // molten: partly self-lit, white-hot at the bottom, deep orange-red on top
       // self-lit amount per vertex: glowing hot at the bottom, a glossy lit skin on top (keeps it saturated, not pastel)
       r.fx((x, y) => 0.55 + 0.35 * smooth01((0.45 - y) / 0.4), 0, 0, wob).add(body, vgrad(0, 0.8, [[0, hdr('#ffbc24', 1.4)], [0.3, hdr('#ff9616', 1.12)], [0.65, hdr('#ff7a16', 0.98)], [1, hdr('#ff6a1a', 0.9)]]));
+    } else if (mh) {   // glossy milky pudding: ivory, a little warmer in the flutes' grooves, a light cinnamon dusting only on its top
+      const g = vgrad(0, 0.76, [[0, deep], [0.22, base], [1, light]]), cin = col('#b87444'), grooveC = col('#e8c088'), out = new THREE.Color();
+      r.fx(0, 0.55, 0, wob).add(body, (x, y, z) => {
+        const yp = y / 0.9, a = Math.atan2(x, z), gr = mhGroove(a) * mhFlute(yp, a);
+        out.copy(g(x, yp, z)).lerp(grooveC, gr * 0.85);
+        const n = fbm3(x * 16, yp * 16, z * 16);
+        return out.lerp(cin, smooth01((yp - 0.72) / 0.07) * (0.14 + 0.5 * smooth01((n - 0.5) / 0.12)));
+      });
     } else r.fx(0, 0, 0, wob).add(body, vgrad(0, 0.8, [[0, deep], [0.45, base], [1, mixc(base, light, 0.4)]]));
     // painted gloss highlights + tiny bubbles (they wobble with the surface)
     r.fx(1, 0, 0, wob);
-    { const [p, n] = onLathe(GP, 0.6, -0.72, 0.004); r.add(G.sphere(14, 10), hdr(lava ? '#fff4d8' : '#ffffff', 1.3), p, qz(...n, 0.9), [0.13, 0.045, 0.015]); }
-    { const [p, n] = onLathe(GP, 0.45, -0.98, 0.004); r.add(G.sphere(10, 8), hdr('#ffffff', 1.25), p, qz(...n), [0.03, 0.03, 0.01]); }
+    { const [p, n] = onLathe(GP, 0.6, -0.72, mh ? 0.026 : 0.004); r.add(G.sphere(14, 10), hdr(lava ? '#fff4d8' : '#ffffff', 1.3), p, qz(...n, 0.9), [0.13, 0.045, 0.015]); }
+    { const [p, n] = onLathe(GP, 0.45, -0.98, mh ? 0.02 : 0.004); r.add(G.sphere(10, 8), hdr('#ffffff', 1.25), p, qz(...n), [0.03, 0.03, 0.01]); }
     if (lava) {
       r.fx(1, 0, 0, wob);   // ember bubbles glowing just under the skin
       for (const b of [[0.16, 1.1, 0.035], [0.26, 1.9, 0.028], [0.13, -2.4, 0.03], [0.34, 0.9, 0.022], [0.22, -1.5, 0.025], [0.52, 2.6, 0.022]]) {
@@ -568,6 +653,33 @@ const EMODEL = (function (G0) {
       r.add(lathe('flame', FLAME_P, 28, 3), fl, [0, 0.7, -0.03], [-0.25, 0, 0.12], [0.2, 0.4, 0.2]);
       r.add(lathe('flame', FLAME_P, 28, 3), fl, [0.08, 0.7, -0.05], [-0.3, 0, -0.55], [0.11, 0.22, 0.11]);
       r.add(lathe('flame', FLAME_P, 28, 3), fl, [-0.07, 0.7, -0.06], [-0.35, 0, 0.6], [0.09, 0.18, 0.09]);
+    } else if (mh) {   // cinnamon flecks + pistachio crumbs sprinkled on the top only
+      r.fx(0, 0.2, 0, wob);
+      const CIN = ['#7a4222', '#8e5230', '#6a3818', '#9c6034'];
+      for (let i = 0; i < 56; i++) {
+        const y = 0.73 + 0.11 * hash3(i, 7, 1), a = hash3(i, 3, 9) * TAU, s2 = 0.006 + 0.008 * hash3(i, 5, 2);
+        const [p, n] = onLathe(GP, y, a, 0.002); r.add(G.sphere(8, 6), CIN[i & 3], p, qz(...n, a), [s2 * 1.4, s2, s2 * 0.35]);
+      }
+      r.fx(0, 0.5, 0, wob);
+      for (let i = 0; i < 6; i++) {
+        const y = 0.7 + 0.12 * hash3(i, 11, 4), a = hash3(i, 13, 6) * TAU, s2 = 0.018 + 0.008 * hash3(i, 2, 8);
+        const [p, n] = onLathe(GP, y, a, 0.004); r.add(G.rbox(1), i & 1 ? '#8fc85a' : '#b4d86a', p, qz(...n, a * 3), [s2 * 1.3, s2, s2 * 0.6]);
+      }
+      // a sprig of two mint leaves on top (a fresh green garnish)
+      r.fx(0, 0.6, 0, wob);
+      for (const sd of [-1, 1]) {
+        r.add(G.sphere(14, 8), sd > 0 ? '#44c464' : '#36b058', [0.035 * sd, 0.862, -0.01], [0.2, sd * 0.5, -sd * 0.28], [0.045, 0.012, 0.085]);
+        r.add(G.sphere(8, 4), '#8ee8a0', [0.035 * sd, 0.872, -0.01], [0.2, sd * 0.5, -sd * 0.28], [0.005, 0.004, 0.07]);
+      }
+      // a glossy caramel pool around its foot (a warm amber ring on the creamy ground), lobed like a real drip of sauce
+      r.fx(0, 1, 0, 0);
+      const car = vgrad(0.0, 0.02, [[0, '#dc8e32'], [1, '#f4b85a']]);
+      r.add(G.cyl(1, 1, 48), car, [0, 0.006, 0], null, [0.635, 0.01, 0.635]);
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * TAU + 0.3, rr = 0.6 + 0.03 * hash3(i, 2, 5), s2 = 0.055 + 0.03 * hash3(i, 9, 1);
+        r.add(G.sphere(28, 8), car, [Math.sin(a) * rr, 0.008, Math.cos(a) * rr], [0, a, 0], [s2 * 1.5, 0.011, s2]);
+      }
+      r.fx(1, 0).add(G.sphere(12, 6), hdr('#fff0c8', 1.2), [Math.sin(-0.75) * 0.615, 0.02, Math.cos(-0.75) * 0.615], [0, -0.75, 0], [0.06, 0.004, 0.012]);
     } else {
       r.fx(0, 1, 0, wob);
       for (const b of [[0.16, 1.1, 0.035], [0.26, 1.9, 0.028], [0.13, -2.4, 0.03], [0.34, 0.9, 0.022], [0.22, -1.5, 0.025]]) {
@@ -577,14 +689,16 @@ const EMODEL = (function (G0) {
     }
     const iris = lava ? col('#4a1606') : mixc(deep, '#1a0f24', 0.55), brow = lava ? col('#3a0e04') : mixc(deep, '#150a1c', 0.72);
     r.fx(0, 0, 0, wob);
-    face(r, [0, 0.36, 0], 0.47, {
+    if (mh) face(r, [0, 0.36, 0], 0.47, dairyFace({ bone: 'body', tilt: 0.42, ex: 0.16, ey: 0.04, er: 0.132, browY: 1.36, mouthY: -0.14, mouthW: 0.15, heartY: 0.75, skin: base }));
+    else face(r, [0, 0.36, 0], 0.47, {
       bone: 'body', tilt: 0.42, ex: 0.16, ey: 0.04, er: 0.132, iris, browCol: brow, browY: 1.36, mouthY: -0.14, mouthW: 0.15, heartY: 0.75,
       skin: lava ? hdr('#ff7c16', 1.05) : mixc(base, light, 0.08), skinFx: lava ? 0.6 : 0, mouthCol: lava ? '#4a1004' : undefined, blushCol: lava ? '#ff4f86' : undefined,
     });
-    if (o.elite) crown(r.on('body').fx(0, 0, 0, wob), [0, 0.8, -0.04], 0.72);
+    if (o.elite) crown(r.on('body').fx(0, 0, 0, wob), [0, 0.8, -0.04], 0.72, undefined, mh ? 1 : 2);
     r.mark('muzzle', [0, 0.38, 0.5]);
     r.pop();
     if (lava) return { height: H, glowC: col('#ffe27a'), mat: { rough: 0.24, sss: col('#ff9040').multiplyScalar(0.1), rim: '#ffb870', rimK: 0.24, rimP: 2.4, wob: 0.014, wobF: 2.2, wobS: 4 } };
+    if (mh) return { height: H, glowC: col('#ff9a5a'), mat: { rough: 0.2, sss: col('#fff2e0').multiplyScalar(0.08), rim: '#ffffff', rimK: 0.32, rimP: 2.2, wob: 0.018, wobF: 2.2, wobS: 5 } };
     return { height: H, glowC: col('#ff5a3a'), mat: { rough: 0.2, sss: mixc(base, '#ffffff', 0.2).multiplyScalar(0.06), rim: mixc(light, '#ffffff', 0.4), rimK: 0.24, rimP: 2.6, wob: 0.012, wobF: 2.2, wobS: 5 } };
   }
   function animJole(m, dt, st, s) {
@@ -2444,6 +2558,964 @@ const EMODEL = (function (G0) {
     puffAnim(m, s, dt, puffR * 0.5, 1.1, ph === 'roll' ? 0.4 : 1);
   }
 
+  // ════════════════ Round 4: Kefir Vadisi (dairy) — yogurt, kaymak, kopuk, peynir (+ jole 'muhallebi') and kefirdev ════════════════
+  // Feza loves kefir and yogurt. 'grumpy' = the funny sour 😜 face (face() o.sour); the sour creams are a pale lime and turn fresh
+  // white when they cheer up. Glossy cream, crisp faces tilted up for the gameplay camera, nothing gross or rotten-looking.
+  const DAIRY = { cream: '#fffaf1', creamL: '#ffffff', creamD: '#efe0c6', sour: '#d4efa2', sourL: '#ecf9cc', sourD: '#a8cc68',
+    honey: '#ffa01a', honeyL: '#ffc850', honeyD: '#d86a06', straw: '#ff4262', strawD: '#d82448', seed: '#fff0a0', leaf: '#4cc05a', leafD: '#2c9a44',
+    wood: '#d09050', woodD: '#9a6030', iris: '#3a2446', tongue: '#ff6f9a' };
+  const dairyFace = o => Object.assign({ sour: true, iris: DAIRY.iris, browCol: '#4a2a3a', mouthIn: '#7a2444', blushCol: '#ff8fb4' }, o);
+  // Radius of a lathe profile (monotonic in y, bottom → top) at height y (spline-sampled once per key).
+  const PRF = {};
+  function profR(key, pts) {
+    if (PRF[key]) return PRF[key];
+    const v = new THREE.SplineCurve(pts.map(p => new THREE.Vector2(p[0], p[1]))).getPoints(pts.length * 16);
+    return (PRF[key] = y => {
+      let i = 0; while (i < v.length - 2 && v[i + 1].y < y) i++;
+      const a = v[i], b = v[i + 1], t = clamp((y - a.y) / ((b.y - a.y) || 1e-6), 0, 1);
+      return Math.max(0, lerp(a.x, b.x, t));
+    });
+  }
+  // Painted gloss highlight (unlit soft ellipse) lying on a surface point p with normal n.
+  function gloss(r, p, n, sx, sy, k = 1.25, spin = 0) {
+    r.fx(1, 0).add(G.sphere(12, 8), hdr('#ffffff', k), p, qz(n[0], n[1], n[2], spin), [sx, sy, Math.min(sx, sy) * 0.3]);
+  }
+  // A strawberry standing on p (its rounded tip down, the calyx up), s = scale (about s m tall): glossy red with golden seeds,
+  // a star of green leaves and a little stem.
+  const STRAW_P = [[0, 0], [0.12, 0.012], [0.3, 0.12], [0.42, 0.32], [0.46, 0.52], [0.42, 0.7], [0.3, 0.84], [0, 0.9]];
+  function strawberry(r, p, s, tilt = 0) {
+    r.push(p, [tilt, 0, 0.12], s);
+    r.fx(0, 1).add(lathe('straw', STRAW_P, 20, 3), vgrad(0, 0.9, [[0, DAIRY.strawD], [0.45, DAIRY.straw], [1, '#ff6a7e']]));
+    r.fx(0, 0.5);
+    const pr = profR('straw', STRAW_P);
+    for (let i = 0; i < 14; i++) { const y = 0.16 + (i % 5) * 0.13, a = i * 2.4, rr = pr(y) + 0.004; r.add(G.sphere(6, 4), DAIRY.seed, [Math.sin(a) * rr, y, Math.cos(a) * rr], [0, a, 0], [0.03, 0.045, 0.03]); }
+    r.fx(0, 0.25);
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; r.add(G.sphere(10, 6), i & 1 ? DAIRY.leafD : DAIRY.leaf, [Math.sin(a) * 0.17, 0.87, Math.cos(a) * 0.17], [0.25, a, 0], [0.08, 0.035, 0.22]); }
+    r.seg([0, 0.86, 0], [0.03, 1.08, 0.02], 0.035, DAIRY.leafD, 0.028, 6);
+    r.pop().fx(0, 0);
+  }
+
+  // ── Ekşi Yoğurt (~0.8 m): a pastel-blue yogurt cup (white polka dots, rolled rim, a heart logo) full of cream that bulges over
+  // the rim and drips down the sides; its peeled foil lid is worn tilted like a cap, the pull tab as the visor. Sour = pale lime
+  // cream; happy = fresh white cream with a strawberry on the cap. Melee hopper: hops, then bumps. ──
+  const YOG_CUP = [[0, 0], [0.205, 0], [0.232, 0.008], [0.246, 0.03], [0.256, 0.1], [0.272, 0.24], [0.29, 0.35], [0.293, 0.372]];
+  const YOG_C = [0, 0.455, 0], YOG_A = [0.33, 0.3, 0.33], YOG_RIM = 0.372;
+  function buildYogurt(r, o) {
+    const E = o.elite;
+    let cup = col('#7cc4f4'), cupL = col('#c6e8ff'), cupD = col('#4b96d6');
+    if (E) { cup = rich(cup, 1.3, 0.86); cupL = rich(cupL, 1.25, 0.92); cupD = rich(cupD, 1.3, 0.8); }
+    r.bone('body', 'root', [0, 0, 0]);
+    r.bone('cream', 'body', [0, YOG_RIM, 0]);
+    r.bone('lid', 'cream', [0, 0.74, -0.02]);
+    // cup + rolled rim + white band, polka dots and a little heart logo in front
+    r.on('body').fx(0, 0.6).add(lathe('yCup', YOG_CUP, 40), vgrad(0, YOG_RIM, [[0, cupD], [0.45, cup], [1, mixc(cup, cupL, 0.5)]]));
+    r.add(G.cyl(1, 0.97, 40, true), '#fbfdff', [0, 0.315, 0], null, [0.29, 0.05, 0.29]);
+    r.add(G.torus(TAU, 0.075, 40), cupL, [0, YOG_RIM, 0], [PI / 2, 0, 0], 0.293);
+    r.fx(0, 0.5);
+    for (let i = 0; i < 12; i++) {
+      const y = i & 1 ? 0.2 : 0.09, a = i / 12 * TAU + (i & 1 ? 0.26 : 0);
+      if (Math.abs(Math.sin(a / 2)) < 0.26 && y > 0.15) continue;   // leave room for the logo in front
+      const [p, n] = onLathe(YOG_CUP, y, a, 0.002); r.add(G.sphere(12, 6), '#ffffff', p, qz(...n), [0.032, 0.032, 0.008]);
+    }
+    { const [p, n] = onLathe(YOG_CUP, 0.19, 0, 0.003); r.add(G.sphere(16, 8), '#ffffff', p, qz(...n), [0.085, 0.06, 0.01]);
+      const [p2, n2] = onLathe(YOG_CUP, 0.19, 0, 0.01); r.fx(0, 0.6).add(heartGeo(), '#ff5a8c', p2, qz(...n2), [0.085, 0.085, 0.05]); }
+    r.fx(0, 0);
+    // cream (per mood: pale lime while sour, fresh white when happy) with a soft swirl ridge and drips over the rim
+    const wob = (x, y) => smooth01((y - YOG_RIM) / 0.32);
+    const drips = [[0.95, 0.3, 1], [2.3, 0.3, 0.8], [-2.0, 0.305, 0.9], [-0.95, 0.33, 0.55]];
+    for (const md of [1, 2]) {
+      const c0 = md === 1 ? DAIRY.sour : DAIRY.cream, cL = md === 1 ? DAIRY.sourL : DAIRY.creamL, cD = md === 1 ? DAIRY.sourD : DAIRY.creamD;
+      r.mood = md;
+      r.on('cream').fx(0, 0.75, 0, wob).add(G.sphere(40, 28), vgrad(0.2, 0.76, [[0, cD], [0.4, c0], [1, cL]]), YOG_C, null, YOG_A);
+      // a soft cream curl peeking out from under the cap (like a cowlick)
+      r.add(G.torus(PI * 1.3, 0.34, 16), mixc(c0, cL, 0.4), [-0.06, 0.745, 0.1], [0.3, 0.5, -0.6], [0.05, 0.05, 0.06]);
+      r.fx(0, 0.75);
+      for (const [a, y, k] of drips) {
+        const [p, n] = onLathe(YOG_CUP, y, a, 0.012);
+        r.add(G.sphere(12, 10), c0, p, qz(...n), [0.036 * k + 0.012, 0.07 * k, 0.026]);
+        r.add(G.sphere(12, 10), c0, [p[0] + n[0] * 0.004, p[1] - 0.06 * k, p[2] + n[2] * 0.004], null, 0.03 * k + 0.008);
+      }
+    }
+    r.mood = 0;
+    // painted gloss on the cream (top left)
+    { const [p, n] = onEll(YOG_C, YOG_A, 0.95, -1.2); gloss(r.on('cream'), p, n, 0.05, 0.022, 1.15, 0.8); }
+    // the peeled foil lid worn tilted like a cap (pushed back on the head): silver foil with a crimped edge, a pink print with white
+    // dots and a red heart; the pull tab sticks out in front like a visor
+    r.on('lid').push([0.0, 0.738, -0.06], [-0.4, 0, 0.3]);
+    r.fx(0, 2).add(G.cyl(1, 1, 32), '#dde5f0', [0, 0, 0], null, [0.215, 0.014, 0.215]);
+    r.add(G.torus(TAU, 0.09, 32), '#c5cedf', [0, 0, 0], [PI / 2, 0, 0], 0.217);
+    r.fx(0, 0.55).add(G.cyl(1, 1, 28), '#ff8cc0', [0, 0.0085, 0], null, [0.17, 0.005, 0.17]);
+    r.add(G.cyl(1, 1, 24), '#ffffff', [0, 0.012, 0], null, [0.092, 0.004, 0.092]);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + 0.2; r.add(G.sphere(8, 6), '#ffffff', [Math.sin(a) * 0.132, 0.012, Math.cos(a) * 0.132], null, [0.017, 0.006, 0.017]); }
+    r.add(heartGeo(), '#ff4a7a', [0, 0.016, 0.004], [-PI / 2, 0, 0], [0.1, 0.1, 0.03]);
+    r.fx(0, 2).add(G.rbox(2), '#e3e9f4', [0, -0.002, 0.25], [0.22, 0, 0], [0.12, 0.012, 0.13]);
+    r.add(G.sphere(12, 6), '#e3e9f4', [0, -0.016, 0.31], null, [0.06, 0.008, 0.03]);
+    r.pop().fx(0, 0);
+    if (E) crown(r.on('lid'), [-0.03, 0.77, -0.1], 0.46, undefined, 1);
+    // happy: a strawberry on top of the cap (beside the crown for an elite)
+    r.on('lid'); r.mood = 2;
+    strawberry(r, E ? [0.11, 0.76, -0.02] : [0.02, 0.77, -0.05], 0.14, -0.2);
+    r.mood = 0;
+    face(r, YOG_C, 0.322, dairyFace({ bone: 'cream', tilt: 0.36, ex: 0.118, ey: 0.03, er: 0.09, skin: DAIRY.sour, mouthY: -0.1, mouthW: 0.1, heartY: 0.72, heartX: 1.12, blushY: 1.0 }));
+    r.on('cream').mark('muzzle', [0, 0.45, 0.36]);
+    return { height: 0.82, glowC: col('#ff7aa8'), mat: { rough: 0.3, sss: col('#fff2d8').multiplyScalar(0.05), rim: '#ffffff', rimK: 0.26, rimP: 2.6, wob: 0.008, wobF: 3, wobS: 5 } };
+  }
+  function animYogurt(m, dt, st, s) {
+    const B = m.B, br = Math.sin(s.t * 3 + s.ph);
+    let sy = 1 + 0.02 * br, sxz = 1 - 0.01 * br, y = 0, z = 0, x = 0, rx = 0, rz = 0, air = 0, land = 0;
+    s.hopK = damp(s.hopK || 0, st.move > 0.05 ? 1 : 0, 6, dt);
+    if (s.hopK > 0.02 || (s.hop % 1) > 0.03) s.hop += dt * (2.2 + 0.7 * s.mv);
+    const u = s.hop % 1, A = s.hopK;
+    if (u < 0.18) { const k = Math.sin(PI * u / 0.18); sy -= 0.14 * k * A; sxz += 0.07 * k * A; land = 0.6 * k * A; }
+    else if (u < 0.82) {
+      const k = (u - 0.18) / 0.64; y += Math.sin(PI * k) * 0.3 * A; air = Math.sin(PI * k) * A;
+      const e = Math.abs(Math.cos(PI * k)); sy += 0.1 * e * A; sxz -= 0.04 * e * A; rx += 0.12 * Math.sin(PI * k) * A;
+    } else { const k = Math.sin(PI * (u - 0.82) / 0.18); sy -= 0.16 * k * A; sxz += 0.09 * k * A; land = k * A; if (!s.landed && A > 0.3) { s.landed = true; s.wobA = 0.03; } }
+    if (u < 0.5) s.landed = false;
+    let lidUp = air * 0.5;
+    if (st.windup >= 0) {   // crouches into its cup, leans back, trembles; the cap lifts like a peeking visor
+      const w = smooth01(st.windup);
+      sy *= 1 - 0.22 * w; sxz *= 1 + 0.12 * w; rx -= 0.28 * w; x += Math.sin(s.t * 62) * 0.016 * st.windup; lidUp += 0.6 * w; land = Math.max(land, 0.5 * w);
+    }
+    if (st.attack >= 0 && st.attack < 1) {   // bump! a forward hop into Feza, cream first (GAME carries its big hop: st.air > 0 → pose only)
+      const k = Math.sin(PI * st.attack), g = st.air > 0 ? 0.12 : 1;
+      y += 0.26 * k * g; z += 0.42 * k * g; rx += 0.5 * k; sy *= 1 + 0.12 * k; sxz *= 1 - 0.05 * k; lidUp += 0.5 * k; air = Math.max(air, k);
+    } else if (st.attack >= 1) {   // squashed after the bump, cream wobbling, then back up
+      sy *= 0.88; sxz *= 1.07; land = Math.max(land, 0.6); s.wobA = Math.max(s.wobA ?? 0, 0.02);
+    }
+    B.body.position.set(x, y, z); B.body.scale.set(sxz, sy, sxz); B.body.rotation.set(rx, 0, rz);
+    // the cream squashes on landings and lags behind the cup a little
+    const cs = land * 0.12;
+    B.cream.scale.set(1 + cs * 0.8, 1 - cs, 1 + cs * 0.8);
+    B.cream.rotation.x = -0.08 * air + Math.sin(s.t * 2.1 + s.ph) * 0.02;
+    B.lid.rotation.x = -0.5 * lidUp; B.lid.position.y += 0.03 * lidUp; B.lid.rotation.z = Math.sin(s.t * 1.7 + s.ph) * 0.05;
+    s.wobA = damp(s.wobA ?? 0.008, 0.008, 3.5, dt);
+    if (st.hurt > 0.5) s.wobA = Math.max(s.wobA, 0.03 * st.hurt);
+    m.U.uWob.value.x = s.wobA;
+  }
+
+  // ── Kesik Kaymak (~0.5 m tall, ~0.8 m wide = 1.6 : 1): a plump roll of clotted cream lying on its side (a "rulo kaymak") — the
+  // rolled spiral on both end faces (the roll bends a little forward and its ends are cut a little slanted, so the high game camera
+  // sees them; they spin like wheels while it glides), a glossy honey drizzle draped over its top like a beret and a tiny wooden
+  // honey dipper stuck in it like a feather. It glides on a short creamy smear (no legs). Sour = warm butter-yellow with little curds ("kesik") — its own colour, so it
+  // never reads as the lime sour yogurt; happy = smooth fresh ivory cream. ──
+  const KAY_X = 0.4, KAY_R = 0.255, KAY_CY = 0.262, KAY_TAN = 0.2, KAY_BEND = 0.06;   // half length, radius, axis height, end slant, bend
+  const KAY_E = 0.055, KAY_DOME = 0.014, KAY_K = KAY_TAN * KAY_R / KAY_X;
+  const kayBR = t => KAY_R * (1 - 0.05 * (t / KAY_X) * (t / KAY_X));   // a slight barrel along the roll
+  const KAY_CR = kayBR(KAY_X - KAY_E) - KAY_E;                         // flat radius of the end faces
+  // the roll's axis: a gentle forward bend (z = KAY_BEND at the ends); kayAx(t) = [x, z, tangent x, tangent z]
+  function kayAx(t) {
+    const fp = 2 * KAY_BEND * t / (KAY_X * KAY_X), l = Math.hypot(1, fp);
+    return [t, KAY_BEND * (t / KAY_X) * (t / KAY_X), 1 / l, fp / l];
+  }
+  // roll space (t along the roll, u up and w forward from its axis) → model space: the ends lean in toward the top, and past the
+  // ends (the domed faces) it carries on along the axis' end tangent
+  function kayXf(t, u, w) {
+    const ts = t * (1 - KAY_K * u / KAY_R), tc = clamp(ts, -KAY_X, KAY_X), d = ts - tc, [cx, cz, tx, tz] = kayAx(tc);
+    return [cx + tx * d - tz * w, KAY_CY + u, cz + tz * d + tx * w];
+  }
+  // model space → the roll-space t (projects onto the bent axis; for colour masks)
+  function kayT(x, y, z) {
+    let tc = x;
+    for (let i = 0; i < 4; i++) { const [cx, cz, tx, tz] = kayAx(clamp(tc, -KAY_X, KAY_X)); tc = clamp(tc, -KAY_X, KAY_X) + (x - cx) * tx + (z - cz) * tz; }
+    return tc / (1 - KAY_K * (y - KAY_CY) / KAY_R);
+  }
+  // point on the roll's skin at t and angle ph (from the top, + toward the front), lifted by out: [pos, normal]
+  function kayOn(t, ph, out = 0) {
+    const rr = kayBR(t) + out, u = Math.cos(ph), w = Math.sin(ph), [, , tx, tz] = kayAx(clamp(t, -KAY_X, KAY_X));
+    return [kayXf(t, rr * u, rr * w), [-tz * w, u, tx * w]];
+  }
+  // the axes the end spirals spin around (their faces' normals; + = rolling forward)
+  const KAY_TN = KAY_K * (KAY_X + KAY_DOME) / KAY_R, KAY_T1 = kayAx(KAY_X);
+  const KAY_AXL = new THREE.Vector3(KAY_T1[2], KAY_TN, KAY_T1[3]).normalize(), KAY_AXR = new THREE.Vector3(KAY_T1[2], -KAY_TN, -KAY_T1[3]).normalize();
+  const DIPPER_P = [[0, 0], [0.028, 0.004], [0.036, 0.014], [0.027, 0.022], [0.037, 0.031], [0.027, 0.04], [0.036, 0.049], [0.026, 0.058], [0.03, 0.066], [0.012, 0.074], [0.01, 0.08]];
+  function kayRollGeo() {
+    const sg = sN(48, 22);
+    return gx('kayRoll@' + sg, () => {
+      const pts = [], capN = 6, edgeN = 7, midN = 14, tc = KAY_X - KAY_E;
+      // profile (radius, t) from the right end-face centre to the left one: domed face, rounded edge, barrel, and back
+      for (let i = 0; i <= capN; i++) { const rr = KAY_CR * i / capN; pts.push([rr, -(KAY_X + KAY_DOME * (1 - (rr / KAY_CR) ** 2))]); }
+      for (let i = 1; i <= edgeN; i++) { const a = i / edgeN * PI / 2; pts.push([KAY_CR + KAY_E * Math.sin(a), -tc - KAY_E * Math.cos(a)]); }
+      for (let i = 1; i < midN; i++) { const t = lerp(-tc, tc, i / midN); pts.push([kayBR(t), t]); }
+      for (let i = 0; i < edgeN; i++) { const a = i / edgeN * PI / 2; pts.push([KAY_CR + KAY_E * Math.cos(a), tc + KAY_E * Math.sin(a)]); }
+      for (let i = capN; i >= 0; i--) { const rr = KAY_CR * i / capN; pts.push([rr, KAY_X + KAY_DOME * (1 - (rr / KAY_CR) ** 2)]); }
+      const g = new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), sg);
+      g.rotateZ(-PI / 2);   // lathe axis y → the roll's axis x
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const q = kayXf(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, q[0], q[1], q[2]); }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
+  // the rolled spiral lying on an end face (side +1 = left / +x), in the face's own frame: a raised caramel line
+  function kaySpiralGeo(side) {
+    const n = sN(96, 44);
+    return gx('kaySpiral' + side + '@' + n, () => {
+      const pts = [];
+      for (let i = 0; i <= 64; i++) {
+        const s = i / 64, rho = 0.022 + (KAY_CR * 0.93 - 0.022) * s, a = s * 2.6 * TAU;
+        pts.push(new THREE.Vector3(...kayXf(side * (KAY_X + KAY_DOME * (1 - (rho / KAY_CR) ** 2) + 0.004), rho * Math.cos(a), rho * Math.sin(a) * side)));
+      }
+      return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n, 0.0115, 5, false);
+    });
+  }
+  // honey draped over the top like a beret: thick in the middle, thin at the edges, a few drips down the front (clear of the
+  // brows) and the back. kayHoneyEdge(t) = [front edge, back edge] as angles from the top (+ = front)
+  // and the end taper, or null off the honey.
+  const KAY_HT = [-0.2, 0.3], KAY_HDRIP = { front: [[0.262, 0.3, 0.022]], back: [[-0.06, 0.5, 0.03], [0.12, 0.38, 0.028], [0.24, 0.26, 0.022]] };
+  function kayHoneyEdge(t) {
+    const s = (t - KAY_HT[0]) / (KAY_HT[1] - KAY_HT[0]);
+    if (s < 0 || s > 1) return null;
+    const e = Math.pow(Math.max(0, 1 - Math.abs(2 * s - 1) ** 6), 0.4), bump = (c, w) => Math.exp(-(((t - c) / w) ** 2)), mid = -0.25;
+    let fr = 0.36 + 0.04 * Math.sin(t * 40), bk = -0.95 + 0.07 * Math.sin(t * 33 + 1);
+    for (const [c, k, w] of KAY_HDRIP.front) fr += k * bump(c, w);
+    for (const [c, k, w] of KAY_HDRIP.back) bk -= k * bump(c, w);
+    return [mid + (fr - mid) * e, mid + (bk - mid) * e, e];
+  }
+  function kayHoneyGeo() {
+    const nt = sN(34, 18), nv = sN(16, 9);
+    return gx('kayHoney@' + nt + '_' + nv, () => {
+      const g = new THREE.PlaneGeometry(1, 1, nt, nv), p = g.attributes.position, uv = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) {
+        const s = uv.getX(i), v = uv.getY(i), t = lerp(KAY_HT[0], KAY_HT[1], s), [fr, bk, e] = kayHoneyEdge(t);
+        const ph = lerp(fr, bk, v);
+        const th = 0.003 + 0.021 * e * Math.pow(Math.sin(PI * v), 0.5) * (0.85 + 0.15 * Math.sin(t * 50 + v * 7));
+        const rr = kayBR(t) + th, q = kayXf(t, rr * Math.cos(ph), rr * Math.sin(ph));
+        p.setXYZ(i, q[0], q[1], q[2]);
+      }
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  function buildKaymak(r, o) {
+    const E = o.elite;
+    let skin = col('#fffaf0'), skinD = col('#f0dcb8'), skinL = col('#ffffff'), crust = col('#d99a48');
+    let sour = col('#ffe89c'), sourD = col('#eab466'), sourL = col('#fff6d2');
+    if (E) { skinD = rich(skinD, 1.3, 0.92); crust = rich(crust, 1.25, 0.88); sour = rich(sour, 1.3, 0.96); sourD = rich(sourD, 1.3, 0.9); }
+    const top = KAY_CY + KAY_R;
+    r.bone('body', 'root', [0, 0, 0]);
+    r.bone('hat', 'body', [0.05, top, -0.06]);
+    r.bone('armL', 'body', kayOn(0.28, 2.2, -0.05)[0]); r.bone('armR', 'body', kayOn(-0.28, 2.2, -0.05)[0]);
+    r.bone('spL', 'body', kayXf(KAY_X + KAY_DOME, 0, 0)); r.bone('spR', 'body', kayXf(-(KAY_X + KAY_DOME), 0, 0));
+    r.bone('smear', 'root', [0, 0.005, -0.12]);
+    const wob = (x, y) => 0.4 + 0.6 * smooth01(y / 0.45);
+    const endK = (x, y, z) => smooth01((Math.abs(kayT(x, y, z)) - (KAY_X - 0.035)) / 0.03);   // 1 on the end faces (lighter cut cream)
+    // the roll (per mood)
+    for (const md of [1, 2]) {
+      const c0 = md === 1 ? sour : skin, cD = md === 1 ? sourD : skinD, cL = md === 1 ? sourL : skinL, g = vgrad(0, top, [[0, cD], [0.35, c0], [0.8, mixc(c0, cL, 0.55)], [1, cL]]), out = new THREE.Color();
+      r.mood = md;
+      r.on('body').fx(0, 0.7, 0, wob).add(kayRollGeo(), (x, y, z) => out.copy(g(x, y, z)).lerp(cL, endK(x, y, z) * 0.6));
+      if (md === 1) {   // "kesik": a few soft little curds on the skin (never lumpy-gross: tiny, round, glossy), away from the face
+        r.fx(0, 0.8);
+        for (const [t, ph, s] of [[0.3, 0.9, 0.028], [-0.31, 1.1, 0.026], [0.24, 1.9, 0.026], [-0.26, 2.0, 0.028], [0.33, 0.3, 0.022], [-0.33, -0.5, 0.024], [0.0, -1.9, 0.026], [-0.25, -1.3, 0.022]]) {
+          const [p, n] = kayOn(t, ph, 0.003); r.add(G.sphere(10, 8), sourL, p, qz(...n), [s, s, s * 0.6]);
+        }
+      }
+    }
+    r.mood = 0;
+    // the spirals on both end faces (caramel lines on the lighter cut cream; bones spL / spR spin them)
+    for (const sd of [1, -1]) {
+      r.on(sd > 0 ? 'spL' : 'spR').fx(0, 0.5, 0, 1).add(kaySpiralGeo(sd), crust);
+      r.add(G.sphere(10, 8), crust, kayXf(sd * (KAY_X + KAY_DOME + 0.004), 0.012, 0.016 * sd), null, 0.02);
+    }
+    // painted gloss: a long highlight along the upper front of the roll (the classic "cylinder" shine), upper left
+    r.on('body');
+    { const [p, n] = kayOn(-0.25, 0.62, 0.004); gloss(r, p, n, 0.075, 0.018, 1.12, 0.06); }
+    { const [p, n] = kayOn(0.27, 0.66, 0.004); gloss(r, p, n, 0.03, 0.01, 1.05); }
+    // tiny cream nub arms at its front corners
+    for (const sd of [-1, 1]) {
+      const [p, n] = kayOn(0.32 * sd, 2.25, 0.0);
+      r.on(sd > 0 ? 'armL' : 'armR').fx(0, 0.7).add(G.sphere(16, 12), skin, p, qz(n[0] + 0.5 * sd, n[1] - 0.3, n[2]), [0.052, 0.052, 0.078]);
+    }
+    // the creamy smear it glides on (scaled by speed in anim)
+    r.on('smear').fx(0, 1).add(G.sphere(24, 8), mixc(skin, '#ffffff', 0.4), [0, 0.004, -0.12], null, [0.4, 0.012, 0.3]);
+    // honey drizzle "hat": glossy amber draped over the top, drips with drops at their tips, a little pool, a wooden honey dipper
+    r.on('body').fx(0.12, 1).add(kayHoneyGeo(), vgrad(top - 0.14, top + 0.02, [[0, DAIRY.honeyD], [0.55, DAIRY.honey], [1, DAIRY.honeyL]]));
+    for (const [t, k, fr] of KAY_HDRIP.front.map(d => [d[0], 0.8, 1]).concat(KAY_HDRIP.back.map((d, i) => [d[0], [1, 0.9, 0.7][i], 0]))) {
+      const ed = kayHoneyEdge(t), [p, n] = kayOn(t, fr ? ed[0] + 0.03 : ed[1] - 0.03, 0.012);
+      r.fx(0.12, 1).add(G.sphere(12, 10), DAIRY.honey, p, qz(...n), [0.024 * k, 0.03 * k, 0.018 * k]);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#fff4d0', 1.2), [p[0] - 0.006, p[1] + n[1] * 0.02 + 0.004, p[2] + n[2] * 0.02], null, 0.006 * k);
+    }
+    r.fx(1, 0).add(G.sphere(10, 6), hdr('#fff6dc', 1.25), kayOn(-0.02, 0.05, 0.03)[0], [0, 0.3, 0], [0.06, 0.006, 0.016]);
+    r.on('hat').fx(0.12, 1).add(G.sphere(16, 8), vgrad(top, top + 0.04, [[0, DAIRY.honey], [1, DAIRY.honeyL]]), [0.07, top + 0.012, -0.05], null, [0.08, 0.022, 0.07]);
+    // the honey dipper: grooved head sunk in the pool, handle up and back like a feather
+    {
+      const q = qy(0.55, 0.8, -0.9), d = new THREE.Vector3(0.55, 0.8, -0.9).normalize(), b0 = [0.1, top - 0.004, -0.07];
+      const wc = (() => { const out = new THREE.Color(), a = col(DAIRY.wood), b = col(DAIRY.woodD); return (x, y, z) => out.copy(a).lerp(b, 0.3 + 0.3 * Math.sin(y * 90 + x * 40)); })();
+      r.fx(0, 0.2).add(lathe('dipper', DIPPER_P, 16, 3), wc, b0, q, 1);
+      const h0 = [b0[0] + d.x * 0.08, b0[1] + d.y * 0.08, b0[2] + d.z * 0.08], h1 = [b0[0] + d.x * 0.22, b0[1] + d.y * 0.22, b0[2] + d.z * 0.22];
+      r.seg(h0, h1, 0.011, DAIRY.wood, 0.012, 8).add(G.sphere(10, 8), DAIRY.woodD, h1, null, 0.018);
+    }
+    r.fx(0, 0);
+    if (E) { const [p] = kayOn(-0.26, -0.12, -0.012); crown(r.on('body'), p, 0.46, undefined, 1); }   // beside the honey (gold on honey got lost)
+    // face on the roll's front (the eyes' sphere just a little wider than the roll so they sit on its skin; the mouth hugs it)
+    face(r, [0, KAY_CY, 0], 0.274, dairyFace({ bone: 'body', tilt: 0.26, ex: 0.1, ey: 0.018, er: 0.084, inset: 0.014, skin: sour, mc: [0, KAY_CY, 0], mR: 0.266,
+      mouthY: -0.085, mouthW: 0.092, browY: 1.2, heartY: 0.85, heartX: 1.5, blushX: -0.3, blushY: 1.0 }));
+    r.on('body').mark('muzzle', [0, KAY_CY, 0.3]);
+    return { height: 0.68, glowC: col('#ffb03a'), mat: { rough: 0.32, sss: col('#fff0d0').multiplyScalar(0.05), rim: '#fffaf0', rimK: 0.24, wob: 0.006, wobF: 3.5, wobS: 4 } };
+  }
+  function animKaymak(m, dt, st, s) {
+    const B = m.B, mv = s.mv, br = Math.sin(s.t * 2.6 + s.ph);
+    // a smooth glide: soft stretch pulses, leaning into the slide, rocking a little from side to side
+    s.walk += dt * (5 + 5 * mv);
+    const pl = Math.sin(s.walk * 1.3), k = Math.min(1, mv * 1.4);
+    let sy = 1 + 0.02 * br - 0.04 * pl * k, sz = 1 + 0.05 * pl * k, sx = 1 - 0.01 * br + 0.02 * pl * k, rx = 0.1 * k, rz = Math.sin(s.walk * 0.65) * 0.05 * k, y = Math.abs(Math.sin(s.walk * 0.65)) * 0.012 * k, z = 0;
+    let arm = Math.sin(s.t * 2.2 + s.ph) * 0.12, hat = 0, spin = 0.6 + 9 * mv;
+    if (st.windup >= 0) {   // rears back, squashes wide, arms up — the spirals spin up, gathering speed
+      const w = smooth01(st.windup);
+      rx -= 0.3 * w; sy *= 1 - 0.16 * w; sx *= 1 + 0.1 * w; sz *= 1 + 0.06 * w; z -= 0.06 * w; arm += 1.3 * w; hat = 0.5 * w; spin += 16 * w;
+      B.body.position.x += Math.sin(s.t * 60) * 0.012 * st.windup;
+    }
+    if (st.attack >= 0 && st.attack < 1) {   // whoosh: one long creamy stretch while GAME carries it along the lane
+      const a = st.attack, kk = smooth01(a / 0.12) * (1 - 0.5 * smooth01((a - 0.8) / 0.2));
+      z += 0.06 * kk; sz *= 1 + 0.26 * kk; sy *= 1 - 0.12 * kk; rx += 0.3 * kk; arm -= 0.6 * kk; hat = -0.4 * kk; spin += 18 * kk;
+      rz = Math.sin(s.t * 18) * 0.03 * kk;
+    } else if (st.attack >= 1) {   // stopped: settles with a wobble
+      sy *= 1 + 0.04 * Math.sin(s.t * 16); sz *= 1 - 0.04 * Math.sin(s.t * 16); arm += 0.4;
+    }
+    B.body.position.y += y; B.body.position.z += z;
+    B.body.scale.set(sx, sy, sz); B.body.rotation.set(rx, 0, rz);
+    B.hat.rotation.x = -0.12 * hat + Math.sin(s.t * 1.9 + s.ph) * 0.03; B.hat.rotation.z = -rz * 0.5;
+    B.armL.rotation.z = 0.1 + arm; B.armR.rotation.z = -0.1 - arm;
+    // the end spirals roll like wheels (slowly swirling while it stands)
+    s.roll = ((s.roll || 0) + dt * spin) % TAU;
+    B.spL.quaternion.setFromAxisAngle(KAY_AXL, s.roll); B.spR.quaternion.setFromAxisAngle(KAY_AXR, s.roll);
+    // the smear grows behind it while it glides (and on the attack's long slide)
+    s.smear = damp(s.smear ?? 0, Math.max(mv, st.attack >= 0 && st.attack < 1 ? 1 : 0), 3, dt);
+    B.smear.scale.set(0.5 + 0.5 * s.smear, 1, 0.25 + 1.1 * s.smear); B.smear.position.z -= 0.18 * s.smear;
+    m.U.uWob.value.x = st.hurt > 0.5 ? 0.02 * st.hurt : 0.006 + 0.004 * mv;
+  }
+
+  // ── Kefir Köpüğü (~0.8 m, flies): a floating cluster of glossy pearly foam bubbles with soap-bubble tints; the big front bubble
+  // has the face, tiny fizz bubbles rise and pop around it. Ranged: puffs slow fizz bubbles (shot kind 'fizz'). ──
+  const KOP_CY = 0.38, KOP_R = 0.28;
+  const KOP_BUBS = [   // [x, y, z (relative to the centre), radius, bone, tint]
+    [0.25, 0.1, -0.1, 0.15, 'bA', '#ffc6e2'], [-0.24, 0.13, -0.09, 0.14, 'bB', '#c2e2ff'], [0.04, 0.27, -0.14, 0.155, 'bC', '#c6f6de'],
+    [-0.12, -0.16, -0.12, 0.12, 'bB', '#dccaff'], [0.19, -0.13, -0.06, 0.11, 'bA', '#c2e2ff'], [0.0, 0.07, -0.3, 0.17, 'bC', '#ffdcc4'],
+    [0.31, 0.27, -0.04, 0.075, 'bA', '#c6f6de'], [-0.3, 0.02, 0.1, 0.075, 'bB', '#ffc6e2'], [-0.17, 0.33, 0.0, 0.07, 'bC', '#c2e2ff'], [0.13, 0.36, 0.06, 0.055, 'bA', '#dccaff']];
+  function bubbleCol(cx, cy, cz, tint, base) {   // pearly: white core, a soft tint band toward the rim + a warmer lower edge
+    const out = new THREE.Color(), w = col(base), t = col(tint), lo = mixc(tint, '#ffe8c8', 0.5);
+    return (x, y, z) => {
+      const dx = x - cx, dy = y - cy, dz = z - cz, l = Math.hypot(dx, dy, dz) || 1;
+      const band = 0.5 + 0.5 * Math.sin((dx * 1.3 + dy * 2.1 - dz * 0.7) / l * 2.6);
+      return out.copy(w).lerp(t, 0.35 + 0.4 * band).lerp(lo, smooth01(-dy / l) * 0.25);
+    };
+  }
+  function buildKopuk(r, o) {
+    const E = o.elite, cy = KOP_CY, R = KOP_R, base = E ? '#fff4d6' : '#fbfdff';
+    r.bone('body', 'root', [0, cy, 0]);
+    for (const b of ['bA', 'bB', 'bC']) r.bone(b, 'body', [0, cy, -0.1]);
+    for (let i = 0; i < 3; i++) r.bone('fz' + i, 'body', [0, cy, 0]);
+    // main bubble (face) + the cluster
+    r.on('body').fx(0, 1).add(G.sphere(36, 26), bubbleCol(0, cy, 0, E ? '#ffe7a8' : '#dff0ff', base), [0, cy, 0], null, R);
+    gloss(r, ...onEll([0, cy, 0], [R, R, R], 0.62, -0.72), 0.075, 0.035, 1.3, 0.8);
+    r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.3), onEll([0, cy, 0], [R, R, R], 0.9, -1.05)[0], null, 0.018);
+    for (const [bx, by, bz, br, bn, tint] of KOP_BUBS) {
+      const c = [bx, cy + by, bz];
+      r.on(bn).fx(0, 1).add(G.sphere(22, 16), bubbleCol(c[0], c[1], c[2], E ? '#ffe7a8' : tint, base), c, null, br);
+      const [p, n] = onEll(c, [br, br, br], 0.66, -0.75); gloss(r, p, n, br * 0.28, br * 0.13, 1.25, 0.8);
+    }
+    // tiny fizz bubbles (they rise and pop in anim)
+    for (let i = 0; i < 3; i++) {
+      const a = i * 2.1 + 0.4, p = [Math.sin(a) * 0.3, cy + 0.1, Math.cos(a) * 0.12 - 0.05];
+      r.on('fz' + i).fx(0, 1).add(G.sphere(12, 8), '#eef8ff', p, null, 0.035);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#ffffff', 1.3), [p[0] - 0.012, p[1] + 0.014, p[2] + 0.02], null, 0.009);
+    }
+    r.fx(0, 0);
+    if (E) crown(r.on('bC'), [0.04, cy + 0.4, -0.14], 0.5, undefined, 1);
+    face(r, [0, cy, 0], R, dairyFace({ bone: 'body', tilt: 0.32, ex: 0.1, ey: 0.03, er: 0.084, skin: mixc(base, '#e6f2ff', 0.4), mouthY: -0.1, mouthW: 0.092, heartY: 0.95, heartX: 1.2, blushY: 1.0 }));
+    r.on('body').mark('muzzle', [0, cy - 0.06, 0.32]);
+    return { height: 0.8, glowC: col('#9fd8ff'), mat: { rough: 0.16, sss: col('#e8f4ff').multiplyScalar(0.06), rim: '#8fc8ff', rimK: 0.55, rimP: 1.9, wob: 0.006, wobF: 5, wobS: 4 } };
+  }
+  const FZ_OFF = [0, 0.37, 0.71];
+  function animKopuk(m, dt, st, s) {
+    const B = m.B;
+    B.body.position.y += Math.sin(s.t * 2.2 + s.ph) * 0.035;
+    B.body.rotation.z = Math.sin(s.t * 1.4 + s.ph) * 0.07; B.body.rotation.y = Math.sin(s.t * 0.9 + s.ph) * 0.12;
+    B.body.rotation.x = 0.14 * s.mv;
+    let puff = 0;
+    const jig = n => Math.sin(s.t * (4.2 + n) + s.ph * (1 + n));
+    B.bA.position.x += 0.012 * jig(0); B.bA.position.y += 0.01 * jig(1);
+    B.bB.position.x -= 0.012 * jig(2); B.bB.position.y += 0.01 * jig(0.5);
+    B.bC.position.y += 0.012 * jig(1.5); B.bC.position.z += 0.008 * jig(2.5);
+    if (st.windup >= 0) {   // takes a big breath: the foam swells, the little bubbles spread out
+      const w = smooth01(st.windup); puff = w;
+      B.body.scale.setScalar(1 + 0.16 * w); B.body.rotation.x -= 0.28 * w;
+      for (const b of [B.bA, B.bB, B.bC]) b.scale.setScalar(1 + 0.12 * w);
+      B.body.position.x += Math.sin(s.t * 55) * 0.01 * st.windup;
+    }
+    if (st.attack >= 0) {   // pfff! puffs the fizz bubble forward
+      const k = Math.sin(PI * st.attack);
+      B.body.scale.set(1 + 0.1 * k, 1 - 0.1 * k, 1 - 0.14 * k); B.body.position.z += 0.16 * k; B.body.rotation.x += 0.3 * k;
+    }
+    // fizz: tiny bubbles rise from the foam, grow a bit and pop
+    const sp = 0.7 + 1.2 * puff + 0.4 * s.mv;
+    s.fz = (s.fz || 0) + dt * sp;
+    for (let i = 0; i < 3; i++) {
+      const b = B['fz' + i], u = (s.fz + FZ_OFF[i]) % 1;
+      b.position.y += u * 0.42; b.position.x += Math.sin(u * 7 + i) * 0.03;
+      let sc = u < 0.1 ? u / 0.1 : 1 + 0.4 * u;
+      if (u > 0.9) sc *= u < 0.95 ? 1 + (u - 0.9) * 6 : (1 - u) / 0.05 * 1.3;   // swells, then pops
+      b.scale.setScalar(Math.max(0.0001, sc));
+    }
+    m.U.uWob.value.x = 0.006 + 0.012 * puff + (st.hurt > 0.5 ? 0.02 * st.hurt : 0);
+  }
+
+  // ── Peynir Dilimi (~1.4 m): a plump Swiss-cheese wedge standing on its rind, the rounded point up, on little red-wax boots. The
+  // triangle faces forward (sheared back a little, so the face looks up at the gameplay camera); round holes of many sizes (big
+  // shaded dents + the swiss texture), an orange rind along the bottom, stubby arms. Slow, tanky melee: waddles, leans back
+  // (wind-up) and belly-flops forward onto Feza. ──
+  const PEY = { b: 0.3, d: 0.44, bev: 0.065, K: 0.24 };   // bottom y, depth (z), bevel, backward shear (z -= K·(y − b))
+  const PEY_C = [[0.47, 0.42], [0.32, 0.91], [0.08, 1.36]];   // right side: quadratic curve bottom corner → near the apex (bulging out)
+  function wedgeShape() {   // the triangle in (x, y)
+    const s = new THREE.Shape(), [A, M, E] = PEY_C;
+    s.moveTo(-0.38, PEY.b);
+    s.lineTo(0.38, PEY.b);
+    s.quadraticCurveTo(0.5, PEY.b, A[0], A[1]);
+    s.quadraticCurveTo(M[0], M[1], E[0], E[1]);
+    s.quadraticCurveTo(0, 1.46, -E[0], E[1]);
+    s.quadraticCurveTo(-M[0], M[1], -A[0], A[1]);
+    s.quadraticCurveTo(-0.5, PEY.b, -0.38, PEY.b);
+    return s;
+  }
+  const peyShear = p => [p[0], p[1], p[2] - PEY.K * (p[1] - PEY.b)];
+  const peyShearN = n => { const x = n[0], y = n[1] + PEY.K * n[2], z = n[2], l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
+  function peyWedgeGeo() {
+    const g0 = extrude('cheeseWedge', wedgeShape, PEY.d, PEY.bev, 14, 0.7);
+    return gx('cheeseWedgeS_' + g0.uuid, () => {
+      const g = g0.clone(), p = g.attributes.position, n = g.attributes.normal;
+      for (let i = 0; i < p.count; i++) {
+        const q = peyShear([p.getX(i), p.getY(i), p.getZ(i)]), m = peyShearN([n.getX(i), n.getY(i), n.getZ(i)]);
+        p.setXYZ(i, q[0], q[1], q[2]); n.setXYZ(i, m[0], m[1], m[2]);
+      }
+      g.computeBoundingSphere(); g.computeBoundingBox();
+      return g;
+    });
+  }
+  // Point on the front face (x, y) / on a slanted side (side sd, fraction t up the side, depth z): [pos, normal], sheared.
+  const PEY_FZ = PEY.d / 2 + PEY.bev;
+  function peyFront(x, y, out = 0) { return [peyShear([x, y, PEY_FZ + out]), peyShearN([0, 0, 1])]; }
+  function peySide(sd, t, z, out = 0) {
+    const [A, M, E] = PEY_C, u = 1 - t;
+    const x = u * u * A[0] + 2 * u * t * M[0] + t * t * E[0], y = u * u * A[1] + 2 * u * t * M[1] + t * t * E[1];
+    const tx = 2 * u * (M[0] - A[0]) + 2 * t * (E[0] - M[0]), ty = 2 * u * (M[1] - A[1]) + 2 * t * (E[1] - M[1]), l = Math.hypot(tx, ty) || 1;
+    const nx = ty / l, ny = -tx / l, k = PEY.bev + out;
+    return [peyShear([sd * (x + nx * k), y + ny * k, z]), peyShearN([sd * nx, ny, 0])];
+  }
+  // Round dent (unit disc facing +z): normals lean toward the centre inside the hole and outward on its lit lip.
+  function holeGeo() {
+    const ss = sN(22, 12);
+    return gx('cheeseHole@' + ss, () => {
+      const RR = [0, 0.36, 0.6, 0.75, 0.86, 1], KK = [0, -0.42, -0.8, -1.0, 0.55, 0];
+      const pos = [0, 0, 0], nor = [0, 0, 1], uv = [0.5, 0.5], idx = [];
+      for (let i = 1; i < RR.length; i++) for (let j = 0; j < ss; j++) {
+        const a = j / ss * TAU, c = Math.cos(a), sn = Math.sin(a), k = KK[i], l = Math.hypot(k, 1);
+        pos.push(c * RR[i], sn * RR[i], 0); nor.push(c * k / l, sn * k / l, 1 / l); uv.push(0.5 + c * RR[i] * 0.5, 0.5 + sn * RR[i] * 0.5);
+      }
+      for (let j = 0; j < ss; j++) idx.push(0, 1 + j, 1 + (j + 1) % ss);
+      for (let i = 1; i < RR.length - 1; i++) for (let j = 0; j < ss; j++) {
+        const a = 1 + (i - 1) * ss + j, b = 1 + (i - 1) * ss + (j + 1) % ss, c2 = a + ss, d = b + ss;
+        idx.push(a, c2, b, b, c2, d);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.setIndex(idx);
+      return g;
+    });
+  }
+  function holeCol(c, rad, body, deep) {   // darker golden inside, a pale cut lip, the body colour at the edge
+    const out = new THREE.Color(), B = col(body), D = col(deep), Dk = mixc(deep, '#b8781c', 0.5), Lp = mixc(body, '#fff6c0', 0.55);
+    return (x, y, z) => {
+      const d = Math.hypot(x - c[0], y - c[1], z - c[2]) / rad;
+      if (d < 0.75) return out.copy(Dk).lerp(D, smooth01(d / 0.75));
+      if (d < 0.9) return out.copy(D).lerp(Lp, smooth01((d - 0.75) / 0.12));
+      return out.copy(Lp).lerp(B, smooth01((d - 0.88) / 0.12));
+    };
+  }
+  function buildPeynir(r, o) {
+    const E = o.elite;
+    if (typeof TEX !== 'undefined' && TEX && TEX.ensure) { try { TEX.ensure('swiss'); } catch (e) { /* lazy texture: made on first use */ } }
+    const cheese = E ? '#ffcc3a' : '#ffd650', cheeseD = E ? '#f0a820' : '#f2b83a', rind = '#f0902e', wax = E ? '#e8304a' : '#ff4a5a', waxD = '#c8243a';
+    r.bone('body', 'root', [0, PEY.b, 0]);
+    r.bone('armL', 'body', peyShear([0.36, 0.8, 0])); r.bone('armR', 'body', peyShear([-0.36, 0.8, 0]));
+    r.bone('legL', 'root', [0.22, PEY.b, 0]); r.bone('legR', 'root', [-0.22, PEY.b, 0]);
+    // the wedge (swiss texture; the orange rind along the bottom is plain)
+    const bodyCol = (() => { const out = new THREE.Color(), c = col('#ffffff'), rd = col(rind); return (x, y) => out.copy(c).lerp(rd, smooth01((PEY.b + 0.035 - y) / 0.04)); })();
+    const texM = (x, y) => smooth01((y - PEY.b - 0.01) / 0.04);
+    r.on('body').fx(0, 0.35, texM).uv(1.2).add(peyWedgeGeo(), bodyCol);
+    r.uv(null);
+    // big round holes: around the face on the front, on both slanted sides (they face up toward the camera) and on the back
+    const HOLES = [];
+    for (const [x, y, rr] of [[-0.31, 0.47, 0.065], [0.3, 0.45, 0.05], [0.02, 1.21, 0.055], [-0.1, 0.39, 0.028], [0.19, 0.37, 0.03], [-0.16, 1.07, 0.03]]) HOLES.push([...peyFront(x, y, 0.003), rr]);
+    for (const sd of [-1, 1]) for (const [t, z, rr] of [[0.22, -0.08, 0.07], [0.5, 0.1, 0.06], [0.76, -0.1, 0.045], [0.4, -0.2, 0.035], [0.62, 0.16, 0.03]]) {
+      HOLES.push([...peySide(sd, t, sd > 0 ? z : -z * 0.8, 0.003), rr * (sd > 0 ? 1 : 0.92)]);
+    }
+    for (const [x, y, rr] of [[-0.18, 0.6, 0.1], [0.22, 0.82, 0.07], [0.0, 1.1, 0.05]]) HOLES.push([peyShear([x, y, -PEY_FZ - 0.003]), peyShearN([0, 0, -1]), rr]);
+    r.fx(0, 0.45, 0);
+    for (const [p, n, rr] of HOLES) r.add(holeGeo(), holeCol(p, rr, '#ffe070', cheeseD), p, qz(...n), rr);
+    // painted gloss (upper left of the front) and a thin darker rind line
+    { const [p, n] = peyFront(-0.19, 1.0, 0.004); gloss(r, p, n, 0.028, 0.1, 1.1, -0.4); }
+    r.fx(0, 0);
+    // stubby arms with round hands, out of the slanted sides
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'armL' : 'armR').fx(0, 0.45);
+      const s0 = peyShear([0.36 * sd, 0.8, 0]), s1 = peyShear([0.58 * sd, 0.6, 0.1]), h = peyShear([0.61 * sd, 0.56, 0.13]);
+      r.seg(s0, s1, 0.068, cheese, 0.064, 12);
+      r.add(G.sphere(18, 12), cheese, h, null, [0.1, 0.095, 0.1]);
+      r.add(G.sphere(10, 8), cheese, [h[0] - sd * 0.02, h[1] + 0.04, h[2] + 0.08], null, 0.045);
+    }
+    // little legs in red-wax boots
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'legL' : 'legR').fx(0, 0.35);
+      r.seg([0.22 * sd, 0.32, 0], [0.22 * sd, 0.12, 0.03], 0.07, cheeseD, 0.065, 12);
+      r.fx(0, 0.9).add(G.sphere(20, 14), vgrad(0, 0.16, [[0, waxD], [1, wax]]), [0.22 * sd, 0.075, 0.07], null, [0.12, 0.085, 0.16]);
+      r.add(G.torus(TAU, 0.3, 20), wax, [0.22 * sd, 0.14, 0.02], [PI / 2, 0, 0], [0.078, 0.078, 0.06]);
+    }
+    r.fx(0, 0);
+    if (E) crown(r.on('body'), peyShear([0, 1.44, 0]), 0.75, undefined, 1);
+    // face on the front: a big sphere tangent to the (sheared) front face
+    const [F, FN] = peyFront(0, 0.8), FR = 1.0, tilt = Math.atan2(FN[1], FN[2]);
+    const FC = [0, F[1] - FN[1] * FR, F[2] - FN[2] * FR];
+    face(r, FC, FR, dairyFace({ bone: 'body', tilt, ex: 0.155, ey: 0.03, er: 0.108, inset: 0.012, skin: '#ffe27a', mouthY: -0.15, mouthW: 0.125, heartY: 0.5, heartX: 0.5, heartS: 0.24, blushY: 1.0, blushX: 0.32 }));
+    r.on('body').mark('muzzle', [F[0], F[1] + FN[1] * 0.12, F[2] + FN[2] * 0.12]);
+    return { height: 1.4, glowC: col('#ffb03a'), tex: texOf('swiss'), glowK: 0.8,
+      mat: { rough: 0.5, ns: 1.1, sss: col('#ffe080').multiplyScalar(0.05), rim: '#fff4c8', rimK: 0.22 } };
+  }
+  function animPeynir(m, dt, st, s) {
+    const B = m.B;
+    if (s.mv > 0.03) s.walk += dt * (4.2 + 3 * s.mv);
+    const ph = s.walk, k = Math.min(1, s.mv * 1.4), br = Math.sin(s.t * 1.9 + s.ph);
+    // waddle: the wedge rocks from boot to boot
+    B.body.rotation.z = Math.sin(ph) * 0.08 * k + Math.sin(s.t * 1.1 + s.ph) * 0.015;
+    B.body.position.y += Math.abs(Math.cos(ph)) * 0.035 * k + Math.abs(B.body.rotation.z) * 0.45;
+    B.body.scale.set(1 - 0.008 * br, 1 + 0.012 * br, 1);
+    B.legL.position.y += Math.max(0, Math.sin(ph)) * 0.07 * k; B.legL.position.z += Math.cos(ph) * 0.06 * k;
+    B.legR.position.y += Math.max(0, -Math.sin(ph)) * 0.07 * k; B.legR.position.z -= Math.cos(ph) * 0.06 * k;
+    let aL = 0.1 + Math.sin(ph) * 0.35 * k + Math.sin(s.t * 1.6 + s.ph) * 0.06, aR = 0.1 - Math.sin(ph) * 0.35 * k + Math.sin(s.t * 1.6 + s.ph + 1) * 0.06, ax = 0, tip = 0;
+    if (st.windup >= 0) {   // leans way back on its heels, little arms up — here comes the belly flop
+      const w = smooth01(st.windup);
+      tip = -0.28 * w; aL = aR = 0.2 + 1.9 * w; ax = -0.4 * w; B.body.position.x += Math.sin(s.t * 48) * 0.012 * st.windup;
+    }
+    if (st.attack >= 0) {   // flops forward onto its front edge right away (GAME's slam ring fires as the attack starts), rocks back up
+      const a = st.attack, hit = smooth01(a / 0.1), back = smooth01((a - 0.35) / 0.65), f = hit * (1 - back);
+      tip = 0.5 * f - 0.28 * (1 - hit);
+      B.body.scale.y *= 1 - 0.1 * f * (1 - smooth01((a - 0.1) / 0.25)); aL = aR = lerp(2.1, 0.5, hit) * (1 - back) + 0.1 * back; ax = -0.9 * f;
+    }
+    if (tip) {   // tip over the front (or back) bottom edge instead of the body's centre, so it never sinks into the floor
+      const dz = tip > 0 ? PEY_FZ : -PEY_FZ, dy = -PEY.bev, c = Math.cos(tip), sn = Math.sin(tip);
+      B.body.rotation.x = tip; B.body.position.y += dy - (dy * c - dz * sn); B.body.position.z += dz - (dy * sn + dz * c);
+    }
+    B.armL.rotation.z = aL; B.armR.rotation.z = -aR; B.armL.rotation.x = ax; B.armR.rotation.x = ax;
+  }
+
+  // ── Köpüklü Kefir Devi (~3 m): a big friendly glass kefir bottle. See-through bluish glass (its own mesh, def.extras) over creamy
+  // kefir, bold painted glass streaks (the cartoon "this is glass" cue), bubbles rising inside and a few clinging to the glass, a
+  // bluish meniscus ring at the fill line, fizzy foam filling the neck up to a glass lip ring, on which the golden crown cork sits
+  // (worn tilted like a crown), a light sky-blue label round the front (the back and sides show the kefir through the glass)
+  // with the face, little frosted-glass arms and feet. Phases (st.phase + st.phaseT): idle · move (waddle) · shake (wind-up:
+  // wobbles and fizzes) · geyser (pops its cap 0.1, sprays foam 0.14–0.84, cap back on ~0.9) · bubbles (puffs up, 5 fizz
+  // bubbles at 0.4 … 0.8 while turning left → right: the fan) · slam (crouch 0–0.2, airborne 0.2–0.8, lands at 0.8) · summon ·
+  // roar (a happy "fizz!") · dying: overjoyed; st.dying 0.05–0.45 it hands Feza a glass of kefir with a straw (m.giftPos(),
+  // or st.give 0..1 drives it), then happy hops, waves and twirls into sparkles. ──
+  const KD_P = [[0, 0], [0.78, 0], [0.9, 0.025], [0.97, 0.09], [1.03, 0.28], [1.08, 0.58], [1.1, 0.9], [1.09, 1.18], [1.05, 1.42], [0.97, 1.62],
+    [0.85, 1.8], [0.7, 1.95], [0.56, 2.08], [0.47, 2.2], [0.43, 2.32], [0.425, 2.44]];
+  const KD_GLASS = KD_P.concat([[0.44, 2.49], [0.47, 2.53], [0.458, 2.575], [0.42, 2.59], [0.39, 2.56], [0.382, 2.5], [0.38, 2.36]]);
+  const KD_FILL = 2.02, KD_LAB = [0.72, 1.8], KD_FACE = [0, 1.02, -0.03], KD_FY = 1.3;   // label band; face sphere centre; face height
+  const KD_GIVE = { from: 0.05, to: 0.45 };
+  const KD_GIFT = [-1.43, 1.16, 0.38];   // base of the gift glass, standing on the right mitten
+  // the right arm swings from hanging (shoulder → hand) to reaching forward-out: holds the glass out in front of its side
+  const KD_ARM_Q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-0.42, -0.36, 0.28).normalize(), new THREE.Vector3(-0.3, -0.02, 0.76).normalize());
+  const _kq = new THREE.Quaternion(), _kq0 = new THREE.Quaternion();
+  const kdR = y => profR('kd', KD_P)(y);
+  // rising bubbles: azimuth, phase, radius, speed, band. The high game camera sees the bottle's shoulders (the belly hides the part
+  // below the label), so most rise there — out from behind the label up to the fill line, where they pop (band 1); three rise
+  // below the label (band 0, seen in close-ups); three rise the whole height on the back (band 2), where there is no label and the
+  // camera looks through the glass when the bottle turns away.
+  const KD_BUB = [[0.3, 0.2, 0.1, 1, 1], [-0.45, 0.9, 0.085, 1.1, 1], [0.85, 0.55, 0.095, 0.9, 1], [-0.95, 0.4, 0.11, 1, 1], [0.05, 0.72, 0.08, 1.2, 1],
+    [-0.2, 0.05, 0.1, 0.85, 1], [1.2, 0.3, 0.085, 1.05, 1], [-1.3, 0.66, 0.09, 0.95, 1], [0.58, 0.87, 0.075, 1.15, 1],
+    [-0.6, 0.15, 0.07, 1.25, 0], [0.45, 0.6, 0.065, 1.1, 0], [1.1, 0.35, 0.06, 1, 0],
+    [2.59, 0.3, 0.11, 1, 2], [-2.45, 0.8, 0.095, 0.9, 2], [3.05, 0.55, 0.085, 1.1, 2]];
+  const KD_IN = 0.08;                   // kefir surface inset from the glass (bubbles sit half in the kefir, never through the glass)
+  const kdBI = br => br * 1.12 + 0.005; // bubble centre inset from the glass (they grow to 1.1× on the way up)
+  const KD_BY = [[0.14, 0.72], [1.64, KD_FILL - 0.035], [0.2, KD_FILL - 0.035]];   // per band: rise from … to
+  const KD_BSP = [1, 1.6, 0.7], KD_BPW = [1.5, 1, 1.3];   // per band: speed factor, speed-up exponent (bubbles rise faster as they go)
+  const KD_NECK = 2.455, KD_LIP = 0.455;   // the glass lip ring under the cork (height, radius)
+  // centre of a bubble of inset bi at height y and azimuth a, just inside the glass (along its normal): out = [x, y, z]
+  function kdBubAt(y, a, bi, out) {
+    const f = profR('kd', KD_P), dr = (f(y + 0.01) - f(y - 0.01)) / 0.02, l = Math.hypot(1, dr), rr = f(y) - bi / l;
+    out[0] = Math.sin(a) * rr; out[1] = y + bi * dr / l; out[2] = Math.cos(a) * rr;
+    return out;
+  }
+  // A bold painted highlight streak running up the glass (width w, from y0 to y1, lifted by out; rounded ends). Its azimuth goes
+  // from a0 (low) to a1 (on the shoulder, turning toward the front where the high camera sees it).
+  function kdStreakGeo(key, a0, a1, w, y0, y1, out) {
+    return gx('kdStreak' + key, () => {
+      const n = 26, pos = [], nor = [], idx = [];
+      for (let i = 0; i <= n; i++) {
+        const u = i / n, y = lerp(y0, y1, u), a = lerp(a0, a1, smooth01((y - 1.55) / 0.5)), tx = Math.cos(a), tz = -Math.sin(a);
+        const [p, nn] = onLathe(KD_GLASS, y, a, out), hw = w * 0.5 * Math.pow(Math.sin(PI * u), 0.35) + 0.0015;
+        pos.push(p[0] - tx * hw, p[1], p[2] - tz * hw, p[0] + tx * hw, p[1], p[2] + tz * hw);
+        nor.push(...nn, ...nn);
+        if (i < n) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(pos.length / 3 * 2), 2)); g.setIndex(idx);
+      return g;
+    });
+  }
+  function corkGeo() {
+    const seg = sN(84, 42);
+    return gx('crownCork@' + seg, () => {
+      const v = new THREE.SplineCurve([[1.12, 0], [1.06, 0.25], [1.02, 0.6], [1.0, 0.86], [0.95, 0.96], [0.8, 1.0], [0, 1.0]].map(p => new THREE.Vector2(p[0], p[1]))).getPoints(30);
+      const g = new THREE.LatheGeometry(v, seg), p = g.attributes.position, q = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {   // 21 crimped flutes flaring out toward the bottom edge
+        q.fromBufferAttribute(p, i);
+        const a = Math.atan2(q.x, q.z), w = smooth01((0.9 - q.y) / 0.55), c = Math.cos(a * 21), k = 1 + 0.08 * c * w;
+        p.setXYZ(i, q.x * k, q.y - 0.05 * w * (0.5 + 0.5 * c), q.z * k);
+      }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
+  // The label only wraps the front 216° (KD_LAB_A, centred on +z), so from behind and from the sides the camera sees through the
+  // glass to the creamy kefir and its rising bubbles: a glass bottle of kefir, not a blue pot.
+  const KD_LAB_A = 1.2 * PI;
+  // The label band: u from its right end across the front to its left end (0.5 = front, where the face is), v = height across the
+  // band (for the painted label).
+  function kdLabelGeo() {
+    const sg = sN(44, 17);
+    return gx('kdLabel@' + sg, () => {
+      const [y0, y1] = KD_LAB, pts = [];
+      for (let i = 0; i <= 20; i++) { const y = lerp(y0, y1, i / 20); pts.push(new THREE.Vector2(kdR(y) + 0.014, y)); }
+      const g = seamNormals(new THREE.LatheGeometry(pts, sg, -KD_LAB_A / 2, KD_LAB_A)), p = g.attributes.position, uv = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) uv.setY(i, (p.getY(i) - y0) / (y1 - y0));
+      return g;
+    });
+  }
+  // The painted label (canvas, made once): light sky blue with white paper edges and pinstripes all round, a creamy cloud behind
+  // the face, a pink heart on each side with little white stars and dots. 614 × 192 px ≈ the band's 4.1 m × 1.08 m (same pixel
+  // size per degree as the earlier all-round label, so the cloud and hearts keep their size).
+  let KD_TEX;
+  function kdLabelTex() {
+    if (KD_TEX !== undefined) return KD_TEX;
+    KD_TEX = null;
+    if (typeof document === 'undefined') return null;
+    const W = 614, H = 192, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d'); if (!g) return null;
+    const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#b4e2fc'); bg.addColorStop(1, '#94d2f8');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // paper edges: white borders + a thin pinstripe inside them, along the top and bottom and down both ends of the label
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, 5); g.fillRect(0, H - 5, W, 5); g.fillRect(0, 0, 6, H); g.fillRect(W - 6, 0, 6, H);
+    g.fillStyle = 'rgba(255,255,255,0.9)'; g.fillRect(0, 11, W, 2.5); g.fillRect(0, H - 13.5, W, 2.5);
+    g.fillRect(12, 11, 2.5, H - 22); g.fillRect(W - 14.5, 11, 2.5, H - 22);
+    const heart = (x, y, s, c) => {
+      g.fillStyle = c; g.beginPath(); g.moveTo(x, y + s * 0.5);
+      g.bezierCurveTo(x - s * 0.12, y + s * 0.36, x - s * 0.56, y + s * 0.08, x - s * 0.5, y - s * 0.2);
+      g.bezierCurveTo(x - s * 0.44, y - s * 0.52, x - s * 0.06, y - s * 0.56, x, y - s * 0.26);
+      g.bezierCurveTo(x + s * 0.06, y - s * 0.56, x + s * 0.44, y - s * 0.52, x + s * 0.5, y - s * 0.2);
+      g.bezierCurveTo(x + s * 0.56, y + s * 0.08, x + s * 0.12, y + s * 0.36, x, y + s * 0.5); g.fill();
+    };
+    const star = (x, y, rr, c) => {
+      g.fillStyle = c; g.beginPath();
+      for (let i = 0; i < 10; i++) { const a = i / 10 * TAU - PI / 2, q = i & 1 ? rr * 0.45 : rr; g[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * q, y + Math.sin(a) * q); }
+      g.closePath(); g.fill();
+    };
+    // the cloud behind the face (a soft shadow first: it looks like a sticker)
+    const CX = W / 2, CY = H * 0.47, PUFF = [[0, 0, 128, 64], [-104, 18, 56, 50], [104, 18, 56, 50], [-62, -40, 56, 46], [60, -42, 60, 48], [0, -50, 54, 42],
+      [-50, 44, 52, 38], [50, 44, 52, 38], [-140, 32, 36, 32], [140, 32, 36, 32], [0, 52, 60, 34]];
+    const cloud = (dx, dy, grow, c) => { g.fillStyle = c; for (const [x, y, rx, ry] of PUFF) { g.beginPath(); g.ellipse(CX + x * 1.18 + dx, CY + y + dy, rx * 1.12 + grow, ry + grow, 0, 0, TAU); g.fill(); } };
+    cloud(0, 5, 2, 'rgba(40,100,170,0.24)'); cloud(0, 0, 3.5, '#ffffff'); cloud(0, 0, 0, '#fffbf2');
+    // sides (≈ 88° left and right of the face): a pink heart each, stars and dots between it and the cloud and toward the label's end
+    for (const sd of [-1, 1]) {
+      const x = CX + sd * 250, o = sd;   // o: toward the label's end, -o: toward the cloud
+      heart(x, H * 0.5, 58, '#ff6aa6'); heart(x - 6, H * 0.46, 15, 'rgba(255,255,255,0.55)');
+      star(x - o * 64, H * 0.26, 10, '#ffffff'); star(x + o * 32, H * 0.2, 6, '#fff3a0'); star(x + o * 28, H * 0.8, 7, '#ffffff');
+      for (const [dx, dy, rr, c] of [[-44, 0.84, 5, '#ffffff'], [-92, 0.14, 4, '#ffd2e6'], [-4, 0.9, 4, '#ffd2e6'], [-30, 0.12, 4, '#ffffff']]) {
+        g.fillStyle = c; g.beginPath(); g.arc(x + o * dx, H * dy, rr, 0, TAU); g.fill();
+      }
+    }
+    for (const [dx, y] of [[-123, 0.8], [123, 0.2]]) star(CX + dx, y * H, 7, '#ffffff');
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.ClampToEdgeWrapping; t.anisotropy = typeof ANISO !== 'undefined' ? ANISO : 4;
+    t.userData.keep = true;
+    return (KD_TEX = { map: t });
+  }
+  function buildKefirdev(r, o) {
+    const glassC = '#d6effc', kef = '#fbf8ef', kefD = '#ece4d2', kefS = '#eef4cc', kefSD = '#d8e2a4', lab = '#a4daf9';
+    r.bone('body', 'root', [0, 0, 0]);
+    r.bone('foam', 'body', [0, 2.44, 0]);
+    r.bone('cap', 'body', [0, 2.6, 0]);
+    r.bone('plume', 'body', [0, 2.56, 0]);
+    r.bone('armL', 'body', [1.0, 1.34, 0.08]); r.bone('armR', 'body', [-1.0, 1.34, 0.08]);
+    r.bone('gift', 'armR', KD_GIFT);
+    r.bone('footL', 'root', [0.48, 0.1, 0.58]); r.bone('footR', 'root', [-0.48, 0.1, 0.58]);
+    const _bp = [0, 0, 0];
+    for (let i = 0; i < KD_BUB.length; i++) r.bone('bub' + i, 'body', kdBubAt(KD_BUB[i][4] ? 1.9 : 0.4, KD_BUB[i][0], kdBI(KD_BUB[i][2]), _bp).slice());
+    // the kefir inside (per mood: a pale lime while sour, creamy white when happy)
+    const fill = KD_P.filter(p => p[1] < KD_FILL - 0.05).map(p => [Math.max(0, p[0] - KD_IN), p[1]]).concat([[kdR(KD_FILL) - KD_IN, KD_FILL], [kdR(KD_FILL) * 0.5, KD_FILL + 0.02], [0, KD_FILL + 0.025]]);
+    for (const md of [1, 2]) {
+      r.mood = md;
+      r.on('body').fx(0, 0.6).add(lathe('kdFill', fill, 56), vgrad(0, KD_FILL, md === 1 ? [[0, kefSD], [0.3, kefS], [1, mixc(kefS, '#ffffff', 0.4)]] : [[0, kefD], [0.3, kef], [1, '#ffffff']]));
+    }
+    r.mood = 0;
+    // a thin bluish meniscus ring where the kefir meets the glass, then fizzy white foam filling the shoulders and the whole neck
+    // up to the cork (a lumpy column seen through the glass), so the cap always sits on something
+    r.on('body').fx(0, 1).add(G.torus(TAU, 0.036, 56), '#c4e4fa', [0, KD_FILL + 0.004, 0], [PI / 2, 0, 0], kdR(KD_FILL) - KD_IN * 0.55);
+    {
+      const col_ = [[0, KD_FILL - 0.05]];
+      for (let i = 0; i <= 8; i++) { const y = lerp(KD_FILL - 0.05, KD_NECK - 0.01, i / 8); col_.push([kdR(y) - 0.055, y]); }
+      col_.push([(kdR(KD_NECK) - 0.055) * 0.8, KD_NECK + 0.02], [0, KD_NECK + 0.03]);
+      r.fx(0, 0.4).add(lathe('kdNeckFoam', col_, 40, 2), vgrad(KD_FILL, KD_NECK, [[0, '#efece2'], [0.45, '#f8f6ef'], [1, '#ffffff']]));
+      for (let i = 0; i < 11; i++) {   // foam lumps on the column (kept inside the glass)
+        const y = lerp(KD_FILL + 0.03, KD_NECK - 0.04, (i * 0.618) % 1), a = -1.4 + (i * 1.13) % 2.8, rad = 0.05 + 0.035 * ((i * 0.37) % 1), rr = kdR(y) - 0.03 - rad;
+        r.add(G.sphere(12, 9), i & 1 ? '#ffffff' : '#f7f5ee', [Math.sin(a) * rr, y, Math.cos(a) * rr], null, rad);
+      }
+    }
+    // the glass lip ring right under the cork (the cork sits on it) with a little shine
+    r.fx(0, 1).add(G.torus(TAU, 0.068, 48), '#bde2f8', [0, KD_NECK, 0], [PI / 2, 0, 0], KD_LIP);
+    r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.25), [Math.sin(-0.6) * (KD_LIP + 0.024), KD_NECK + 0.016, Math.cos(-0.6) * (KD_LIP + 0.024)], null, [0.05, 0.012, 0.02]);
+    // the foam head on top of the column (bone 'foam') — it rises and spills out of the mouth when the cap pops
+    r.on('foam').fx(0, 0.5);
+    r.add(G.sphere(24, 12), vgrad(KD_NECK - 0.04, KD_NECK + 0.08, [[0, '#f4f2ea'], [1, '#ffffff']]), [0, KD_NECK + 0.01, 0], null, [0.36, 0.07, 0.36]);
+    for (let i = 0; i < 8; i++) {
+      const a = i * 2.4, rr = 0.06 + (i % 3) * 0.1, sz = 0.05 + (i % 4) * 0.012;
+      r.add(G.sphere(14, 10), '#ffffff', [Math.sin(a) * rr, KD_NECK + 0.05 + (i % 2) * 0.025, Math.cos(a) * rr], null, sz);
+    }
+    // the geyser's foam gush (bone 'plume', hidden until the cap pops): foam puffs bursting up out of the mouth and arcing forward
+    // (GAME's foam spray carries on from its tip along the cone)
+    r.on('plume').fx(0, 0.5);
+    for (const [x, y, z, rr] of [[0, 2.68, 0.04, 0.22], [0.03, 2.88, 0.2, 0.27], [-0.04, 3.02, 0.44, 0.3], [0.04, 3.06, 0.72, 0.29], [-0.03, 3.0, 0.98, 0.25], [0.02, 2.88, 1.2, 0.2],
+      [0.2, 2.96, 0.36, 0.14], [-0.22, 3.08, 0.62, 0.14], [0.2, 3.1, 0.86, 0.12], [-0.12, 3.24, 0.5, 0.12]]) {
+      r.add(G.sphere(16, 12), vgrad(y - rr, y + rr, [[0, '#eef0ea'], [1, '#ffffff']]), [x, y, z], null, rr);
+    }
+    for (const [x, y, z] of [[0.12, 3.22, 0.56], [-0.1, 3.2, 0.86], [0.06, 3.02, 0.22]]) r.fx(1, 0).add(G.sphere(8, 6), hdr('#ffffff', 1.25), [x, y, z], null, 0.035);
+    r.fx(0, 0);
+    // bubbles rising inside the glass (bones bub0…; animated up the bottle, faster while it fizzes): glossy, clear in the middle,
+    // a sky-blue rim and a white sparkle, so they read on the creamy kefir
+    const bubC = (c, br, a) => { const out = new THREE.Color(), lo = col('#f2faff'), hi = col('#86c2ee'), nx = Math.sin(a), nz = Math.cos(a);
+      return (x, y, z) => { const d = ((x - c[0]) * nx + (z - c[2]) * nz) / br; return out.copy(lo).lerp(hi, Math.pow(clamp(1 - d, 0, 1), 1.4)); }; };
+    for (let i = 0; i < KD_BUB.length; i++) {
+      const [a, , br, , band] = KD_BUB[i], c = kdBubAt(band ? 1.9 : 0.4, a, kdBI(br), [0, 0, 0]), nx = Math.sin(a), nz = Math.cos(a);
+      r.on('bub' + i).fx(0, 1).add(G.sphere(14, 10), bubC(c, br, a), c, null, br);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#ffffff', 1.3), [c[0] + nx * br * 0.8 - nz * br * 0.32, c[1] + br * 0.36, c[2] + nz * br * 0.8 + nx * br * 0.32], null, br * 0.26);
+    }
+    // a few tiny bubbles clinging to the inside of the glass (below the label and on the shoulders)
+    r.on('body');
+    for (let i = 0; i < 18; i++) {
+      const lo = i < 6, y = lo ? 0.2 + 0.46 * ((i * 0.618) % 1) : 1.85 + 0.14 * ((i * 0.41) % 1), a = -1.45 + (i * 1.71) % 2.9, br = (lo ? 0.018 : 0.024) + 0.014 * ((i * 0.53) % 1);
+      const c = kdBubAt(y, a, br + 0.008, [0, 0, 0]);
+      r.fx(0, 1).add(G.sphere(8, 6), bubC(c, br, a), c, null, br);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#ffffff', 1.2), [c[0] + Math.sin(a) * br * 0.8, c[1] + br * 0.35, c[2] + Math.cos(a) * br * 0.8], null, br * 0.3);
+    }
+    // … and a few more on the unlabelled back, all the way up
+    for (let i = 0; i < 6; i++) {
+      const y = 0.3 + 1.6 * ((i * 0.618 + 0.1) % 1), a = PI - 0.95 + (i * 0.71) % 1.9, br = 0.02 + 0.014 * ((i * 0.53) % 1);
+      const c = kdBubAt(y, a, br + 0.008, [0, 0, 0]);
+      r.fx(0, 1).add(G.sphere(8, 6), bubC(c, br, a), c, null, br);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#ffffff', 1.2), [c[0] + Math.sin(a) * br * 0.8, c[1] + br * 0.35, c[2] + Math.cos(a) * br * 0.8], null, br * 0.3);
+    }
+    // the painted label on the front 216° (kdLabelTex: light sky blue, a creamy cloud behind the face, hearts and stars), rolled
+    // paper edges; without a canvas it falls back to plain sky blue
+    const labTex = kdLabelTex();
+    r.on('body').fx(0, 0.45, labTex ? 1 : 0).add(kdLabelGeo(), labTex ? '#ffffff' : lab);
+    // rolled paper edges along the top and bottom: arcs over the same front span (rotated so the arc is centred on +z), with tiny
+    // round caps on the open ends
+    r.fx(0, 0.6);
+    for (const y of KD_LAB) {
+      const rr = kdR(y) + 0.016;
+      r.add(G.torus(KD_LAB_A, 0.022, 40), '#ffffff', [0, y, 0], [PI / 2, 0, (PI - KD_LAB_A) / 2], rr);
+      for (const sd of [-1, 1]) { const a = sd * KD_LAB_A / 2; r.add(G.sphere(8, 6), '#ffffff', [Math.sin(a) * rr, y, Math.cos(a) * rr], null, 0.022 * rr); }
+    }
+    r.fx(0, 0);
+    // bold painted glass streaks (upper left, where the sun is): a broad one and a thin one running the height of the bottle (over
+    // the label too, like shine on a glossy bottle), one on the neck and a faint reflex on the right edge — plus a small gloss dot
+    r.on('body').fx(1, 0);
+    r.add(kdStreakGeo('A', -0.96, -0.62, 0.11, 0.24, 2.15, 0.026), hdr('#ffffff', 1.18));
+    r.add(kdStreakGeo('B', -1.16, -0.86, 0.042, 0.4, 2.08, 0.026), hdr('#ffffff', 1.12));
+    r.add(kdStreakGeo('C', -0.62, -0.62, 0.05, 2.24, 2.42, 0.012), hdr('#ffffff', 1.15));
+    r.add(kdStreakGeo('D', 1.2, 0.95, 0.032, 0.36, 2.0, 0.026), hdr('#f4fbff', 0.98));
+    // the same shine on the unlabelled back (seen when the bottle turns away: still clearly a glass bottle)
+    r.add(kdStreakGeo('E', 2.45, 2.75, 0.095, 0.3, 2.12, 0.026), hdr('#ffffff', 1.15));
+    r.add(kdStreakGeo('F', 2.22, 2.52, 0.036, 0.46, 2.04, 0.026), hdr('#ffffff', 1.1));
+    r.fx(0, 0);
+    { const [p, n] = onLathe(KD_P, 2.06, -0.95, 0.01); gloss(r, p, n, 0.03, 0.05, 1.2); }
+    // little frosted-glass arms with round mitten hands
+    const frost = vgrad(0.8, 1.5, [[0, '#a8d8f4'], [1, glassC]]);
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'armL' : 'armR').fx(0, 1);
+      r.seg([1.0 * sd, 1.34, 0.08], [1.34 * sd, 1.05, 0.3], 0.13, frost, 0.11, 14);
+      r.add(G.sphere(22, 16), frost, [1.42 * sd, 0.98, 0.36], null, [0.19, 0.18, 0.19]);
+      r.add(G.sphere(12, 8), frost, [1.34 * sd, 1.08, 0.5], null, 0.075);
+      gloss(r, [1.36 * sd, 1.08, 0.46], [-0.3 * sd, 0.5, 0.8], 0.04, 0.025, 1.2);
+    }
+    for (const sd of [-1, 1]) {
+      r.on(sd > 0 ? 'footL' : 'footR').fx(0, 1).add(G.sphere(22, 14), vgrad(0, 0.22, [[0, '#9ccff0'], [1, glassC]]), [0.5 * sd, 0.1, 0.74], null, [0.27, 0.14, 0.34]);
+    }
+    // the crown cork, worn tilted: gold crimped skirt, pearls on the flute tips, a pink top with a white heart
+    r.on('cap').push([0, 2.52, 0], [-0.12, 0, 0.2]);
+    r.fx(0, 2).add(corkGeo(), vgrad(-0.05, 0.3, [[0, '#d08a18'], [0.5, GOLD], [1, '#ffe08a']]), [0, 0, 0], null, [0.52, 0.24, 0.52]);
+    r.fx(0, 0.7).add(G.cyl(1, 1, 36), '#ff6aa4', [0, 0.245, 0], null, [0.36, 0.012, 0.36]);
+    r.fx(0, 2).add(G.torus(TAU, 0.08, 40), GOLD, [0, 0.25, 0], [PI / 2, 0, 0], 0.37);
+    r.fx(0, 0.6).add(heartGeo(), '#ffffff', [0, 0.262, 0.02], [-PI / 2, 0, 0], [0.34, 0.34, 0.12]);
+    r.fx(0, 1);
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * TAU; r.add(G.sphere(12, 8), '#fff8ee', [Math.sin(a) * 0.62, -0.02, Math.cos(a) * 0.62], null, 0.05); }
+    r.pop().fx(0, 0);
+    // happy only: the glass of kefir it gives Feza (in the right hand; bone 'gift' is hidden until the hand-over). Same look and
+    // size as GAME's glass that takes over at the hand-over (a tall glass of fizzy kefir, pink rim, a pink band with white dots,
+    // a pink-and-white striped straw; built at 1 : 1.35 around its base on the mitten).
+    r.mood = 2; r.on('gift');
+    {
+      const [gx0, gy0, gz0] = KD_GIFT;
+      r.push(KD_GIFT, null, 1.35);
+      r.fx(0, 0.4).add(G.cyl(0.97, 0.86, 20), vgrad(gy0, gy0 + 0.3, [[0, '#efe6d4'], [1, '#fffaf2']]), [0, 0.116, 0], null, [0.078, 0.2, 0.078]);
+      r.add(G.sphere(16, 8), '#ffffff', [0, 0.216, 0], null, [0.078, 0.028, 0.078]);
+      r.add(G.sphere(10, 8), '#ffffff', [0.03, 0.236, 0.02], null, 0.022).add(G.sphere(10, 8), '#ffffff', [-0.028, 0.234, -0.015], null, 0.018);
+      r.fx(0, 1).add(G.cyl(1, 0.97, 20, true), '#e6f5ff', [0, 0.24, 0], null, [0.086, 0.045, 0.086]);
+      r.add(G.cyl(0.9, 0.84, 20), '#d6effc', [0, 0.008, 0], null, [0.08, 0.016, 0.08]);
+      r.fx(0, 0.5).add(G.torus(TAU, 0.16, 20), '#ff6f9a', [0, 0.262, 0], [PI / 2, 0, 0], 0.086);
+      r.add(G.cyl(0.92, 0.9, 20, true), '#ff6f9a', [0, 0.1, 0], null, [0.088, 0.05, 0.088]);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; r.add(G.sphere(8, 6), '#ffffff', [Math.sin(a) * 0.08, 0.1, Math.cos(a) * 0.08], null, 0.012); }
+      for (let i = 0; i < 6; i++) r.add(G.cyl(1, 1, 8), i % 2 ? '#ffffff' : '#ff4f86', [0.03 - 0.004 * i, 0.12 + i * 0.045, 0.012], [0, 0, 0.09], [0.012, 0.045, 0.012]);
+      gloss(r, [-0.05, 0.16, 0.066], [-0.6, 0, 0.8], 0.01, 0.07, 1.25);
+      r.pop();
+      r.mark('gift', [gx0, gy0 + 0.15 * 1.35, gz0]);
+    }
+    r.mood = 0; r.fx(0, 0);
+    face(r, KD_FACE, 1.16, dairyFace({ bone: 'body', tilt: 0.3, ex: 0.36, ey: 0.1, er: 0.235, inset: 0.028, skin: '#fff6e6',
+      mouthY: -0.27, mouthW: 0.27, browY: 1.32, heartX: 1.0, heartY: 0.5, heartS: 0.24, blushY: 0.92, blushX: 0.38, openK: 1.06 }));
+    r.on('body').mark('muzzle', [0, 2.6, 0.12]);
+    const glassGeo = lathe('kdGlass', KD_GLASS, 64, 4);
+    return { height: 3.0, glowC: col('#bfe8ff'), tex: labTex || undefined, dieHop: 0.1, dieFrom: ((EDEF.kefirdev && EDEF.kefirdev.give) || KD_GIVE).to + 0.05, hide: ['gift', 'plume'], glowK: 0.6,
+      portrait: { cx: 0, cy: 1.9, cz: 0.75, rad: 1.25 },
+      extras: [{ geo: glassGeo, bone: 'body', kind: 'glass', color: '#e4f4ff', opacity: 0.2, edge: 0.86 }],
+      mat: { rough: 0.3, sss: col('#f4f0e4').multiplyScalar(0.06), rim: '#e8f6ff', rimK: 0.28, rimP: 2.4 } };
+  }
+  // Hand-over progress 0..1 (glass pops into the hand, held out toward Feza, handed over at ~0.85), or -1 when not giving.
+  function kdGive(st) {
+    if (typeof st.give === 'number' && st.give >= 0) return st.give < 1 ? st.give : -1;
+    if (!(st.dying >= 0)) return -1;
+    const W = (EDEF.kefirdev && EDEF.kefirdev.give) || KD_GIVE, g = (st.dying - W.from) / Math.max(0.05, W.to - W.from);
+    return g >= 0 && g < 1 ? g : -1;
+  }
+  function animKefirdev(m, dt, st, s) {
+    const B = m.B, ph = bph(st), t = bpt(st), br = Math.sin(s.t * 1.8 + s.ph);
+    let sy = 1 + 0.018 * br, sxz = 1 - 0.01 * br, y = 0, z = 0, rx = 0, rz = 0, ry = 0, armUp = 0, wave = 0, fwd = 0, capY = 0, capSpin = 0, capTip = 0,
+      foamY = 0, foamS = 1, fizz = 1, hopY = 0, air = 0, plume = 0;
+    // waddle (phase 'move', or walking while idle): rocks from one side of its base to the other, little feet stepping
+    s.wk = damp(s.wk || 0, ph === 'move' || (ph === 'idle' && st.move > 0.05) ? 1 : 0, 5, dt);
+    if (s.wk > 0.01) s.walk += dt * 5.2 * s.wk;
+    const wa = Math.sin(s.walk) * 0.09 * s.wk, wy = Math.abs(wa) * 0.85 + Math.abs(Math.cos(s.walk)) * 0.04 * s.wk;
+    rz += wa; y += wy;
+    B.footL.position.y += Math.max(0, Math.sin(s.walk)) * 0.14 * s.wk; B.footR.position.y += Math.max(0, -Math.sin(s.walk)) * 0.14 * s.wk;
+    B.footL.position.z += Math.cos(s.walk) * 0.1 * s.wk; B.footR.position.z -= Math.cos(s.walk) * 0.1 * s.wk;
+    wave += Math.sin(s.walk) * 0.25 * s.wk;
+    switch (ph) {
+      case 'shake': {   // wind-up: wobbles faster and faster, fizzing; the foam climbs the neck, the cap rattles
+        const k = smooth01(t / 0.25) * (1 - smooth01((t - 0.92) / 0.08)), f = 18 + 16 * t;
+        rz += Math.sin(s.t * f) * 0.09 * k; rx += Math.sin(s.t * f * 0.7 + 1) * 0.04 * k;
+        sy *= 1 + 0.03 * Math.sin(s.t * f * 2) * k; foamY = 0.16 * k * t + 0.04 * k; fizz = 1 + 4 * k;
+        capY = Math.abs(Math.sin(s.t * f * 1.3)) * 0.06 * k; capTip = Math.sin(s.t * f) * 0.12 * k; armUp = 0.35 * k; wave = Math.sin(s.t * f) * 0.4 * k;
+        break;
+      }
+      case 'geyser': {   // POP! the cap flies up, the bottle leans in and sprays foam, then the cap drops back on
+        const pop = smooth01(t / 0.1), lean = smooth01((t - 0.06) / 0.1) * (1 - smooth01((t - 0.84) / 0.12));
+        const up = t < 0.86 ? pop : 1 - smooth01((t - 0.86) / 0.1), land = bump(t - 0.95, 0.05);
+        capY = up * (1.2 + 0.15 * Math.sin(s.t * 3)) - 0.06 * land; capSpin = t * 9; capTip = 0.35 * up;
+        rx += 0.3 * lean; z += 0.12 * lean; fwd = lean; foamY = 0.3 * lean + 0.06 * pop; foamS = 1 - 0.15 * lean; fizz = 1 + 5 * lean;
+        plume = smooth01((t - 0.08) / 0.12) * (1 - smooth01((t - 0.8) / 0.1));
+        rz += Math.sin(s.t * 36) * 0.02 * lean; sy *= 1 - 0.05 * bump(t, 0.1) + 0.03 * lean; armUp = 0.2 * lean; wave = -0.3 * lean;
+        break;
+      }
+      case 'bubbles': {   // puffs up, then five fizz bubbles in a fan (turning left → right), the cap burps up a little each time
+        const k = smooth01(t / 0.3) * (1 - smooth01((t - 0.88) / 0.12));
+        sxz *= 1 + 0.07 * k; sy *= 1 + 0.03 * k; rx -= 0.08 * k; foamY = 0.1 * k; fizz = 1 + 2 * k;
+        ry = lerp(-0.34, 0.34, smooth01((t - 0.36) / 0.48)) * k;
+        for (const c of [0.4, 0.5, 0.6, 0.7, 0.8]) { const p = bump(t - c + 0.02, 0.08); capY += 0.14 * p; rx += 0.1 * p; sy *= 1 - 0.05 * p; foamY += 0.1 * p; }
+        armUp = 0.2 * k;
+        break;
+      }
+      case 'slam': {   // crouch, a big hop (peak ≈ 1.3 m), lands at 0.8 with a splash
+        if (t < 0.2) { const k = smooth01(t / 0.2); sy *= 1 - 0.2 * k; sxz *= 1 + 0.1 * k; armUp = 0.4 * k; }
+        else if (t < 0.8) {
+          const u = (t - 0.2) / 0.6, e = Math.abs(Math.cos(PI * u));
+          hopY = Math.sin(PI * u) * 1.3; sy *= 1 + 0.08 * e; sxz *= 1 - 0.04 * e; armUp = 0.4 + 0.6 * Math.sin(PI * u); air = Math.sin(PI * u);
+          capY = 0.12 * Math.sin(PI * u); foamY = 0.08 * Math.sin(PI * u);
+        } else { const u = (t - 0.8) / 0.2, k = Math.sin(PI * Math.min(1, u * 1.3)) * (1 - 0.5 * u); sy *= 1 - 0.22 * k; sxz *= 1 + 0.12 * k; capY = -0.04 * k; foamY = 0.2 * k; fizz = 3; }
+        break;
+      }
+      case 'summon': {   // bounces three times with the cap popping up and down: "come out, little foams!"
+        const k = smooth01(t / 0.15) * (1 - smooth01((t - 0.85) / 0.15)), b = Math.abs(Math.sin(t * PI * 3));
+        y += b * 0.3 * k; sy *= 1 + 0.06 * (b - 0.5) * k; armUp = k; wave = Math.sin(t * PI * 8) * k;
+        capY = 0.3 * b * k; capSpin = t * 6 * k; foamY = 0.3 * k; foamS = 1 + 0.3 * k; fizz = 1 + 4 * k;
+        break;
+      }
+      case 'roar': {   // "fizz!": stretches up tall, arms up, the cap hops and spins, foam puffs out
+        const k = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
+        sy *= 1 + 0.1 * k; sxz *= 1 - 0.04 * k; armUp = k; wave = Math.sin(s.t * 14) * 0.5 * k; rz += Math.sin(s.t * 9) * 0.04 * k; rx -= 0.08 * k;
+        capY = 0.25 * k + Math.abs(Math.sin(s.t * 12)) * 0.08 * k; capSpin = s.t * 4 * k; foamY = 0.3 * k; foamS = 1 + 0.35 * k; fizz = 1 + 3 * k;
+        break;
+      }
+      case 'dying': armUp = 0.9; wave = Math.sin(s.t * 10); capY = 0.08 + 0.05 * Math.sin(s.t * 6); fizz = 2.5; break;   // overjoyed
+    }
+    // hand-over of the kefir glass (dying start, or st.give)
+    const g = kdGive(st);
+    s.giving = g >= 0;
+    let give = 0, gScale = 0.0001;
+    if (g >= 0) {
+      give = smooth01(g / 0.18) * (1 - smooth01((g - 0.86) / 0.14));
+      gScale = g < 0.18 ? Math.max(0.0001, Math.sin(PI * 0.5 * g / 0.18) * (1 + 0.25 * Math.sin(PI * g / 0.18))) : g > 0.86 ? Math.max(0.0001, 1 - smooth01((g - 0.86) / 0.1)) : 1;
+      armUp *= 1 - give; rx += 0.1 * give; wave *= 1 - 0.6 * give;
+    }
+    B.gift.scale.setScalar(gScale);
+    // cut-short slam (cheered up / Feza napped in mid-air): fall down with gravity and land with a squash
+    if (ph === 'slam') {
+      if (dt > 0) s.airV = clamp(((s.airY || 0) - hopY) / dt, -8, 8);
+      s.airY = hopY;
+    } else if (s.airY > 0) {
+      s.airV = (s.airV || 0) + 16 * dt;
+      s.airY = Math.max(0, s.airY - s.airV * dt);
+      air = Math.max(air, Math.min(1, s.airY / 1.3)); armUp = Math.max(armUp, 0.6);
+      if (s.airY <= 0) { s.airV = 0; s.landT = 1; }
+    }
+    y += s.airY || 0;
+    if (s.landT > 0) { const k = Math.sin(PI * (1 - s.landT)); sy *= 1 - 0.2 * k; sxz *= 1 + 0.1 * k; s.landT = Math.max(0, s.landT - dt / 0.3); }
+    B.body.position.set(B.body.position.x, B.body.position.y + y, B.body.position.z + z);
+    B.body.scale.set(sxz, sy, sxz); B.body.rotation.set(rx, ry, rz);
+    const jy = Math.max(0, y - wy);   // hops and bounces lift the little feet too (the waddle steps them on its own)
+    B.footL.position.y += jy; B.footR.position.y += jy; B.footL.position.z += z; B.footR.position.z += z;
+    B.cap.scale.set(1 / sxz, 1 / sy, 1 / sxz);   // the metal cap stays rigid on the wobbly bottle
+    B.cap.position.y += capY + Math.abs(Math.sin(s.t * 2.3 + s.ph)) * 0.012; B.cap.rotation.y = capSpin; B.cap.rotation.z = capTip * Math.sin(s.t * 2.5) + Math.sin(s.t * 1.2 + s.ph) * 0.03;
+    B.cap.rotation.x = -0.15 * capTip;
+    B.foam.position.y += foamY; B.foam.scale.set(foamS, 1 + (foamS - 1) * 1.6 + 0.04 * Math.sin(s.t * 5), foamS);
+    if (plume > 0.001) {   // the foam fountain grows out of the bottle's mouth and bubbles (wobbles, pulses)
+      const w = Math.sin(s.t * 13), w2 = Math.sin(s.t * 9.3 + 1);
+      B.plume.scale.set(plume * (1 + 0.08 * w), Math.max(0.0001, plume * (1 + 0.1 * w2)), plume * (1 + 0.08 * w2));
+      B.plume.rotation.set(0.12 * plume + 0.05 * w2, 0, 0.06 * w);
+    } else B.plume.scale.setScalar(0.0001);
+    const sw = Math.sin(s.t * 1.6 + s.ph) * 0.08;
+    B.armL.rotation.z = 0.08 + sw + 1.6 * armUp + 0.3 * wave; B.armR.rotation.z = -(0.08 + sw + 1.5 * armUp - 0.3 * wave);
+    B.armL.rotation.x = -0.35 * armUp + 0.4 * fwd; B.armR.rotation.x = -0.35 * armUp + 0.4 * fwd;
+    if (give > 0) {   // right arm reaches forward-out holding the glass up (kept upright), a little bow; the left hand waves
+      _kq0.copy(B.armR.quaternion); _kq.copy(_kq0).slerp(KD_ARM_Q, give);
+      B.armR.quaternion.copy(_kq); B.armR.scale.setScalar(1 + 0.12 * give);
+      B.gift.quaternion.copy(_kq).invert(); B.gift.scale.multiplyScalar(1 / (1 + 0.12 * give));
+      B.armL.rotation.z = lerp(B.armL.rotation.z, 1.9 + 0.35 * Math.sin(s.t * 11), give);
+    }
+    // bubbles rising along the glass (faster while it fizzes)
+    s.fz = (s.fz || 0) + dt * 0.22 * fizz;
+    // (each rises faster as it goes, like real bubbles, so they spend longer low in the bottle, below the label, and grow a little)
+    const bp = s.bp || (s.bp = [0, 0, 0]);
+    for (let i = 0; i < KD_BUB.length; i++) {
+      const b = B['bub' + i], [a, off, br, sp, band] = KD_BUB[i], u = (s.fz * sp * KD_BSP[band] + off) % 1, yy = lerp(KD_BY[band][0], KD_BY[band][1], Math.pow(u, KD_BPW[band]));
+      kdBubAt(yy, a + Math.sin(u * 9 + i) * 0.04, kdBI(br), bp);
+      b.position.set(bp[0], bp[1], bp[2]);
+      b.scale.setScalar((0.75 + 0.35 * u) * (u < 0.06 ? Math.max(0.0001, u / 0.06) : u > 0.94 ? Math.max(0.0001, (1 - u) / 0.06) : 1));
+    }
+  }
+
   // ════════════════ Instances ════════════════
   const TYPES = {
     jole: [buildJole, animJole], mantar: [buildMantar, animMantar], yarasa: [buildYarasa, animYarasa], goblin: [buildGoblin, animGoblin],
@@ -2451,9 +3523,12 @@ const EMODEL = (function (G0) {
     atescik: [buildAtescik, animAtescik], ejderha: [buildEjderha, animEjderha],
     kaplumbaga: [buildKaplumbaga, animKaplumbaga], ateskusu: [buildAteskusu, animAteskusu],
     kraljole: [buildKraljole, animKraljole], kostebekusta: [buildKostebekusta, animKostebekusta], lavkaplumbaga: [buildLavkaplumbaga, animLavkaplumbaga],
+    yogurt: [buildYogurt, animYogurt], kaymak: [buildKaymak, animKaymak], kopuk: [buildKopuk, animKopuk], peynir: [buildPeynir, animPeynir],
+    kefirdev: [buildKefirdev, animKefirdev],
   };
-  // Model variants per type (first = default). ZONES[i].variants picks among them (volcano: jole 'lava', golem 'magma').
-  const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple', 'lava'], golem: ['rock', 'magma'] };
+  // Model variants per type (first = default). ZONES[i].variants picks among them (kefir: jole 'muhallebi'; volcano: jole 'lava',
+  // golem 'magma').
+  const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple', 'lava', 'muhallebi'], golem: ['rock', 'magma'] };
   const isBossType = t => !!(EDEF[t] && EDEF[t].kind === 'boss');
   const DEFS = {};
   function getDef(type, variant, elite) {
@@ -2509,6 +3584,16 @@ const EMODEL = (function (G0) {
     if (I.B.mound) I.B.mound.scale.setScalar(0.0001);   // the mole's dirt mound only shows while it burrows
     if (I.B.clod) I.B.clod.scale.setScalar(0.0001);     // the master mole's dirt clod only shows while throwing
     for (let i = 0; i < 3; i++) if (I.B['puff' + i]) I.B['puff' + i].scale.setScalar(0.0001);
+    for (const n of def.hide || []) if (I.B[n]) I.B[n].scale.setScalar(0.0001);   // e.g. the kefir bottle's gift glass until the hand-over
+    // extra meshes riding on a bone with their own material (the kefir bottle's see-through glass: drawn after the kefir inside)
+    const XM = [];
+    for (const e of def.extras || []) {
+      const b = I.B[e.bone], bd = def.bones.find(x => x.name === e.bone);
+      if (!b || !bd) continue;
+      const xm = extraMat(e), mesh = new THREE.Mesh(e.geo, xm);
+      mesh.position.set(-bd.pos[0], -bd.pos[1], -bd.pos[2]); mesh.renderOrder = 2; mesh.castShadow = false; mesh.name = e.kind || 'extra';
+      b.add(mesh); XM.push(xm);
+    }
     const root = new THREE.Group(); root.name = 'enemy_' + type; root.add(I.mesh);
     const base = EDEF[type] || {};
     const s = { t: frand(0, 10), ph: frand(0, TAU), mv: 0, walk: frand(0, TAU), hop: 0, flap: frand(0, 10), key: 0, bt: frand(0.5, 3), gg: frand(1, 6),
@@ -2555,7 +3640,9 @@ const EMODEL = (function (G0) {
         }
         if (dying && boss && type !== 'ejderha') {
           // zone bosses: overjoyed happy hops while waving goodbye (their own anim waves), then a twirl into sparkles
-          const d = st.dying, H = m.height / sc, landed = 1 - smooth01((s.airY || 0) / 0.4);   // (cheered up mid-hop: land first)
+          // (def.dieFrom: the kefir bottle stands still while it hands Feza its glass of kefir, the goodbye plays after that)
+          const from = def.dieFrom || 0, d = s.giving ? 0 : from ? Math.max(0, (st.dying - from) / (1 - from)) : st.dying;
+          const H = m.height / sc, landed = 1 - smooth01((s.airY || 0) / 0.4);   // (cheered up mid-hop: land first)
           R.position.y += Math.abs(Math.sin(d * PI * 4.5)) * H * (def.dieHop ?? 0.12) * (1 - smooth01((d - 0.5) / 0.25)) * landed;
           R.rotation.y += smooth01((d - 0.62) / 0.38) * TAU;
           R.rotation.z += Math.sin(d * 30) * 0.05 * (1 - d);
@@ -2565,7 +3652,9 @@ const EMODEL = (function (G0) {
           const d = st.dying, H = m.height / sc;
           const hop = Math.abs(Math.sin(d * PI * 2.2)) * H * 0.32 * (1 - smooth01(d)) * (type === 'ejderha' ? 0.35 : 1);
           R.position.y += hop;
-          R.rotation.y += smooth01(d) * TAU * (type === 'ejderha' ? 1 : 1.5);
+          // the creatures keep their overjoyed face to Feza for the two happy hops, then one twirl while they shrink away
+          // (flat-faced ones — cheese wedge, cream swirl, yogurt cup — would otherwise show their edge/back at the happy moment)
+          R.rotation.y += type === 'ejderha' ? smooth01(d) * TAU : smooth01((d - 0.5) / 0.5) * TAU;
           R.rotation.z += Math.sin(d * 26) * 0.12 * (1 - d);
           const k = d < 0.55 ? 1 + 0.12 * Math.sin(PI * d / 0.55) : Math.max(0.0001, 1 - smooth01((d - 0.55) / 0.45));
           R.scale.multiplyScalar(k);
@@ -2590,9 +3679,18 @@ const EMODEL = (function (G0) {
         root.updateMatrixWorld(true);
         return mk.getWorldPosition(s.mz);
       },
+      // World position of a named marker (new Vector3), or null: e.g. marker('gift') = the kefir glass in the bottle's hand.
+      marker(name, out) {
+        const mk = I.marks[name]; if (!mk) return null;
+        root.updateMatrixWorld(true);
+        return mk.getWorldPosition(out || new THREE.Vector3());
+      },
+      // Kefir Devi: where the glass of kefir it hands Feza is right now (world), or null while it is not in its hand.
+      giftPos(out) { return I.B.gift && I.B.gift.scale.x > 0.05 && s.mood === 'happy' ? m.marker('gift', out) : null; },
       dispose() {
         if (root.parent) root.parent.remove(root);
         mat.dispose();
+        for (const xm of XM) xm.dispose();
         if (I.mesh.skeleton) I.mesh.skeleton.dispose();
       },
     };
@@ -2604,6 +3702,14 @@ const EMODEL = (function (G0) {
     m.U.uFl.value.set(s.fc.r, s.fc.g, s.fc.b, s.fa);   // hit flash is done in the shader (F_FLASH)
     if (s.glow > 0.001) { const g = m.def.glowC; e.r += g.r * s.glow; e.g += g.g * s.glow; e.b += g.b * s.glow; }
     if (s.tint) { e.r += s.tint.r * 0.1; e.g += s.tint.g * 0.12; e.b += s.tint.b * 0.16; }
+  }
+  // Material of a def.extras mesh. kind 'glass': thin see-through glass — faint in the middle, clearer toward the edges (fresnel),
+  // mirror-smooth (environment reflections), a soft white rim; no depth write, so the kefir behind it stays visible.
+  function extraMat(e) {
+    const m = stdMat({ color: e.color || '#eef8ff', roughness: 0.05, metalness: 0, transparent: true, opacity: e.opacity ?? 0.15, depthWrite: false, envMapIntensity: 1.3 });
+    patchMat(m, { fOut: `diffuseColor.a = mix(diffuseColor.a, ${(e.edge ?? 0.6).toFixed(3)}, pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 2.2));`, key: 'glass' + (e.edge ?? 0.6) });
+    rimify(m, '#ffffff', 0.4, 2.2);
+    return m;
   }
 
   // ── Baby dragon pet (after the boss): tiny, happy, flying (origin = its centre of flight) ──

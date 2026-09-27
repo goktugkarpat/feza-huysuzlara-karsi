@@ -462,6 +462,62 @@ const AUD = (() => {
       for (let i = 0; i < 5; i++) N(m, o, t + 0.25 + rnd(0, 0.9), 0.015, rnd(0.03, 0.06), { f: rnd(1300, 2400) * p, q: 2.5, a: 0.001 });
       return 1.35;
     },
+    // ── Round 4: Kefir Vadisi. Creamy, fizzy and bubbly; round and friendly, never hissy or gross.
+    fizz(m, o, t, p) {   // kefir fizz: a soft sparkly shimmer of tiny bubbles rising and popping (bandpassed well below "hiss")
+      N(m, o, t, 0.8, 0.1, { f: 3300 * p, q: 1.2, a: 0.05, am: [17, 0.8] });
+      N(m, o, t, 0.5, 0.14, { fs: [[0, 800 * p], [0.5, 1800 * p]], q: 2.4, a: 0.03, am: [11, 0.6] });   // soft bubbly body, rising
+      for (let i = 0; i < 12; i++) {   // little bubbles popping at the surface, quick upward "plip"s getting sparser
+        const tt = t + 0.72 * Math.pow(i / 12, 1.35) + rnd(0, 0.03), f = rnd(1200, 2500) * p;
+        T(m, o, tt, f, 0.035, rnd(0.07, 0.12) * (1 - i / 16), { f1: f * 1.9, a: 0.004 });
+      }
+      B(m, o, t + 0.14, 2637 * p, 0.35, 0.04, 3.5, 0.6); B(m, o, t + 0.38, 3136 * p, 0.35, 0.03, 3.5, 0.6);
+      return 0.85;
+    },
+    cork(m, o, t, p) {   // friendly bottle pop: a round hollow "pok!", the cap spins away ("fwiii"), a little fizz and a happy "ting"
+      N(m, o, t, 0.014, 0.28, { f: 1700 * p, q: 0.9, a: 0.0005 });   // the snap
+      T(m, o, t, 420 * p, 0.1, 0.5, { fs: [[0, 420 * p], [0.012, 880 * p], [0.1, 540 * p]], a: 0.001 });   // cheek-pop body
+      N(m, o, t + 0.004, 0.09, 0.16, { f: 760 * p, q: 9, a: 0.002 });   // hollow bottle-neck resonance
+      T(m, o, t + 0.07, 900 * p, 0.2, 0.05, { f1: 1700 * p, a: 0.012, vib: [28, 60, 0.02] });   // the cap flying off
+      for (let i = 0; i < 6; i++) { const f = rnd(1400, 2700) * p; T(m, o, t + 0.13 + rnd(0, 0.35), f, 0.03, 0.05, { f1: f * 1.8, a: 0.001 }); }
+      B(m, o, t + 0.1, 2093 * p, 0.45, 0.05, 4, 0.8); B(m, o, t + 0.17, 2637 * p, 0.4, 0.035, 4, 0.8);
+      return 0.6;
+    },
+    slurp(m, o, t, p) {   // Feza drinks a glass of kefir: a cute bubbly "sluuurp", two soft "gulp"s, a happy "ahh" sparkle
+      N(m, o, t, 0.42, 0.32, { fs: [[0, 500 * p], [0.3, 1450 * p], [0.42, 1100 * p]], q: 3, a: 0.05, am: [26, 0.85] });
+      T(m, o, t, 300 * p, 0.42, 0.06, { fs: [[0, 300 * p], [0.3, 600 * p], [0.42, 500 * p]], type: 'triangle', a: 0.04, vib: [26, 50, 0.02] });
+      for (let i = 0; i < 2; i++) {
+        const tt = t + 0.5 + i * 0.2;
+        T(m, o, tt, 380 * p, 0.09, 0.15, { f1: 180 * p, a: 0.006 });
+        N(m, o, tt, 0.04, 0.07, { type: 'lowpass', f: 700, a: 0.002 });
+      }
+      N(m, o, t + 0.92, 0.32, 0.05, { f: 1100 * p, q: 1.2, a: 0.05 });   // satisfied little breath
+      T(m, o, t + 0.92, 620 * p, 0.28, 0.07, { f1: 880 * p, a: 0.03, vib: [9, 20, 0.05] });
+      arp(m, o, t + 0.98, [1319, 1568, 2093], 0.06, 0.45, 0.05, p);
+      return 1.45;
+    },
+    squish(m, o, t, p) {   // soft creamy squish (a yogurt hop, poking a pudding, stepping in cream): squeezy "sqlch" + tiny wobble
+      N(m, o, t, 0.14, 0.26, { fs: [[0, 700 * p], [0.05, 1500 * p], [0.14, 600 * p]], q: 2.2, a: 0.006 });
+      T(m, o, t, 200 * p, 0.16, 0.24, { fs: [[0, 200 * p], [0.05, 340 * p], [0.16, 150 * p]], a: 0.004, vib: [20, 45, 0.02] });
+      N(m, o, t, 0.06, 0.1, { type: 'lowpass', f: 800, a: 0.003 });
+      return 0.2;
+    },
+    moo(m, o, t, p) {   // a soft, cute cow far across the valley: a round "mmuuuu" (lifts, then settles) and a fainter echo
+      const c = m.c, one = (t0, v, open, d) => {
+        const os = c.createOscillator(), g = gainNode(c, 0), lp = c.createBiquadFilter(), fm = c.createBiquadFilter(), end = t0 + d + 0.05;
+        os.setPeriodicWave(m.waves.brass);
+        curve(os.frequency, t0, [[0, 176 * p], [0.2 * d, 214 * p], [0.62 * d, 204 * p], [d, 158 * p]]);
+        const l = c.createOscillator(), lg = gainNode(c, 0);   // gentle vibrato arriving late
+        l.frequency.value = 5; lg.gain.setValueAtTime(0, t0); lg.gain.linearRampToValueAtTime(16, t0 + d * 0.5); l.connect(lg); lg.connect(os.detune);
+        lp.type = 'lowpass'; lp.Q.value = 1.1; curve(lp.frequency, t0, [[0, 300], [0.22 * d, open], [0.75 * d, open * 0.8], [d, 330]]);   // "m" → "uu" → closes
+        fm.type = 'peaking'; fm.frequency.value = 400 * p; fm.Q.value = 2; fm.gain.value = 7;   // round "u" formant
+        os.connect(lp); lp.connect(fm); fm.connect(g);
+        env(g.gain, t0, 0.14, v, d, 1, d * 0.32); g.connect(o);
+        os.start(t0); l.start(t0); os.stop(end); l.stop(end);
+      };
+      one(t, 0.1, 950, 0.95);
+      one(t + 0.55, 0.022, 620, 0.8);   // echo from the far hills: quieter and duller
+      return 1.45;
+    },
     // extras
     nope(m, o, t, p) { T(m, o, t, 330 * p, 0.1, 0.14, { type: 'triangle', hold: 1, rel: 0.03 }); T(m, o, t + 0.12, 262 * p, 0.14, 0.14, { type: 'triangle', hold: 1, rel: 0.05 }); return 0.3; },
     open(m, o, t, p) { T(m, o, t, 620 * p, 0.09, 0.13, { f1: 930 * p }); B(m, o, t + 0.05, 1397 * p, 0.3, 0.05, 4, 0.7); return 0.35; },
@@ -478,14 +534,17 @@ const AUD = (() => {
     step: 4.2, nope: 1.13, open: 2.12, close: 1.98, cast: 2.34,
     saberOn: 0.92, saberOff: 0.56, dig: 2.87, emerge: 1.13, bubble: 1.33, bubblePop: 1.83,
     lava: 0.68, erupt: 0.58, drill: 0.5, roll: 1.43, bounce: 0.61, chirp: 2.14, splat: 0.91, rumble: 1.36,
+    fizz: 2.55, cork: 1.04, slurp: 3.1, squish: 1.19, moo: 0.64,
   };
   // Random pitch spread (semitones, default 0.45), min retrigger gap (s) and "droppable when busy".
   const SVAR = { levelup: 0.05, unlock: 0.05, checkpoint: 0.05, chest: 0.1, dropLegend: 0.05, dropRare: 0.15, portal: 0.1, click: 0.15, coin: 0.05, pop: 0.08,
-    saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3 };
+    saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3, cork: 0.6, slurp: 0.2, moo: 1.2 };
   const SGAP = { step: 0.07, hit: 0.035, hitSoft: 0.035, coin: 0.035, pop: 0.05, swing: 0.06, bat: 0.12, spit: 0.05, drop: 0.05, zap: 0.04, boom: 0.05, heart: 0.05,
     saberOn: 0.2, saberOff: 0.2, dig: 0.14, emerge: 0.08, bubble: 0.08, bubblePop: 0.04,
-    lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7 };
-  const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1 };
+    lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7,
+    fizz: 0.12, cork: 0.12, slurp: 0.5, squish: 0.06, moo: 7 };   // moo: a rare ambient, never twice within 7 s however often it is asked for
+  const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1,
+    fizz: 1, squish: 1, moo: 1 };
   const STREAK = [0, 2, 4, 7, 9, 12, 14, 16];   // coins picked up / enemies cheered up in a row climb a pentatonic scale
 
   function playRecipe(m, name, o, t) {
@@ -549,6 +608,32 @@ const AUD = (() => {
       T(m, out, t, f * 3, dd * 0.28, v * 0.2, { det: -5, a: 0.001 });
       T(m, out, t, f * 4.02, 0.06, v * 0.1, { a: 0.001 });
     },
+    // ── Round 4: Kefir Vadisi's little village band ──
+    // accordion: two reeds tuned a hair apart (the "musette" shimmer, ~3 Hz beating), soft bellows attack, gently rounded top
+    accordion(m, out, t, f, d, v) {
+      d = Math.max(d, 0.05);   // short enough for the quick folk-turn notes
+      const lp = Math.min(f * 5, 4000);
+      T(m, out, t, f, d, v * 0.55, { wave: 'saw', det: -7, lp, q: 0.6, hold: 1, a: 0.03, rel: 0.07 });
+      T(m, out, t, f, d, v * 0.45, { wave: 'sq', det: 8, lp, q: 0.6, hold: 1, a: 0.035, rel: 0.07 });
+    },
+    // ukulele: soft nylon pluck (the brightness closes quickly), a hair of pitch settle at the start
+    uke(m, out, t, f, d, v) { T(m, out, t, f, 0.5, v, { wave: 'saw', fs: [[0, f * 1.006], [0.02, f]], lp: [[0, f * 6], [0.05, f * 2.2], [0.5, f * 1.2]], q: 0.8, a: 0.002 }); },
+    // xylophone: hard mallet on a wooden bar: bright body, its tuned 3rd-harmonic overtone and a tiny woody tick, short
+    xylo(m, out, t, f, d, v) {
+      T(m, out, t, f, 0.34, v, { a: 0.001 });
+      T(m, out, t, f * 3, 0.13, v * 0.28, { a: 0.001 });
+      T(m, out, t, Math.min(f * 6.3, 16000), 0.025, v * 0.1, { a: 0.0005 });
+    },
+    // bağlama (saz): bright metallic pluck with its octave string; long notes turn into the saz's quick tremolo picking
+    saz(m, out, t, f, d, v) {
+      const one = (tt, vv) => {
+        T(m, out, tt, f, 0.38, vv, { wave: 'saw', det: 4, lp: [[0, f * 9], [0.05, f * 3], [0.38, f * 1.6]], q: 1.5, a: 0.001 });
+        T(m, out, tt, f * 2, 0.22, vv * 0.3, { wave: 'saw', det: -6, lp: [[0, f * 10], [0.05, f * 4]], q: 1, a: 0.001 });
+      };
+      if (d < 0.32) { one(t, v); return; }
+      const step = 0.078, n = Math.min(8, Math.floor(d / step));
+      for (let i = 0; i < n; i++) one(t + i * step, v * (i ? 0.5 - i * 0.025 : 1));
+    },
   };
   const DRUM = {
     kick(m, o, t, v) { T(m, o, t, 150, 0.22, v, { fs: [[0, 150], [0.09, 50]], a: 0.002 }); N(m, o, t, 0.012, v * 0.2, { type: 'lowpass', f: 1800 }); },
@@ -564,6 +649,10 @@ const AUD = (() => {
     timp(m, o, t, v, f = 98) { T(m, o, t, f * 1.4, 0.6, v, { f1: f, glide: 0.05, a: 0.003 }); N(m, o, t, 0.1, v * 0.3, { type: 'lowpass', f: 300 }); },
     conga(m, o, t, v, f = 196) { T(m, o, t, f * 1.35, 0.26, v, { f1: f, glide: 0.03, a: 0.002 }); N(m, o, t, 0.02, v * 0.3, { f: 1800, q: 1.2, a: 0.001 }); },
     bongo(m, o, t, v, f = 392) { T(m, o, t, f * 1.3, 0.13, v, { f1: f, glide: 0.02, a: 0.001 }); N(m, o, t, 0.012, v * 0.3, { f: 3000, q: 1.5, a: 0.001 }); },
+    // darbuka: "düm" = round centre stroke (with a higher body partial so tablet speakers still hear it), "tek" = crisp rim, "ka" = soft rim
+    dum(m, o, t, v) { T(m, o, t, 150, 0.3, v, { fs: [[0, 150], [0.05, 104]], a: 0.002 }); T(m, o, t, 245, 0.11, v * 0.35, { f1: 195, a: 0.002 }); N(m, o, t, 0.02, v * 0.15, { type: 'lowpass', f: 1500 }); },
+    tek(m, o, t, v) { T(m, o, t, 720, 0.06, v * 0.5, { f1: 640, a: 0.0008 }); N(m, o, t, 0.05, v, { f: 3200, q: 1.4, a: 0.0008 }); },
+    ka(m, o, t, v) { N(m, o, t, 0.035, v, { f: 2600, q: 1.6, a: 0.001 }); T(m, o, t, 680, 0.04, v * 0.3, { a: 0.001 }); },
   };
 
   // ───────────────────────── music: themes ─────────────────────────
@@ -619,6 +708,28 @@ const AUD = (() => {
       extra(p, t, bar, ch) {
         if (Math.random() < 0.35) { const tt = t + p.beat * pick([0.5, 1.5, 2.5, 3.5]), f = rnd(170, 230); T(p.M, p.out, tt, f, 0.12, 0.03, { f1: f * 2.3, glide: 0.08, a: 0.006 }); }
         if (bar % 4 === 3 && Math.random() < 0.6) voice(ch, 79, 3).forEach((mm, i) => p.note('steel', t + p.beat * (3 + i / 6), mm, 0.2, 0.017));   // pan twinkle
+      },
+    },
+    kefir: {   // the happiest theme: a sunny village band in the kefir valley. Accordion tune with little folk turns and a
+               // xylophone twin an octave up, ukulele strums, oom-pah bass, darbuka "düm-tek"; the bridge goes to a bağlama
+               // tremolo (the light Anatolian touch); now and then a xylophone run, the fence bells and a far-away cuckoo
+      bpm: 126, key: 5, scale: MAJ, vol: 1.0, swing: 0.12, drumsIn: 4,
+      prog: form(C(41, 'M'), C(45, 'm7'), C(46, 'M'), C(48, 's4'), C(48, 'D7'), [C(46, 'M'), C(41, 'M'), C(43, 'm7'), C(48, 'M')]),
+      pad: { vol: 0.015, lo: 60, n: 3, cut: 1300 },
+      bass: { inst: 'pbass', pat: ['r.5.r.5.', 'r.5.r.3o'], vol: 0.09 },
+      lead: { inst: 'accordion', alt: 'saz', lo: 67, hi: 84, vol: 0.05, cells: 'mid', plan: [1, 1, 2, 1], orn: 0.3, dbl: { inst: 'xylo', vol: 0.02, oct: 12 } },
+      kit: { dum: ['x.......x.....o.', 0.1], tek: ['..x...x.....x...', 0.034], tamb: ['..o...o...o...o.', 0.008] },
+      fill(p, t) { for (let i = 10; i < 16; i++) p.drum(i & 1 ? 'ka' : 'tek', t + i * p.beat / 4, 0.02 + (i - 10) * 0.005); },   // "te-ka-te-ka" roll
+      extra(p, t, bar, ch) {
+        const e8 = p.beat / 2, sw = p.th.swing * e8, v = voice(ch, 60, 4), PAT = 'D.DU.UDU';   // "island" strum: down, down-up, up-down-up
+        for (let i = 0; i < 8; i++) {
+          const s = PAT[i]; if (s === '.') continue;
+          const tt = t + i * e8 + (i & 1 ? sw : 0), up = s === 'U', ns = up ? v.slice(1).reverse() : v, vol = up ? 0.014 : i % 4 === 0 ? 0.024 : 0.019;
+          ns.forEach((mm, k) => p.note('uke', tt + k * 0.012, mm, e8, vol));
+        }
+        if (bar % 8 === 3 && Math.random() < 0.7) voice(ch, 84, 4).forEach((mm, i) => p.note('xylo', t + p.beat * (3 + i / 4), mm, 0.2, 0.016));   // xylophone run
+        if (bar % 16 === 11 && Math.random() < 0.6) [96, 100].forEach((mm, i) => B(p.M, p.out, t + p.beat * (2.5 + i * 0.5), mtof(mm), 0.7, 0.012, 3.5, 0.9));   // fence bells
+        if (bar % 16 === 13 && Math.random() < 0.5) [84, 81].forEach((mm, i) => { p.note('ocarina', t + p.beat * (2 + i * 0.75), mm, p.beat * 0.55, 0.011); p.note('ocarina', t + p.beat * (3.5 + i * 0.75), mm, p.beat * 0.5, 0.0035); });   // cuckoo + echo
       },
     },
     kale: {   // heroic, bouncy march: brass tune, oom-pah, snare
@@ -784,8 +895,12 @@ const AUD = (() => {
       }
       const mel = th.lead && this.leadBar(bar);
       if (mel) for (const n of mel) {
-        const tt = T8(n.s & 7), d = n.d * e8 * 0.9;
-        this.note(this.inst, tt, n.m, d, th.lead.vol);
+        const tt = T8(n.s & 7), d = n.d * e8 * 0.9, sc = th._sc;
+        if (th.lead.orn && n.d >= 2 && sc && Math.random() < th.lead.orn) {   // folk turn on a longer note: note, upper neighbour, note
+          const up = sc[Math.min(sc.length - 1, sc.indexOf(n.m) + 1)], g = Math.min(0.055, d * 0.2);
+          this.note(this.inst, tt, n.m, g, th.lead.vol); this.note(this.inst, tt + g, up, g, th.lead.vol * 0.85);
+          this.note(this.inst, tt + 2 * g, n.m, d - 2 * g, th.lead.vol);
+        } else this.note(this.inst, tt, n.m, d, th.lead.vol);
         if (this.dbl) this.note(this.dbl.inst, tt, n.m + this.dbl.oct, d, this.dbl.vol);
         if (th.lead.echo) this.note(this.inst, tt + b * 0.75, n.m, d, th.lead.vol * 0.28);
       }
@@ -991,7 +1106,7 @@ const AUD = (() => {
 
   // Test hooks: render into an OfflineAudioContext (never audible) to prove graphs build and measure levels.
   A._test = {
-    sfxNames: Object.keys(SFX), themes: Object.keys(THEMES),
+    sfxNames: Object.keys(SFX), themes: Object.keys(THEMES), svol: SVOL, THEMES,
     render(fn, secs = 2, sr = 44100, raw = false) {
       const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
       const c = new OC(2, Math.ceil(secs * sr), sr), m = makeMix(c, true, raw);
@@ -1003,9 +1118,9 @@ const AUD = (() => {
     music(name, secs = 12) {
       return this.render(m => { const p = new Player(m, name, 0.05); p.fade(THEMES[name].vol, 0, 0.05); p.pump(secs); }, secs);
     },
-    stress(secs = 3) {
+    stress(secs = 3, theme = 'boss') {
       return this.render(m => {
-        const p = new Player(m, 'boss', 0.05); p.fade(THEMES.boss.vol, 0, 0.05); p.pump(secs);
+        const p = new Player(m, theme, 0.05); p.fade(THEMES[theme].vol, 0, 0.05); p.pump(secs);
         for (let r = 0; r < 3; r++) for (const n of Object.keys(SFX)) playRecipe(m, n, { g: SVOL[n] ?? 1, p: semi(rnd(-0.5, 0.5)), pan: rnd(-0.6, 0.6) }, 0.1 + r * 0.05 + rnd(0, 0.02));
       }, secs);
     },
@@ -1032,12 +1147,17 @@ const AUD = (() => {
 AUD.LINES = /*SESLER*/{
   "giris1": "Merhaba Feza! Huysuz Ejderha köyün neşe kristalini aldı ve herkesi huysuz yaptı.",
   "giris2": "Işın kılıcınla huysuzlara dokun, yeniden neşelensinler! Gitmek istediğin yere parmağını bas.",
+  "yolculuk": "Kristali geri almaya gidiyoruz: önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ ve en sonunda ejderhanın kalesi!",
   "baykus": "Hu hu! Ben Bilge Baykuş. Toprak yolu takip et, ormana varırsın! Canın azalırsa kırmızı iksiri iç!",
   "orman": "Huysuz Orman! Jöleler ve mantarlar çok huysuzlanmış.",
-  "magara": "Köstebek ve Salyangoz Mağarası! Burası biraz karanlık ama sen çok cesursun.",
+  "kefir": "Kefir Vadisi! Ejderhanın büyüsü buraya da ulaşmış: yoğurtlar ekşimiş, kaymaklar kesilmiş. Hadi onları neşelendirelim!",
+  "ilk_yogurt": "Bak bak! Ekşi yoğurtlar zıplıyor!",
+  "ilk_kaymak": "Kaymaklar kayarak geliyor, dikkat!",
+  "ilk_kopuk": "Kefir köpükleri uçuşuyor!",
+  "magara": "Köstebek ve Salyangoz Mağarası! Kalenin yolu buradan geçiyor. Burası biraz karanlık ama sen çok cesursun.",
   "ilk_kostebek": "Bak bak! Köstebekler toprağın altından çıkıyor!",
   "ilk_salyangoz": "Salyangozlar baloncuk üflüyor, dikkat et!",
-  "yanardag": "Lav Yanardağı! Lavlar çok sıcak, yoldan ayrılma!",
+  "yanardag": "Lav Yanardağı! Lavlar çok sıcak, yoldan ayrılma! Ejderhanın kalesi çok yakında!",
   "ilk_kaplumbaga": "Bak bak! Minik lav kaplumbağaları!",
   "ilk_ateskusu": "Ateş kuşları uçuyor, kıvılcımlara dikkat!",
   "kale": "Ejderhanın Kalesi! Neşe kristali burada bir yerde.",
@@ -1059,11 +1179,15 @@ AUD.LINES = /*SESLER*/{
   "kapi": "Sihirli kapı! İçine gir, yeni bir yere gidelim!",
   "kocaman": "Dikkat! Kocaman bir huysuz geliyor!",
   "kraljole_giris": "İşte Kral Jöle! Zıplayınca yere dikkat et!",
-  "kraljole_bitti": "Kral Jöle çok mutlu! Sihirli kapı açıldı!",
+  "kraljole_bitti": "Kral Jöle çok mutlu! Sihirli kapı Kefir Vadisi'ne açıldı!",
+  "kefirdev_giris": "İşte Köpüklü Kefir Devi! Çalkalanınca köpük fışkırtıyor, dikkat et!",
+  "kefirdev_bitti": "Kefir Devi çok mutlu! Artık hiç ekşi değil!",
+  "kefir_ikram": "Kefir Devi sana en güzel kefirinden verdi. Afiyet olsun Feza!",
+  "kefirdev_yol": "Kefir Devi diyor ki: Ejderha dağların ardındaki kalesine uçtu. Yol mağaradan geçiyor!",
   "usta_giris": "Usta Köstebek geldi! Topraktan çıkınca hemen vur!",
-  "usta_bitti": "Usta Köstebek kocaman gülümsüyor! Sihirli kapı açıldı!",
+  "usta_bitti": "Usta Köstebek kocaman gülümsüyor! Kapı yanardağa açıldı!",
   "kaplumbaga_giris": "Koca Lav Kaplumbağası! Yerde parlayan dairelerden uzak dur!",
-  "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Hadi kaleye gidelim!",
+  "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Sihirli kapı kaleye açıldı!",
   "ejderha_giris": "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!",
   "ejderha_yarim": "Ejderha yoruluyor! Devam et, çok az kaldı!",
   "ejderha_yarasa": "Ejderha yarasalarını çağırdı!",

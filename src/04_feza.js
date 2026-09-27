@@ -1238,7 +1238,7 @@ const { FEZA, ITEMS } = (function () {
   // ── Offscreen renderer for thumbnails and portraits ──
   // The mini scene mirrors the main scene's light counts (and fog type) so the same shader programs are reused — no compile
   // hitch when the bag opens. Output goes into an sRGB render target, i.e. it is encoded like the screen.
-  const OFF = { rt: null, scene: null, cam: null, buf: null, cv: null, sig: '', busy: false };
+  const OFF = { rt: null, scene: null, cam: null, buf: null, cv: null, tc: null, pc: null, sig: '', busy: false };
   function offSetup() {
     if (!OFF.rt) {
       OFF.rt = new THREE.WebGLRenderTarget(256, 256, { samples: 4, colorSpace: THREE.SRGBColorSpace, depthBuffer: true });
@@ -1277,9 +1277,9 @@ const { FEZA, ITEMS } = (function () {
     OFF.scene.fog = scene.fog ? (scene.fog.isFogExp2 ? new THREE.FogExp2(0, 0) : new THREE.Fog(0, 1e4, 2e4)) : null;
     OFF.scene.environment = scene.environment; OFF.scene.environmentIntensity = 1;
   }
-  if (typeof CTX_HOOKS !== 'undefined') CTX_HOOKS.push(() => { OFF.sig = ''; });   // WebGL context restored: rebuild the lights + blank shadow map
-  // Render obj (already placed in OFF.scene) framed on the sphere (c, rad) viewed from dir; returns a canvas (256²).
-  function offRender(c, rad, dir, fov) {
+  if (typeof CTX_HOOKS !== 'undefined') CTX_HOOKS.push(() => { OFF.sig = ''; rbLost(); });   // WebGL context restored: rebuild the lights + blank shadow map
+  // Render obj (already placed in OFF.scene) framed on the sphere (c, rad) viewed from dir into OFF.rt (no read-back yet).
+  function offDraw(c, rad, dir, fov) {
     const cam = OFF.cam; cam.fov = fov || 28; cam.updateProjectionMatrix();
     const dist = rad / Math.sin(cam.fov * Math.PI / 360);
     cam.position.copy(c).addScaledVector(dir.clone().normalize(), dist); cam.near = dist * 0.3; cam.far = dist * 3; cam.updateProjectionMatrix(); cam.lookAt(c);
@@ -1289,10 +1289,11 @@ const { FEZA, ITEMS } = (function () {
     const prevRT = renderer.getRenderTarget(), prevCol = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha(), prevBg = OFF.scene.background;
     renderer.setRenderTarget(OFF.rt); renderer.setClearColor(0x000000, 0); renderer.clear(true, true, true);
     OFF.busy = true;
-    try { renderer.render(OFF.scene, cam); } finally { OFF.busy = false; }
-    renderer.readRenderTargetPixels(OFF.rt, 0, 0, 256, 256, OFF.buf);
-    renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA); OFF.scene.background = prevBg;
-    const g = OFF.cv.getContext('2d'), id = g.createImageData(256, 256), B = OFF.buf, D = id.data;
+    try { renderer.render(OFF.scene, cam); } finally { OFF.busy = false; renderer.setRenderTarget(prevRT); renderer.setClearColor(prevCol, prevA); OFF.scene.background = prevBg; }
+  }
+  // OFF.rt pixels (bottom-up rows, premultiplied alpha) → OFF.cv (256², top-down, straight alpha)
+  function offDecode(B) {
+    const g = OFF.cv.getContext('2d'), id = g.createImageData(256, 256), D = id.data;
     for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
       const s = ((255 - y) * 256 + x) * 4, d = (y * 256 + x) * 4, a = B[s + 3];
       const k = a > 0 && a < 255 ? 255 / a : 1;
@@ -1300,6 +1301,74 @@ const { FEZA, ITEMS } = (function () {
     }
     g.putImageData(id, 0, 0);
     return OFF.cv;
+  }
+  // Synchronous read-back (waits for the GPU to finish everything so far): direct ITEMS.thumb / FEZA.portrait calls, prebake.
+  function offRead() { renderer.readRenderTargetPixels(OFF.rt, 0, 0, 256, 256, OFF.buf); return offDecode(OFF.buf); }
+  // A picture = { draw() → renders it into OFF.rt, finish(canvas) → composes + caches its dataURL }. picNow does both now.
+  function picNow(pic, what) {
+    if (!pic || renderer.getContext().isContextLost()) return null;   // (a lost context would give a blank picture)
+    try { pic.draw(); return pic.finish(offRead()); } catch (e) { console.warn(what, e); return null; }
+  }
+
+  // ── Asynchronous read-back for the background pictures (see BAKE below) ──
+  // A synchronous readRenderTargetPixels waits until the GPU has finished the whole frame so far (on the iPad: often most of a
+  // frame), and the bake used to do that every other frame in the first seconds of play. Instead the pixels are copied into a
+  // pixel-pack buffer with a fence behind them; the fence is looked at once per drawn frame (no waiting) and the picture is
+  // finished (decode + compose + PNG) in a later frame, when the copy is long done. One picture in flight at a time. Same
+  // GL calls as three's renderer.readRenderTargetPixelsAsync, but polled from the game loop instead of 250 timer calls per
+  // second, and given up after ~1.5 s (then that picture is made the old synchronous way; after 2 misses always).
+  const RB = { pic: null, job: null, pbo: null, sync: null, at: 0, fails: 0, off: false };
+  function rbStart(pic, job) {
+    const gl = renderer.getContext(), P = renderer.properties.get(OFF.rt), fb = P && P.__webglFramebuffer;
+    if (RB.off || RB.pic || !fb || !renderer.capabilities.isWebGL2 || typeof gl.fenceSync !== 'function' || gl.isContextLost()) return false;
+    const pbo = gl.createBuffer(); if (!pbo) return false;
+    renderer.state.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    try {
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, OFF.buf.byteLength, gl.STREAM_READ);
+      gl.readPixels(0, 0, 256, 256, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+    } finally {
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      renderer.setRenderTarget(renderer.getRenderTarget(), renderer.getActiveCubeFace(), renderer.getActiveMipmapLevel());   // three's framebuffer again
+    }
+    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!sync) { gl.deleteBuffer(pbo); return false; }
+    gl.flush();
+    Object.assign(RB, { pic, job, pbo, sync, at: BAKE.drawn });
+    return true;
+  }
+  // Stop waiting for the picture in flight; its job goes back to the front of the queue. miss: the read-back did not come
+  // back, so that picture is made synchronously next time (and after 2 misses in a row the bake stays synchronous).
+  function rbDrop(miss) {
+    const j = RB.job, gl = renderer.getContext();
+    if (!gl.isContextLost()) { if (RB.sync) gl.deleteSync(RB.sync); if (RB.pbo) gl.deleteBuffer(RB.pbo); }
+    RB.pic = RB.job = RB.sync = RB.pbo = null;
+    if (miss && ++RB.fails >= 2) RB.off = true;
+    if (j) { if (miss) j.sync = true; if (!BAKE.keys.has(j.k)) { BAKE.keys.add(j.k); BAKE.q.unshift(j); } }
+  }
+  function rbLost() { RB.sync = RB.pbo = null; rbDrop(false); }   // context restored: the old GL objects are gone with the old context
+  // → 0 still on its way, 1 ready to finish, -1 given up (job re-queued)
+  function rbPoll() {
+    const gl = renderer.getContext();
+    if (gl.isContextLost()) { rbDrop(false); return -1; }
+    const s = gl.clientWaitSync(RB.sync, 0, 0);
+    if (s === gl.ALREADY_SIGNALED || s === gl.CONDITION_SATISFIED) return 1;
+    if (s === gl.WAIT_FAILED || BAKE.drawn - RB.at > 90) { rbDrop(true); return -1; }
+    return 0;
+  }
+  function rbFinish() {
+    const gl = renderer.getContext(), pic = RB.pic;
+    try {
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, RB.pbo);
+      try { gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, OFF.buf); } finally { gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null); }
+      const B = OFF.buf; let ink = false;
+      for (let i = 3; i < B.length; i += 4) if (B[i]) { ink = true; break; }
+      if (!ink) {   // an empty picture came back (a driver quirk?): never cache a blank card — synchronous from now on
+        console.warn('FEZA bake: empty asynchronous read-back, using synchronous ones'); RB.off = true; rbDrop(true); return;
+      }
+      RB.job = null; rbDrop(false); RB.fails = 0;
+      pic.finish(offDecode(B));
+    } catch (e) { console.warn('FEZA bake read', e); if (RB.pic) rbDrop(true); }
   }
 
   // ── Pose channels ──
@@ -1718,70 +1787,100 @@ const { FEZA, ITEMS } = (function () {
   const PORTRAITS = {};
   function portrait(H, hatItem) {
     if (!H || !H.root) return null;
+    const pic = portraitPic(H, hatItem);
+    return pic && pic.url ? pic.url : picNow(pic, 'FEZA.portrait');
+  }
+  // → { url } when it is cached, else a picture (draw / finish, see picNow) of that hat on Feza
+  function portraitPic(H, hatItem) {
     const S = H._S, e = hatItem === undefined || !H._hat ? S.eq.hat : (hatItem ? H._hatEntry(hatItem) : null);
     const hk = e ? e.key : '-';
-    if (PORTRAITS[hk]) return PORTRAITS[hk];
-    try {
-      offSetup();
-      const root = H.root, parent = root.parent, pos = root.position.clone(), rot = root.rotation.clone(), sc = root.scale.clone();
-      const unHat = e !== S.eq.hat ? H._hat(e) : null;
-      const restore = H._neutral(0.35, 0.15);
-      const hidden = [];
-      root.traverse(o => { if (o.userData.xrayTwin && o.visible) { o.visible = false; hidden.push(o); } });
-      const ws = H.slots.weapon, wv = ws.visible, cs = H.slots.cape, cvis = cs.visible; ws.visible = false; cs.visible = false;
-      let cv;
-      try {
-        OFF.scene.add(root); root.position.set(0, 0, 0); root.rotation.set(0, -0.32, 0); root.scale.set(1, 1, 1); root.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(H.slots.hat), top = clamp(box.isEmpty() ? 0 : box.max.y, 1.42, 1.62), ex = (top - 1.42) * 0.5;
-        cv = offRender(v3(0.0, 1.13 + ex, 0.03), 0.39 + ex, v3(-0.4, 0.1, 1), 24);
-      } finally {   // always put Feza back where he was
-        OFF.scene.remove(root);
-        if (parent) parent.add(root);
-        root.position.copy(pos); root.rotation.copy(rot); root.scale.copy(sc);
-        ws.visible = wv; cs.visible = cvis; for (const o of hidden) o.visible = true;
-        restore(); if (unHat) unHat(); root.updateMatrixWorld(true);
-      }
-      const out = canvasEl(256, 256), g = out.getContext('2d');
-      const gr = g.createRadialGradient(128, 96, 20, 128, 128, 128);
-      gr.addColorStop(0, '#fff6d8'); gr.addColorStop(0.55, '#9fdcff'); gr.addColorStop(1, '#4aa3f0');
-      g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.fill();
-      g.save(); g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.clip();
-      g.globalAlpha = 0.35; g.fillStyle = '#ffffff';
-      for (const [x, y, r] of [[40, 190, 34], [74, 206, 30], [196, 200, 38], [226, 182, 26]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
-      g.restore(); g.globalAlpha = 1;
-      g.shadowColor = 'rgba(20,40,80,0.35)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
-      g.drawImage(cv, 0, 0);
-      return (PORTRAITS[hk] = out.toDataURL('image/png'));
-    } catch (err) { console.warn('FEZA.portrait', err); return null; }
+    if (PORTRAITS[hk]) return { url: PORTRAITS[hk] };
+    return {
+      draw() {
+        offSetup();
+        const root = H.root, parent = root.parent, pos = root.position.clone(), rot = root.rotation.clone(), sc = root.scale.clone();
+        const unHat = e !== S.eq.hat ? H._hat(e) : null;
+        const restore = H._neutral(0.35, 0.15);
+        const hidden = [];
+        root.traverse(o => { if (o.userData.xrayTwin && o.visible) { o.visible = false; hidden.push(o); } });
+        const ws = H.slots.weapon, wv = ws.visible, cs = H.slots.cape, cvis = cs.visible; ws.visible = false; cs.visible = false;
+        try {
+          OFF.scene.add(root); root.position.set(0, 0, 0); root.rotation.set(0, -0.32, 0); root.scale.set(1, 1, 1); root.updateMatrixWorld(true);
+          const box = new THREE.Box3().setFromObject(H.slots.hat), top = clamp(box.isEmpty() ? 0 : box.max.y, 1.42, 1.62), ex = (top - 1.42) * 0.5;
+          offDraw(v3(0.0, 1.13 + ex, 0.03), 0.39 + ex, v3(-0.4, 0.1, 1), 24);
+        } finally {   // always put Feza back where he was
+          OFF.scene.remove(root);
+          if (parent) parent.add(root);
+          root.position.copy(pos); root.rotation.copy(rot); root.scale.copy(sc);
+          ws.visible = wv; cs.visible = cvis; for (const o of hidden) o.visible = true;
+          restore(); if (unHat) unHat(); root.updateMatrixWorld(true);
+        }
+      },
+      finish(cv) {
+        if (PORTRAITS[hk]) return PORTRAITS[hk];
+        const out = OFF.pc || (OFF.pc = canvasEl(256, 256)), g = out.getContext('2d');   // one reused canvas (no canvas garbage on iPad)
+        g.clearRect(0, 0, 256, 256); g.save();
+        const gr = g.createRadialGradient(128, 96, 20, 128, 128, 128);
+        gr.addColorStop(0, '#fff6d8'); gr.addColorStop(0.55, '#9fdcff'); gr.addColorStop(1, '#4aa3f0');
+        g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.fill();
+        g.save(); g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.clip();
+        g.globalAlpha = 0.35; g.fillStyle = '#ffffff';
+        for (const [x, y, r] of [[40, 190, 34], [74, 206, 30], [196, 200, 38], [226, 182, 26]]) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); }
+        g.restore(); g.globalAlpha = 1;
+        g.shadowColor = 'rgba(20,40,80,0.35)'; g.shadowBlur = 10; g.shadowOffsetY = 3;
+        g.drawImage(cv, 0, 0);
+        g.restore();
+        return (PORTRAITS[hk] = out.toDataURL('image/png'));
+      },
+    };
   }
 
   // ── Warm-up + pre-rendering, so picking up / wearing a new item never freezes the game ──
   // 1) Shaders: every equipment template (all bases × rarities, incl. x-ray twins and cape shadow materials) rides along
   //    with Feza for one rendered frame as a tiny hidden copy — a few new shaders per frame, during the title screen.
-  // 2) Thumbnails / portraits: rendered one at a time in calm frames (every 2nd drawn frame, not mid-swing). Items that
-  //    appear on the ground jump the queue, so their card and portrait are ready before Feza reaches them.
+  // 2) Thumbnails / portraits of what Feza owns (worn + bag: the bag/wardrobe and the hat portraits show only those) and of
+  //    every item that appears on the ground (it jumps the queue, so its card and portrait are ready before Feza reaches it).
+  //    One step per calm drawn frame (not mid-swing, no creature chasing him; ground cards also in a fight): draw one picture
+  //    and start its asynchronous read-back (RB above), a frame or more later finish it. Anything else is made on demand
+  //    (a direct ITEMS.thumb / FEZA.portrait call draws it right away).
+  //    (Until Round 4 all 64 base × rarity cards were baked with synchronous read-backs every other frame for ~2 s, right when
+  //    play began: GAME.update spikes of 3–15 ms, also after Devam Et into Kefir Vadisi.)
   // Driven from the first hero's update(); nothing happens at load time or on frames that are not drawn.
-  const BAKE = { host: null, started: false, warmQ: [], cur: null, seen: false, sigs: new Set(), q: [], keys: new Set(), pend: [], drawn: 0, last: -9, scan: 0, wait: 0, warned: false };
+  const BAKE = { host: null, started: false, warmQ: [], cur: null, seen: false, sigs: new Set(), q: [], keys: new Set(), pend: [], drawn: 0, last: -9, scan: 0,
+    bag: undefined, bagN: 0, wait: 0, warned: false };
   function queueJob(k, job, front) {
     if (job.kind === 'thumb' ? THUMBS[k.slice(2)] : PORTRAITS[k.slice(2)]) return;
     job.k = k;
     if (BAKE.keys.has(k)) {
       if (!front) return;
-      const i = BAKE.q.findIndex(j => j.k === k); if (i > 0) { BAKE.q.splice(i, 1); BAKE.q.unshift(job); }
+      const i = BAKE.q.findIndex(j => j.k === k); if (i >= 0) { BAKE.q.splice(i, 1); BAKE.q.unshift(job); }
       return;
     }
     BAKE.keys.add(k); if (front) BAKE.q.unshift(job); else BAKE.q.push(job);
   }
   const plainItem = (slot, id, r) => ({ slot, base: id, rarity: r });
+  function bagNow() {   // defensive: GAME may not exist (test pages)
+    try { const b = typeof GAME !== 'undefined' && GAME && GAME.P && GAME.P.bag; return Array.isArray(b) ? b : null; } catch (e) { return null; }
+  }
+  // urgent (front) jobs are cards/portraits of an item lying on the ground: they may run mid-swing (asynchronous only)
+  function queueThumb(it, front) {
+    const slot = BASES[it.slot] ? it.slot : 'weapon', id = baseId(it), r = clamp(it.rarity | 0, 0, 3);
+    queueJob('t:' + tplKey(slot, id, r), { kind: 'thumb', item: plainItem(slot, id, r), urgent: !!front }, front);
+  }
   // the worn hat (or bare head) + every hat in the bag
   function queuePortraits(hat, bag = true) {
     const add = it => queueJob('p:' + (it ? itemKey(it) : '-'), { kind: 'portrait', hat: it ? plainItem('hat', baseId(it), it.rarity | 0) : null });
     add(hat);
-    if (!bag) return;
-    try {   // defensive: GAME may not exist (test pages)
-      const b = typeof GAME !== 'undefined' && GAME && GAME.P && GAME.P.bag;
-      if (Array.isArray(b)) for (const it of b) if (it && it.slot === 'hat') add(it);
-    } catch (e) { /* optional */ }
+    const b = bag && bagNow();
+    if (b) for (const it of b) if (it && it.slot === 'hat') add(it);
+  }
+  // what he wears + everything in his bag (cards first, then the hat portraits)
+  function queueOwned(H) {
+    const b = bagNow();
+    BAKE.scan = BAKE.drawn; BAKE.bag = b; BAKE.bagN = b ? b.length : 0;
+    for (const sl of ['weapon', 'hat', 'cape']) { const e = H._S.eq[sl]; if (e && e.item) queueThumb(e.item); }
+    if (b) for (const it of b) if (it && it.slot) queueThumb(it);
+    const e = H._S.eq.hat; queuePortraits(e ? e.item : null);
   }
   // Items handed out by ITEMS.model: once one is really lying in the scene (not a warm-up copy that was already removed),
   // its card picture — and a hat's portrait — jump the queue.
@@ -1790,8 +1889,8 @@ const { FEZA, ITEMS } = (function () {
       const p = BAKE.pend[i];
       let top = p.o; while (top.parent) top = top.parent;
       if (top === scene) {
-        queueJob('t:' + tplKey(p.slot, p.id, p.r), { kind: 'thumb', item: plainItem(p.slot, p.id, p.r) }, true);
-        if (p.slot === 'hat') queueJob('p:' + tplKey(p.slot, p.id, p.r), { kind: 'portrait', hat: plainItem(p.slot, p.id, p.r) }, true);
+        queueThumb(plainItem(p.slot, p.id, p.r), true);
+        if (p.slot === 'hat') queueJob('p:' + tplKey(p.slot, p.id, p.r), { kind: 'portrait', hat: plainItem(p.slot, p.id, p.r), urgent: true }, true);
         BAKE.pend.splice(i, 1);
       } else if (++p.n > 3) BAKE.pend.splice(i, 1);
     }
@@ -1805,7 +1904,6 @@ const { FEZA, ITEMS } = (function () {
     for (const slot of ['weapon', 'hat', 'cape']) for (const b of BASES[slot]) for (let r = 0; r < 4; r++) list.push({ slot, id: b.id, r, o: (b.legendary ? 20 : b.minLvl) * 4 + r });
     list.sort((x, y) => x.o - y.o);
     BAKE.warmQ = list;
-    for (const j of list) queueJob('t:' + tplKey(j.slot, j.id, j.r), { kind: 'thumb', item: plainItem(j.slot, j.id, j.r) });
   }
   function warmStep(H) {
     if (BAKE.cur) {
@@ -1836,26 +1934,55 @@ const { FEZA, ITEMS } = (function () {
     BAKE.seen = false; BAKE.wait = 0; first.onBeforeRender = () => { BAKE.seen = true; };
     H.bones.chest.add(grp); BAKE.cur = grp;
   }
-  function bakeJob(H) {
-    const j = BAKE.q.shift(); if (!j) return;
-    BAKE.keys.delete(j.k);
-    if (j.kind === 'thumb') thumb(j.item); else if (H) portrait(H, j.hat);
+  // The next queued picture that is still missing: drawn now and read back asynchronously, or made synchronously
+  // (async false = prebake, or the job already missed its asynchronous read-back once).
+  function bakeJob(H, async) {
+    while (BAKE.q.length) {
+      const j = BAKE.q.shift();
+      BAKE.keys.delete(j.k);
+      const pic = j.kind === 'thumb' ? thumbPic(j.item) : H ? portraitPic(H, j.hat) : null;
+      if (!pic || pic.url) continue;   // made meanwhile
+      if (!async || j.sync || RB.off || RB.pic) { picNow(pic, 'FEZA bake'); return; }
+      try {
+        pic.draw();
+        let ok = false;
+        try { ok = rbStart(pic, j); } catch (e) { RB.off = true; console.warn('FEZA bake async', e); }
+        if (!ok) pic.finish(offRead());
+      } catch (e) { console.warn('FEZA bake', e); }
+      return;
+    }
   }
   function bakeTick(H, st) {
     if (!BAKE.drawn) return;   // wait for the first real frame (no work in synchronous pre-rolls)
     if (!BAKE.started) warm();
     if (BAKE.pend.length) checkPending();
     if (BAKE.warmQ.length || BAKE.cur) { warmStep(H); return; }
-    if (!BAKE.q.length && BAKE.drawn - BAKE.scan > 120) { BAKE.scan = BAKE.drawn; const e = H._S.eq.hat; queuePortraits(e ? e.item : null); }
-    if (!BAKE.q.length || BAKE.drawn - BAKE.last < 2) return;
-    if (st.attack >= 0 || st.cast >= 0 || st.spin || st.hurt > 0.05) return;   // not in the middle of a swing
+    if (BAKE.drawn === BAKE.last || renderer.getContext().isContextLost()) return;   // one step per drawn frame
+    // calm: not in the middle of a swing and no creature after him (a card for the ground may go on anyway: asynchronous only)
+    const calm = () => !(st.attack >= 0 || st.cast >= 0 || st.spin || st.hurt > 0.05) && !chased();
+    if (RB.pic) {   // a picture on its way back from the GPU
+      if (rbPoll() === 1 && (RB.job.urgent || calm())) { BAKE.last = BAKE.drawn; rbFinish(); }
+      return;
+    }
+    const b = bagNow();
+    if (b !== BAKE.bag || (b && b.length !== BAKE.bagN) || BAKE.drawn - BAKE.scan > 120) queueOwned(H);
+    const j = BAKE.q[0];
+    if (!j || !((j.urgent && !j.sync && !RB.off) || calm())) return;
     BAKE.last = BAKE.drawn;
-    bakeJob(H);
+    bakeJob(H, true);
   }
-  // Explicit hooks: FEZA.warm() starts the warm-up early; ITEMS.prebake(n) renders up to n queued pictures right now
+  function chased() {   // defensive: GAME may not exist (test pages)
+    try {
+      const E = typeof GAME !== 'undefined' && GAME && GAME.enemies;
+      if (Array.isArray(E)) for (const e of E) if (e && e.aggro && !e.dead) return true;
+    } catch (e) { /* optional */ }
+    return false;
+  }
+  // Explicit hooks: FEZA.warm() starts the warm-up early; ITEMS.prebake(n) makes up to n queued pictures right now
   // (e.g. when the bag opens) and returns how many are still waiting.
   function prebake(n = 1) {
-    for (let i = 0; i < n && BAKE.q.length; i++) bakeJob(BAKE.host);
+    if (RB.pic && n > 0) rbDrop(false);   // the picture in flight: redo it now
+    for (let i = 0; i < n && BAKE.q.length; i++) bakeJob(BAKE.host, false);
     return BAKE.q.length;
   }
 
@@ -1912,30 +2039,42 @@ const { FEZA, ITEMS } = (function () {
   const THUMBS = {};
   function thumb(item, lazy) {
     if (!item) return null;
+    const pic = thumbPic(item);
+    if (pic.url) return pic.url;
+    if (lazy) { queueThumb(item, true); return null; }
+    return picNow(pic, 'ITEMS.thumb');
+  }
+  // → { url } when it is cached, else a picture (draw / finish, see picNow) of that base + rarity
+  function thumbPic(item) {
     const slot = BASES[item.slot] ? item.slot : 'weapon', id = baseId(item), r = clamp(item.rarity | 0, 0, 3), k = tplKey(slot, id, r);
-    if (THUMBS[k]) return THUMBS[k];
-    if (lazy) { queueJob('t:' + k, { kind: 'thumb', item: plainItem(slot, id, r) }, true); return null; }
-    try {
-      offSetup();
-      const o = template(slot, id, r).clone(), wrap = new THREE.Group(); wrap.add(o); OFF.scene.add(wrap);
-      let dir = v3(0.25, 0.35, 1), fov = 28;
-      if (slot === 'weapon') { o.rotation.set(0, 0.35, -Math.PI / 4); const b = o.getObjectByName('fzBlade'); if (b) b.scale.set(1.5, 1, 1.5); }   // bolder blade on a small card
-      else if (slot === 'hat') { o.rotation.set(0.12, 0.55, 0); dir = v3(0.1, 0.55, 1); }
-      else { o.rotation.set(0, Math.PI + 0.35, 0); dir = v3(0, 0.15, 1); }
-      wrap.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(wrap), c = v3(), sz = v3(); box.getCenter(c); box.getSize(sz);
-      const wk = SB_U.k.value, wg = SB_U.grad.value;
-      if (slot === 'weapon') { SB_U.k.value = 0.45; SB_U.grad.value = 1.15; }
-      let cv;
-      try { cv = offRender(c, Math.max(sz.x, sz.y, sz.z) * (slot === 'weapon' ? 0.46 : 0.56), dir, fov); }
-      finally { SB_U.k.value = wk; SB_U.grad.value = wg; OFF.scene.remove(wrap); }
-      const out = canvasEl(128, 128), g = out.getContext('2d');
-      g.imageSmoothingQuality = 'high';
-      if (r >= 1) { g.shadowColor = rarCol(r); g.shadowBlur = r >= 2 ? 14 : 9; g.drawImage(cv, 4, 4, 120, 120); }
-      g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
-      g.drawImage(cv, 4, 4, 120, 120);
-      return (THUMBS[k] = out.toDataURL('image/png'));
-    } catch (e) { console.warn('ITEMS.thumb', e); return null; }
+    if (THUMBS[k]) return { url: THUMBS[k] };
+    return {
+      draw() {
+        offSetup();
+        const o = template(slot, id, r).clone(), wrap = new THREE.Group(); wrap.add(o); OFF.scene.add(wrap);
+        let dir = v3(0.25, 0.35, 1), fov = 28;
+        if (slot === 'weapon') { o.rotation.set(0, 0.35, -Math.PI / 4); const b = o.getObjectByName('fzBlade'); if (b) b.scale.set(1.5, 1, 1.5); }   // bolder blade on a small card
+        else if (slot === 'hat') { o.rotation.set(0.12, 0.55, 0); dir = v3(0.1, 0.55, 1); }
+        else { o.rotation.set(0, Math.PI + 0.35, 0); dir = v3(0, 0.15, 1); }
+        wrap.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(wrap), c = v3(), sz = v3(); box.getCenter(c); box.getSize(sz);
+        const wk = SB_U.k.value, wg = SB_U.grad.value;
+        if (slot === 'weapon') { SB_U.k.value = 0.45; SB_U.grad.value = 1.15; }
+        try { offDraw(c, Math.max(sz.x, sz.y, sz.z) * (slot === 'weapon' ? 0.46 : 0.56), dir, fov); }
+        finally { SB_U.k.value = wk; SB_U.grad.value = wg; OFF.scene.remove(wrap); }
+      },
+      finish(cv) {
+        if (THUMBS[k]) return THUMBS[k];
+        const out = OFF.tc || (OFF.tc = canvasEl(128, 128)), g = out.getContext('2d');   // one reused canvas (no canvas garbage on iPad)
+        g.clearRect(0, 0, 128, 128); g.save();
+        g.imageSmoothingQuality = 'high';
+        if (r >= 1) { g.shadowColor = rarCol(r); g.shadowBlur = r >= 2 ? 14 : 9; g.drawImage(cv, 4, 4, 120, 120); }
+        g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
+        g.drawImage(cv, 4, 4, 120, 120);
+        g.restore();
+        return (THUMBS[k] = out.toDataURL('image/png'));
+      },
+    };
   }
   const ITEMS = {
     RARITY, BASES,
@@ -1945,6 +2084,6 @@ const { FEZA, ITEMS } = (function () {
     stars: it => clamp(1 + (it ? it.rarity | 0 : 0) + (it && it.power >= 18 ? 1 : 0), 1, 5),
   };
   const FEZA = { create, portrait, warm, bodyStats: () => BODY && { ms: BODY.ms, skinVerts: BODY.skin.attributes.position.count, clothVerts: BODY.cloth.attributes.position.count,
-    hairVerts: BODY.hair.attributes.position.count, bake: { warm: BAKE.warmQ.length + (BAKE.cur ? 1 : 0), queue: BAKE.q.length, thumbs: Object.keys(THUMBS).length, portraits: Object.keys(PORTRAITS).length, portraitKeys: Object.keys(PORTRAITS) } } };
+    hairVerts: BODY.hair.attributes.position.count, bake: { warm: BAKE.warmQ.length + (BAKE.cur ? 1 : 0), queue: BAKE.q.length + (RB.pic ? 1 : 0), reading: RB.pic ? 1 : 0, async: !RB.off, thumbs: Object.keys(THUMBS).length, portraits: Object.keys(PORTRAITS).length, portraitKeys: Object.keys(PORTRAITS) } } };
   return { FEZA, ITEMS };
 })();
