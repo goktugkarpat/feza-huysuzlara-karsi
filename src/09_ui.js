@@ -2418,10 +2418,8 @@ const UI = (() => {
 
   // ───────────────────────── Main loop ─────────────────────────
   function renderNow() { safe('renderNow', () => { updateCamera(0.016, true); camera.updateMatrixWorld(); renderFrame(); }); }
-  // iPad can identify itself as a Mac in desktop browsing mode. A touchscreen Windows PC remains a desktop.
-  const mobileScreen = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
-    (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
-  const frameRate = mobileScreen ? 60 : 120;
+  // All devices may render up to120fps; requestAnimationFrame follows the display/browser's available refresh rate.
+  const frameRate = 120;
   function frame(ts) {
     requestAnimationFrame(frame);
     const interval = 1000 / frameRate;

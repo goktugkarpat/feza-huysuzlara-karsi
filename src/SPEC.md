@@ -6,7 +6,7 @@ creatures cursed by the Huysuz Ejderha (grumpy dragon) — but (Feza's request) 
 no angry brows, no frowns, no fangs, nothing scary. Defeating one does NOT kill it: it becomes **overjoyed** (^‿^, big smile, hearts),
 hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, nothing scary. Everything cute, colourful, polished.
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
-bloom on glowing things, detailed characters with smooth geometry and expressive faces — while keeping 60 fps on an M1 iPad.
+bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a120fps render cap on every device, including phones and tablets (actual rate follows browser/display capability).
 
 ## Opt-in Hardcore (latest)
 - `GAME.hardcore` is runtime-only. Only `newGame({hardcore:true,plus:false,heroClass})` or explicit
