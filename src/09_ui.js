@@ -2308,14 +2308,19 @@ const UI = (() => {
 
   // ───────────────────────── Main loop ─────────────────────────
   function renderNow() { safe('renderNow', () => { updateCamera(0.016, true); camera.updateMatrixWorld(); renderFrame(); }); }
+  // iPad can identify itself as a Mac in desktop browsing mode. A touchscreen Windows PC remains a desktop.
+  const mobileScreen = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+    (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
+  const frameRate = mobileScreen ? 60 : 120;
   function frame(ts) {
     requestAnimationFrame(frame);
-    // Faster screens (120 Hz iPads): at most 60 frames a second (battery). The leftover time carries over, so 90/100/144 Hz
-    // screens also get a steady 60 and 60 Hz ones are never skipped.
-    S.frameAcc = Math.min((S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : 1000 / 60), 50); S.lastRaf = ts;
-    if (S.frameAcc < 1000 / 60 - 2) return;
-    S.frameAcc = Math.max(0, S.frameAcc - 1000 / 60);
-    const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / 60;
+    const interval = 1000 / frameRate;
+    S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
+    if (S.frameAcc < interval - 2) return;
+    // Keep timing debt/fractions, but discard whole missed frames after a loading stall.
+    S.frameAcc -= interval;
+    if (S.frameAcc >= interval) S.frameAcc %= interval;
+    const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / frameRate;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);
   }
