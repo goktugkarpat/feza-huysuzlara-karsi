@@ -141,7 +141,7 @@ async def main():
         print(f"  {k:16s} {d:5.2f} s  {cps:4.1f} chr/s{flag}")
 
     with open(OUT, "w", encoding="utf-8") as f:
-        f.write("// Narrator voice lines for \"Feza Kötülere Karşı\" – Emel (tr-TR-EmelNeural), trimmed mono mp3 as base64.\n"
+        f.write("// Narrator voice lines for \"Feza Huysuzlara Karşı\" – Emel (tr-TR-EmelNeural), trimmed mono mp3 as base64.\n"
                 "// Bu dosya gen_voice.py ile üretildi; elle değiştirmeyin. Keys follow AUD.LINES order.\n")
         f.write("window.VOICE_MP3 = {\n")
         f.write(",\n".join(f" {json.dumps(k)}: \"{v}\"" for k, v in mp3.items()))

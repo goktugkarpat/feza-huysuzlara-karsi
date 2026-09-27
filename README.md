@@ -1,4 +1,4 @@
-# Feza Kötülere Karşı ⚔️✨
+# Feza Huysuzlara Karşı ⚔️✨
 
 5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
 Huysuz Ejderha köyün neşe kristalini almış ve ormandaki herkesi haylaz yapmış. Feza ışın kılıcıyla ya da sihirli değneğiyle haylazları neşelendirince

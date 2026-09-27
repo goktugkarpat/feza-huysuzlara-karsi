@@ -1,4 +1,4 @@
-"""Feza Kötülere Karşı – yerel sunucu.
+"""Feza Huysuzlara Karşı – yerel sunucu.
 
 Run:  python3 serve.py
 Then open the printed address on the Mac or on an iPad on the same Wi-Fi.

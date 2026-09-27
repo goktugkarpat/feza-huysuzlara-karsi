@@ -1,4 +1,4 @@
-# Feza Kötülere Karşı – çalışma notları
+# Feza Huysuzlara Karşı – çalışma notları
 
 - Diablo tarzı 3D oyun (three.js r170, `vendor/three.js` klasik script). Kod modüllere bölünmüş, hepsi klasik `<script src>` (ES module yok,
   file:// ile de çalışmalı). Modüller arası sözleşme: `src/SPEC.md`. Sıra: `00_core` (yardımcılar, çizici, kamera, parlama) → `01_textures` (TEX)

@@ -1,4 +1,4 @@
-# Feza Kötülere Karşı — teknik sözleşme (SPEC)
+# Feza Huysuzlara Karşı — teknik sözleşme (SPEC)
 
 A kid-friendly (5-year-old) **Diablo-like** action RPG in three.js r170, for an **M1 iPad** (Safari, touch), also runs by
 double-clicking `index.html` (file://). Hero: **Feza**, a 5-year-old boy (see "Feza's look"). Enemies are *grumpy* ("huysuz")
@@ -559,7 +559,7 @@ gold; top-right round minimap (fog of war reveal, player arrow, portal, chests, 
 buttons 🎒 (bag/wardrobe), 🎵 music, ⏸ pause; bottom-left big red health orb (liquid with wave + gloss, ornate gold rim) and a
 potion button with count; bottom-right: big sword attack button + skill buttons on an arc (locked ones hidden, new one pulses,
 cooldown shown as a dark conic sweep); subtitles bottom-centre; centre banners (level up, new skill, zone name);
-item card popup (thumbnail, name in rarity colour, ★ power); boss bar top-centre. Title screen: big "FEZA / Kötülere Karşı"
+item card popup (thumbnail, name in rarity colour, ★ power); boss bar top-centre. Title screen: big "FEZA / Huysuzlara Karşı"
 logo over the live 3D scene, "▶ Oyna" (+ "Devam Et" if a save exists). Pause menu (Devam / Ses / Müzik / Kaydet / Baştan Başla with
 confirm). Bag/wardrobe: rows per slot with thumbnails, tap to wear (kids love dressing up), current one highlighted.
 Victory screen with confetti + "Tekrar Oyna". All buttons big (≥ 72 px), rounded, glossy, colourful, readable fonts
