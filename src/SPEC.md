@@ -11,8 +11,8 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
 ## Opt-in Hardcore (latest)
 - `GAME.hardcore` is runtime-only. Only `newGame({hardcore:true,plus:false,heroClass})` or explicit
   `continueHardcore()` enables it. Normal new game, replay and `continueGame()` reset it to false.
-- Pause-menu Hardcore uses the existing hold-to-confirm restart gate. It starts the same class fresh.
-  A separate in-game `Hardcore kaydını aç` action appears when `hasHardcoreSave()` is true; title Continue stays normal.
+- Pause-menu Hardcore uses the existing hold-to-confirm restart gate. A permanent HUD badge and pause-mode card show active mode and last Hardcore checkpoint; confirmations disclose replacing any previous Hardcore save. It starts the same class fresh.
+  A separate in-game `Hardcore’a dön` action appears when `hasHardcoreSave()` is true; title Continue stays normal.
 - Manual `save()` returns false in Hardcore. Only zone1/3 entry (2nd/4th chapters) writes
   `fezaKotulereKarsi.hardcore.v1`; normal `fezaKotulereKarsi.v3` is untouched. `hardcoreCheckpoint` informs UI.
   Death restores the last checkpoint's progression and a fresh zone, or resets the same class to forest before checkpoint1.
@@ -94,9 +94,9 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   from Feza's damage). Hearts heal 10 %, regen after 5 s (1.2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
   Auto-attack also works while dragging (gap < 1.1 m, within ±80° of the walking direction). Comic words limited by GAME.wordOK().
 - **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (2 on touch devices);
-  battery (parent): QUALITY.dpr ≤ 1.25, sun shadow map 1536², and UI's frame() runs at most120 frames/s on all devices;
-  perfTick(rawDt, active) only counts gameplay frames, probes MSAA then DPR reductions below102fps and restores detail above114fps;
-  reductions without a12% gain are reverted below114fps, preserving quality on60Hz/browser/CPU limits; perfReset; precompile(obj, async) and
+  original graphics values restored: QUALITY.dpr ≤ 1.5 and sun shadow map 2048². iPad uses the original native rAF pacing;
+  other devices retain a120 FPS ceiling. perfTick(rawDt, active) counts only gameplay frames and uses the original
+  below42/above57 FPS quality thresholds, avoiding quality-target reallocations while aiming at120 FPS; perfReset; precompile(obj, async) and
   renderer.compile compile against rtMain; CTX_HOOKS run after a WebGL context restore (env map restored); SHADOW + viewRadius size the sun shadow
   box from the camera; PLAIN / ENV_OK for the no-float-render-target fallback. While POST.on the canvas has no depth/stencil, so all 3D goes through renderFrame.
 - **TEX:** TEX.init() builds common + forest surfaces; cave/volcano/castle ones (caveFloor, caveSand, basalt, ash, lava, castleFloor, carpet, brick)

@@ -361,8 +361,9 @@ const UI = (() => {
       h.b.style.setProperty('--hp', p.toFixed(3));
       if (p >= 1) { endHold(h); try { h.fn(); } catch (err) { console.error('[UI] hold', err); } }
     }
-    // the restart question closes itself after 6 s without input (a kid who wandered in can't get stuck there)
-    if (S.menu === 'pause' && D.pausePanel.classList.contains('asking') && !HOLDS.length && S.t - S.askT > 6) closeAsk();
+    // A longer Hardcore explanation needs reading time; either question still closes if a kid wanders away.
+    if (S.menu === 'pause' && D.pausePanel.classList.contains('asking') && !HOLDS.length &&
+      S.t - S.askT > (S.restartKind === 'normal' ? 6 : 15)) closeAsk();
   }
 
   // Tap (for scrollable bag rows): fires on pointerup if the finger didn't travel; a browser pan sends pointercancel.
@@ -396,6 +397,7 @@ const UI = (() => {
     el('div', 'u-xpstar', D.xp, '⭐');
     D.gold = el('div', 'u-gold', st, '<span class="u-coin"></span><span class="u-gn">' + ol('0', 'u-gold-t') + '</span>');
     D.goldB = D.gold.querySelector('.u-gn b'); D.goldI = D.gold.querySelector('.u-gn i');
+    D.hardcoreTag = el('div', 'u-hardcore-tag u-hide', st, '⚔ Hardcore');
 
     // top-right: 🎒 and ⏸ in one row hugging the top edge, left of the minimap (music lives in the pause menu)
     const tr = D.tr = el('div', 'u-tr', hud);
@@ -527,15 +529,17 @@ const UI = (() => {
     const p = D.pausePanel = el('div', 'u-panel u-pause-panel', s);
     el('div', 'u-ptitle', p, ol('Mola', 'u-gold-t'));
     const m = el('div', 'u-main', p);
+    const mode = D.modeCard = el('div', 'u-mode-card', m);
+    D.modeName = el('div', 'u-mode-name', mode);
+    D.modeSave = el('div', 'u-mode-save', mode);
     D.resume = el('button', 'u-btn g wide', m, SVG.play + '<span>Devam Et</span>');
     const row = el('div', 'u-prow', m);
     D.pSnd = el('button', 'u-btn p', row, SVG.sound + '<span class="u-lab">Efektler Açık</span>'); D.pSnd.dataset.tog = 'sound';   // sound effects only
     D.pMus = el('button', 'u-btn p', row, SVG.note + '<span class="u-lab">Müzik Açık</span>'); D.pMus.dataset.tog = 'music';
     D.saveBtn = el('button', 'u-btn b wide', m, SVG.save + '<span>Kaydet</span>');
     D.restart = el('button', 'u-btn o wide', m, SVG.again + '<span>Baştan Başla</span>');
-    D.hardcore = el('button', 'u-btn r wide', m, '<span>Hardcore</span>');
+    D.hardcore = el('button', 'u-btn r wide', m, '<span>Hardcore başlat</span>');
     D.hardcoreContinue = el('button', 'u-btn p wide u-hide', m, '<span>Hardcore kaydını aç</span>');
-    D.hardcoreHint = el('div', 'u-hardcore-hint u-hide', m, 'Hardcore açık · Kayıt yalnızca 2. ve 4. bölüm başında.');
     // Restart question (parental gate): same height as the main panel; the big green "Hayır" lands exactly where
     // "Baştan Başla" was (a double tap is safe) and the small red "Evet" only fires after a 2 s press-and-hold.
     const ask = el('div', 'u-ask', p);
@@ -588,7 +592,7 @@ const UI = (() => {
     onPress(D.resume, () => closeMenu(), { menu: true });
     onPress(D.saveBtn, () => saveNow(), { menu: true });
     onPress(D.restart, () => askRestart('normal'), { menu: true });
-    onPress(D.hardcore, () => { if (!M.GAME.hardcore) askRestart('hardcore'); }, { menu: true });
+    onPress(D.hardcore, () => askRestart('hardcore'), { menu: true });
     onPress(D.hardcoreContinue, () => askRestart('hardcoreContinue'), { menu: true });
     onPress(D.no, () => closeAsk(), { menu: true });
     onHold(D.yes, 2, () => S.restartKind === 'normal' ? restartAll() : startHardcore(S.restartKind === 'hardcoreContinue'), { menu: true });
@@ -616,9 +620,13 @@ const UI = (() => {
   }
   function askRestart(kind) {
     S.restartKind = kind;
-    D.askText.innerHTML = kind === 'normal' ? 'Yeniden en baştan<br>başlansın mı?' : kind === 'hardcoreContinue'
-      ? 'Hardcore kaydı açılsın mı?<small>Şimdiki maceradan çıkılır.<br>Kayıtlı karakterle devam edilir.</small>'
-      : 'Hardcore başlasın mı?<small>Bu karakterle en baştan başlanır.<br>Çok güçlü düşmanlar ve bosslar!<br>Kayıt: yalnızca 2. ve 4. bölüm başı.<br>Yenilirsen son kayda dönersin.</small>';
+    const cp = M.GAME && M.GAME.hardcoreSaveInfo && M.GAME.hardcoreSaveInfo();
+    D.askText.innerHTML = kind === 'normal' ? (M.GAME.hardcore
+      ? 'Normal macera başlasın mı?<small>Karakter seçimine döneceksin.<br>Hardcore kaydın ayrı saklanır.</small>'
+      : 'Yeniden en baştan<br>başlansın mı?') : kind === 'hardcoreContinue'
+      ? `Hardcore kaydına dönülsün mü?<small>${cp ? cp.zone + 1 : '?'}. bölümün başında, kayıtlı karakterle devam edeceksin.</small>`
+      : 'Yeni Hardcore macerası başlasın mı?<small>Onaylayınca Hardcore açılır; bu karakterle en baştan başlarsın.<br>Kayıt yalnızca 2. ve 4. bölüm başında.' +
+        (cp ? '<br>Önceki Hardcore kaydı silinecek.' : '') + '</small>';
     D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800;
   }
   async function startHardcore(cont) {
@@ -1749,6 +1757,7 @@ const UI = (() => {
   }
   function setHud(on) {
     S.hud = on; D.root.classList.toggle('hud-on', on);
+    if (M.GAME) D.hardcoreTag.classList.toggle('u-hide', !M.GAME.hardcore);
     if (on) { last.xp = last.lvl = last.gold = last.pot = -1; last.potEv = M.GAME ? M.GAME.P.potions : 99; ORB.acc = 1; }
   }
   function setMode(m) {
@@ -1773,10 +1782,16 @@ const UI = (() => {
     if (!canMenu()) return;
     S.menu = 'pause'; D.pausePanel.classList.remove('asking');
     const hc = !!M.GAME.hardcore;
+    const cp = M.GAME.hardcoreSaveInfo && M.GAME.hardcoreSaveInfo();
+    D.modeCard.classList.toggle('hardcore', hc);
+    D.modeName.textContent = hc ? '⚔ Hardcore açık' : '🌟 Normal macera';
+    D.modeSave.textContent = hc ? (cp ? `Son kayıt: ${cp.zone + 1}. bölümün başı` : 'Henüz kayıt yok · İlk kayıt 2. bölümde')
+      : 'İlerleme Mola → Kaydet ile saklanır';
     D.saveBtn.classList.toggle('u-hide', hc);
-    D.hardcore.disabled = hc; D.hardcore.textContent = hc ? 'Hardcore açık' : 'Hardcore';
-    D.hardcoreHint.classList.toggle('u-hide', !hc);
-    D.hardcoreContinue.classList.toggle('u-hide', hc || !M.GAME.hasHardcoreSave || !M.GAME.hasHardcoreSave());
+    D.restart.innerHTML = SVG.again + `<span>${hc ? 'Normal baştan başla' : 'Baştan Başla'}</span>`;
+    D.hardcore.textContent = hc ? 'Hardcore’u yeniden başlat' : 'Hardcore başlat';
+    D.hardcoreContinue.textContent = cp ? `Hardcore’a dön · ${cp.zone + 1}. bölüm` : 'Hardcore kaydını aç';
+    D.hardcoreContinue.classList.toggle('u-hide', hc || !cp);
     setPaused(true); showScreen(D.pause, true);
   }
   function openBag() {
@@ -1992,6 +2007,7 @@ const UI = (() => {
     if (!g || !g.on) return;
     const on = (e, f) => g.on(e, d => { try { f(d || {}); } catch (err) { console.error('[UI] event ' + e, err); } });
     on('zone', d => {
+      D.hardcoreTag.classList.toggle('u-hide', !g.hardcore);
       mapReset(g.L);
       refreshAllSkills();
       portraitSoon(0.1);
@@ -2046,9 +2062,10 @@ const UI = (() => {
     on('dead', () => {
       fade(0.72, 1.4, 'sleep');
     });
-    on('respawn', () => {
+    on('respawn', d => {
       fadeSnap(0.92, 'flash');
       fade(0, 0.9, null);
+      if (d.hardcore) toast(d.zone === 0 ? 'Hardcore: 1. bölümden başlıyorsun' : `Hardcore: ${d.zone + 1}. bölüm kaydına döndün`, true);
     });
     on('boss', d => { if (d.on) showBoss(d); else hideBoss(); });
     on('bossHp', d => {
@@ -2073,7 +2090,7 @@ const UI = (() => {
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
-    on('hardcoreCheckpoint', () => toast('Hardcore kaydı alındı', true));
+    on('hardcoreCheckpoint', d => toast(`Hardcore kaydı: ${d.zone + 1}. bölümün başı`, true));
   }
 
   // ───────────────────────── Camera ─────────────────────────
@@ -2418,16 +2435,20 @@ const UI = (() => {
 
   // ───────────────────────── Main loop ─────────────────────────
   function renderNow() { safe('renderNow', () => { updateCamera(0.016, true); camera.updateMatrixWorld(); renderFrame(); }); }
-  // All devices may render up to120fps; requestAnimationFrame follows the display/browser's available refresh rate.
+  // iPad keeps the original, display-driven requestAnimationFrame pacing; the limiter could skip a 120 Hz callback.
+  // Other devices retain the requested 120 FPS ceiling.
+  const nativeIPadRaf = /iPad/i.test(navigator.userAgent) || (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1);
   const frameRate = 120;
   function frame(ts) {
     requestAnimationFrame(frame);
-    const interval = 1000 / frameRate;
-    S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
-    if (S.frameAcc < interval - 2) return;
-    // Keep timing debt/fractions, but discard whole missed frames after a loading stall.
-    S.frameAcc -= interval;
-    if (S.frameAcc >= interval) S.frameAcc %= interval;
+    if (!nativeIPadRaf) {
+      const interval = 1000 / frameRate;
+      S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
+      if (S.frameAcc < interval - 2) return;
+      // Keep timing debt/fractions, but discard whole missed frames after a loading stall.
+      S.frameAcc -= interval;
+      if (S.frameAcc >= interval) S.frameAcc %= interval;
+    }
     const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / frameRate;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);

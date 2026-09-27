@@ -14,7 +14,7 @@
 html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 
 #ui, #ui * { box-sizing: border-box; }
-#ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: var(--f); color: #fff; overflow: hidden; }
+#ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: var(--f); color: #fff; overflow: hidden; overflow: clip; }
 #ui button { font-family: var(--f); -webkit-appearance: none; appearance: none; margin: 0; padding: 0; border: 0; outline: none;
   touch-action: none; cursor: pointer; pointer-events: auto; color: #fff; -webkit-tap-highlight-color: transparent; }
 .u-svg { width: 1em; height: 1em; fill: #fff; flex: none; filter: drop-shadow(0 0.08em 0 rgba(20, 5, 40, 0.35)); }
@@ -608,5 +608,24 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 /* Hardcore stays inside the in-game pause menu, including on small landscape screens. */
 .u-pause-panel { max-height: 94%; overflow-y: auto; touch-action: pan-y; }
 .u-pause-panel .u-main { gap: calc(var(--k) * 12px); }
-.u-hardcore-hint { max-width: calc(var(--k) * 350px); font-size: calc(var(--k) * 20px); text-align: center; color: #ffe1bd; }
+.u-hardcore-tag { align-self: flex-start; padding: calc(var(--k) * 5px) calc(var(--k) * 12px); border-radius: 99px;
+  border: calc(var(--k) * 2px) solid #ffe49b; background: #a31f48; color: #fff9e8;
+  font-weight: 900; font-size: calc(var(--k) * 18px); line-height: 1; letter-spacing: 0.03em;
+  box-shadow: 0 calc(var(--k) * 3px) calc(var(--k) * 9px) rgba(28, 0, 28, 0.45); }
+.u-mode-card { box-sizing: border-box; width: 100%; padding: calc(var(--k) * 12px) calc(var(--k) * 18px);
+  border: calc(var(--k) * 2px) solid #be9bff; border-radius: calc(var(--k) * 20px); text-align: center;
+  background: rgba(25, 7, 64, 0.66); color: #f6efff; }
+.u-mode-card.hardcore { border-color: #ffc37d; background: rgba(107, 24, 62, 0.8); }
+.u-mode-name { font-size: calc(var(--k) * 29px); line-height: 1.1; font-weight: 900; }
+.u-mode-save { margin-top: calc(var(--k) * 6px); font-size: calc(var(--k) * 19px); line-height: 1.2; }
+.u-pause-panel .u-btn.wide { max-width: 100%; }
+.u-pause-panel .u-btn.r, .u-pause-panel .u-btn.p.wide { font-size: calc(var(--k) * 29px); }
 .u-asktxt small { display: block; margin-top: 1em; font-size: 0.6em; line-height: 1.45; font-weight: 600; }
+@media (max-height: 450px) and (min-width: 700px) {
+  .u-pause-panel { box-sizing: border-box; width: min(94%, 720px); padding: 10px 22px; gap: 7px; }
+  .u-pause-panel .u-main { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 7px 12px; justify-items: stretch; }
+  .u-pause-panel .u-mode-card { grid-column: 1 / -1; }
+  .u-pause-panel .u-btn.wide { min-width: 0; width: 100%; }
+  .u-pause-panel .u-prow { flex-wrap: nowrap; align-items: center; }
+  .u-pause-panel .u-prow > .u-btn { font-size: calc(var(--k) * 23px); }
+}

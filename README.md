@@ -76,15 +76,15 @@ Yeni hareketler diğer özel saldırılarla sırayla kullanılır; yumurtalar sa
 
 ## Hardcore
 
-Oyun başladıktan sonra **Mola → Hardcore** ile mevcut karakterin macerası baştan başlar. Yanlışlıkla açılmaması için
+Oyun başladıktan sonra **Mola → Hardcore başlat** ile mevcut karakterin macerası baştan başlar. Yanlışlıkla açılmaması için
 onay düğmesine basılı tutulur. Normal yeni oyun ve uygulamanın yeniden açılışı Hardcore'u kendiliğinden etkinleştirmez.
 
 - Yalnızca **2. ve 4. bölümlerin girişinde otomatik kayıt** alınır; elle kayıt kapalıdır.
 - Yenilince son Hardcore kaydına dönülür. Henüz kayıt yoksa aynı karakterle ilk bölümden başlanır.
-- Hardcore kayıtları normal kayıttan ayrıdır. Sonraki oturumda önce oyuna girip **Mola → Hardcore kaydını aç** seçilebilir.
+- Hardcore kayıtları normal kayıttan ayrıdır. Sonraki oturumda önce oyuna girip **Mola → Hardcore’a dön** seçilebilir. Oyun ekranındaki kırmızı **Hardcore** işareti ve Mola menüsündeki mod kartı hangi modda olduğunu gösterir; kart son otomatik kayıt bölümünü de söyler.
 - Yaratıklar daha dayanıklı, daha hızlı ve daha sık saldırır. Bossların özel saldırıları çok daha sert vurur;
   tehlike işaretleri ve kaçma fırsatı korunur. Savaş sırasında kendiliğinden can yenilenmez.
-- Normal **Baştan Başla / Tekrar Oyna** Hardcore'u kapatır. Yeni Hardcore başlatmak önceki Hardcore kaydını sıfırlar.
+- Normal **Baştan Başla / Tekrar Oyna** Hardcore'u kapatır. Yeni Hardcore başlatmak önceki Hardcore kaydını sıfırlar; onay ekranı bunu önceden belirtir.
 
 ## Dosyalar
 

@@ -4744,6 +4744,7 @@ const GAME = (() => {
     P, H: null, enemies, L: null, state: 'title', paused: false, skills: [], boss: null, time: 0,
     get hardcore() { return hardcore; },
     hasHardcoreSave: () => !!readHardcoreSave(), continueHardcore,
+    hardcoreSaveInfo() { const s = readHardcoreSave(); return s ? { zone: s.zone, heroClass: s.heroClass } : null; },
     init, newGame, continueGame, hasSave: () => !!readSave(), save, clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* private mode */ } },
     loadZone, update, titleUpdate, input, equipSlot, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
     on, emit, enemiesNear, nearestEnemy, damage, spawnProjectile, hitBreakables, heroDamageNow, hurtPlayer, heal,

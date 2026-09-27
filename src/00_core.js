@@ -60,9 +60,8 @@ renderer.toneMapping = PLAIN ? THREE.NeutralToneMapping : THREE.NoToneMapping;  
 const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 // msaa = samples of the HDR scene target, the biggest GPU cost on an iPad: 2× on touch devices, 4× on desktop (?msaa=N overrides).
 // perfTick may lower msaa, then dpr, and raises them again when the device keeps up.
-// dpr 1.25 (was 1.5; parent: "the iPad battery drains very fast — keep 60 fps, lower the graphics a little"): ~30 % fewer pixels.
 const QUALITY = {
-  dpr: Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : 1.25), minDpr: 1,
+  dpr: Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : 1.5), minDpr: 1,
   msaa: Q.has('msaa') ? clamp(parseInt(Q.get('msaa'), 10) || 0, 0, 8) : (Q.has('hd') || !(navigator.maxTouchPoints > 1) ? 4 : 2),
 };
 
@@ -82,7 +81,7 @@ const LIGHTS = {};
 LIGHTS.hemi = new THREE.HemisphereLight(0xcfe8ff, 0x4a3a2a, 0.9 * HEMI_K);
 LIGHTS.sun = new THREE.DirectionalLight(0xfff1d6, 2.6);
 LIGHTS.sun.castShadow = true;
-LIGHTS.sun.shadow.mapSize.set(1536, 1536);   // was 2048 (battery): still ≤ 3 cm per texel over the widest shadow box
+LIGHTS.sun.shadow.mapSize.set(2048, 2048);
 { const sc = LIGHTS.sun.shadow.camera; sc.left = -24; sc.right = 24; sc.top = 24; sc.bottom = -24; sc.near = 1; sc.far = 90; }
 LIGHTS.sun.shadow.bias = -0.0004;
 LIGHTS.sun.shadow.normalBias = 0.04;
@@ -351,8 +350,7 @@ function renderFrame() {
 
 // Frame-rate watchdog with a quality ladder: MSAA first, then resolution; steps back up after ~10 s of smooth play.
 // perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
-// does not make the game faster is undone: a browser/display limit or CPU bottleneck should not blur the picture.
-// Match the120fps game loop; probe at sustained<102fps, restore detail only above114fps.
+// doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
 const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false };
 function perfLadder() {
   const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
@@ -388,10 +386,10 @@ function perfTick(rawDt, active) {
   if (PERF.level === 0 && (!L.length || L[0].dpr !== QUALITY.dpr || L[0].msaa !== QUALITY.msaa)) PERF.ladder = perfLadder();
   if (PERF.probe) {
     const pr = PERF.probe; PERF.probe = null;
-    if (fps < 114 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
+    if (fps < 50 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
   }
   if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;          // the cap is gone
-  if (fps < 102) {
+  if (fps < 42) {
     PERF.good = 0;
     if (PERF.upJust) PERF.upWait = Math.min(PERF.upWait * 2, 160);   // the last step up was too much: wait longer next time
     PERF.upJust = false;
@@ -400,7 +398,7 @@ function perfTick(rawDt, active) {
     return;
   }
   PERF.upJust = false;
-  if (fps < 114) { PERF.good = 0; return; }
+  if (fps < 57) { PERF.good = 0; return; }
   PERF.capFps = 0; PERF.good += win;
   if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
 }
