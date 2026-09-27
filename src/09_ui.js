@@ -2475,6 +2475,7 @@ const UI = (() => {
     const raw = S.lastFrame ? (ts - S.lastFrame) / 1000 : 1 / frameRate;
     S.lastFrame = ts;
     step(clamp(raw, 0, 0.05), raw, true);
+    try { perfHz(raw); } catch (e) { warn('perfHz', e); }   // tablets: a 120 Hz screen switches on the 120 FPS profile
     fpsTick(ts, raw);
   }
   // One frame; every module call is isolated so a failing module never stops the loop (no per-frame closures).
