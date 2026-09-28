@@ -8,6 +8,13 @@ hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, n
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
 bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a120fps render cap on every device, including phones and tablets (actual rate follows browser/display capability).
 
+## Running away wins (latest, parent: "kaçmaya çalışınca Feza boss'un yanından ayrılmıyor")
+- A finger put down on a creature turns into walking after 26 px when it heads away from / sideways to it (Feza → creature
+  direction, measured from the touch point on the ground), else after 90 px as before. It also drops a sword swing.
+- Drag or keys more than ~110° against a sword swing's facing end the swing at once (no 0.22 brake, no turning back); wand shots go on.
+- attackButton while running away from the nearest creature (vel > 1.5, moving the other way): no lunge; a sword swing is skipped.
+- test/r6_flee.html checks all three.
+
 ## Round 6 — boss polish: one optional "bonus" idea per boss + 14 new item looks (latest; read first, overrides older text)
 Plan: test/r6_PLAN.md (approved). Rules kept: nothing scary, cute; danger telegraphs ≥ 2 s; 3 skills per class; 60 FPS tablet
 budget (props pooled, pre-built in warmZone); every 07 call into 05/03 guarded with a plain Kit stand-in.

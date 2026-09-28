@@ -4431,10 +4431,13 @@ const GAME = (() => {
       }
     } else e = nearestEnemy(P.pos.x, P.pos.z, 4.8);
     let face = null, breakable = false;
+    // running away from it (moving fast, the other way): no lunge back into it, and no sword swing that would stop him
+    const flee = e && C.vel > 1.5 && (C.drag || C.keyX !== 0 || C.keyZ !== 0) && C.mdx * (e.x - P.pos.x) + C.mdz * (e.z - P.pos.z) < 0;
+    if (flee && !ranged()) return;
     if (e) {
       face = Math.atan2(e.x - P.pos.x, e.z - P.pos.z);
       const gap = Math.hypot(e.x - P.pos.x, e.z - P.pos.z) - e.r - 1.2;
-      if (!ranged() && gap > 0.15) lungeToward(e.x, e.z, Math.min(gap, 2.4));
+      if (!ranged() && !flee && gap > 0.15) lungeToward(e.x, e.z, Math.min(gap, 2.4));
     } else {
       const b = nearestBreakable(P.pos.x, P.pos.z, 2.6);
       if (b) { face = Math.atan2(b.x - P.pos.x, b.z - P.pos.z); e = b; breakable = true; }
@@ -4746,6 +4749,12 @@ const GAME = (() => {
       // Waited ~1.5 s for the tapped one while another one right here hurts him: forget the tapped one (like a tapped object
       // after 2 s, tgtStall) and fight here — otherwise its walk/wait retries keep pulling him away between swings.
       if (waitE && best && best !== C.targetE && C.tgtStall > 1.5 && gt - C.lastHurt < 1) C.targetE = null;
+    }
+    // Running away (finger or keys against the swing's direction, > ~110°): a sword swing stops at once — no brake, no turning
+    // back to the creature. (A wand shot keeps going: shooting while backing off is fine.)
+    if (C.swing && !C.swing.magic && (C.drag || keyMove) && want > 0.01) {
+      const sf = C.swingFace !== null ? C.swingFace : P.face;
+      if (Math.abs(angDiff(sf, Math.atan2(mx, mz))) > 1.9) { C.swing = null; C.queued = false; C.lastSwingEnd = gt; C.fleeT = gt; }
     }
     if (C.swing) want *= C.swing.magic ? 0.7 : 0.22;
     if (P.spin > 0) want *= 0.85;
@@ -5765,6 +5774,8 @@ const GAME = (() => {
       if (e && o && pickD + 25 < ed) e = null;   // clearly aimed at the chest/portal, not the enemy beside it
       if (e) {
         C.targetE = e; C.targetObj = null; C.drag = false; C.hasT = false; C.mode = 'enemy';
+        const g0 = typeof groundFromScreen === 'function' ? groundFromScreen(sx, sy, 0) : null;
+        C.downGx = g0 ? g0.x : NaN; C.downGz = g0 ? g0.z : NaN;   // (input.move: is the finger leaving it?)
         if (!e.aggro && !e.boss && !los(P.pos.x, P.pos.z, e.x, e.z)) { setAggro(e); e.losOk = false; e.losT = 0.3; }   // behind a wall: it notices Feza and comes round
         fx('ring', e.x, e.z, { r0: e.r, r1: e.r + 0.9, dur: 0.3, color: '#ff8a4a', width: 0.2 });
         return 'enemy';
@@ -5782,8 +5793,21 @@ const GAME = (() => {
     },
     move(sx, sy) {
       C.sx = sx; C.sy = sy;
-      // a finger that follows a hopping enemy keeps attacking it; only a real drag turns into walking
-      if (C.mode && C.mode !== 'move' && Math.hypot(sx - C.downSx, sy - C.downSy) > 90) { C.mode = 'move'; C.drag = true; C.targetE = null; C.targetObj = null; C.dragWinT = -1; }
+      // a finger that follows a hopping enemy keeps attacking it; a real drag turns into walking — at once (≥ 26 px) when the
+      // finger heads away from the tapped one (parent: "kaçmaya çalışınca Feza boss'un yanından ayrılmıyor"), else after 90 px
+      if (C.mode && C.mode !== 'move') {
+        const md = Math.hypot(sx - C.downSx, sy - C.downSy);
+        let away = false;
+        if (md >= 26 && md <= 90 && C.targetE && typeof groundFromScreen === 'function') {
+          const g = groundFromScreen(sx, sy, 0), e = C.targetE;
+          // the finger's way on the ground since it touched the creature, against Feza → creature: heading back / off to the side
+          if (g && C.downGx === C.downGx) {
+            const dx = g.x - C.downGx, dz = g.z - C.downGz, l = Math.hypot(dx, dz), ex = e.x - P.pos.x, ez = e.z - P.pos.z, el = Math.hypot(ex, ez) || 1;
+            away = l > 0.3 && (dx * ex + dz * ez) / (l * el) < 0.3;
+          }
+        }
+        if (md > 90 || away) { C.mode = 'move'; C.drag = true; C.targetE = null; C.targetObj = null; C.dragWinT = -1; C.swing = C.swing && C.swing.magic ? C.swing : null; C.queued = false; }
+      }
     },
     up() {   // (a way round found while dragging: the walk to the last point goes on along it)
       if (C.drag && C.dragRoute && C.dragRoute.length) { C.route = C.dragRoute; C.routeTried = true; }
