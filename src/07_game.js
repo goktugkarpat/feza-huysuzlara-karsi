@@ -86,7 +86,8 @@ const GAME = (() => {
   const T = {
     heroR: 0.42, speed: 5.2, baseHp: 100,
     swing: 0.34, swingBig: 0.46, hitAt: 0.4, reach: 2.1, arc: 70 * Math.PI / 180, autoR: 2.0, crit: 0.1,
-    autoDragR: 1.1, autoDragArc: 80 * Math.PI / 180,
+    autoDragR: 1.1, autoDragArc: 45 * Math.PI / 180,   // (was 80°: a sideways dodge past a big boss kept swinging)
+    fleeArc: 60 * Math.PI / 180,   // a finger / keys more than this off a sword swing's facing end it (dodging sideways too)
     activeR: 36, hideR: 46, leash: 26, maxMelee: 4, maxRanged: 3, enemyMaxSpeed: 4.5,
     windMin: 0.5, iframes: 0.3, respawn: 3.2, regenDelay: 5, magnet: 2.5,
   };
@@ -4432,7 +4433,8 @@ const GAME = (() => {
     } else e = nearestEnemy(P.pos.x, P.pos.z, 4.8);
     let face = null, breakable = false;
     // running away from it (moving fast, the other way): no lunge back into it, and no sword swing that would stop him
-    const flee = e && C.vel > 1.5 && (C.drag || C.keyX !== 0 || C.keyZ !== 0) && C.mdx * (e.x - P.pos.x) + C.mdz * (e.z - P.pos.z) < 0;
+    const flee = e && C.vel > 1.5 && (C.drag || C.keyX !== 0 || C.keyZ !== 0) &&
+      C.mdx * (e.x - P.pos.x) + C.mdz * (e.z - P.pos.z) < Math.cos(T.fleeArc) * Math.hypot(e.x - P.pos.x, e.z - P.pos.z);   // back or sideways
     if (flee && !ranged()) return;
     if (e) {
       face = Math.atan2(e.x - P.pos.x, e.z - P.pos.z);
@@ -4754,7 +4756,7 @@ const GAME = (() => {
     // back to the creature. (A wand shot keeps going: shooting while backing off is fine.)
     if (C.swing && !C.swing.magic && (C.drag || keyMove) && want > 0.01) {
       const sf = C.swingFace !== null ? C.swingFace : P.face;
-      if (Math.abs(angDiff(sf, Math.atan2(mx, mz))) > 1.9) { C.swing = null; C.queued = false; C.lastSwingEnd = gt; C.fleeT = gt; }
+      if (Math.abs(angDiff(sf, Math.atan2(mx, mz))) > T.fleeArc) { C.swing = null; C.queued = false; C.lastSwingEnd = gt; C.fleeT = gt; }
     }
     if (C.swing) want *= C.swing.magic ? 0.7 : 0.22;
     if (P.spin > 0) want *= 0.85;
@@ -5803,7 +5805,7 @@ const GAME = (() => {
           // the finger's way on the ground since it touched the creature, against Feza → creature: heading back / off to the side
           if (g && C.downGx === C.downGx) {
             const dx = g.x - C.downGx, dz = g.z - C.downGz, l = Math.hypot(dx, dz), ex = e.x - P.pos.x, ez = e.z - P.pos.z, el = Math.hypot(ex, ez) || 1;
-            away = l > 0.3 && (dx * ex + dz * ez) / (l * el) < 0.3;
+            away = l > 0.3 && (dx * ex + dz * ez) / (l * el) < Math.cos(T.fleeArc);   // back or sideways
           }
         }
         if (md > 90 || away) { C.mode = 'move'; C.drag = true; C.targetE = null; C.targetObj = null; C.dragWinT = -1; C.swing = C.swing && C.swing.magic ? C.swing : null; C.queued = false; }
