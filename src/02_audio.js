@@ -1452,5 +1452,9 @@ AUD.LINES = /*SESLER*/{
   "ovgu5": "Aferin sana!",
   "ovgu6": "Muhteşem!",
   "basla": "Oyna düğmesine bas, maceraya başlayalım!",
-  "devam": "Devam Et düğmesine bas, macera kaldığın yerden sürsün!"
+  "devam": "Devam Et düğmesine bas, macera kaldığın yerden sürsün!",
+  "tuccar_merhaba": "Bak, gezgin tüccar Mırmır Ayışığı! Topladığın altınlarla küçük mucizeler alabilirsin.",
+  "tuccar_iksir": "Pofuduk Yudum çantana girdi. Canın azalınca içebilirsin.",
+  "tuccar_bulut": "Bulut Örtüsü seni bu bölüm boyunca biraz daha koruyacak.",
+  "tuccar_parilti": "Silahın ışıl ışıl oldu! Artık biraz daha güçlü."
 }/*SESLER-SON*/;

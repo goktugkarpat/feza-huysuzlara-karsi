@@ -262,7 +262,7 @@ const UI = (() => {
   const readyP = new Promise(r => { readyRes = r; });
 
   // ── Preferences (music / sound toggles) ──
-  // Only music is restored: sound effects always start on, so an accidental mute in the pause menu is gone by the next launch.
+  // Only music is restored; sound effects always start on.
   function loadPrefs() {
     try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || 'null'); if (p) S.prefs.music = p.music !== false; } catch (e) { /* private mode */ }
     S.prefs.sound = true;
@@ -404,9 +404,9 @@ const UI = (() => {
       h.b.style.setProperty('--hp', p.toFixed(3));
       if (p >= 1) { endHold(h); try { h.fn(); } catch (err) { console.error('[UI] hold', err); } }
     }
-    // A longer Hardcore explanation needs reading time; either question still closes if a kid wanders away.
+    // Close the restart question if a kid wanders away.
     if (S.menu === 'pause' && D.pausePanel.classList.contains('asking') && !HOLDS.length &&
-      S.t - S.askT > (S.restartKind === 'normal' ? 6 : 15)) closeAsk();
+      S.t - S.askT > 6) closeAsk();
   }
 
   // Tap (for scrollable bag rows): fires on pointerup if the finger didn't travel; a browser pan sends pointercancel.
@@ -440,9 +440,9 @@ const UI = (() => {
     el('div', 'u-xpstar', D.xp, '⭐');
     D.gold = el('div', 'u-gold', st, '<span class="u-coin"></span><span class="u-gn">' + ol('0', 'u-gold-t') + '</span>');
     D.goldB = D.gold.querySelector('.u-gn b'); D.goldI = D.gold.querySelector('.u-gn i');
-    D.hardcoreTag = el('div', 'u-hardcore-tag u-hide', st, '⚔ Hardcore');
+    D.difficultyTag = el('div', 'u-difficulty-tag', st, 'Normal');
 
-    // top-right: 🎒 and ⏸ in one row hugging the top edge, left of the minimap (music lives in the pause menu)
+    // top-right: 🎒 and ⏸ in one row hugging the top edge, left of the minimap (music lives on the title screen)
     const tr = D.tr = el('div', 'u-tr', hud);
     const sb = D.sbtns = el('div', 'u-sbtns', tr);
     D.bagBtn = el('button', 'u-rbtn', sb, '<span class="u-emo">🎒</span><span class="u-dot"></span>');
@@ -490,7 +490,7 @@ const UI = (() => {
       D.sk.push({ b, ico: b.firstChild, cd: b.children[1], cdn: b.children[2], shown: false, p: -1, n: -1 });
     }
 
-    buildTitle(root); buildChoice(root); buildPause(root); buildBag(root); buildWin(root);
+    buildTitle(root); buildChoice(root); buildPause(root); buildBag(root); buildWin(root); buildMerchant(root);
     // subtitles live above every screen (the victory line plays over the victory panel)
     D.sub = el('div', 'u-sub', root, '<div class="u-subico">✨</div><div class="u-subtxt"></div>');
     D.subIco = D.sub.firstChild; D.subTxt = D.sub.lastChild;
@@ -565,27 +565,36 @@ const UI = (() => {
     aud('stopVoice');
     showScreen(D.choice, false);
     if (S.choiceFrom === 'pause') {
-      setMode('play'); S.menu = 'pause'; D.pausePanel.classList.remove('asking'); showScreen(D.pause, true);
+      setMode('play'); S.menu = 'pause'; D.pausePanel.classList.remove('asking'); closeDifficulty(); showScreen(D.pause, true);
     } else { setPaused(false); showTitle(); D.playBtn.focus({ preventScroll: true }); }
   }
   function buildPause(root) {
     const s = D.pause = el('div', 'u-screen u-dim', root);
     const p = D.pausePanel = el('div', 'u-panel u-pause-panel', s);
-    el('div', 'u-ptitle', p, ol('Mola', 'u-gold-t'));
+    D.pauseTitle = el('div', 'u-ptitle', p, ol('Mola', 'u-gold-t'));
     const m = el('div', 'u-main', p);
-    const mode = D.modeCard = el('div', 'u-mode-card', m);
-    D.modeName = el('div', 'u-mode-name', mode);
-    D.modeSave = el('div', 'u-mode-save', mode);
     D.resume = el('button', 'u-btn g wide', m, SVG.play + '<span>Devam Et</span>');
-    const row = el('div', 'u-prow', m);
-    D.pSnd = el('button', 'u-btn p', row, SVG.sound + '<span class="u-lab">Efektler Açık</span>'); D.pSnd.dataset.tog = 'sound';   // sound effects only
-    D.pMus = el('button', 'u-btn p', row, SVG.note + '<span class="u-lab">Müzik Açık</span>'); D.pMus.dataset.tog = 'music';
+    D.difficultyBtn = el('button', 'u-btn p wide', m, '<span>Zorluk: Normal</span>');
     D.saveBtn = el('button', 'u-btn b wide', m, SVG.save + '<span>Kaydet</span>');
     D.restart = el('button', 'u-btn o wide', m, SVG.again + '<span>Baştan Başla</span>');
-    D.hardcore = el('button', 'u-btn r wide', m, '<span>Hardcore başlat</span>');
-    D.hardcoreContinue = el('button', 'u-btn p wide u-hide', m, '<span>Hardcore kaydını aç</span>');
-    // Restart question (parental gate): same height as the main panel; the big green "Hayır" lands exactly where
-    // "Baştan Başla" was (a double tap is safe) and the small red "Evet" only fires after a 2 s press-and-hold.
+    const dif = el('div', 'u-difficulty', p);
+    el('div', 'u-difficulty-hint', dif, 'Seçimin hemen uygulanır.<br> İlerlemen ve eşyaların korunur.');
+    const choices = el('div', 'u-difficulty-choices', dif);
+    D.difficultyChoices = ['normal', 'hard'].map((id, i) => {
+      const b = el('button', 'u-difficulty-choice', choices,
+        `<strong>${i ? 'Zor' : 'Normal'}</strong><span>${i ? 'Daha güçlü ve saldırgan düşmanlar.<br>Daha sert boss yetenekleri.' : 'Dengeli bir macera.<br>Daha rahat dövüşler.'}</span><small></small>`);
+      b.dataset.difficulty = id;
+      b.setAttribute('aria-pressed', 'false');
+      onPress(b, () => {
+        const g = M.GAME;
+        if (g && g.setDifficulty && g.setDifficulty(id)) syncDifficulty();
+        else nope(b);
+      }, { menu: true });
+      return b;
+    });
+    el('div', 'u-difficulty-note', dif, 'İki zorlukta da Mola → Kaydet ile kaydedebilirsin.');
+    D.difficultyBack = el('button', 'u-btn p wide', dif, SVG.close + '<span>Geri</span>');
+    // Restart question: the small red "Evet" only fires after a 2 s press-and-hold.
     const ask = el('div', 'u-ask', p);
     D.askText = el('div', 'u-asktxt', ask, 'Yeniden en baştan<br>başlansın mı?');
     const yb = el('div', 'u-yesbox', ask);
@@ -593,6 +602,84 @@ const UI = (() => {
     el('div', 'u-yeshint', yb, 'Basılı tut');
     D.no = el('button', 'u-btn g wide', ask, SVG.close + '<span>Hayır</span>');
   }
+  function syncDifficulty() {
+    const hard = M.GAME && M.GAME.difficulty === 'hard', name = hard ? 'Zor' : 'Normal';
+    if (D.difficultyTag) {
+      D.difficultyTag.textContent = name;
+      D.difficultyTag.classList.toggle('hard', !!hard);
+    }
+    if (D.difficultyBtn) D.difficultyBtn.textContent = 'Zorluk: ' + name;
+    if (D.difficultyChoices) D.difficultyChoices.forEach(b => {
+      const selected = b.dataset.difficulty === (hard ? 'hard' : 'normal');
+      b.setAttribute('aria-pressed', String(selected));
+      b.querySelector('small').textContent = selected ? '✓ Seçili' : 'Seç';
+    });
+  }
+  function openDifficulty() {
+    closeAsk(); syncDifficulty();
+    D.pausePanel.classList.add('choosing-difficulty');
+    D.pauseTitle.innerHTML = ol('Zorluk', 'u-gold-t');
+  }
+  function closeDifficulty() {
+    D.pausePanel.classList.remove('choosing-difficulty');
+    D.pauseTitle.innerHTML = ol('Mola', 'u-gold-t');
+    syncDifficulty();
+  }
+  function buildMerchant(root) {
+    const s = D.shop = el('div', 'u-screen u-dim', root);
+    const p = el('div', 'u-panel u-shop-panel', s);
+    const head = el('div', 'u-shop-head', p);
+    el('div', 'u-shop-seal', head, '☾');
+    const name = el('div', '', head);
+    el('div', 'u-shop-kicker', name, 'AY IŞIĞINDA KÜÇÜK MUCİZELER');
+    el('div', 'u-ptitle', name, ol('Mırmır Ayışığı', 'u-gold-t'));
+    el('div', 'u-shop-greeting', name, '“Cebindeki altın biraz sihir istiyor mu?”');
+    D.shopGold = el('div', 'u-shop-gold', p);
+    D.shopOffers = el('div', 'u-shop-offers', p);
+    D.shopStatus = el('div', 'u-shop-status', p, 'Kılıç ve değnek güçlendirmeleri ortak 2 kullanım hakkına sahiptir.');
+    D.shopStatus.setAttribute('role', 'status'); D.shopStatus.setAttribute('aria-live', 'polite');
+    const foot = el('div', 'u-shop-foot', p);
+    el('div', 'u-shop-note', foot, 'Alışverişte oyun durur. İlerlemeni Mola → Kaydet ile saklayabilirsin.');
+    const back = el('button', 'u-btn g', foot, SVG.play + '<span>Yola Devam</span>');
+    onPress(back, () => closeMenu(), { menu: true });
+    s.addEventListener('pointerdown', e => { if (e.target === s) closeMenu(); });
+    D.shopPrompt = el('button', 'u-merchant-prompt u-hide', D.hud, '🐾 Mırmır · Alışveriş <small>E</small>');
+    onPress(D.shopPrompt, () => { if (M.GAME) M.GAME.visitMerchant(); }, { menu: true });
+    D.wardTag = el('div', 'u-ward-tag u-hide', D.tl, '☁ Bulut Örtüsü · %8');
+  }
+  function renderMerchant() {
+    const g = M.GAME, info = g && g.merchantInfo(); if (!info) return;
+    D.shopGold.innerHTML = '<span class="u-coin"></span> ' + info.gold + ' altın <small>· Bu bölümün tezgâhı</small>';
+    D.shopOffers.innerHTML = '';
+    for (const o of info.offers) {
+      const card = el('div', 'u-shop-card' + (!o.left ? ' sold' : ''), D.shopOffers);
+      el('div', 'u-shop-icon', card, o.icon);
+      const text = el('div', 'u-shop-copy', card);
+      el('strong', '', text, esc(o.name));
+      el('span', '', text, esc(o.text));
+      el('small', '', text, (o.id === 'weapon' || o.id === 'offhand' ? 'Ortak hak: ' : 'Kalan: ') + o.left);
+      const b = el('button', 'u-shop-buy', card, `<b>${o.price} <span class="u-coin"></span></b><span>${esc(o.reason || 'Satın Al')}</span>`);
+      b.disabled = !o.enabled; b.dataset.offer = o.id;
+      b.setAttribute('aria-label', `${o.name}, ${o.price} altın, ${o.reason || 'satın al'}`);
+      const buy = () => {
+        if (b.disabled || performance.now() < S.guardUntil) return;
+        if (g.buyMerchant(o.id)) {
+          S.guardUntil = performance.now() + 450;
+          renderMerchant(); D.shopStatus.textContent = '✨ ' + o.name + ' alındı!';
+          portraitSoon(0); bump(D.shopGold, 1.06);
+        } else { renderMerchant(); D.shopStatus.textContent = 'Bu alışveriş şu an yapılamıyor.'; }
+      };
+      onPress(b, buy, { menu: true });
+      b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); buy(); } });
+    }
+  }
+  function openMerchant() {
+    if (!canMenu() || !M.GAME.merchantNear()) return;
+    S.menu = 'merchant'; setPaused(true); renderMerchant();
+    D.shopStatus.textContent = 'Her silah en fazla 2 kez güçlenir. Her tezgâhta ortak 2 güçlendirme hakkı vardır.';
+    showScreen(D.shop, true);
+  }
+
   function buildBag(root) {
     const s = D.bagS = el('div', 'u-screen u-dim', root);
     const p = D.bagP = el('div', 'u-panel u-bag', s);
@@ -628,18 +715,18 @@ const UI = (() => {
   function wireButtons() {
     onPress(D.playBtn, () => startGame(false), { menu: true });
     onPress(D.contBtn, () => startGame(true), { menu: true });
-    for (const b of [D.tMus, D.pMus, D.pSnd]) onPress(b, () => setPref(b.dataset.tog, !S.prefs[b.dataset.tog]), { menu: true });
+    onPress(D.tMus, () => setPref('music', !S.prefs.music), { menu: true });
     // ⏸: hold still 0.5 s, then lift (random taps near the top edge must not stop the game; a short tap only wiggles it).
     // 🎒: a quick tap. Longer or dragging presses on either are a steering finger and walk Feza instead (onCorner).
     onCorner(D.pauseBtn, () => openPause(), { hold: 0.5, max: 2.5, early: () => wiggle(D.pauseBtn) });
     onCorner(D.bagBtn, () => openBag(), { hold: 0, max: 0.8 });
     onPress(D.resume, () => closeMenu(), { menu: true });
     onPress(D.saveBtn, () => saveNow(), { menu: true });
-    onPress(D.restart, () => askRestart('normal'), { menu: true });
-    onPress(D.hardcore, () => askRestart('hardcore'), { menu: true });
-    onPress(D.hardcoreContinue, () => askRestart('hardcoreContinue'), { menu: true });
+    onPress(D.difficultyBtn, () => openDifficulty(), { menu: true });
+    onPress(D.difficultyBack, () => closeDifficulty(), { menu: true });
+    onPress(D.restart, () => askRestart(), { menu: true });
     onPress(D.no, () => closeAsk(), { menu: true });
-    onHold(D.yes, 2, () => S.restartKind === 'normal' ? restartAll() : startHardcore(S.restartKind === 'hardcoreContinue'), { menu: true });
+    onHold(D.yes, 2, () => restartAll(), { menu: true });
     onPress(D.bagClose, () => closeMenu(), { menu: true });
     D.bagS.addEventListener('pointerdown', e => { if (e.target === D.bagS) closeMenu(); });
     D.pause.addEventListener('pointerdown', e => {
@@ -662,30 +749,9 @@ const UI = (() => {
       if (ok) { s.b.classList.remove('new'); bump(s.b, 1.15, true); } else nope(s.b, true);
     }));
   }
-  function askRestart(kind) {
-    S.restartKind = kind;
-    const cp = M.GAME && M.GAME.hardcoreSaveInfo && M.GAME.hardcoreSaveInfo();
-    D.askText.innerHTML = kind === 'normal' ? (M.GAME.hardcore
-      ? 'Normal macera başlasın mı?<small>Karakter seçimine döneceksin.<br>Hardcore kaydın ayrı saklanır.</small>'
-      : 'Yeniden en baştan<br>başlansın mı?') : kind === 'hardcoreContinue'
-      ? `Hardcore kaydına dönülsün mü?<small>${cp ? cp.zone + 1 : '?'}. bölümün başında, kayıtlı karakterle devam edeceksin.</small>`
-      : 'Yeni Hardcore macerası başlasın mı?<small>Onaylayınca Hardcore açılır; bu karakterle en baştan başlarsın.<br>Kayıt yalnızca 2., 4. ve 6. bölüm başında.' +
-        (cp ? '<br>Önceki Hardcore kaydı silinecek.' : '') + '</small>';
+  function askRestart() {
+    D.askText.innerHTML = 'Yeniden en baştan<br>başlansın mı?<small>Karakter seçimine dönülür.<br>Yeni oyun Normal zorlukta başlar.</small>';
     D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800;
-  }
-  async function startHardcore(cont) {
-    const g = M.GAME;
-    if (!g || S.busy) return;
-    S.busy = true;
-    try {
-      const heroClass = g.P.heroClass;
-      closeMenu(); clearBanners(); clearCards(); hideBoss(); S.cine = null; aud('stopVoice');
-      await fade(1, 0.35, 'load');
-      if (cont) g.continueHardcore();
-      else newGameWithIntro(g, { heroClass, plus: false, hardcore: true });
-      setMode('play'); refreshAllSkills(); portraitSoon(0);
-      renderNow(); await frames(2); fade(0, 0.5, null);
-    } finally { S.busy = false; }
   }
   function closeAsk() {
     if (!D.pausePanel.classList.contains('asking')) return;
@@ -769,11 +835,17 @@ const UI = (() => {
       }
       if (DIRS[c]) { K[DIRS[c]] = true; sendKeys(); e.preventDefault(); return; }
       if (e.repeat) { if (c === 'Space') e.preventDefault(); return; }
-      if (c === 'Escape') { if (S.menu) closeMenu(); else if (S.mode === 'play') openPause(); return; }
+      if (c === 'Escape') {
+        if (S.menu === 'pause' && D.pausePanel.classList.contains('choosing-difficulty')) closeDifficulty();
+        else if (S.menu === 'pause' && D.pausePanel.classList.contains('asking')) closeAsk();
+        else if (S.menu) closeMenu(); else if (S.mode === 'play') openPause();
+        return;
+      }
       if (S.mode === 'title' && (c === 'Enter' || c === 'Space')) { e.preventDefault(); startGame(false); return; }
       if (!playing()) return;
       if (c === 'Space') { e.preventDefault(); attack(); bump(D.atk, 1.1, true); }
       else if (/^Digit[1-6]$/.test(c)) { const i = +c.slice(5) - 1, s = D.sk[i]; if (s && s.shown) { const ok = safe('cast', () => M.GAME.input.cast(i)); if (ok) { s.b.classList.remove('new'); bump(s.b, 1.15, true); } } }
+      else if (c === 'KeyE') { if (M.GAME.visitMerchant) M.GAME.visitMerchant(); }
       else if (c === 'KeyQ') { if (safe('potion', () => M.GAME.input.potion())) bump(D.pot, 1.18); }
       else if (c === 'KeyB' || c === 'KeyI') openBag();
     });
@@ -1059,6 +1131,7 @@ const UI = (() => {
     });
     P.cp = diamond('#d9a0c8', false); P.cpOn = diamond('#ff6ad0', true);
     P.npc = emojiSprite('🦉', 22, 'rgba(255,230,160,0.7)');
+    P.merchant = emojiSprite('🐾', 23, 'rgba(160,255,220,0.9)');
     for (const k in P) if (k.indexOf('b:') === 0) delete P[k];   // boss badges: rebuilt for the new size on first use (bossSpr)
     P.crystal = emojiSprite('💖', 26, 'rgba(255,150,220,0.9)');
   }
@@ -1153,6 +1226,7 @@ const UI = (() => {
     if (L) {
       if (L.chestObjs) for (const o of L.chestObjs) if (!o.opened && mInView(o.x, o.z, 2) && seen(o.x, o.z)) mIcon(MM.spr.chest, o.x, o.z, 1);
       if (L.cpObjs) for (const o of L.cpObjs) if (mInView(o.x, o.z, 2) && (o.active || seen(o.x, o.z))) mIcon(o.active ? MM.spr.cpOn : MM.spr.cp, o.x, o.z, o.active ? 1 + 0.08 * Math.sin(t * 4) : 1);
+      if (L.merchant && mInView(L.merchant.x, L.merchant.z, 2) && seen(L.merchant.x, L.merchant.z)) mIcon(MM.spr.merchant, L.merchant.x, L.merchant.z, 1);
       if (L.npcObj && mInView(L.npcObj.x, L.npcObj.z, 2) && seen(L.npcObj.x, L.npcObj.z)) mIcon(MM.spr.npc, L.npcObj.x, L.npcObj.z, 1);
     }
     // loot items (rarity coloured stars)
@@ -1865,7 +1939,7 @@ const UI = (() => {
   }
   function setHud(on) {
     S.hud = on; D.root.classList.toggle('hud-on', on);
-    if (M.GAME) D.hardcoreTag.classList.toggle('u-hide', !M.GAME.hardcore);
+    syncDifficulty();
     if (on) { last.xp = last.lvl = last.gold = last.pot = -1; last.potEv = M.GAME ? M.GAME.P.potions : 99; ORB.acc = 1; }
   }
   function setMode(m) {
@@ -1889,17 +1963,7 @@ const UI = (() => {
   function openPause() {
     if (!canMenu()) return;
     S.menu = 'pause'; D.pausePanel.classList.remove('asking');
-    const hc = !!M.GAME.hardcore;
-    const cp = M.GAME.hardcoreSaveInfo && M.GAME.hardcoreSaveInfo();
-    D.modeCard.classList.toggle('hardcore', hc);
-    D.modeName.textContent = hc ? '⚔ Hardcore açık' : '🌟 Normal macera';
-    D.modeSave.textContent = hc ? (cp ? `Son kayıt: ${cp.zone + 1}. bölümün başı` : 'Henüz kayıt yok · İlk kayıt 2. bölümde')
-      : 'İlerleme Mola → Kaydet ile saklanır';
-    D.saveBtn.classList.toggle('u-hide', hc);
-    D.restart.innerHTML = SVG.again + `<span>${hc ? 'Normal baştan başla' : 'Baştan Başla'}</span>`;
-    D.hardcore.textContent = hc ? 'Hardcore’u yeniden başlat' : 'Hardcore başlat';
-    D.hardcoreContinue.textContent = cp ? `Hardcore’a dön · ${cp.zone + 1}. bölüm` : 'Hardcore kaydını aç';
-    D.hardcoreContinue.classList.toggle('u-hide', hc || !cp);
+    closeDifficulty();
     setPaused(true); showScreen(D.pause, true);
   }
   function openBag() {
@@ -1909,9 +1973,10 @@ const UI = (() => {
   }
   function closeMenu() {
     if (!S.menu) return;
+    if (S.menu === 'merchant') aud('stopVoice');
     if (S.menu === 'bag') newItems.clear();
-    else closeAsk();
-    showScreen(S.menu === 'bag' ? D.bagS : D.pause, false);
+    else { closeAsk(); closeDifficulty(); }
+    showScreen(S.menu === 'bag' ? D.bagS : S.menu === 'merchant' ? D.shop : D.pause, false);
     S.menu = null; setPaused(false);
   }
   // Parent's wish: every launch is a new game ("Oyna"); "Devam Et" appears next to it only when the parent saved with
@@ -1987,7 +2052,7 @@ const UI = (() => {
   // Mola › Kaydet: the only way progress is kept. The button itself says "Kaydedildi!" for a moment (the menu stays open).
   function saveNow() {
     const g = M.GAME, b = D.saveBtn;
-    if (!g || !g.save || g.hardcore || S.saveT) return;
+    if (!g || !g.save || S.saveT) return;
     const ok = !!safe('save', () => g.save());
     b.classList.toggle('g', ok); b.classList.toggle('r', !ok); b.classList.remove('b');
     b.innerHTML = ok ? SVG.check + '<span>Kaydedildi!</span>' : SVG.close + '<span>Kaydedilemedi</span>';
@@ -2071,9 +2136,9 @@ const UI = (() => {
       for (const it of items) {
         const r = clamp(it.rarity || 0, 0, 3), col = rarCol(r), slot = g.equipSlot ? g.equipSlot(it) : sl, equipped = P.equip[slot];
         const t = el('button', 'u-tile' + (it === equipped ? ' on' : '') + (newItems.has(it) ? ' fresh' : ''), box.tiles,
-          `${itemThumb(it)}<span class="u-stars">${stars(it)}</span><span class="u-chk">✓</span><span class="u-new">YENİ</span>`);
+          `${itemThumb(it)}<span class="u-stars">${stars(it)}</span>${it.polish ? '<span class="u-polish" aria-hidden="true">✨' + it.polish + '</span>' : ''}<span class="u-chk">✓</span><span class="u-new">YENİ</span>`);
         const diff = (it.power || 0) - (equipped ? equipped.power || 0 : 0);
-        t.setAttribute('aria-label', `${it.ad || 'Eşya'}${it === equipped ? ', kuşanıldı' : ', güç farkı ' + (diff > 0 ? '+' : '') + diff}`);
+        t.setAttribute('aria-label', `${it.ad || 'Eşya'}${it.polish ? ', ' + it.polish + ' kez güçlendirildi' : ''}${it === equipped ? ', kuşanıldı' : ', güç farkı ' + (diff > 0 ? '+' : '') + diff}`);
         t.title = t.getAttribute('aria-label');
         t.style.setProperty('--rc', col); t.style.setProperty('--rl', shade(col, 0.5)); t.style.setProperty('--rd', shade(col, -0.6));
         onTap(t, () => {
@@ -2190,7 +2255,8 @@ const UI = (() => {
     if (!g || !g.on) return;
     const on = (e, f) => g.on(e, d => { try { f(d || {}); } catch (err) { console.error('[UI] event ' + e, err); } });
     on('zone', d => {
-      D.hardcoreTag.classList.toggle('u-hide', !g.hardcore);
+      perfReset(3);   // zone construction and its first shaders are not sustained gameplay load
+      syncDifficulty();
       mapReset(g.L);
       refreshAllSkills();
       portraitSoon(0.1);
@@ -2248,7 +2314,6 @@ const UI = (() => {
     on('respawn', d => {
       fadeSnap(0.92, 'flash');
       fade(0, 0.9, null);
-      if (d.hardcore) toast(d.zone === 0 ? 'Hardcore: 1. bölümden başlıyorsun' : `Hardcore: ${d.zone + 1}. bölüm kaydına döndün`, true);
     });
     on('boss', d => { if (d.on) showBoss(d); else hideBoss(); });
     on('bonus', d => bonusPips(d));   // Round 6: the boss's bonus (07 bonusStep) — pips on the boss bar
@@ -2274,7 +2339,8 @@ const UI = (() => {
     });
     on('toast', d => toast(d.text || ''));
     on('checkpoint', () => toast('✨ Neşe taşı parladı!', true));
-    on('hardcoreCheckpoint', d => toast(`Hardcore kaydı: ${d.zone + 1}. bölümün başı`, true));
+    on('difficulty', () => syncDifficulty());
+    on('merchant', () => openMerchant());
   }
 
   // ───────────────────────── Camera ─────────────────────────
@@ -2750,13 +2816,14 @@ const UI = (() => {
     const span = ts - m.t0;
     if (span < 500) return;
     const q = typeof QUALITY !== 'undefined' ? QUALITY : null;
-    m.el.textContent = Math.round(m.n * 1000 / span) + ' FPS · ' + (span / m.n).toFixed(1) + ' ms'   // two lines: fits a narrow phone
+    m.el.textContent = Math.round(m.n * 1000 / span) + ' FPS · hedef ' + Math.round(PERF.target) + '\n' + (span / m.n).toFixed(1) + ' ms'   // short lines also fit a phone
       + (m.worst > 0.034 ? ' · en uzun ' + Math.round(m.worst * 1000) + ' ms' : '')
       + (q ? '\nçözünürlük ' + (+q.dpr.toFixed(2)) + '× · MSAA ' + q.msaa + '×' : '');
     m.t0 = ts; m.n = 0; m.worst = 0;
   }
   function frame(ts) {
     requestAnimationFrame(frame);
+    perfRaf(ts, S.paused && !S.needRender && !S.busy);   // sample BEFORE our FPS cap; idle menus reveal browser cadence
     const interval = 1000 / frameRate;
     S.frameAcc = (S.frameAcc || 0) + (S.lastRaf ? ts - S.lastRaf : interval); S.lastRaf = ts;
     if (S.frameAcc < interval - 2) return;
@@ -2771,8 +2838,8 @@ const UI = (() => {
   // One frame; every module call is isolated so a failing module never stops the loop (no per-frame closures).
   function step(dt, raw, render) {
     S.frame++; S.t += dt;
-    // resolution watchdog only during play: the title/victory scenes must not lower the DPR before the game starts
-    if (S.mode === 'play' && !S.paused) { try { perfTick(raw); } catch (e) { warn('perfTick', e); } }
+    // Explicit inactive frames clear the sampling window: menus, loading and title time cannot count as smooth play.
+    try { perfTick(raw, S.mode === 'play' && !S.paused && !S.busy && M.GAME && M.GAME.state === 'play'); } catch (e) { warn('perfTick', e); }
     const g = M.GAME, P = g && g.P;
     if (!S.paused) {
       TIME.dt = dt; TIME.t += dt; TIME.u.value = TIME.t;
@@ -2795,6 +2862,10 @@ const UI = (() => {
     if (S.mode === 'title') titleVoiceTick(dt);
     if (S.bpq && S.bpq.length && S.t >= S.bpqT) { if (S.mode === 'end') { bossPortrait(S.bpq.shift()); S.bpqT = S.t + 0.35; } else S.bpq.length = 0; }
     if (S.portraitDirty && S.t >= S.portraitAt) { S.portraitDirty = false; refreshPortrait(); }
+    if (M.GAME && D.shopPrompt) {
+      D.shopPrompt.classList.toggle('u-hide', S.mode !== 'play' || !!S.menu || M.GAME.state !== 'play' || !M.GAME.merchantNear());
+      D.wardTag.classList.toggle('u-hide', !M.GAME.merchantWard());
+    }
     try { hudTick(dt); } catch (e) { warn('hud', e); }
     if (render && (!S.paused || S.needRender)) { S.needRender = false; try { renderFrame(); } catch (e) { warn('renderFrame', e); } }
   }
@@ -2812,8 +2883,8 @@ const UI = (() => {
     if (Q.has('fps')) toggleFps(true);
     if (M.AUD) M.AUD.onSubtitle = subtitle;
     bindInput();
-    // let the loading spinner paint before the heavy synchronous setup
-    requestAnimationFrame(() => setTimeout(heavyInit, 0));
+    // Measure browser cadence while only the loading spinner is visible, before 3D work can slow rAF down.
+    perfMeasure(() => setTimeout(heavyInit, 0));
     // offline play: register sw.js on every http(s) build (it serves src/*.js network-first, so dev files are never stale)
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       const reg = () => navigator.serviceWorker.register('sw.js').catch(() => {});

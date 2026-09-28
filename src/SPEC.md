@@ -6,9 +6,42 @@ creatures cursed by the Huysuz Ejderha (grumpy dragon) — but (Feza's request) 
 no angry brows, no frowns, no fangs, nothing scary. Defeating one does NOT kill it: it becomes **overjoyed** (^‿^, big smile, hearts),
 hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, nothing scary. Everything cute, colourful, polished.
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
-bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a120fps render cap on every device, including phones and tablets (actual rate follows browser/display capability).
+bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a 120 FPS render cap on PC/Mac and 60 FPS on tablets/phones (actual rate follows browser/display capability).
 
-## Running away wins (latest, parent: "kaçmaya çalışınca Feza boss'un yanından ayrılmıyor")
+## Adaptive rendering (latest; overrides earlier quality watchdog thresholds)
+- Desktop PC and Mac both start at DPR 1.5 regardless of OS/browser pixel density (`?hd` requests 2).
+  Mobile/tablet retains its existing min(devicePixelRatio, 1.25) default and 60 FPS cap. No graphics menu is added.
+- On desktop, `perfMeasure(done)` samples low-load rAF at boot while the loading screen is shown, before heavy game initialization.
+  A bounded timer fallback prevents hidden tabs from blocking startup; an unmeasured startup conservatively targets 60.
+  The target follows observed browser cadence,
+  capped at 120 on desktop; it is an estimate, not a query of monitor hardware. Mobile keeps its existing fixed 60 target.
+- On desktop, `perfRaf(ts, idle)` samples before UI's frame limiter. Only low-load paused/menu frames can lower the cadence estimate;
+  gameplay can raise it on sustained faster callbacks, but a GPU-heavy battle cannot redefine 120 Hz as a 60 Hz screen.
+- Desktop quality starts by lowering DPR in .25 steps to 1, then MSAA. Decisions use sustained gameplay frame rates
+  relative to the measured target, not the old fixed below42/above57 thresholds. Stable play permits cautious step-ups;
+  a raise is tried after 17.5 seconds above 95 % of target. Failed raises wait longer (up to 60 seconds). A full
+  downward trial without useful FPS gain restores the sharpest useful level; repeated no-gain retries wait 60/120/240 seconds. Mobile retains
+  its earlier MSAA-first ladder, fixed 42/57 thresholds and cap protection.
+- `perfTick(rawDt, active)` receives false during title, pause, transitions and UI loading. Zone events allow 3 seconds
+  of grace; these periods do not count toward overload or recovery. The `.` meter includes the measured target.
+
+## Normal-mode balance (latest; overrides earlier balance figures)
+- `DIFF.normal` in 07 owns this tuning; all four changes are gated by `!hard`.
+- Above the usual zone damage, creature HP scales with damage to the power `0.55` (Zor keeps `DIFF.power.k = 0.8`).
+  At/below the threshold, base HP and the existing per-type/elite multipliers stay the same.
+- Boss HP keeps the existing low/high clamps and hybrid dragon reference. Above the clamped usual zone damage,
+  only 75 % of extra power raises boss HP; weaker gear keeps the same assistance. The NG multiplier is applied once, as before.
+- Wizard basic wand swing: 0.50 s instead of 0.55 s; hit strength, skills and hybrid wand timing stay the same.
+- A successful boss bonus grants ×1.25 player damage only while its bonus state is `stun` AND its actual phase matches
+  `stunPh`. Forced/scripted hits (including the dragon's 5 % heart), ordinary recoveries and the knight's banner stun
+  are excluded. The bonus is derived from encounter state, so it ends with the stun or encounter cleanup.
+- Normal healing and damage taken are unchanged. Zor retains the former Hardcore combat tuning; save rules are shared (see below).
+- Validation: `r6_game_kid` with all 3 classes, bonus go/ignore, seed 11 (also seeded combat RNG), potion below 30 %,
+  no god mode: all 6 before + 6 after adventures reached the ending without runtime errors. Mean boss times in this
+  sample: warrior 51.3 → 48.2 s, wizard 63.6 → 54.5 s, hybrid 54.7 → 54.8 s; loot/routes diverge after combat changes.
+  446 focused bonus/save/flee/mode checks passed; 180 Hardcore stat cases + 36 spawned-enemy cases matched the old build.
+
+## Running away wins (parent: "kaçmaya çalışınca Feza boss'un yanından ayrılmıyor")
 - A finger put down on a creature turns into walking after 26 px when it heads away from / sideways to it (Feza → creature
   direction, measured from the touch point on the ground), else after 90 px as before. It also drops a sword swing.
 - Drag or keys more than ~110° against a sword swing's facing end the swing at once (no 0.22 brake, no turning back); wand shots go on.
@@ -195,19 +228,29 @@ lazily made under the fade like the other themes; plaster/roof/wood/cobble are r
 subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci 🧹, ilk_tellal 🥁 (boss lines use its portrait).
 **Docs:** README (6 chapters, the knight row in the TBC table, the warrior's treasure list), this section; sw.js CACHE bump.
 
-## Opt-in Hardcore (latest)
-- `GAME.hardcore` is runtime-only. Only `newGame({hardcore:true,plus:false,heroClass})` or explicit
-  `continueHardcore()` enables it. Normal new game, replay and `continueGame()` reset it to false.
-- Pause-menu Hardcore uses the existing hold-to-confirm restart gate. A permanent HUD badge and pause-mode card show active mode and last Hardcore checkpoint; confirmations disclose replacing any previous Hardcore save. It starts the same class fresh.
-  A separate in-game `Hardcore’a dön` action appears when `hasHardcoreSave()` is true; title Continue stays normal.
-- Manual `save()` returns false in Hardcore. Only zone1/3/5 entry (2nd/4th/6th chapters; the 6th since Round 5) writes
-  `fezaKotulereKarsi.hardcore.v1`; normal `fezaKotulereKarsi.v3` is untouched. `hardcoreCheckpoint` informs UI.
-  Death restores the last checkpoint's progression and a fresh zone, or resets the same class to forest before checkpoint1.
-  Restoration does not rewrite the checkpoint. Starting a fresh Hardcore clears its previous checkpoint.
-- HC multipliers: mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
-  ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; existing readable boss windups remain.
-  Raid special damage has another1.55 multiplier (2.2475 total). TBC warnings remain2s.
-  No combat regen, calm regen halved; no death-based enemy weakening or retained boss damage.
+## Difficulty and pause menu (latest; replaces all earlier Hardcore save/UI rules)
+- `GAME.difficulty` is `'normal' | 'hard'`. `setDifficulty(id)` returns false for invalid IDs or outside play/dead; otherwise
+  it applies immediately and returns true. A changed choice emits `'difficulty', {id}`. It works while paused.
+- The Mola main view has four actions: Devam Et, Zorluk: Normal/Zor, Kaydet, Baştan Başla. Audio toggles are removed from
+  this menu; the title music toggle remains. Zorluk opens a subview with two `aria-pressed` choices and Geri. It stays paused
+  after choosing; Escape first returns to Mola. A small HUD badge always names the current difficulty.
+- Switching never reloads a zone or resets the player, bag, loot, boss phases or progression. Each spawned enemy stores
+  `difficultyHp: [normal, hard]` from the same gear/level at spawn (bosses refresh once at first aggro). Preserve remaining
+  HP fraction, and scale damage/speed/cooldowns without re-evaluating current gear. Special adds retain their own factors.
+  In-flight hostile shots and mortars change damage too. Existing warnings and timed bonus targets keep their duration;
+  the next warning uses the new timing. Wizard swings preserve their animation fraction when duration changes.
+- `newGame({difficulty, heroClass, plus:false})` defaults to Normal. A fresh title/restart adventure always starts Normal;
+  New Game+ from the ending keeps the current choice unless explicitly overridden.
+- Manual `save()` works in both modes and stores `difficulty` in `fezaKotulereKarsi.v3`; Continue restores it. Older ordinary
+  saves default to Normal. Both modes wake up at the ordinary in-zone checkpoint after a defeat, keeping progression.
+  No automatic chapter saves, separate Hardcore menu or Hardcore recovery APIs remain.
+- If no usable ordinary save exists, `readSave` reads `fezaKotulereKarsi.hardcore.v1` as Zor. The raw legacy record is never
+  deleted/rewritten; reading does not write the common slot. Explicit Kaydet writes the common slot. `clearSave()` marks
+  `fezaKotulereKarsi.legacyHardcoreIgnored` so intentionally clearing a save cannot resurrect the old fallback.
+- Hard combat multipliers (HC table): mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
+  ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; readable boss windups remain.
+  Raid special damage has another1.55 multiplier (2.2475 total). TBC warnings remain2s. No combat regen, calm regen halved;
+  a stone heals only on its first activation; no new death-based enemy weakening or retained boss damage in Zor.
 
 ## Character classes and boss treasures (latest; overrides older notes below)
 - New adventures choose `heroClass: 'warrior' | 'wizard' | 'hybrid'` (Büyülü Şövalye) via the title picker.
@@ -284,8 +327,9 @@ subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci
   from Feza's damage). Hearts heal 10 %, regen after 5 s (1.2 %/s fighting, 5 %/s calm), 0.3 s invulnerability after a hit, new game starts with 2 potions.
   Auto-attack also works while dragging (gap < 1.1 m, within ±80° of the walking direction). Comic words limited by GAME.wordOK().
 - **Core:** LIGHTS.torches has 2 lights; LIGHTS.flash is a borrowed flash light (FX.lightFlash drives it); QUALITY.msaa (4; 2 on non-tablet touch devices);
-  QUALITY.dpr ≤ 1.5 (tablets 1.25) and sun shadow map 2048². UI frame() caps at 120 FPS (tablets 60). perfTick(rawDt, active) counts only gameplay frames and uses the original
-  below42/above57 FPS quality thresholds, avoiding quality-target reallocations while aiming at120 FPS; perfReset; precompile(obj, async) and
+  QUALITY.dpr starts at 1.5 on desktop (tablets ≤ 1.25) and sun shadow map 2048². UI frame() caps at 120 FPS (tablets 60).
+  perfTick(rawDt, active) counts only gameplay frames and follows the measured cadence target (see Adaptive rendering above);
+  perfReset; precompile(obj, async) and
   renderer.compile compile against rtMain; CTX_HOOKS run after a WebGL context restore (env map restored); SHADOW + viewRadius size the sun shadow
   box from the camera; PLAIN / ENV_OK for the no-float-render-target fallback. While POST.on the canvas has no depth/stencil, so all 3D goes through renderFrame.
 - **TEX:** TEX.init() builds common + forest surfaces; cave/volcano/castle ones (caveFloor, caveSand, basalt, ash, lava, castleFloor, carpet, brick)
@@ -435,7 +479,7 @@ smooth01, angDiff, dampAngle, dist2, $, mulberry32, RNG {seed,r,range,int,pick,c
 frand, fpick (Math.random, for fx), TIME {t, dt, u: shared time uniform}, UP, ZERO3, renderer, scene, camera, CAM,
 LIGHTS {hemi, sun, sunOffset, feza, torches[4]}, lightsFollow(x,z), setLighting({...}), setEnvironment(sky,horizon,ground,int),
 POST {on, strength, threshold, exposure, saturation, vignette, tint, tintAmt}, renderFrame(), resizeRenderer(), RESIZE_HOOKS,
-QUALITY {dpr, minDpr, msaa, tablet}, PERF, perfTick(rawDt), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
+QUALITY {dpr, minDpr, msaa, tablet}, QUALITY_TOP, PERF, perfMeasure(done), perfRaf(ts,idle), perfTick(rawDt,active), cameraFollow(x,y,z,dt,snap), groundFromScreen(sx,sy,y=0) → Vector3|null,
 toScreen(v3, out) → {x,y,vis}, G {sphere,hemi,cyl,cone,box,rbox,torus,capsule,ico,dodeca,octa} (cached unit geometries —
 never dispose them), Kit (add/push/pop/seg/build), mergeParts, tmat, onSphere(x,y,R,inset) → [pos, quat], col3, mixCol,
 stdMat(o), vcMat(o), glowMat(color,int,o), patchMat(mat,o), rimify(mat,color,strength,power), disposeTree(obj), shadows(obj,cast,recv),
@@ -754,3 +798,27 @@ Victory screen with confetti + "Tekrar Oyna". All buttons big (≥ 72 px), round
 ("Avenir Next Rounded", "Avenir Next", system-ui; weight 800–900). Every touch target uses pointer events, touch-action none.
 `?sessiz` → AUD never unlocks. `?ikon` → hide all UI, show Feza hero pose close-up for icon screenshots.
 ```
+
+
+## Travelling merchant (chapters 2, 4, 6)
+
+`LEVEL.generate` reserves `L.merchant={x,z}` in the start room of kefir/yanardag/kale before decorations and reachability repair.
+`EMODEL.merchant()` returns a merged moon-cat/stall model with `root` and `anim(dt)`; LEVEL owns its disposal.
+A 3.4-unit sanctuary blocks incoming damage and player attacks/casts; enemies cannot target its occupant or move into the stall perimeter.
+`GAME.merchantNear()`, `merchantInfo()`, `merchantWard()`, `visitMerchant()`, `buyMerchant(id)` expose the shop.
+Offer IDs: potion, ward, weapon, offhand (hybrid only). UI pauses in `merchant` menu; proximity is rechecked on purchase.
+`P.shopStock` is keyed by `ng:zoneId`, with potion/ward/polish counters capped at 3/1/2. `P.shopWard={zone,ng}` reduces final incoming damage by 8%, before rounding; expires on changing zones.
+Item primitives `polish` (0–2), `polishBase` preserve per-item improvements: +max(1,round(originalPower*.12)). Both hybrid hands share the zone's 2 purchases.
+Prices for the three zones: potion 45/75/110, ward 100/170/240, polish 130/220/320; multiply by 1+ng*.35 and round.
+Snapshots retain sanitized stock/ward/item fields; old saves default to no purchases. Fresh games reset purchases; NG+ gets new stock keys. Manual save only.
+Events: merchant opens UI, purchase carries `{name,price}`, gold carries negative amount. Audio: tuccar_merhaba, tuccar_iksir, tuccar_bulut, tuccar_parilti.
+
+
+## Repeat-adventure difficulty reference
+
+First adventure (`P.ng===0`) retains its existing Normal/Zor formulas. `newGame({plus:true})` captures `P.roundPower={ng,damage,magic,health}` after recalculating player stats and before spawning zone 0. Health is effective HP: maxHp/(1-armor/100), excluding transient shields/merchant ward.
+The reference is saved, validated and restored; old NG saves infer it once from current gear/level minus the current chapter's expected progression. Fresh starts clear it. Gear, level-ups, zone transitions, death and difficulty toggles never recapture it.
+`DIFF.repeat` supplies zone health references 140/185/250/310/370/440. Expected damage grows by half the difference between each zone's usual damage and zone 0; health grows by .35 of its corresponding difference.
+NG mob HP uses max(1,expectedDamage/usualZoneDamage) times pressure; outgoing damage uses max(1,expectedHealth/usualZoneHealth) times pressure. Pressure is 1+.06*min(ng,5). These replace the old NG multipliers, not stack on top.
+NG boss HP is per*max(lo,expectedDamage)*pressure, without the first-run cap or live equipment scaling. The dragon retains its hybrid-wand correction. Summoned enemies/whelps use the same frozen reference.
+Cooldowns shorten 6% on NG1, then 1.5% per round up to 12%; telegraph duration is unchanged. Movement bonus caps at 12%. Normal/Zor multipliers remain separate and live-switchable.

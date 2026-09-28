@@ -62,16 +62,17 @@ const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 // tablet: iPad (also in its "Mac" desktop mode), Android, phones — not PCs (a Windows touch laptop stays a PC); ?tablet / ?pc force it.
 // Tablets run at 60 FPS (UI frame()) with MSAA 4× and resolution 1.25× (parent's choice). A ProMotion iPad could not hold a steady 120
 // even at 1.0×, and 90 FPS can't be shown evenly on a 120 Hz screen; 60 is even. PC/Mac: resolution 1.5×, 120 FPS as before.
-// perfTick may lower msaa, then dpr, and raises them again when the device keeps up.
+// Desktop resolution adapts before MSAA; a low-load rAF measurement supplies the display/browser target (at most 120).
 const QUALITY = (() => {
   const tablet = Q.has('tablet') || (!Q.has('pc') && (/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
     (/Mac/i.test(navigator.platform) && navigator.maxTouchPoints > 1)));
   return {
     tablet,
-    dpr: Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : tablet ? 1.25 : 1.5), minDpr: 1,
+    dpr: tablet ? Math.min(window.devicePixelRatio || 1, Q.has('hd') ? 2 : 1.25) : Q.has('hd') ? 2 : 1.5, minDpr: 1,
     msaa: Q.has('msaa') ? clamp(parseInt(Q.get('msaa'), 10) || 0, 0, 8) : (Q.has('hd') || tablet || !(navigator.maxTouchPoints > 1) ? 4 : 2),
   };
 })();
+const QUALITY_TOP = Object.freeze({ dpr: QUALITY.dpr, msaa: QUALITY.msaa });
 // Tablets: a point light that doesn't reach a pixel skips its lighting maths (Feza's light and the 2 pooled torches exist in every zone,
 // mostly at intensity 0 or out of range) — the same picture for less GPU work (and battery). Patched before the first shader is built:
 // three.js caches programs by their parameters, not by the chunk text. A three.js update that changes the chunk just leaves it as it is.
@@ -365,25 +366,86 @@ function renderFrame() {
   renderer.render(sceneComp, FS_CAM);
 }
 
-// Frame-rate watchdog with a quality ladder: MSAA first, then resolution; steps back up after ~10 s of smooth play.
-// perfTick(rawDt, active): only gameplay frames count (active omitted → derived from UI/GAME state). A step down that
-// doesn't make the game faster is undone: then the frame rate is capped (iPad Low Power Mode = 30 fps), not the GPU.
-const PERF = { acc: 0, n: 0, fps: 60, level: 0, ladder: [], probe: null, capFps: 0, good: 0, upWait: 10, upJust: false, grace: 0, was: false };
+// Gameplay quality watchdog. Measure browser cadence with NO 3D drawing before boot, and again in static menus.
+// Loaded gameplay may prove a faster cadence, but never lowers the known target: GPU-limited 60 on a 120 Hz display
+// is not evidence of a 60 Hz cap. Desktop tries resolution first; the existing tablet quality policy stays separate.
+const PERF = { acc: 0, n: 0, fps: 60, target: 60, cadence: 0, measured: false,   // conservative until measured (hidden boot / timer fallback)
+  level: 0, ladder: [], probe: null, raised: null, rollback: null, capFps: 0, good: 0, bad: 0,
+  upWait: QUALITY.tablet ? 10 : 17.5, upJust: false, retry: 0, noGainWait: 60, grace: 0, was: false };
+const PERF_RAF = { last: null, idle: null, warm: 4, samples: [], span: 0 };
+function perfRaf(ts, idle = false) {
+  if (QUALITY.tablet) return;
+  const r = PERF_RAF;
+  if (document.hidden) { r.last = null; r.samples.length = 0; r.span = 0; r.warm = 4; return; }
+  const dt = r.last === null ? 0 : ts - r.last; r.last = ts;
+  if (idle !== r.idle) { r.idle = idle; r.samples.length = 0; r.span = 0; r.warm = 4; }
+  if (!(dt >= 1 && dt <= 100)) { r.samples.length = 0; r.span = 0; return; }
+  if (r.warm > 0) { r.warm--; return; }   // drain a preceding render / ignore the first callback's timestamp
+  r.samples.push(dt); r.span += dt;
+  if (r.span < 400 || r.samples.length < 8) return;
+  const sorted = r.samples.slice().sort((a, b) => a - b), ms = sorted[Math.floor((sorted.length - 1) * 0.2)];
+  let rate = 1000 / ms;
+  // Timers jitter a little; preserve unusual rates too, only snap close to the common ones.
+  for (const hz of [24, 25, 30, 40, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240]) if (Math.abs(rate - hz) < hz * 0.025) { rate = hz; break; }
+  const target = Math.min(120, Math.max(10, Math.round(rate)));
+  if (idle || target > PERF.target * 1.05) {
+    PERF.cadence = rate; PERF.measured = true;
+    if (Math.abs(target - PERF.target) >= 2) { PERF.target = target; perfReset(1); }
+  }
+  r.samples.length = 0; r.span = 0;
+}
+function perfMeasure(done) {
+  if (QUALITY.tablet || document.hidden) { done(); return; }
+  let raf = 0, timer = 0, first = null, ended = false;
+  const finish = () => {
+    if (ended) return; ended = true;
+    cancelAnimationFrame(raf); clearTimeout(timer); document.removeEventListener('visibilitychange', hidden);
+    done();
+  };
+  const hidden = () => { if (document.hidden) finish(); };
+  const tick = ts => {
+    if (document.hidden) { finish(); return; }
+    if (first === null) first = ts;
+    perfRaf(ts, true);
+    if (ts - first >= 600) finish(); else raf = requestAnimationFrame(tick);
+  };
+  PERF_RAF.last = null; PERF_RAF.idle = null;
+  document.addEventListener('visibilitychange', hidden);
+  timer = setTimeout(finish, 1000);   // hidden/throttled rAF must never hold the loading screen
+  raf = requestAnimationFrame(tick);
+}
 function perfLadder() {
-  const L = [], d0 = QUALITY.dpr, m0 = QUALITY.msaa;
-  L.push({ dpr: d0, msaa: m0 });
-  if (m0 > 2) L.push({ dpr: d0, msaa: 2 });
-  if (m0 > 0) L.push({ dpr: d0, msaa: 0 });
-  for (let d = d0; d > QUALITY.minDpr + 1e-3;) { d = Math.max(QUALITY.minDpr, d - 0.25); L.push({ dpr: d, msaa: 0 }); }
+  const L = [], d0 = QUALITY_TOP.dpr, m0 = QUALITY_TOP.msaa;
+  const push = (dpr, msaa) => L.push({ dpr, msaa });
+  push(d0, m0);
+  if (QUALITY.tablet) {
+    if (m0 > 2) push(d0, 2);
+    if (m0 > 0) push(d0, 0);
+    for (let d = d0; d > QUALITY.minDpr + 1e-3;) { d = Math.max(QUALITY.minDpr, d - 0.25); push(d, 0); }
+  } else {
+    let d = d0;
+    while (d > QUALITY.minDpr + 1e-3) { d = Math.max(QUALITY.minDpr, d - 0.25); push(d, m0); }
+    if (m0 > 2) push(d, 2);
+    if (m0 > 0) push(d, 0);
+  }
   return L;
 }
 function perfSet(i) {
+  if (!PERF.ladder.length) PERF.ladder = perfLadder();
   const q = PERF.ladder[i];
+  if (!q) return;
   PERF.level = i; QUALITY.dpr = q.dpr; QUALITY.msaa = q.msaa;
   resizeRenderer();
-  if (DEBUG) console.log('quality ' + i + ': dpr ' + q.dpr + ' msaa ' + q.msaa + ' (' + PERF.fps.toFixed(1) + ' fps)');
+  if (DEBUG) console.log('quality ' + i + ': dpr ' + q.dpr + ' msaa ' + q.msaa + ' (' + PERF.fps.toFixed(1) + '/' + PERF.target + ' fps)');
 }
-function perfReset(grace = 1) { PERF.acc = 0; PERF.n = 0; PERF.grace = grace; }
+function perfWindow(grace = 0) { PERF.acc = 0; PERF.n = 0; PERF.grace = Math.max(PERF.grace, grace); }
+function perfReset(grace = 1) {
+  // Interrupted comparisons are not evidence. Undo the unproven step on the next gameplay frame, not in the menu.
+  if (PERF.probe) PERF.rollback = PERF.probe.best !== undefined ? PERF.probe.best : PERF.probe.from;
+  if (PERF.raised) PERF.rollback = PERF.raised.from;
+  PERF.probe = PERF.raised = null; PERF.good = PERF.bad = 0; PERF.retry = 0; PERF.noGainWait = 60; PERF.was = false;
+  perfWindow(grace);
+}
 function perfActive() {
   if (document.hidden) return false;
   if (typeof UI !== 'undefined' && UI && (UI.mode !== 'play' || UI.menu || UI.paused)) return false;
@@ -392,32 +454,81 @@ function perfActive() {
 }
 function perfTick(rawDt, active) {
   if (active === undefined) active = perfActive();
-  if (!active || !(rawDt > 0)) { PERF.was = false; return; }
-  if (!PERF.was || rawDt > 0.25) { PERF.was = true; perfReset(1); return; }   // play (re)starts, zone load, tab was hidden
-  if (PERF.grace > 0) { PERF.grace -= rawDt; return; }                        // let shader warm-up hitches pass
+  if (!active || !(rawDt > 0)) { if (PERF.was) perfReset(1); return; }
+  if (!PERF.was || rawDt > 0.25) {
+    if (rawDt > 0.25) perfReset(1);
+    PERF.was = true;
+    if (PERF.rollback !== null) { perfSet(PERF.rollback); PERF.rollback = null; }
+    perfWindow(1); return;   // an explicit zone/context grace of 2–3 s is kept by perfWindow
+  }
+  if (PERF.grace > 0) { PERF.grace = Math.max(0, PERF.grace - rawDt); return; }
+  PERF.retry = Math.max(0, PERF.retry - rawDt);
   PERF.acc += rawDt; PERF.n++;
   if (PERF.acc < 2.5) return;
   const win = PERF.acc, fps = PERF.fps = PERF.n / PERF.acc;
   PERF.acc = 0; PERF.n = 0;
-  const L = PERF.ladder;
-  if (PERF.level === 0 && (!L.length || L[0].dpr !== QUALITY.dpr || L[0].msaa !== QUALITY.msaa)) PERF.ladder = perfLadder();
+  if (!PERF.ladder.length) PERF.ladder = perfLadder();
+  if (QUALITY.tablet) { perfTablet(fps, win); return; }
+  const low = PERF.target * 0.9, high = PERF.target * 0.95, last = PERF.ladder.length - 1;
+  if (PERF.raised) {
+    const from = PERF.raised.from; PERF.raised = null;
+    if (fps < low) {
+      PERF.upWait = Math.min(60, PERF.upWait * 2); PERF.good = PERF.bad = 0;
+      perfSet(from); perfWindow(0.75); return;
+    }
+    PERF.upWait = 17.5;
+  }
+  if (PERF.probe) {
+    const pr = PERF.probe;
+    if (fps > pr.fps * 1.05) { pr.best = PERF.level; pr.fps = fps; PERF.noGainWait = 60; }
+    if (fps < low && PERF.level < last) { perfSet(PERF.level + 1); perfWindow(0.75); return; }
+    PERF.probe = null; PERF.bad = 0;
+    if (fps < low) {
+      // CPU/browser-limited or only a partial gain: keep the sharpest level that really helped. Never relabel it 60 Hz.
+      if (PERF.level !== pr.best) perfSet(pr.best);
+      const noGain = pr.best === pr.from;
+      PERF.retry = noGain ? PERF.noGainWait : 30;
+      PERF.noGainWait = noGain ? Math.min(240, PERF.noGainWait * 2) : 60;
+      PERF.good = 0; perfWindow(0.75); return;
+    }
+    PERF.noGainWait = 60;
+  }
+  if (fps < low) {
+    PERF.good = 0; PERF.bad += win;
+    if (PERF.bad >= 5 && PERF.retry <= 0 && PERF.level < last) {
+      PERF.probe = { from: PERF.level, best: PERF.level, fps }; PERF.bad = 0;
+      perfSet(PERF.level + 1); perfWindow(0.75);
+    }
+    return;
+  }
+  PERF.bad = 0;
+  if (fps < high) { PERF.good = 0; return; }
+  PERF.retry = 0; PERF.noGainWait = 60;
+  PERF.good += win;
+  if (PERF.level > 0 && PERF.good >= PERF.upWait) {
+    PERF.raised = { from: PERF.level }; PERF.good = 0;
+    perfSet(PERF.level - 1); perfWindow(0.75);
+  }
+}
+// The tablet/phone path retains its existing MSAA-first ladder, 60 FPS thresholds and cap protection.
+function perfTablet(fps, win) {
   if (PERF.probe) {
     const pr = PERF.probe; PERF.probe = null;
-    if (fps < 50 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfReset(1); return; }   // no faster → undo
+    if (fps < 50 && fps < pr.fps * 1.12) { PERF.capFps = pr.fps; perfSet(pr.from); perfWindow(1); return; }
   }
-  if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;          // the cap is gone
+  if (PERF.capFps && fps > PERF.capFps * 1.1) PERF.capFps = 0;
   if (fps < 42) {
     PERF.good = 0;
-    if (PERF.upJust) PERF.upWait = Math.min(PERF.upWait * 2, 160);   // the last step up was too much: wait longer next time
+    if (PERF.upJust) PERF.upWait = Math.min(PERF.upWait * 2, 160);
     PERF.upJust = false;
-    if (PERF.capFps && fps > PERF.capFps * 0.9) return;              // still the known cap
-    if (PERF.level < PERF.ladder.length - 1) { PERF.probe = { from: PERF.level, fps }; perfSet(PERF.level + 1); perfReset(0.5); }
+    if (PERF.capFps && fps > PERF.capFps * 0.9) return;
+    if (PERF.level < PERF.ladder.length - 1) { PERF.probe = { from: PERF.level, fps }; perfSet(PERF.level + 1); perfWindow(0.5); }
     return;
   }
   PERF.upJust = false;
   if (fps < 57) { PERF.good = 0; return; }
   PERF.capFps = 0; PERF.good += win;
-  if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfReset(0.5); }
+  if (PERF.level > 0 && PERF.good >= PERF.upWait) { PERF.good = 0; PERF.upJust = true; perfSet(PERF.level - 1); perfWindow(0.5); }
 }
 
 // ── Kamera ──

@@ -96,6 +96,11 @@ const GAME = (() => {
   // Arrays "per zone" are in ZONES order: orman, kefir (Round 4), magara, yanardag (Round 3), sehir (Round 5), kale — looked
   // up by zone id (see zslot).
   const DIFF = {
+    // Normal only: better gear keeps more of its advantage; the wizard casts a little faster and a won boss game
+    // rewards the following attacks. Zor keeps the original scaling, wand timing and bonus damage.
+    normal: { powerK: 0.55, bossPower: 0.75, wandSwing: 0.5, bonusHit: 1.25 },
+    // Repeat adventures use a saved start-of-round reference, never the currently equipped item.
+    repeat: { health: [140, 185, 250, 310, 370, 440], damageGrowth: 0.5, healthGrowth: 0.35, pressure: 0.06, maxPressureRounds: 5 },
     hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
     // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1; Round 4: the kefir
     // valley is gentle, and Feza now reaches the cave ~2 levels stronger, so the later zones went up to feel as before)
@@ -197,9 +202,10 @@ const GAME = (() => {
   // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
-  const HARDCORE_KEY = 'fezaKotulereKarsi.hardcore.v1';
+  const LEGACY_HARDCORE_KEY = 'fezaKotulereKarsi.hardcore.v1';
+  const LEGACY_IGNORED_KEY = 'fezaKotulereKarsi.legacyHardcoreIgnored';
   const HC = { hp: 1.35, bossHp: 1.25, dmg: 1.5, bossDmg: 1.45, special: 1.55, speed: 1.12, cd: 0.78, wind: 0.85 };
-  let hardcore = false, hardcoreSnapshot = null;   // opt-in every new adventure; normal saves never select it
+  let hard = false, legacyIgnored = false;   // one adventure/save flow; difficulty changes only combat
 
   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale); 4 = Round 4's (orman, kefir, magara,
   // yanardag, kale) — from sv 4 on the save also names its zone (zid), so a later reorder cannot move a save; 5 = Round 5's
@@ -233,9 +239,6 @@ const GAME = (() => {
   // the order of DIFF's per-zone arrays (Round 4: the kefir valley is 1; Round 5: the walled town is 4, the castle 5)
   const ZORDER = ['orman', 'kefir', 'magara', 'yanardag', 'sehir', 'kale'];
   const ZORDER4 = ['orman', 'kefir', 'magara', 'yanardag', 'kale'];   // Round 4's order: what a zone number means in an sv < 5 save
-  // Hardcore's automatic checkpoints: entering the 2nd, 4th and 6th chapters (Round 5: the parent added the castle)
-  const HC_CP = ['kefir', 'yanardag', 'kale'];
-  const hcZone = i => HC_CP.includes(ZORDER[zslot(i)]);
   const ROLLERS = { kaplumbaga: 1, kaymak: 1, supurgeci: 1 }; // melee by rolling / gliding along a lane (EDEF kind 'roll' / 'glide' / 'slide' too)
   const HOPPERS = { yogurt: 1 };                             // melee by hopping at Feza and bumping him (EDEF kind 'hop' too)
   const HEAVY = { peynir: 1, tellal: 1 };                    // slow heavy melee: a ground-circle slam like the golem's (EDEF kind 'slam' too)
@@ -365,7 +368,7 @@ const GAME = (() => {
   const xpFor = lvl => 40 + 25 * lvl + 5 * lvl * lvl;
   const P = {
     pos: new THREE.Vector3(), face: Math.PI, hp: T.baseHp, maxHp: T.baseHp, lvl: 1, xp: 0, xpNext: xpFor(1), gold: 0,
-    heroClass: 'warrior', potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, offhand: null, hat: null, cape: null }, bag: [],
+    roundPower: null, shopStock: {}, shopWard: null, heroClass: 'warrior', potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, offhand: null, hat: null, cape: null }, bag: [],
     skills: [], spin: 0, shield: 0, dead: false, checkpoint: { x: 0, z: 0 }, zone: 0, ng: 0, god: false,
   };
   // Controller (input intent, swing, timers). Private.
@@ -424,7 +427,7 @@ const GAME = (() => {
       else { o.x += dx / n; o.z += dz / n; }
     }
   }
-  function moveE(e, dx, dz) { _tp.x = e.x; _tp.z = e.z; moveXZ(_tp, dx, dz, e.r * 0.9); e.x = _tp.x; e.z = _tp.z; }
+  function moveE(e, dx, dz) { if (L && L.merchant && dist2(e.x + dx, e.z + dz, L.merchant.x, L.merchant.z) < sq(3.5 + e.r)) return; _tp.x = e.x; _tp.z = e.z; moveXZ(_tp, dx, dz, e.r * 0.9); e.x = _tp.x; e.z = _tp.z; }
   const isFloor = (x, z) => !(L && hasLevel() && LEVEL.isFloor) || !!LEVEL.isFloor(L, x, z);
   const los = (x0, z0, x1, z1) => !(L && hasLevel() && LEVEL.los) || !!LEVEL.los(L, x0, z0, x1, z1);
   const circleFree = (x, z, r) => !(L && hasLevel() && LEVEL.circleFree) || !!LEVEL.circleFree(L, x, z, r);
@@ -690,6 +693,7 @@ const GAME = (() => {
     P.skills = GAME.skills;
   }
   function resetPlayer() {
+    P.shopStock = {}; P.shopWard = null; P.roundPower = null;
     P.lvl = 1; P.xp = 0; P.gold = 0; P.potions = DIFF.potions; P.ng = 0; P.dead = false; P.spin = 0; P.shield = 0;
     const st = typeof ITEMS !== 'undefined' && ITEMS.starter ? ITEMS.starter(P.heroClass) : { weapon: null, hat: null, cape: null };
     P.equip = { weapon: st.weapon || null, offhand: st.offhand || null, hat: st.hat || null, cape: st.cape || null };
@@ -698,6 +702,44 @@ const GAME = (() => {
     F = { zl: {}, kapi: {} }; skillQ.length = 0; removeMoustache();
     recalcStats(); P.hp = P.maxHp;
     if (H) H.setEquip(P.equip);
+  }
+
+  // A new pair also covers the special baby/jelly HP and the knight's lighter summoned guards.
+  function setEnemyHp(e, normal, tough) {
+    const fraction = e.maxHp > 0 ? e.hp / e.maxHp : 1;
+    e.difficultyHp = [Math.max(1, Math.round(normal)), Math.max(1, Math.round(tough))];
+    e.maxHp = e.difficultyHp[hard ? 1 : 0]; e.hp = Math.max(1, Math.round(Math.min(e.maxHp, fraction * e.maxHp)));
+  }
+  function setDifficulty(id) {
+    if ((id !== 'normal' && id !== 'hard') || (GAME.state !== 'play' && GAME.state !== 'dead')) return false;
+    const tough = id === 'hard';
+    if (tough === hard) return true;
+    const ratio = k => (tough ? k : 1) / (hard ? k : 1), moveK = ratio(HC.speed), cdK = ratio(HC.cd);
+    for (const e of enemies) {
+      if (e.dead) continue;
+      if (e.difficultyHp) {
+        const maxHp = e.difficultyHp[tough ? 1 : 0], hpK = maxHp / e.maxHp;
+        e.hp = Math.min(maxHp, e.hp * hpK); e.maxHp = maxHp;
+        if (e.napHp !== undefined) e.napHp *= hpK;
+      }
+      const dmgK = ratio(e.boss ? HC.bossDmg : HC.dmg);
+      e.dmg *= dmgK;
+      if (e.dmg0 !== undefined) e.dmg0 *= dmgK;
+      if (e.dmgBase !== undefined) e.dmgBase *= dmgK;
+      e.speed *= moveK; e.atkCd *= cdK; e.cd *= cdK;
+      if (e.difficultyWind) e.windup = e.difficultyWind[tough ? 1 : 0];
+      // A warning already drawn keeps its wind/phase time; the next attack uses the new windup.
+    }
+    for (const p of projectiles) if (p.owner === 'enemy') p.dmg *= ratio(p.bossShot ? HC.bossDmg : HC.dmg);
+    for (const m of mortars) m.dmg *= ratio(HC.bossDmg);
+    if (C.swing && C.swing.magic && wizard()) {
+      const dur = tough ? 0.55 : DIFF.normal.wandSwing;
+      C.swing.t *= dur / C.swing.dur; C.swing.dur = dur;
+    }
+    hard = tough;
+    if (boss && !boss.dead) emit('bossHp', { frac: boss.hp / boss.maxHp });
+    emit('difficulty', { id });
+    return true;
   }
 
   // ── Zone loading ──
@@ -750,6 +792,7 @@ const GAME = (() => {
       if (!R.warmed) { R.warmed = true; fx('warm'); }   // compile lit FX materials once, with real scene lights
     }
     P.zone = i;
+    if (!merchantWard()) P.shopWard = null;
     const st = (L && L.start) || { x: 0, z: 0 };
     P.checkpoint = { x: st.x, z: st.z };
     placeHero(st.x, st.z, 0);   // facing the camera: the kid sees Feza's face
@@ -760,7 +803,6 @@ const GAME = (() => {
     GAME.state = title ? 'title' : 'play';
     emit('zone', { index: i, name: zdef(i).ad, title });
     if (!title) enterZoneStory(i);
-    if (hardcore && !title && !o.hardcoreRestore && hcZone(i)) saveHardcoreCheckpoint();
     return L;
   }
   // Pre-compile AND draw once everything this zone will show later (enemy types + elites + boss, pickups, name tag,
@@ -947,11 +989,38 @@ const GAME = (() => {
     skillAt = gt + 1.2;   // a new skill's line held back from the last boss: right after this zone's name
   }
 
+  // Freeze offence and effective health once per repeat adventure. A later level, drop or polish remains a reward.
+  // Old repeat saves have no reference: infer one from their current chapter, then keep it in manual saves.
+  function captureRoundPower(zone = 0) {
+    const i = Math.max(0, ZORDER.indexOf(zdef(zone).id)), R = DIFF.repeat;
+    const growth = (DIFF.power.dmg[i] - DIFF.power.dmg[0]) * R.damageGrowth;
+    return { ng: P.ng, damage: Math.max(20, P.dmg - growth), magic: Math.max(20, P.magicDmg - growth),
+      health: Math.max(R.health[0], P.maxHp / (1 - P.armor / 100) - (R.health[i] - R.health[0]) * R.healthGrowth) };
+  }
+  function cleanRoundPower(raw) {
+    if (!P.ng || !raw || raw.ng !== P.ng) return null;
+    const valid = k => typeof raw[k] === 'number' && Number.isFinite(raw[k]) && raw[k] > 0 && raw[k] <= 1e6;
+    if (!['damage', 'magic', 'health'].every(valid)) return null;
+    return { ng: P.ng, damage: Math.max(20, raw.damage), magic: Math.max(20, raw.magic), health: Math.max(DIFF.repeat.health[0], raw.health) };
+  }
+  function roundDamage(magic = false) {
+    const r = P.roundPower;
+    return (magic ? r.magic : r.damage) + (zpick(DIFF.power.dmg) - DIFF.power.dmg[0]) * DIFF.repeat.damageGrowth;
+  }
+  const roundPressure = () => 1 + DIFF.repeat.pressure * Math.min(P.ng, DIFF.repeat.maxPressureRounds);
+  const roundCooldown = () => P.ng ? 1 - Math.min(0.12, 0.06 + 0.015 * (P.ng - 1)) : 1;
+  function roundThreat() {
+    const R = DIFF.repeat, usual = zpick(R.health);
+    const health = P.roundPower.health + (usual - R.health[0]) * R.healthGrowth;
+    return Math.max(1, health / usual) * roundPressure();
+  }
+
   // ── Enemies ──
   // Creature hp factor for a sword stronger than usual in this zone and round (see DIFF.power); 1 at or below it.
-  function powerHp(ngH) {
+  function powerHp(ngH, tough = hard) {
+    if (P.ng) return 1;   // repeat HP already uses the frozen round reference
     const D = DIFF.power, usual = zpick(D.dmg) * ngH;
-    return P.dmg > usual ? Math.pow(P.dmg / usual, D.k) : 1;
+    return P.dmg > usual ? Math.pow(P.dmg / usual, tough ? D.k : DIFF.normal.powerK) : 1;
   }
   // Boss tuning: DIFF.boss[type], or the dragon's numbers (its hp cap = EDEF hp × DIFF.bossHp, floor = bossHpMin of that).
   function bossCfg(type) {
@@ -963,8 +1032,18 @@ const GAME = (() => {
   // (Round 5 QA: the hybrid fights the dragon with its wand — the volcano's and the knight's treasures are swords, so sized
   // on P.dmg = its sword the dragon took it 88–100 s. The final boss — the one without DIFF.boss numbers — is sized on the
   // hybrid's wand; the other bosses stay on P.dmg)
-  const bossHpNow = type => { const c = bossCfg(type), ref = P.heroClass === 'hybrid' && !DIFF.boss[type] ? P.magicDmg * DIFF.bossHybridK : P.dmg;
-    return Math.max(1, Math.round(c.per * clamp(ref, c.lo, c.hi) * (1 + 0.5 * P.ng) * (hardcore ? HC.bossHp : 1))); };
+  const bossHpNow = (type, tough = hard) => { const c = bossCfg(type), ref = P.heroClass === 'hybrid' && !DIFF.boss[type] ? P.magicDmg * DIFF.bossHybridK : P.dmg;
+    if (P.ng) {
+      const magic = P.heroClass === 'hybrid' && !DIFF.boss[type];
+      const power = Math.max(c.lo, roundDamage(magic) * (magic ? DIFF.bossHybridK : 1));
+      return Math.max(1, Math.round(c.per * power * roundPressure() * (tough ? HC.bossHp : 1)));
+    }
+    let power = clamp(ref, c.lo, c.hi);
+    if (!tough) {   // weak gear keeps its help; above the usual zone damage, an upgrade buys a shorter fight
+      const usual = clamp(zpick(DIFF.power.dmg), c.lo, c.hi);
+      if (power > usual) power = usual + (power - usual) * DIFF.normal.bossPower;
+    }
+    return Math.max(1, Math.round(c.per * power * (1 + 0.5 * P.ng) * (tough ? HC.bossHp : 1))); };
   // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
   function variantFor(type, sp) {
     if (sp && sp.variant) return sp.variant;
@@ -976,7 +1055,8 @@ const GAME = (() => {
     const type = sp.type, def = sp.whelp ? { ...edef('yarasa'), ad: 'Minik Ejderha', kind: 'melee', fly: true, hover: 0.32, r: 0.42, height: 0.95 } : edef(type), Z = zdef();
     const isBoss = def.kind === 'boss' || sp.pack === 'boss';
     const elite = !!sp.elite && !isBoss;
-    const ngH = 1 + 0.6 * P.ng, ngD = 1 + 0.3 * P.ng;
+    const ngH = P.ng ? Math.max(1, roundDamage() / zpick(DIFF.power.dmg)) * roundPressure() : 1;
+    const ngD = P.ng ? roundThreat() : 1;
     const variant = variantFor(type, sp);
     let m = null;
     if (sp.whelp && typeof EMODEL !== 'undefined' && EMODEL.babyDragon) {
@@ -986,18 +1066,22 @@ const GAME = (() => {
     if (!m || !m.root) m = fallbackEnemy(type, elite);
     scene.add(m.root);
     const sc = elite ? 1.4 : 1;
-    const hp = Math.round(isBoss ? bossHpNow(type)
-      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH) * (hardcore ? HC.hp : 1));
+    // Keep both HP values from this spawn's gear/level. Changing difficulty later must not rescale old enemies to
+    // a newly equipped weapon. Bosses refresh this pair once, when their fight first begins.
+    const hpFor = tough => Math.round(isBoss ? bossHpNow(type, tough)
+      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH, tough) * (tough ? HC.hp : 1));
+    const difficultyHp = [hpFor(false), hpFor(true)], hp = difficultyHp[hard ? 1 : 0];
+    const difficultyWind = [Math.max(T.windMin, def.windup || 0.6), Math.max(0.4, (def.windup || 0.6) * HC.wind)];
     const e = {
-      type, def, m, variant, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
+      type, def, m, variant, difficultyHp, difficultyWind, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1) * (hardcore ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
-      speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + 0.03 * P.ng) * (hardcore ? HC.speed : 1),
+      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1) * (hard ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
+      speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + Math.min(0.12, 0.03 * P.ng)) * (hard ? HC.speed : 1),
       xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
       gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
       kind: isBoss ? 'boss' : HEAVY[type] ? 'slam' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
-      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * (hardcore ? HC.cd : 1), windup: hardcore ? Math.max(0.4, (def.windup || 0.6) * HC.wind) : Math.max(T.windMin, def.windup || 0.6), aggroR: def.aggro || 9,
+      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * roundCooldown() * (hard ? HC.cd : 1), windup: difficultyWind[hard ? 1 : 0], aggroR: def.aggro || 9,
       homeX: sp.x, homeZ: sp.z, pack: sp.pack, room: sp.room, sp,
       state: 'idle', stT: 0, wind: 0.6, cd: frand(0.4, 1.2), stun: 0, frozen: 0, flash: 0, hurt: 0, kvx: 0, kvz: 0,
       aggro: false, token: false, dist: 99, losOk: false, losT: frand(0, 0.3), lookT: frand(0, 0.25), wT: frand(0.5, 3), walking: false, wx: sp.x, wz: sp.z,
@@ -1023,8 +1107,9 @@ const GAME = (() => {
       e.st.aggro = false; e.st.crownOff = 0;   // (Round 6: 05's pre-aggro idle loop needs a real false)
     }
     if (sp.whelp) {
-      e.whelp = true; e.hp = e.maxHp = Math.max(12, Math.round(P.dmg * 2.1 * (hardcore ? HC.hp : 1))); e.dmg = (3 + Math.min(3, P.ng)) * (hardcore ? HC.dmg : 1);
-      e.speed = 2.1 * (hardcore ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * (hardcore ? HC.cd : 1); e.windup = 0.8 * (hardcore ? HC.wind : 1); e.xp = 0; e.gold = 0;
+      const power = P.ng ? roundDamage() : P.dmg;
+      e.whelp = true; setEnemyHp(e, Math.max(12, Math.round(power * 2.1)), Math.max(12, Math.round(power * 2.1 * HC.hp))); e.dmg = 3 * ngD * (hard ? HC.dmg : 1);
+      e.speed = 2.1 * (hard ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * roundCooldown() * (hard ? HC.cd : 1); e.difficultyWind = [0.8, 0.8 * HC.wind]; e.windup = e.difficultyWind[hard ? 1 : 0]; e.xp = 0; e.gold = 0;
     }
     place(e);
     enemies.push(e);
@@ -1731,8 +1816,7 @@ const GAME = (() => {
     bossPhase(b, 'roar', 1.6);
     if (!b.sized) {   // a weak sword must not mean a 2-minute fight: the boss's hp follows Feza's damage (once, when it starts)
       b.sized = true;
-      const hp = bossHpNow(b.type);
-      b.hp = Math.max(1, Math.round(b.hp / b.maxHp * hp)); b.maxHp = hp;
+      setEnemyHp(b, bossHpNow(b.type, false), bossHpNow(b.type, true));
     }
     if (!b.intro) { b.intro = true; const k = b.kit.lines.giris; if (k && hasLine(k)) say(k, 3); }
     // Falling asleep in the fight must not mean the long walk back: wake up at the arena entrance — just OUTSIDE it, so
@@ -2027,7 +2111,7 @@ const GAME = (() => {
       if (!m.hitPass[pass] && m.hits < 2 && !P.dead && Math.hypot(gx, gz) < b.r + T.heroR + 0.2) {   // one modest bump per pass, out of the lane
         m.hitPass[pass] = true; m.hits++; m.lastHit = m.t;
         const sx = Math.sin(b.face), sz = Math.cos(b.face), side = gx * -sz + gz * sx >= 0 ? 1 : -1;
-        hurtPlayer(b.dmg * BERSERK.k * (hardcore ? HC.special : 1), P.pos.x + sz * side, P.pos.z - sx * side, 1.4);
+        hurtPlayer(b.dmg * BERSERK.k * (hard ? HC.special : 1), P.pos.x + sz * side, P.pos.z - sx * side, 1.4);
         sfx('bounce', { x: b.x, z: b.z, pitch: 0.8 });
       }
       return;
@@ -2096,7 +2180,7 @@ const GAME = (() => {
       touch = raidLineDistance(P.pos.x, P.pos.z, m.x0, m.z0, x, z) < m.radius + T.heroR * 0.5; k = 0.4;
     }
     if (touch && m.hits < 2 && m.t - m.lastHit >= 1.1 && los(b.x, b.z, P.pos.x, P.pos.z)) {
-      m.hits++; m.lastHit = m.t; hurtPlayer(b.dmg * k * (hardcore ? HC.special : 1), b.x, b.z, 0.3);
+      m.hits++; m.lastHit = m.t; hurtPlayer(b.dmg * k * (hard ? HC.special : 1), b.x, b.z, 0.3);
     }
   }
   function startRaidMove(b, kind) {
@@ -2141,19 +2225,19 @@ const GAME = (() => {
       if (m.kind === 'split') {
         if (enemies.filter(e => !e.dead && e.pack === 'bossadds').length < 6) {
           const e = makeEnemy({ type: 'jole', x: d.x, z: d.z, pack: 'bossadds' }); e.arenaChild = b;
-          e.hp = e.maxHp = Math.max(10, Math.round(P.dmg * 1.7 * (hardcore ? HC.hp : 1))); e.dmg *= 0.45; e.xp = 0; e.gold = 0; e.m.root.scale.multiplyScalar(0.7); e.r *= 0.7; e.height *= 0.7; setAggro(e, false);
+          setEnemyHp(e, Math.max(10, Math.round(P.dmg * 1.7)), Math.max(10, Math.round(P.dmg * 1.7 * HC.hp))); e.dmg *= 0.45; e.xp = 0; e.gold = 0; e.m.root.scale.multiplyScalar(0.7); e.r *= 0.7; e.height *= 0.7; setAggro(e, false);
         }
       } else {
         burst(m.kind === 'shatter' ? 'sparkle' : m.kind === 'dance' ? 'milk' : 'dirt', d.x, 0.1, d.z, { count: 14, scale: 1.4 });
         fx('ring', d.x, d.z, { r0: 0.2, r1: d.r, dur: 0.45, color: m.kind === 'dance' ? '#fff0dc' : '#d8ab72', width: 0.25 });
-        if (dist2(P.pos.x, P.pos.z, d.x, d.z) < sq(d.r + T.heroR * 0.5) && (m.kind !== 'shatter' || !m.hits)) { if (m.kind === 'shatter') m.hits++; hurtPlayer(b.dmg * 0.5 * (hardcore ? HC.special : 1), d.x, d.z, 0.5); }
+        if (dist2(P.pos.x, P.pos.z, d.x, d.z) < sq(d.r + T.heroR * 0.5) && (m.kind !== 'shatter' || !m.hits)) { if (m.kind === 'shatter') m.hits++; hurtPlayer(b.dmg * 0.5 * (hard ? HC.special : 1), d.x, d.z, 0.5); }
       }
     }
     if (m.kind === 'wave' && m.t >= 1.8) {
       const z = m.z0 + (m.t - 1.8) * 3.2;
       for (const o of m.meshes) { o.visible = true; o.position.z = z; }
       if (!m.hit && Math.abs(P.pos.z - z) < 0.65 && P.pos.x >= m.x0 && P.pos.x <= m.x1 && Math.abs(P.pos.x - m.gap) > m.halfGap - T.heroR * 0.5) {
-        m.hit = true; hurtPlayer(b.dmg * 0.65 * (hardcore ? HC.special : 1), b.x, z - 1, 0.65);
+        m.hit = true; hurtPlayer(b.dmg * 0.65 * (hard ? HC.special : 1), b.x, z - 1, 0.65);
       }
     }
     if (Object.values(RAID_NEW).includes(m.kind)) newRaidStep(b, m, dt);
@@ -2281,7 +2365,7 @@ const GAME = (() => {
     if (S.state === 'up' && down === S.list.length) {   // all three down: the knight's head spins (a raid move or an attack stops)
       S.state = 'dizzy';
       // (his horseshoes still in the air turn into sparkles: dizzy, he does nothing — one thrown just before must not land)
-      // (the banners' dizzy keeps its 4 s in Hardcore too, as in Round 5)
+      // (the banners' dizzy keeps its 4 s in Zor too, as in Round 5)
       bonusStun(b, 'dizzy', SOV.dizzy, false);
       ftext(b.x, b.height + 0.5, b.z, 'Başı döndü!', 'word');
       sfx('neigh', { x: b.x, z: b.z, pitch: 1.35, vol: 0.8 }); sfx('bounce', { x: b.x, z: b.z, pitch: 0.7 });
@@ -2308,7 +2392,7 @@ const GAME = (() => {
   function bossIdle(b, dt, d, ux, uz, keep) {
     b.face = dampAngle(b.face, Math.atan2(ux, uz), 3.5, dt);
     if (d > keep) bossWalk(b, ux, uz, b.speed, dt);
-    b.wait -= dt / (hardcore ? HC.cd : 1);
+    b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1));
     return b.wait <= 0;
   }
   function pickPhase(b, opts) {   // opts [[phase, weight], …]; never the same attack three times in a row
@@ -2356,7 +2440,7 @@ const GAME = (() => {
   function bossShot(b, kind, spread, speed, dmgK, r, life = 5) {   // one slow straight shot at Feza (the saber can swat it)
     const m = muzzle(b), a = Math.atan2(P.pos.x - m.x, P.pos.z - m.z) + spread;
     spawnProjectile({ x: m.x, y: Math.max(0.9, m.y), z: m.z, vx: Math.sin(a) * speed, vz: Math.cos(a) * speed, r, dmg: b.dmg * dmgK,
-      owner: 'enemy', kind, life, color: SHOT_COL[kind] });
+      owner: 'enemy', bossShot: true, kind, life, color: SHOT_COL[kind] });
     return m;
   }
   // ro: extra FX ring options (a cream ring on the pale dairy floor needs a low k / edge: FX's default bloomed into a white halo)
@@ -2378,7 +2462,7 @@ const GAME = (() => {
       at.push([x, z]);
       const e = makeEnemy({ type, x, z, elite: false, pack: 'bossadds', face: a });
       e.xp *= 0.5; e.gold *= 0.5; setAggro(e, false); made++;
-      if (b.kit.addHp) e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * b.kit.addHp));
+      if (b.kit.addHp) setEnemyHp(e, e.difficultyHp[0] * b.kit.addHp, e.difficultyHp[1] * b.kit.addHp);
       if (b.kit.addDmg) e.dmg *= b.kit.addDmg;
       if (e.kind === 'burrow') { e.bur = 1; e.upT = 0; }   // a little mole pops out of the ground
       burst('magic', x, 1, z, { color: b.kit.col || '#c77dff', count: 14 });
@@ -2457,7 +2541,7 @@ const GAME = (() => {
         if (c.stage === 'lie' && b.stT >= Math.max(0, B.oops - B.hopD * (1 - HOP.down))) {
           const dx = c.x - b.x, dz = c.z - b.z, dd = Math.hypot(dx, dz) || 1e-3;
           if (dd <= b.r * 0.5 + B.king) { tacKingGets(b, Q); break; }   // (the crown right in front of its belly)
-          const w = B.walk * (hardcore ? HC.speed : 1);
+          const w = B.walk * (hard ? HC.speed : 1);
           bossWalk(b, dx / dd, dz / dd, w, dt);
           st.move = Math.min(1, w / Math.max(1, b.speed));
         } else b.face = dampAngle(b.face, Math.atan2(c.x - b.x, c.z - b.z), 3, dt);
@@ -2788,7 +2872,7 @@ const GAME = (() => {
           const turn = lerp(-KEF.turn, KEF.turn, smooth01((fa[b.did] - 0.36) / 0.48)) * KEF.fanK;
           const m = muzzle(b), a = (b.aim !== undefined ? b.aim : b.face) + turn, sp = KEF.bubSpeed * frand(0.95, 1.05);
           spawnProjectile({ x: m.x, y: Math.max(0.9, m.y), z: m.z, vx: Math.sin(a) * sp, vz: Math.cos(a) * sp, r: KEF.bubR, dmg: b.dmg * KEF.bubK,
-            owner: 'enemy', kind: 'fizz', life: 6.5, color: SHOT_COL.fizz });
+            owner: 'enemy', bossShot: true, kind: 'fizz', life: 6.5, color: SHOT_COL.fizz });
           sfx('bubble', { x: b.x, z: b.z, pitch: frand(0.75, 0.95), vol: 0.8 }); if (b.did === 0) sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 1.2 });
           burst('fizz', m.x, m.y, m.z, { count: 6, scale: 1 });
           b.did++;
@@ -3054,7 +3138,7 @@ const GAME = (() => {
         const Q = bonusOf(b), H0 = BONUS.havuc;
         if (!Q || Q.stage !== 'held') { bossEnd(b, 0.5, 0.9); break; }
         if (d <= b.r + H0.feed) { havucFeed(b, Q); break; }
-        bossWalk(b, ux, uz, H0.seek * (hardcore ? HC.speed : 1), dt);
+        bossWalk(b, ux, uz, H0.seek * (hard ? HC.speed : 1), dt);
         st.move = Math.min(1, H0.seek / Math.max(1, b.speed));
         if ((b.trailT -= dt) <= 0) { b.trailT = 0.2; hoofFx(b, 1, 2); }
         break;
@@ -3086,7 +3170,7 @@ const GAME = (() => {
   // Its pickable things are L.breakObjs entries with .bonus (a tap walks Feza there, a swing / skill / wand shot hits them,
   // no loot; touching the crown / carrot / hearts takes them too). Pooled models: EMODEL.jellyCrown / havuc / serinTas / hole
   // (plain Kit stand-ins while 05 has none), FX.projectile('heart' | 'bigbubble'), FX.marker (the gold / pink "come here"
-  // hoop), FX.dizzy (stars round a stunned head) — all optional. Hardcore: stuns × hcStun, the mole peeks shorter, the
+  // hoop), FX.dizzy (stars round a stunned head) — all optional. Zor: stuns × hcStun, the mole peeks shorter, the
   // bubble takes one more hit, the hearts last less, the king waddles faster. Numbers (BONUS, s / m / m/s / hp fractions):
   //   tac      at hp · hopD / hopR the big crown hop (its circle fills hopD × 0.8 = 2 s) · fly s the crown's arc to a spot
   //            spot m from the king · walk m/s its waddle after oops s · touch Feza's reach · back s the crown flying home ·
@@ -3138,7 +3222,7 @@ const GAME = (() => {
   }
   function addBreak(o) { if (L) (L.breakObjs || (L.breakObjs = [])).push(o); return o; }
   // The boss's stun: whatever it was doing stops (a raid move, a telegraph, its lobbed shots still in the air turn into
-  // sparkles), then its stun phase for D s. own: a bonus stun (Hardcore × hcStun, q.bonus → 'stun'); the knight's banners'
+  // sparkles), then its stun phase for D s. own: a bonus stun (Zor × hcStun, q.bonus → 'stun'); the knight's banners'
   // dizzy (Round 5) keeps its full length.
   function bonusStun(b, phase, D, own = true) {
     const q = b.encounter;
@@ -3149,7 +3233,7 @@ const GAME = (() => {
       burst('sparkle', m.obj.position.x, m.obj.position.y, m.obj.position.z, { color: m.kind === 'horseshoe' ? '#f4f8ff' : '#ffd08a', count: 10 });
       remove(m.tele); killProjectileObj(m); mortars.splice(i, 1);
     }
-    bossPhase(b, phase, D * (own && hardcore ? BONUS.hcStun : 1));
+    bossPhase(b, phase, D * (own && hard ? BONUS.hcStun : 1));
     const Q = own && q && q.bonus;
     if (Q) { Q.state = 'stun'; Q.stunPh = phase; Q.hold = true; Q.stunAt = gt; remove(Q.mark); Q.mark = null; bonusEvent(b, Q, true); }
   }
@@ -3468,7 +3552,7 @@ const GAME = (() => {
     const d = Math.hypot(P.pos.x - b.x, P.pos.z - b.z);
     b.blowBack = clamp(b.r + B.back + 1 - d, 0, B.back);
     Q.dueAt = gt + frand(B.gap[0], B.gap[1]);
-    Q.state = 'on'; Q.hold = true; Q.stage = 'blow'; Q.lastBlow = gt; Q.have = 0; Q.need = hardcore ? BONUS.balon.hitsHC : BONUS.balon.hits;
+    Q.state = 'on'; Q.hold = true; Q.stage = 'blow'; Q.lastBlow = gt; Q.have = 0; Q.need = hard ? BONUS.balon.hitsHC : BONUS.balon.hits;
     sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 0.7 });
     bonusLine(b, 'balonSaid', 'kefirdev_balon');
     bonusEvent(b, Q, true);
@@ -3630,7 +3714,7 @@ const GAME = (() => {
         b.face = dampAngle(b.face, Math.atan2(P.pos.x - b.x, P.pos.z - b.z), 4, dt);
         if (Q.st >= B.mark) {
           Q.cur = h; Q.stage = 'peek';
-          bossPhase(b, 'peek', hardcore ? B.peekHC : B.peek); b.bur = B.peekBur;
+          bossPhase(b, 'peek', hard ? B.peekHC : B.peek); b.bur = B.peekBur;
           burst('dirt', b.x, 0.15, b.z, { count: 10, color: DIRT }); sfx('emerge', { x: b.x, z: b.z, pitch: 1.35, vol: 0.6 });
         }
         break;
@@ -3867,7 +3951,6 @@ const GAME = (() => {
       return;
     }
     if (Q.state !== 'on') return;
-    const life = hardcore ? B.lifeHC : B.life;
     for (const h of Q.hearts) {
       if (h.done) continue;
       h.t += dt;
@@ -3877,7 +3960,7 @@ const GAME = (() => {
         if (k >= 1) { h.stage = 'hover'; h.t = 0; h.brk.x = h.x; h.brk.z = h.z; addBreak(h.brk); burst('sparkle', h.x, h.y, h.z, { color: '#ffb3d9', count: 8 }); }
       } else {
         h.y = B.y + 0.12 * Math.sin(h.t * 3 + h.ph);
-        if (h.t >= life) { kalpFade(h); continue; }
+        if (h.t >= h.life) { kalpFade(h); continue; }
         if (!P.dead && dist2(P.pos.x, P.pos.z, h.x, h.z) <= B.touch * B.touch) { kalpTake(b, Q, h); continue; }
       }
       h.obj.position.set(h.x, h.y, h.z); h.obj.rotation.y += dt * 1.6;
@@ -3925,7 +4008,7 @@ const GAME = (() => {
       const s = bonusSpotOn(b.x, b.z, B.ring[0], B.ring[1], 0.45, viewFirst(ok), 40) || bonusSpotOn(b.x, b.z, B.ring[0], B.ring[1], 0.45, ok, 40);
       if (!s) continue;
       const o = kalpObj(1); if (!o) break;
-      const h = { obj: o.obj, pool: o.pool, stage: 'fly', t: -i * 0.12, x0: mx, y0: my, z0: mz, x1: s.x, z1: s.z, x: mx, y: my, z: mz, ph: frand(0, TAU), done: false,
+      const h = { obj: o.obj, pool: o.pool, life: hard ? B.lifeHC : B.life, stage: 'fly', t: -i * 0.12, x0: mx, y0: my, z0: mz, x1: s.x, z1: s.z, x: mx, y: my, z: mz, ph: frand(0, TAU), done: false,
         mark: bonusMark(s.x, s.z, 0.8, PINK_MARK) };
       h.brk = { x: s.x, z: s.z, r: 0.5, kind: 'bonus', bonus: 'kalp', broken: false, tapY: 1.0, tapLim: 80, heart: h, break() {} };
       h.obj.position.set(mx, my, mz);
@@ -4038,7 +4121,7 @@ const GAME = (() => {
       case 'idle': {
         b.face = dampAngle(b.face, faceP, 3, dt);
         if (d > 8.5) bossWalk(b, ux, uz, b.speed, dt);
-        b.wait -= dt / (hardcore ? HC.cd : 1);
+        b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1));
         if (b.wait <= 0) {
           if (b.summon) { bossPhase(b, 'roar', 1.6); break; }   // (its line comes with the eggs, see 'roar')
           // by distance; never the same move three times in a row — the swap stays in the same distance band (up close
@@ -4063,7 +4146,7 @@ const GAME = (() => {
           const m = muzzle(b), spread = [-0.22, 0, 0.22][b.did];
           const a = Math.atan2(P.pos.x - m.x, P.pos.z - m.z) + spread;
           spawnProjectile({ x: m.x, y: Math.max(1, m.y), z: m.z, vx: Math.sin(a) * 5.5, vz: Math.cos(a) * 5.5, r: 0.55, dmg: b.dmg * 0.7,
-            owner: 'enemy', kind: 'dragonfire', life: 5, color: SHOT_COL.dragonfire });
+            owner: 'enemy', bossShot: true, kind: 'dragonfire', life: 5, color: SHOT_COL.dragonfire });
           sfx('bubble', { x: b.x, z: b.z, pitch: 0.65 }); b.did++;   // big glittery pink bubbles (not fire)
         }
         if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.1, 1.7); }
@@ -4150,6 +4233,10 @@ const GAME = (() => {
     if (!e || e.dead) return false;
     if (hidden(e) && !o.force) return false;   // a köstebek underground: nothing reaches it
     const x = e.x, z = e.z;
+    const Q = e.boss && bonusOf(e);
+    // Only the actual stun earned by a boss's little game; not its ordinary recovery, the banners, or the heart's
+    // scripted 5 % hit. Check the phase too: the bonus state is cleared one update after a stun finishes.
+    if (!hard && !o.force && o.kind !== 'heart' && Q && Q.state === 'stun' && Q.stunPh && e.ph === Q.stunPh) amount *= DIFF.normal.bonusHit;
     amount = Math.round(amount || 0);
     if (amount > 0) {
       // A lightsaber hit glows in its colour. A boss is hit all the time up close: its flash is softer, shorter and warm
@@ -4247,9 +4334,9 @@ const GAME = (() => {
   // ── Player ──
   function hurtPlayer(amount, fromX, fromZ, kb = 0.4) {
     if (P.dead || GAME.state !== 'play' || C.invuln > 0) return false;
-    if (P.god) return false;
+    if (P.god || merchantNear()) return false;
     if (P.shield > 0) { burst('sparkle', P.pos.x, 1, P.pos.z, { color: '#ff8fd8', count: 10 }); sfx('shield', { vol: 0.5 }); return false; }
-    const a = Math.max(1, Math.round(amount * (1 - P.armor / 100)));
+    const a = Math.max(1, Math.round(amount * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
     P.hp -= a; C.lastHurt = gt; C.hurtT = 1; C.invuln = T.iframes;
     fx('flash', '#ff2a4a', 0.45, 0.4); shake(0.16);
     sfx('hurt', { pitch: frand(0.95, 1.1) });
@@ -4285,9 +4372,9 @@ const GAME = (() => {
     say('yoruldu', 3); emit('dead', {});
     if (!wizard()) sfx('saberOff', { vol: 0.7 });   // FEZA retracts the blade while he naps
     burst('zzz', P.pos.x, 1.2, P.pos.z, {});
-    if (boss && boss.aggro && !boss.dead) { if (!hardcore) bossTired(boss); clearEncounter(boss); }
+    if (boss && boss.aggro && !boss.dead) { if (!hard) bossTired(boss); clearEncounter(boss); }
     for (const e of enemies) {   // (remember how far the pack's fight got: see respawn)
-      if (!hardcore && !e.boss && dist2(e.x, e.z, C.deathX, C.deathZ) < NAP.r * NAP.r) { e.napHp = e.hp; e.napped = e.aggro; }
+      if (!e.boss && dist2(e.x, e.z, C.deathX, C.deathZ) < NAP.r * NAP.r) { e.napHp = e.hp; e.napped = e.aggro; }
       if (e.aggro) { if (e.boss) bossCalm(e); else calm(e); }
     }
     const at = gt;
@@ -4296,18 +4383,17 @@ const GAME = (() => {
   const NAP = { r: 18, heal: 0.25, calm: 4.5, near: 3 };
   function respawn() {
     if (!P.dead) return;
-    if (hardcore) { recoverHardcore(); return; }
     P.dead = false; P.hp = P.maxHp; GAME.state = 'play'; C.invuln = 2; C.hurtT = 0; C.kbx = C.kbz = 0;
     C.lockT = 0; C.cheerT = 0;   // (a story lock from before the nap never freezes him after waking up)
     // No nap loop (Round 3 QA: a careless kid napped 10× in a row on one pack that came back fully healed each time): the
-    // pack nearby goes home, but keeps what Feza already did (at most +25 % hp back), is tired like a boss after a nap
+    // pack nearby goes home, but keeps what Feza already did (at most +25 % hp back); in Normal it also tires after a nap
     // (DIFF.bossNap: hits ×0.75, down to ×0.55; an elite that won twice also loses 30 % hp) and lets him wake up in peace
     // (no noticing him for NAP.calm s unless he comes within NAP.near m or hits one).
     for (const e of enemies) {
       if (e.boss || (e.napHp === undefined && dist2(e.x, e.z, C.deathX, C.deathZ) > NAP.r * NAP.r)) continue;   // (napHp: it was there)
       const was = e.napHp !== undefined ? e.napHp : e.hp;
       e.hp = Math.max(1, Math.min(e.maxHp, Math.round(was + e.maxHp * NAP.heal)));
-      if (e.napped) {
+      if (e.napped && !hard) {
         const N = DIFF.bossNap;
         e.naps = (e.naps || 0) + 1; e.dmgBase = e.dmgBase || e.dmg;
         e.dmg = Math.max(e.dmgBase * N.dmgMin, e.dmg * N.dmg);
@@ -4332,11 +4418,11 @@ const GAME = (() => {
   const ranged = () => wizard() || P.heroClass === 'hybrid';
   const WAND_RANGE = 9;
   function startSwing(targetFace, target, breakable = false) {
-    if (C.swing || P.spin > 0 || P.dead) return;
+    if (C.swing || P.spin > 0 || P.dead || (!breakable && merchantNear())) return;
     C.combo = gt - C.lastSwingEnd < 0.55 ? C.combo + 1 : 0;
     const magic = wizard() || (P.heroClass === 'hybrid' && !breakable && (!target || Math.hypot(target.x - P.pos.x, target.z - P.pos.z) > T.reach + (target.r || 0) - 0.15));
     const big = !magic && C.combo % 3 === 2;
-    C.swing = { t: 0, dur: magic ? 0.55 : big ? T.swingBig : T.swing, magic, target: target || null, dir: C.swingDir, big, hit: false, slash: false };
+    C.swing = { t: 0, dur: magic ? (!hard && wizard() ? DIFF.normal.wandSwing : 0.55) : big ? T.swingBig : T.swing, magic, target: target || null, dir: C.swingDir, big, hit: false, slash: false };
     C.swingDir = -C.swingDir;
     C.swingFace = targetFace === undefined || targetFace === null ? null : targetFace;
     C.idleT = 0;
@@ -4454,7 +4540,7 @@ const GAME = (() => {
   }
   function cast(i) {
     const s = GAME.skills[i];
-    if (!s || !s.unlocked || s.cd > 0 || P.dead || GAME.state !== 'play' || C.lockT > 0 || giftBusy()) return false;
+    if (!s || !s.unlocked || s.cd > 0 || P.dead || GAME.state !== 'play' || C.lockT > 0 || giftBusy() || merchantNear()) return false;
     // the nearest one Feza can SEE: one behind a wall (next room) stole the aim, and the stars/crescents/meteors hit the wall
     // while the huysuz in the open kept playing; nobody in sight → along his facing
     const target = nearestEnemy(P.pos.x, P.pos.z, 12, true);
@@ -4792,7 +4878,7 @@ const GAME = (() => {
     if (gt - C.lastHurt > T.regenDelay && P.hp < P.maxHp) {
       let fighting = false;
       for (const e of enemies) if (e.aggro) { fighting = true; break; }
-      P.hp = Math.min(P.maxHp, P.hp + P.maxHp * (hardcore ? (fighting ? 0 : DIFF.regenCalm * 0.5) : (fighting ? DIFF.regenFight : DIFF.regenCalm)) * dt);
+      P.hp = Math.min(P.maxHp, P.hp + P.maxHp * (hard ? (fighting ? 0 : DIFF.regenCalm * 0.5) : (fighting ? DIFF.regenFight : DIFF.regenCalm)) * dt);
     }
     C.playT += dt;
     if (!F.intro0 && C.playT > 40) introFirstSkill();
@@ -4815,6 +4901,7 @@ const GAME = (() => {
     switch (o.type) {
       case 'chest': if (!r.opened) openChest(r); break;
       case 'npc': talkNpc(true); break;
+      case 'merchant': visitMerchant(); break;
       case 'cp': activateCp(r, true); break;
       case 'portal': if (storyTalking()) { C.portalHold = true; break; } enterPortal(); break;   // (the story line first: see proximity)
       case 'crystal': victory(); break;
@@ -4942,9 +5029,9 @@ const GAME = (() => {
     if (first || tapped) {
       sfx('checkpoint', { x: cp.x, z: cp.z });
       burst('magic', cp.x, 1.2, cp.z, { count: 20, color: '#ff9ae0' });
-      // Hardcore: a neşe taşı heals only when it first lights up — tapping it again (e.g. stepping out of a boss arena
+      // Zor: a neşe taşı heals only when it first lights up — tapping it again (e.g. stepping out of a boss arena
       // to its stone) must not refill Feza over and over (there is no combat regen there either)
-      if (first || !hardcore) heal(1, !first);
+      if (first || !hard) heal(1, !first);
       if (!F.nese) { F.nese = true; say('nese_tasi', 2); }
       emit('checkpoint', {});
     }
@@ -4984,7 +5071,7 @@ const GAME = (() => {
   function spawnProjectile(o) {
     const p = {
       x: o.x, y: o.y !== undefined ? o.y : 0.9, z: o.z, vx: o.vx || 0, vz: o.vz || 0, r: o.r !== undefined ? o.r : 0.35,
-      dmg: o.dmg !== undefined ? o.dmg : 5, owner: o.owner || 'feza', kind: o.kind || 'star', life: o.life !== undefined ? o.life : 3,
+      dmg: o.dmg !== undefined ? o.dmg : 5, owner: o.owner || 'feza', bossShot: !!o.bossShot, kind: o.kind || 'star', life: o.life !== undefined ? o.life : 3,
       pierce: o.pierce || 0, obj: o.obj || null, color: o.color, onHit: o.onHit || null, kb: o.kb !== undefined ? o.kb : 0.25,
       freeze: o.freeze || 0, stun: o.stun || 0, hit: [], t: 0, ph: o.ph !== undefined ? o.ph : frand(0, TAU),
     };
@@ -5764,6 +5851,7 @@ const GAME = (() => {
     if (L.breakObjs) for (const b of L.breakObjs) if (!b.broken) test('break', b, b.tapY !== undefined ? b.tapY : b.banner ? 1.5 : 0.5, b.tapLim || (b.banner ? 85 : 60), 2.2 + (b.r || 0.4));
     if (L.cpObjs) for (const c of L.cpObjs) test('cp', c, 1.0, 75, 1.8);
     if (L.npcObj) test('npc', L.npcObj, 1.0, 85, 2.6);
+    if (L.merchant) test('merchant', L.merchant, 1.5, 85, 3.1);
     if (L.portalObj && L.portalObj.active !== false) test('portal', L.portalObj, 1.2, 90, 1.2);
     if (crystal && crystal.ready) test('crystal', crystal, 1.5, 100, 1.9);
     pickD = bd;
@@ -5829,6 +5917,74 @@ const GAME = (() => {
     potion() { return drinkPotion(); },
   };
 
+  // Mırmır visits every other chapter. Stock belongs to this adventure/chapter, never to an opened menu.
+  const SHOP_ZONES = ['kefir', 'yanardag', 'kale'];
+  const shopKey = () => P.ng + ':' + zdef().id;
+  function merchantNear(r = 3.4) {
+    const m = L && L.merchant;
+    return !!(m && !L._title && dist2(P.pos.x, P.pos.z, m.x, m.z) <= r * r);
+  }
+  function merchantWard() { return !!(P.shopWard && P.shopWard.zone === zdef().id && P.shopWard.ng === P.ng); }
+  function merchantInfo() {
+    if (!L || !L.merchant || L._title) return null;
+    const tier = SHOP_ZONES.indexOf(zdef().id), key = shopKey(), st = P.shopStock[key] || { potion: 0, ward: 0, polish: 0 };
+    if (tier < 0) return null;
+    const cost = n => Math.round(n[tier] * (1 + P.ng * 0.35));
+    const list = [
+      { id: 'potion', name: 'Pofuduk Yudum', icon: '🧪', text: 'Çantana 1 can iksiri ekler.', price: cost([45, 75, 110]), left: 3 - st.potion, reason: P.potions >= P.maxPotions ? 'İksir çantan dolu' : '' },
+      { id: 'ward', name: 'Bulut Örtüsü', icon: '☁️', text: 'Bu bölümde aldığın hasar %8 azalır. Yenilince kaybolmaz.', price: cost([100, 170, 240]), left: 1 - st.ward, reason: merchantWard() ? 'Bulut Örtüsü etkin' : '' },
+    ];
+    for (const slot of P.heroClass === 'hybrid' ? ['weapon', 'offhand'] : ['weapon']) {
+      const it = P.equip[slot], wand = isWand(it), rank = it ? it.polish || 0 : 0;
+      const gain = it ? Math.max(1, Math.round((it.polishBase || it.power) * 0.12)) : 0;
+      list.push({ id: slot, name: wand ? 'Yıldız Tozu' : 'Kıvılcım Cilası', icon: wand ? '🪄' : '⚔️',
+        text: it ? `${it.ad}: +${gain} silah gücü. Bu eşyada ${rank}/2 güçlendirme.` : 'Önce bir silah kuşan.',
+        price: cost([130, 220, 320]), left: 2 - st.polish, reason: !it ? 'Kuşanılmış silah yok' : rank >= 2 ? 'Bu silah tamamlandı' : '', rank, gain });
+    }
+    for (const o of list) {
+      o.left = Math.max(0, o.left);
+      if (!o.reason && !o.left) o.reason = 'Bu bölümde tükendi';
+      if (!o.reason && P.gold < o.price) o.reason = `${o.price - P.gold} altın daha gerekli`;
+      o.enabled = !o.reason;
+    }
+    return { name: 'Mırmır Ayışığı', gold: P.gold, ward: merchantWard(), offers: list };
+  }
+  function visitMerchant() {
+    if (GAME.state !== 'play' || P.dead || !merchantNear()) return false;
+    C.targetObj = C.targetE = null; C.hasT = C.drag = false; C.swing = null; C.vel = 0; C.keyX = C.keyZ = 0;
+    faceTo(L.merchant.x, L.merchant.z);
+    emit('merchant', {}); say('tuccar_merhaba', 2);
+    return true;
+  }
+  function buyMerchant(id) {
+    if (GAME.state !== 'play' || P.dead || !merchantNear()) return false;
+    const info = merchantInfo(), o = info && info.offers.find(a => a.id === id);
+    if (!o || !o.enabled) return false;
+    const key = shopKey(), st = P.shopStock[key] || (P.shopStock[key] = { potion: 0, ward: 0, polish: 0 });
+    P.gold -= o.price;
+    if (id === 'potion') { st.potion++; P.potions++; emit('potion', { count: P.potions }); }
+    else if (id === 'ward') { st.ward++; P.shopWard = { zone: zdef().id, ng: P.ng }; }
+    else {
+      const it = P.equip[id]; st.polish++;
+      it.polishBase = it.polishBase || it.power; it.polish = (it.polish || 0) + 1; it.power += o.gain;
+      recalcStats(); emit('equip', { item: it, slot: id });
+    }
+    sfx('star', { vol: 0.7 }); burst('sparkle', P.pos.x, 1.2, P.pos.z, { count: 20, color: '#a8ffe4' });
+    say(id === 'potion' ? 'tuccar_iksir' : id === 'ward' ? 'tuccar_bulut' : 'tuccar_parilti', 2);
+    emit('gold', { amount: -o.price }); emit('purchase', { name: o.name, price: o.price });
+    return true;
+  }
+  function cleanShop(s) {
+    const out = {}, raw = s && s.shopStock;
+    if (raw && typeof raw === 'object') for (const key of Object.keys(raw).slice(0, 300)) {
+      if (!/^\d{1,2}:(kefir|yanardag|kale)$/.test(key)) continue;
+      const v = raw[key]; if (!v || typeof v !== 'object') continue;
+      const n = (k, max) => clamp(Number.isFinite(v[k]) ? Math.floor(v[k]) : 0, 0, max);
+      out[key] = { potion: n('potion', 3), ward: n('ward', 1), polish: n('polish', 2) };
+    }
+    return out;
+  }
+
   // ── Save / load ──
   function plainItem(it) {
     const o = {};
@@ -5854,8 +6010,8 @@ const GAME = (() => {
       if (boss && boss.gift && !boss.gift.looted) { gold += (boss.giftGold || 0) + (boss.giftExtraGold || 0); if (boss.giftItem) bag.push(plainItem(boss.giftItem)); }
     }
     return {
-      v: 1, sv: SAVE_V, t: Date.now(), ...(hardcore ? { hardcore: true } : {}), heroClass: P.heroClass, zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
-      bag,
+      v: 1, sv: SAVE_V, t: Date.now(), difficulty: hard ? 'hard' : 'normal', heroClass: P.heroClass, zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
+      bag, roundPower: cleanRoundPower(P.roundPower), shopStock: cleanShop(P), shopWard: P.shopWard && P.shopWard.zone === zdef(zone).id ? Object.assign({}, P.shopWard) : null,
       equip: { weapon: P.bag.indexOf(P.equip.weapon), offhand: P.bag.indexOf(P.equip.offhand), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
       flags: Object.assign({ intro0: !!F.intro0, baykus: !!F.baykus, sandik: !!F.sandik, nese: !!F.nese, canta: !!F.canta, zl0: !!(F.zl && F.zl[0]), bossDone,
@@ -5868,59 +6024,25 @@ const GAME = (() => {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); return true; } catch (err) { warnOnce('save', err); return false; }
   }
   function save() {
-    if (hardcore) return false;
     if (GAME.state === 'title' || GAME.state === 'end' || GAME.state === 'transition' || (L && L._title)) return false;
     return writeSave(snapshot());
   }
   function readSave() {
-    try {
-      const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-      if (s && s.hardcore === true) return null;
-      // The class update starts a fresh adventure once; saves made after choosing a hero stay intact.
-      if (s && s.heroClass !== 'warrior' && s.heroClass !== 'wizard' && s.heroClass !== 'hybrid') { localStorage.removeItem(SAVE_KEY); return null; }
-      return cleanSave(s);
-    } catch (err) { return null; }
+    const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (err) { return null; } };
+    const validClass = s => s && ['warrior', 'wizard', 'hybrid'].includes(s.heroClass);
+    const clean = s => { try { return validClass(s) ? cleanSave(s) : null; } catch (err) { return null; } };
+    const current = read(SAVE_KEY), saved = clean(current);
+    if (saved) return saved;
+    // A former Hardcore checkpoint can be continued as Zor, only if there is no usable ordinary save. Reading never
+    // overwrites either slot; the next explicit Kaydet writes the common slot. Keep the old record intact as a backup.
+    try { if (legacyIgnored || localStorage.getItem(LEGACY_IGNORED_KEY)) return null; } catch (err) { if (legacyIgnored) return null; }
+    const old = read(LEGACY_HARDCORE_KEY);
+    return old && old.hardcore === true ? clean(Object.assign({}, old, { difficulty: 'hard' })) : null;
   }
-  // Hardcore has its own checkpoint slot. Only entering Kefir Valley / the Volcano / the castle (2nd, 4th, 6th chapters;
-  // HC_CP, by zone id so a later reorder cannot move them) writes it; returning after a defeat restores the exact
-  // progression in a fresh zone without turning a partially cleared room into a new checkpoint (the castle's: a fresh
-  // castle, the dragon asleep again).
-  function readHardcoreSave() {
-    if (hardcore && !hardcoreSnapshot) return null;   // a new attempt cannot inherit an old browser checkpoint
-    try {
-      const raw = JSON.parse(hardcoreSnapshot || localStorage.getItem(HARDCORE_KEY) || 'null');
-      if (!raw || raw.hardcore !== true || !['warrior', 'wizard', 'hybrid'].includes(raw.heroClass)) return null;
-      const s = cleanSave(raw);
-      return s && hcZone(s.zone) && !(s.flags && s.flags.bossDone >= 0) ? s : null;
-    } catch (err) { return null; }
-  }
-  function saveHardcoreCheckpoint() {
-    if (!hardcore || !hcZone(P.zone)) return false;
-    const s = snapshot(); s.hardcore = true; s.flags.bossDone = -1;
-    hardcoreSnapshot = JSON.stringify(s);   // a private/full browser can still recover this running adventure
-    try { localStorage.setItem(HARDCORE_KEY, hardcoreSnapshot); } catch (err) { warnOnce('hardcore checkpoint', err); }
-    emit('hardcoreCheckpoint', { zone: P.zone, name: zdef().ad });
-    return true;
-  }
-  function restoreHardcore(s) {
-    hardcore = true; hardcoreSnapshot = JSON.stringify(s); applySave(s); C.playT = 0; C.lastHurt = gt - 99; yolWant = false;
-    loadZone(s.zone, { hardcoreRestore: true }); C.invuln = 1;
-  }
-  function recoverHardcore() {
-    const s = readHardcoreSave(), heroClass = P.heroClass;
-    if (s && s.heroClass === heroClass) restoreHardcore(s);
-    else {
-      // Before the first automatic save, everything in this failed attempt belongs to the old adventure.
-      P.heroClass = heroClass; buildSkills(); resetPlayer(); C.playT = 0; C.lastHurt = gt - 99;
-      loadZone(0, { hardcoreRestore: true }); yolWant = false;
-    }
-    emit('respawn', { hardcore: true, zone: P.zone });
-  }
-  function continueHardcore() {
-    if (!inited) init();
-    const s = readHardcoreSave();
-    if (!s) return false;
-    restoreHardcore(s); say('hos_geldin', 3); return true;
+  function clearSave() {
+    legacyIgnored = true;
+    try { localStorage.setItem(LEGACY_IGNORED_KEY, '1'); } catch (err) { /* this session still ignores the legacy slot */ }
+    try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* private mode */ }
   }
   // A save from an older build or a corrupted one must never softlock 'Devam Et': numbers must be finite, the bag an
   // array of known items; unknown items are dropped and equip slots that point at the wrong kind of item are emptied.
@@ -5940,6 +6062,8 @@ const GAME = (() => {
       if (ITEMS.adaptLegacy) it = ITEMS.adaptLegacy(it, heroClass);
       if (!okItem(it) || (ITEMS.allowed && !ITEMS.allowed(it, heroClass))) return;
       const c = Object.assign({}, it, { base: baseOf(it), rarity: clamp(it.rarity | 0, 0, 3), ilvl: Math.max(1, it.ilvl | 0 || 1), power: Math.max(0, Math.round(it.power)) });
+      c.polish = clamp(Number.isFinite(it.polish) ? Math.floor(it.polish) : 0, 0, 2);
+      c.polishBase = c.polish && Number.isFinite(it.polishBase) ? clamp(it.polishBase, 0, c.power) : 0;
       // today's name (a save from the test build still says 'Demir Kılıç ✦': every sword is a lightsaber now)
       let nm = null;
       if (typeof ITEMS !== 'undefined' && ITEMS && typeof ITEMS.nameOf === 'function') { try { nm = ITEMS.nameOf(c); } catch (err) { warnOnce('ITEMS.nameOf', err); } }
@@ -5967,7 +6091,7 @@ const GAME = (() => {
     // the crystal-waiting flag names a zone index too (the castle): it moves with the zones
     if (typeof flags.bossDone === 'number' && flags.bossDone >= 0) flags.bossDone = saveZone(s, Math.floor(flags.bossDone), ZL, true);
     return Object.assign({}, s, {
-      sv: SAVE_V, heroClass, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
+      sv: SAVE_V, difficulty: s.difficulty === 'hard' || (s.difficulty === undefined && s.hardcore === true) ? 'hard' : 'normal', heroClass, lvl: L1, xp: clamp(Math.floor(xp), 0, xpFor(L1) - 1), gold: Math.max(0, Math.floor(gold)), potions: clamp(Math.floor(potions), 0, P.maxPotions),
       ng: clamp(Math.floor(ng), 0, 99), zone: zn, zid: ZL && ZL[zn] ? ZL[zn].id : s.zid, bag: slim, equip,
       skills: Array.isArray(s.skills) ? s.skills : [], flags,
     });
@@ -5990,8 +6114,12 @@ const GAME = (() => {
     return zn;
   }
   function applySave(s) {
+    hard = s.difficulty === 'hard';
     P.heroClass = heroClassOf(s.heroClass); buildSkills();
     P.lvl = s.lvl || 1; P.xp = s.xp || 0; P.gold = s.gold || 0; P.potions = clamp(s.potions ?? DIFF.potions, 0, P.maxPotions); P.ng = s.ng || 0;
+    P.shopStock = cleanShop(s);
+    const ward = s.shopWard;
+    P.shopWard = ward && SHOP_ZONES.includes(ward.zone) && ward.ng === P.ng ? { zone: ward.zone, ng: P.ng } : null;
     P.bag = (s.bag || []).filter(Boolean);
     const eq = s.equip || {};
     P.equip = { weapon: P.bag[eq.weapon] || null, offhand: P.heroClass === 'hybrid' ? P.bag[eq.offhand] || null : null, hat: P.bag[eq.hat] || null, cape: P.bag[eq.cape] || null };
@@ -6014,6 +6142,7 @@ const GAME = (() => {
     for (const t in FIRST_LINE) F[FIRST_LINE[t]] = !!fl[FIRST_LINE[t]];
     P.dead = false; P.spin = 0; P.shield = 0;
     recalcStats(); P.hp = P.maxHp;
+    P.roundPower = P.ng ? cleanRoundPower(s.roundPower) || captureRoundPower(s.zone) : null;
     if (H) H.setEquip(P.equip);
     checkUnlocks(false);
   }
@@ -6032,14 +6161,13 @@ const GAME = (() => {
   }
   function newGame(o = {}) {
     if (!inited) init();
-    hardcore = o.hardcore === true; hardcoreSnapshot = null;
-    if (hardcore) { try { localStorage.removeItem(HARDCORE_KEY); } catch (err) { /* this adventure still has no checkpoint */ } }
-    const plus = !hardcore && (o.plus !== undefined ? !!o.plus : GAME.state === 'end');
+    const plus = o.plus !== undefined ? !!o.plus : GAME.state === 'end';
+    hard = o.difficulty !== undefined ? o.difficulty === 'hard' : plus && hard;
     if (plus) {
       P.ng++; P.dead = false; P.potions = Math.max(P.potions, DIFF.potions);
       for (const s of GAME.skills) s.cd = 0;
       F.zl = {}; F.kapi = {}; F.bossDone = -1; skillQ.length = 0;
-      recalcStats(); P.hp = P.maxHp;
+      recalcStats(); P.hp = P.maxHp; P.roundPower = captureRoundPower();
     } else { P.heroClass = heroClassOf(o.heroClass); buildSkills(); resetPlayer(); }
     C.playT = 0; C.lastHurt = gt - 99;
     if (!plus && useTitleLevel()) startHere(); else loadZone(0);
@@ -6058,7 +6186,6 @@ const GAME = (() => {
   }
   function continueGame() {
     if (!inited) init();
-    hardcore = false; hardcoreSnapshot = null;
     const s = readSave();
     if (!s) { GAME.clearSave(); newGame({ plus: false }); return; }
     try { applySave(s); } catch (err) {   // never leave the kid on a dead HUD: start fresh instead
@@ -6251,7 +6378,7 @@ const GAME = (() => {
         if (chasing && (cx !== flowCx || cz !== flowCz || gt - flowAt > 1)) { flowCx = cx; flowCz = cz; flowAt = gt; LEVEL.flowTo(L, P.pos.x, P.pos.z); }
       }
     }
-    const canTarget = st === 'play' && !P.dead;
+    const canTarget = st === 'play' && !P.dead && !merchantNear();
     for (let i = enemies.length - 1; i >= 0; i--) if (enemies[i]) enemyStep(enemies[i], dt, canTarget);
     separate();
     for (let i = dying.length - 1; i >= 0; i--) {
@@ -6393,7 +6520,7 @@ const GAME = (() => {
       if (typeof what === 'object' && what) spawnItem(mk(what.slot, what.id, what.rarity || 0), x, z);
     },
     state() {
-      return { state: GAME.state, zone: P.zone, lvl: P.lvl, xp: P.xp, hp: Math.round(P.hp), maxHp: P.maxHp, gold: P.gold, potions: P.potions,
+      return { state: GAME.state, difficulty: hard ? 'hard' : 'normal', zone: P.zone, lvl: P.lvl, xp: P.xp, hp: Math.round(P.hp), maxHp: P.maxHp, gold: P.gold, potions: P.potions,
         dmg: P.dmg, enemies: enemies.length, sleepers: sleepers.length, dying: dying.length, proj: projectiles.length, coins: coins.length,
         loot: loot.length, crystal: crystal ? (crystal.ready ? 'ready' : 'rising') : null, boss: boss ? Math.round(boss.hp) + '/' + boss.maxHp + ' ' + boss.ph : null,
         bossType: boss ? boss.type : null, portal: L && L.portalObj ? !!L.portalObj.active : null, mortars: mortars.length, pos: [+P.pos.x.toFixed(2), +P.pos.z.toFixed(2)] };
@@ -6402,10 +6529,9 @@ const GAME = (() => {
 
   const GAME = {
     P, H: null, enemies, L: null, state: 'title', paused: false, skills: [], boss: null, time: 0,
-    get hardcore() { return hardcore; },
-    hasHardcoreSave: () => !!readHardcoreSave(), continueHardcore,
-    hardcoreSaveInfo() { const s = readHardcoreSave(); return s ? { zone: s.zone, heroClass: s.heroClass } : null; },
-    init, newGame, continueGame, hasSave: () => !!readSave(), save, clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (err) { /* private mode */ } },
+    get difficulty() { return hard ? 'hard' : 'normal'; }, setDifficulty,
+    merchantInfo, merchantNear, merchantWard, visitMerchant, buyMerchant,
+    init, newGame, continueGame, hasSave: () => !!readSave(), save, clearSave,
     loadZone, update, titleUpdate, input, equipSlot, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
     on, emit, enemiesNear, nearestEnemy, damage, spawnProjectile, hitBreakables, heroDamageNow, hurtPlayer, heal,
     xpFor, projectiles, loot, coins, wordOK,

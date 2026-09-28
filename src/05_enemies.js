@@ -5851,6 +5851,89 @@ const EMODEL = (function (G0) {
     };
   }
 
+  // Mırmır Ayışığı: a smiling moon-cat in a patched travelling cloak. Merged colour geometry, no textures/assets.
+  function merchant() {
+    const root = new THREE.Group(); root.name = 'Mırmır Ayışığı';
+    const body = new THREE.Group(); root.add(body);
+    const cloth = '#6547a3', dark = '#352755', gold = '#efc56f', fur = '#e9d8c9', rose = '#e6a1b3';
+    const make = (k, parent = root, glow = false) => {
+      const m = new THREE.Mesh(k.build(), stdMat({ vertexColors: true, roughness: glow ? 0.3 : 0.7, metalness: glow ? 0.1 : 0,
+        ...(glow ? { emissive: '#86e6ce', emissiveIntensity: 0.45 } : {}) }));
+      m.castShadow = !glow; m.receiveShadow = true; parent.add(m); return m;
+    };
+    const k = new Kit();
+    // Velvet cloak, little boots, scarf, brass moon clasp and a bulging leather satchel.
+    k.add(G.cyl(0.52, 1, 32), cloth, [0, 0.8, 0], null, [0.57, 1.12, 0.46]);
+    k.add(G.torus(TAU, 0.045, 40), gold, [0, 0.26, 0], [PI / 2, 0, 0], [0.55, 0.44, 0.55]);
+    for (const side of [-1, 1]) {
+      k.add(G.sphere(20, 12), dark, [side * 0.22, 0.18, 0.16], null, [0.22, 0.14, 0.31]);
+      k.add(G.sphere(20, 14), cloth, [side * 0.5, 1.06, 0.02], [0, 0, side * 0.3], [0.2, 0.36, 0.23]);
+      k.add(G.sphere(20, 14), fur, [side * 0.51, 0.89, 0.2], null, [0.15, 0.16, 0.16]);
+    }
+    k.add(G.torus(TAU, 0.23, 32), '#70cdbb', [0, 1.38, 0.03], [PI / 2, 0, 0], [0.37, 0.27, 0.37]);
+    k.add(G.box(), '#70cdbb', [-0.19, 1.13, 0.43], [0, 0, -0.18], [0.16, 0.45, 0.045]);
+    k.add(G.torus(PI * 1.45, 0.24, 24), gold, [0.15, 1.19, 0.48], [0, 0, -0.6], 0.1);
+    k.add(G.sphere(24, 16), '#a56c53', [-0.54, 0.58, -0.06], [0, 0, -0.15], [0.26, 0.3, 0.25]);
+    k.add(G.box(), gold, [-0.55, 0.64, 0.19], null, [0.12, 0.1, 0.035]);
+    k.seg([-0.44, 1.32, 0.23], [0.35, 0.5, 0.34], 0.036, '#b67b54', 0.036, 8);
+    for (let i = 0; i < 7; i++) {
+      const a = i * 0.8; k.add(G.octa(), i % 2 ? '#a0e7d8' : gold, [Math.sin(a) * 0.4, 0.43 + (i % 3) * 0.23, 0.39], [0, 0, a], [0.04, 0.065, 0.018]);
+    }
+    // Rounded hood frames a cream face; the cat's ears and whiskers read clearly from the overhead camera.
+    k.add(G.sphere(36, 24), dark, [0, 1.75, -0.03], null, [0.55, 0.52, 0.45]);
+    k.add(G.sphere(36, 24), fur, [0, 1.75, 0.18], null, [0.43, 0.37, 0.35]);
+    for (const side of [-1, 1]) {
+      k.add(G.cone(24), '#c8b6b1', [side * 0.32, 2.07, 0.12], [0, 0, -side * 0.24], [0.2, 0.4, 0.15]);
+      k.add(G.cone(20), rose, [side * 0.32, 2.085, 0.24], [0, 0, -side * 0.24], [0.105, 0.23, 0.022]);
+      k.add(G.sphere(20, 12), '#fff4df', [side * 0.11, 1.62, 0.46], null, [0.16, 0.11, 0.09]);
+      k.add(G.sphere(16, 10), rose, [side * 0.3, 1.69, 0.43], null, [0.095, 0.05, 0.028]);
+      for (let i = 0; i < 2; i++) k.seg([side * 0.23, 1.65, 0.48], [side * 0.5, 1.63 + i * 0.1, 0.42], 0.009, '#786782', 0.006, 6);
+    }
+    k.add(G.sphere(12, 8), '#a86c85', [0, 1.68, 0.55], null, [0.06, 0.04, 0.035]);
+    k.add(G.torus(PI, 0.12, 20), '#775578', [0, 1.585, 0.527], [0, 0, PI], [0.085, 0.06, 0.07]);
+    // A floppy travelling hat with a crooked tip and dangling star.
+    k.add(G.sphere(32, 16), cloth, [0, 2.13, -0.015], [0, 0, -0.12], [0.6, 0.115, 0.48]);
+    k.add(G.cone(32), cloth, [0, 2.38, -0.02], [0, 0, 0.16], [0.4, 0.55, 0.33]);
+    k.seg([-0.04, 2.6, -0.02], [-0.32, 2.68, 0], 0.13, cloth, 0.02, 20);
+    k.seg([-0.32, 2.67, 0], [-0.33, 2.43, 0.01], 0.01, gold, 0.01, 8);
+    k.add(G.octa(), gold, [-0.33, 2.41, 0.015], [0, 0, 0.15], [0.085, 0.12, 0.04]);
+    for (let i = 0; i < 12; i++) { const a = i * 0.16; k.seg([0.36 + Math.sin(a) * 0.48, 0.42 + i * 0.045, -0.26 - Math.cos(a) * 0.25], [0.36 + Math.sin(a + 0.16) * 0.48, 0.465 + i * 0.045, -0.26 - Math.cos(a + 0.16) * 0.25], 0.095, i % 3 ? fur : '#bcabba', 0.09, 12); }
+    make(k, body);
+    const eyes = new THREE.Group(); eyes.position.set(0, 1.83, 0.48); body.add(eyes);
+    const ek = new Kit();
+    for (const side of [-1, 1]) {
+      ek.add(G.sphere(24, 16), '#fffbee', [side * 0.175, 0, 0], null, [0.105, 0.125, 0.05]);
+      ek.add(G.sphere(20, 14), '#40ab9d', [side * 0.175, 0, 0.044], null, [0.064, 0.085, 0.025]);
+      ek.add(G.sphere(16, 12), '#302844', [side * 0.175, 0, 0.065], null, [0.035, 0.058, 0.016]);
+      ek.add(G.sphere(12, 8), '#ffffff', [side * 0.175 - 0.02, 0.035, 0.079], null, 0.018);
+    }
+    make(ek, eyes);
+    const stall = new Kit();
+    // Indigo rug, patched travelling chest, a tray of potion bottles and a tiny brass balance.
+    stall.add(G.cyl(1, 1, 48), '#645084', [0, 0.025, 0], null, [1.8, 0.035, 1.35]);
+    stall.add(G.torus(TAU, 0.018, 64), gold, [0, 0.05, 0], [PI / 2, 0, 0], [1.73, 1.27, 1.73]);
+    stall.add(G.box(), '#8a625c', [-1.0, 0.39, 0.1], null, [0.74, 0.65, 0.77]);
+    stall.add(G.box(), '#dac28e', [-1.0, 0.74, 0.1], null, [0.86, 0.07, 0.89]);
+    for (const x of [-1.25, -0.77]) stall.add(G.box(), gold, [x, 0.4, 0.499], null, [0.045, 0.65, 0.02]);
+    for (let i = 0; i < 3; i++) {
+      const x = -1.25 + i * 0.25, z = 0.16 - (i % 2) * 0.25;
+      stall.add(G.sphere(20, 14), ['#f092af', '#99e0e0', '#ddb1ff'][i], [x, 0.9, z], null, [0.095, 0.13, 0.095]);
+      stall.add(G.cyl(1, 1, 12), gold, [x, 1.05, z], null, [0.045, 0.06, 0.045]);
+    }
+    // Curved lantern pole, glowing moon, blue glass and hanging charms (no extra point light).
+    stall.seg([1.25, 0.02, 0], [1.25, 2.18, 0], 0.045, '#836864', 0.035, 14);
+    stall.seg([1.25, 2.18, 0], [0.97, 2.3, 0], 0.035, gold, 0.035, 12);
+    stall.seg([0.97, 2.3, 0], [0.85, 2.15, 0], 0.025, gold, 0.025, 12);
+    for (const y of [1.73, 2.05]) stall.add(G.cyl(1, 1, 12), gold, [0.85, y, 0], null, [0.19, 0.065, 0.19]);
+    for (const x of [0.69, 1.01]) stall.seg([x, 1.76, 0], [x, 2.02, 0], 0.015, gold, 0.015, 8);
+    make(stall);
+    const glow = new Kit(); glow.add(G.sphere(24, 16), '#9fe9d9', [0.85, 1.89, 0], null, [0.145, 0.16, 0.145]);
+    glow.add(G.torus(PI * 1.5, 0.22, 24), '#fff0b5', [0.85, 1.9, 0.14], [0, 0, -0.5], 0.085); make(glow, root, true);
+    let t = 0;
+    return { root, anim(dt) { t += dt; body.position.y = Math.sin(t * 1.6) * 0.025; body.rotation.y = Math.sin(t * 0.6) * 0.09;
+      eyes.scale.y = t % 4.5 > 4.3 ? 0.15 + 0.85 * Math.abs(Math.cos((t % 4.5 - 4.3) / 0.2 * PI)) : 1; } };
+  }
+
   // ── Bilge Baykuş (owl NPC) on a tree stump ──
   function buildOwl(r) {
     const brown = '#8c5c37', brownD = '#5e3d22', brownL = '#b07e52', belly = '#f3dfbd', scal = '#c99e6c', disc = '#f0d6b4';
@@ -6269,5 +6352,5 @@ const EMODEL = (function (G0) {
   }
   function stats() { const out = {}; for (const k in DEFS) out[k] = DEFS[k].verts; return out; }
 
-  return { build, owl, babyDragon, sancak, jellyCrown, havuc, serinTas, hole, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS, PROPS: Object.keys(PROPS) };
+  return { build, owl, merchant, babyDragon, sancak, jellyCrown, havuc, serinTas, hole, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS, PROPS: Object.keys(PROPS) };
 })(G);

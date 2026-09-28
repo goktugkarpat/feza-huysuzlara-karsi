@@ -35,8 +35,10 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - **Bilgisayarda klavye:** ok tuşları / WASD yürür, Boşluk vurur, **1 2 3** yetenekleri kullanır, **Q** iksir içer (tuşlar düğmelerin üstünde
   beyaz etiketle yazar; iksir düğmesinin altındaki kırmızı **×3** ise kalan iksir sayısıdır), B çanta, Esc mola.
 - **FPS göstergesi:** klavyede **.** (nokta) tuşu açıp kapatır; iPad'de adresin sonuna `?fps` eklenirse açık başlar.
-- **Kare hızı:** bilgisayar ve Mac'te en fazla 120 FPS; tablet ve telefonda 60 FPS'ye kilitli (120 Hz iPad ekranında da kareler eşit
-  aralıklı, takılma yok), tablette MSAA 4× ve çözünürlük 1.25×.
+- **Kare hızı ve görüntü:** PC ve Mac'te çizim çözünürlüğü ekran ölçeklendirmesinden bağımsız **1.5×** başlar. Açılışta
+  tarayıcının kare sıklığı ölçülür; hedef en fazla **120 FPS** olur. Sürekli yavaşlamada çözünürlük **1.25× → 1×** azaltılır,
+  uzun süre akıcı çalışınca tekrar yükseltilir. Mola ve bölüm yüklemeleri bu ölçüme katılmaz. Tablet/telefonun **60 FPS**
+  üst sınırı ve en fazla **1.25×** başlangıç çözünürlüğü korunur. `.` tuşu anlık FPS, hedef ve çizim çözünürlüğünü gösterir.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
 Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
@@ -45,6 +47,14 @@ Eşya görünüşleri toplam 64 çeşittir; buz, güneş ve dalga kılıçları,
 Son eklenen 14 eşya: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
 ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yunikorn Tacı** ve **Astronot Kaskı**; **Şeker**, **Panda** ve
 **Galaksi** pelerinleri. Bazıları ancak ilerideki bölgelerde çıkar (Uzay Roketi, Gezegen ve Galaksi gibi).
+
+## Normal modun dengesi
+
+- Daha güçlü silah bulunca huysuzların canı daha yavaş artar; yükseltmeler dövüşü daha belirgin kısaltır.
+- Büyücü Feza'nın normal değnek atışı biraz daha hızlıdır.
+- Bossun kendi küçük oyununu başarıp onu sersemletince, sersemleme boyunca saldırıların **%25 daha fazla hasar** verir.
+  Ejderhaya gönderilen dostluk kalbinin sabit hasarı ve şövalyenin sancakları bu artışa dahil değildir.
+- Bu ayarlar Normal zorluğa özeldir; Zor seçeneği daha sert dövüş dengesini korur.
 
 ## Bölgeler
 
@@ -106,17 +116,21 @@ yapılmazsa hiçbir şey kaybedilmez. Gidilecek yeri altın (ejderhada pembe) pa
   ejderhaya uçar ve ejderha bir süre sevgiyle oturur.
 
 
-## Hardcore
+## Mola ve zorluk
 
-Oyun başladıktan sonra **Mola → Hardcore başlat** ile mevcut karakterin macerası baştan başlar. Yanlışlıkla açılmaması için
-onay düğmesine basılı tutulur. Normal yeni oyun ve uygulamanın yeniden açılışı Hardcore'u kendiliğinden etkinleştirmez.
+Mola menüsünde **Devam Et**, **Zorluk**, **Kaydet** ve **Baştan Başla** bulunur. Müzik düğmesi açılış ekranındadır.
 
-- Yalnızca **2., 4. ve 6. bölümlerin girişinde otomatik kayıt** alınır; elle kayıt kapalıdır.
-- Yenilince son Hardcore kaydına dönülür. Henüz kayıt yoksa aynı karakterle ilk bölümden başlanır.
-- Hardcore kayıtları normal kayıttan ayrıdır. Sonraki oturumda önce oyuna girip **Mola → Hardcore’a dön** seçilebilir. Oyun ekranındaki kırmızı **Hardcore** işareti ve Mola menüsündeki mod kartı hangi modda olduğunu gösterir; kart son otomatik kayıt bölümünü de söyler.
-- Yaratıklar daha dayanıklı, daha hızlı ve daha sık saldırır. Bossların özel saldırıları çok daha sert vurur;
-  tehlike işaretleri ve kaçma fırsatı korunur. Savaş sırasında kendiliğinden can yenilenmez.
-- Normal **Baştan Başla / Tekrar Oyna** Hardcore'u kapatır. Yeni Hardcore başlatmak önceki Hardcore kaydını sıfırlar; onay ekranı bunu önceden belirtir.
+- **Mola → Zorluk** içinde **Normal** veya **Zor** seçilir. Seçim hemen uygulanır; devam edince yeni ayarla oynarsın.
+  Bölüm, karakter, eşyalar ve ilerleme korunur. Mevcut düşmanların kalan can yüzdesi değişmez; dövüş yeniden başlamaz.
+- Seçili zorluk hem Mola düğmesinde hem oyun ekranındaki küçük **Normal / Zor** işaretinde görünür.
+- İki zorlukta da **Mola → Kaydet** ile kayıt alınır. **Devam Et** kayıtlı zorluğu da yükler. Yenilince aynı bölümdeki
+  neşe taşından uyanılır; Hardcore'un ayrı kayıt ve bölüm başına dönme kuralları kaldırılmıştır.
+- **Baştan Başla** ile yeni karakter seçilerek açılan macera **Normal** başlar. Oyunu bitirince **Tekrar Oyna** ile açılan
+  sonraki macera, karakterle birlikte seçili zorluğu da korur.
+- **Zor** seçeneğinde yaratıklar daha dayanıklı, hızlı ve sık saldırır; bossların özel saldırıları daha sert vurur.
+  Savaşta kendiliğinden can yenilenmez, sakin anlarda daha yavaş yenilenir. Yenilgilere bağlı düşman zayıflaması uygulanmaz.
+- Önceki sürümden yalnızca bir Hardcore kaydı kaldıysa **Devam Et** onu Zor olarak açabilir. Normal kayıt varsa önceliklidir.
+  Eski kayıt kendiliğinden silinmez; yeni ortak kayıt ancak **Kaydet** denince yazılır.
 
 ## Dosyalar
 
@@ -130,6 +144,32 @@ onay düğmesine basılı tutulur. Normal yeni oyun ve uygulamanın yeniden aç�
 | `manifest.webmanifest`, `sw.js`, `icons/` | iPad'de uygulama gibi açılma, simge ve internetsiz çalışma |
 | `yayinla.command` | Çift tıklayınca değişiklikleri GitHub'a gönderir |
 | `serve.py` | İsteğe bağlı yerel sunucu (iPad'i aynı Wi-Fi'dan bağlamak için) |
+
+## Oyunu bitirdikten sonra devam etmek
+
+İlk maceranın Normal/Zor dengesi değişmez. Oyunu bitirip yeni tura geçince seviye ve eşyalar korunur;
+düşmanların canı ve hasarı, **o turun başındaki** saldırı gücü, can ve zırha göre belirlenir.
+Bu ölçü tur boyunca sabittir: yeni eşya, seviye veya tüccar güçlendirmesi düşmanları anında güçlendirmez.
+Bölümler ilerledikçe zorluk yükselir; sonraki turlarda saldırılar arasındaki bekleme biraz kısalır, kaçınma uyarıları aynı kalır.
+Bossların ilk maceraya ait can tavanı tekrar turlarında uygulanmaz; canları her turda katlanarak uzamaz.
+
+Turun güç ölçüsü **Kaydet** ile saklanır; Devam Et veya zorluk değiştirmek bu ölçüyü yenilemez.
+Eski bir tekrar-turu kaydında ölçü yoksa ilk yüklemede mevcut seviye, ekipman ve bölümden hesaplanır.
+Baştan Başla, ilk maceraya ve onun mevcut dengesine döner.
+
+## Gezgin tüccar: Mırmır Ayışığı
+
+Mırmır, 2., 4. ve 6. bölümlerin başındaki güvenli alanda bekleyen, yıldızlı pelerinli ve fenerli bir kedi tüccardır.
+Yanına yaklaşınca **Alışveriş** düğmesine dokun veya **E** tuşuna bas. Seçim sırasında oyun durur.
+
+- **Pofuduk Yudum:** çantaya bir can iksiri ekler; her tezgahta en fazla 3 adet, çanta doluyken alınamaz.
+- **Bulut Örtüsü:** o bölüm boyunca alınan hasarı %8 azaltır. Yenilince devam eder, yeni bölümde sona erer.
+- **Kıvılcım Cilası / Yıldız Tozu:** kuşanılmış kılıcı / değneği, ilk gücünün %12’si kadar (yuvarlanmış, en az 1) güçlendirir.
+  Eşya başına en fazla 2 güçlendirme; her tezgahta toplam 2 kullanım. Hibrit Feza hangi elindeki silahı güçlendireceğini seçer.
+
+2./4./6. bölüm fiyatları sırasıyla iksir için **45/75/110**, örtü için **100/170/240**, silah için **130/220/320** altındır.
+Alışveriş ve güçlendirmeler **Mola → Kaydet** ile saklanır; tekrar yüklemek stokları yenilemez.
+Yeni macera alışveriş geçmişini sıfırlar. Yeni Oyun+ tezgâhları yeniler; fiyatlar her turda temel fiyatın %35’i kadar artar.
 
 ## Cümleleri değiştirmek
 

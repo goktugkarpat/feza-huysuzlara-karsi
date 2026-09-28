@@ -414,6 +414,7 @@ const LEVEL = (function () {
     };
     L._sat = makeSAT(W, H, grid);
     place(L);
+    placeMerchant(L);
     fixReach(L, unBreak, dropUnreachable);   // a breakable cluster must never seal a corridor mouth; ones Feza can't get to go
     return L;
   }
@@ -1313,6 +1314,7 @@ const LEVEL = (function () {
     if (L.exit) targets.push([L.exit.x, L.exit.z, 1.3]);
     if (L.crystalSpot) targets.push([L.crystalSpot.x, L.crystalSpot.z, 1.9]);
     if (L.npc) targets.push([L.npc.x, L.npc.z, 3.5]);
+    if (L.merchant) targets.push([L.merchant.x, L.merchant.z, 3.1]);
     let removed = 0;
     for (let it = 0; it < 4; it++) {
       st.fill(0);
@@ -8123,8 +8125,58 @@ const LEVEL = (function () {
     B.g.add(model.root);
     L.npcObj = { x: n.x, z: n.z, model };
   }
+  // Reserve the travelling stall before decorative props are placed; keep its approach reachable on every seed.
+  function placeMerchant(L) {
+    if (!['kefir', 'yanardag', 'kale'].includes(L.Z.id)) return;
+    const st = L.start;
+    let spot = null;
+    for (const r of [4.2, 5, 5.8, 3.5]) {
+      for (const a of [-2.7, -0.44, -2.25, -0.9, -1.57, 0, Math.PI]) {
+        const x = st.x + Math.cos(a) * r, z = st.z + Math.sin(a) * r;
+        if (circleFree(L, x, z, 2.0) && !L.checkpoints.some(c => hyp(c.x - x, c.z - z) < 3.4) &&
+          !L.chests.some(c => hyp(c.x - x, c.z - z) < 3.0)) { spot = { x, z }; break; }
+      }
+      if (spot) break;
+    }
+    if (!spot) {   // the start room has floor even when its decoration slots are crowded
+      const rm = L.rooms[0], hh = rm.hh || rm.r, hw = rm.hw || rm.r;
+      for (let z = rm.z - hh + 2; z < rm.z + hh - 2 && !spot; z += 0.6)
+        for (let x = rm.x - hw + 2; x < rm.x + hw - 2; x += 0.6)
+          if (hyp(x - st.x, z - st.z) >= 3 && circleFree(L, x, z, 1.9)) { spot = { x, z }; break; }
+    }
+    if (!spot) return;
+    L.merchant = spot;
+    L.solids.push({ x: spot.x, z: spot.z, r: 1.65, kind: 'merchant' }); L._sh = null;
+    L.spawns = L.spawns.filter(e => e.type === L.Z.boss || hyp(e.x - spot.x, e.z - spot.z) > 9);
+    if (!L.checkpoints.some(c => hyp(c.x - st.x, c.z - st.z) < 7)) {
+      const a = Math.atan2(st.z - spot.z, st.x - spot.x);
+      for (const da of [-0.8, 0.8, -1.2, 1.2, 0]) {
+        const x = spot.x + Math.cos(a + da) * 3.6, z = spot.z + Math.sin(a + da) * 3.6;
+        if (hyp(x - st.x, z - st.z) > 1.2 && circleFree(L, x, z, 1.05)) {
+          L.checkpoints.push({ x, z }); L.solids.push({ x, z, r: 0.7, kind: 'cp' }); L._sh = null; break;
+        }
+      }
+    }
+  }
+  function makeMerchant(L, B) {
+    if (!L.merchant || typeof EMODEL.merchant !== 'function') return;
+    const m = L.merchant, model = EMODEL.merchant();
+    model.root.position.set(m.x, 0, m.z); B.g.add(model.root); m.model = model;
+    B.anim.push(dt => model.anim(dt));
+    const halo = new THREE.Mesh(new THREE.RingGeometry(3.31, 3.36, 64), new THREE.MeshBasicMaterial({ color: '#b9f6e6', transparent: true, opacity: 0.28, depthWrite: false }));
+    halo.rotation.x = -Math.PI / 2; halo.position.set(m.x, 0.065, m.z); B.g.add(halo);
+    const c = document.createElement('canvas'); c.width = 640; c.height = 150;
+    const x = c.getContext('2d'); x.textAlign = 'center'; x.lineJoin = 'round';
+    x.font = '900 49px sans-serif'; x.lineWidth = 10; x.strokeStyle = '#382546'; x.strokeText('Mırmır Ayışığı', 320, 61);
+    x.fillStyle = '#fff0b6'; x.fillText('Mırmır Ayışığı', 320, 61);
+    x.font = 'bold 27px sans-serif'; x.lineWidth = 6; x.strokeText('GEZGİN TÜCCAR', 320, 105); x.fillStyle = '#b6f0e2'; x.fillText('GEZGİN TÜCCAR', 320, 105);
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    label.position.set(m.x, 3.2, m.z); label.scale.set(3.7, 0.87, 1); B.g.add(label); B.dispose.push(tex);
+  }
+
   function buildProps(L, B) {
-    makeChests(L, B); makeBreakables(L, B); makeCheckpoints(L, B); makePortal(L, B); makeTorches(L, B); makeNpc(L, B);
+    makeChests(L, B); makeBreakables(L, B); makeCheckpoints(L, B); makePortal(L, B); makeTorches(L, B); makeNpc(L, B); makeMerchant(L, B);
   }
 
   // ── Zone 0 village edge: cute timber houses (north of the plaza), well, lamps, fences, flower beds, sign ──
@@ -8319,6 +8371,11 @@ const LEVEL = (function () {
       }
       for (const b of V.beds) B.noDec[Math.floor(b.z) * L.W + Math.floor(b.x)] = 1;
       if (V.well) B.noDec[Math.floor(V.well.z) * L.W + Math.floor(V.well.x)] = 1;
+    }
+    if (L.merchant) {
+      const m = L.merchant; B.noTree.push({ x: m.x, z: m.z, r: 4 });
+      for (let z = Math.max(0, Math.floor(m.z - 4)); z < Math.min(L.H, m.z + 4); z++)
+        for (let x = Math.max(0, Math.floor(m.x - 4)); x < Math.min(L.W, m.x + 4); x++) if (hyp(x + 0.5 - m.x, z + 0.5 - m.z) < 4) B.noDec[z * L.W + x] = 1;
     }
     if (L.exit) B.noTree.push({ x: L.exit.x, z: L.exit.z - 0.5, r: 2.4 });
     const bt = L.buildT = {}, lap = (k, t) => { const n2 = performance.now(); bt[k] = Math.round(n2 - t); return n2; };   // build phases (ms), for tests

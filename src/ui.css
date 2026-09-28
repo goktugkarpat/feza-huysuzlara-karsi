@@ -457,15 +457,10 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-screen.on .u-panel { animation: u-panelin 0.45s cubic-bezier(.2, 1.4, .4, 1) both; }
 @keyframes u-panelin { from { transform: scale(0.7); opacity: 0; } }
 .u-ptitle { font-weight: 900; font-size: calc(var(--k) * 58px); line-height: 1; margin-bottom: calc(var(--k) * 4px); }
-.u-prow { display: flex; gap: calc(var(--k) * 16px); flex-wrap: wrap; justify-content: center; }
-/* Efektler / Müzik toggles: one row that never wraps (the restart question matches the 3-row panel height); a little
-   smaller than the main pills, with real side padding (#ui button resets padding, so the label would touch the ends) */
-#ui .u-prow > .u-btn { font-size: calc(var(--k) * 31px); padding: 0 0.72em 0 0.6em; }
 .u-close { position: absolute !important; right: calc(var(--k) * -20px); top: calc(var(--k) * -20px); width: calc(var(--k) * 76px); height: calc(var(--k) * 76px);
   z-index: 5; background: radial-gradient(circle at 50% 30%, #ff9aa6, #f2435c 55%, #b81a3a) padding-box, var(--gold) border-box !important; }
 .u-close .u-svg { width: 0.95em; height: 0.95em; }
-/* restart question: exactly as tall as the main panel (4 rows: Devam Et, toggles, Kaydet, Baştan Başla) — Evet can never
-   land where Baştan Başla was; Hayır does */
+/* Restart confirmation keeps the four-row menu height; Evet requires a hold. */
 .u-ask { display: none; flex-direction: column; align-items: center; justify-content: space-between; gap: calc(var(--k) * 12px);
   height: calc(var(--k) * (4 * 84px + 3 * 18px)); min-width: calc(var(--k) * 330px); }
 .u-panel.asking > .u-main { display: none; }
@@ -553,6 +548,10 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-tile img { width: calc(var(--k) * 76px); height: calc(var(--k) * 76px); object-fit: contain; pointer-events: none; }
 .u-tile .u-temo { font-size: calc(var(--k) * 50px); line-height: calc(var(--k) * 76px); pointer-events: none; }
 .u-tile .u-stars { font-size: calc(var(--k) * 15px); letter-spacing: 0; }
+.u-tile .u-polish { position: absolute; left: calc(var(--k) * 5px); top: calc(var(--k) * 8px);
+  display: inline-flex; align-items: center; padding: calc(var(--k) * 3px) calc(var(--k) * 5px); border-radius: calc(var(--k) * 9px);
+  background: #35204ee8; color: #fff0b5; font-size: calc(var(--k) * 13px); font-weight: 900; line-height: 1.1; white-space: nowrap; pointer-events: none; }
+.u-tile.fresh .u-polish { top: calc(var(--k) * 24px); }
 .u-tile.on { border-color: #ffe066 !important; box-shadow: 0 0 0 calc(var(--k) * 3px) #fff3b0, 0 0 calc(var(--k) * 13px) calc(var(--k) * 1px) #ffd23f, 0 calc(var(--k) * 5px) 0 rgba(10, 0, 30, 0.5),
   inset 0 0 calc(var(--k) * 16px) rgba(255, 226, 110, 0.6); }
 .u-tile .u-chk { display: none; position: absolute; right: calc(var(--k) * -8px); top: calc(var(--k) * -8px); width: calc(var(--k) * 34px); height: calc(var(--k) * 34px);
@@ -670,29 +669,43 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   .u-choice .u-ptitle { font-size: 27px; }
 }
 
-/* Hardcore stays inside the in-game pause menu, including on small landscape screens. */
-.u-pause-panel { max-height: 94%; overflow-y: auto; touch-action: pan-y; }
-.u-pause-panel .u-main { gap: calc(var(--k) * 12px); }
-.u-hardcore-tag { align-self: flex-start; padding: calc(var(--k) * 5px) calc(var(--k) * 12px); border-radius: 99px;
-  border: calc(var(--k) * 2px) solid #ffe49b; background: #a31f48; color: #fff9e8;
+/* The pause menu stays small; difficulty has its own view and applies without leaving the adventure. */
+.u-pause-panel { box-sizing: border-box; max-width: 94%; max-height: 94%; overflow-y: auto; touch-action: pan-y; }
+.u-pause-panel .u-main { width: 100%; }
+.u-difficulty-tag { align-self: flex-start; padding: calc(var(--k) * 5px) calc(var(--k) * 12px); border-radius: 99px;
+  border: calc(var(--k) * 2px) solid #ffe49b; background: #432477; color: #fff9e8;
   font-weight: 900; font-size: calc(var(--k) * 18px); line-height: 1; letter-spacing: 0.03em;
   box-shadow: 0 calc(var(--k) * 3px) calc(var(--k) * 9px) rgba(28, 0, 28, 0.45); }
-.u-mode-card { box-sizing: border-box; width: 100%; padding: calc(var(--k) * 12px) calc(var(--k) * 18px);
-  border: calc(var(--k) * 2px) solid #be9bff; border-radius: calc(var(--k) * 20px); text-align: center;
-  background: rgba(25, 7, 64, 0.66); color: #f6efff; }
-.u-mode-card.hardcore { border-color: #ffc37d; background: rgba(107, 24, 62, 0.8); }
-.u-mode-name { font-size: calc(var(--k) * 29px); line-height: 1.1; font-weight: 900; }
-.u-mode-save { margin-top: calc(var(--k) * 6px); font-size: calc(var(--k) * 19px); line-height: 1.2; }
+.u-difficulty-tag.hard { background: #a31f48; }
+.u-difficulty { display: none; width: calc(var(--k) * 430px); max-width: 100%; flex-direction: column; align-items: center; gap: calc(var(--k) * 16px); }
+.u-pause-panel.choosing-difficulty > .u-main { display: none; }
+.u-pause-panel.choosing-difficulty > .u-difficulty { display: flex; }
+.u-difficulty-hint { color: #fff5d6; font-size: calc(var(--k) * 23px); line-height: 1.35; text-align: center; }
+.u-difficulty-choices { display: flex; flex-direction: column; gap: calc(var(--k) * 12px); width: 100%; }
+#ui .u-difficulty-choice { box-sizing: border-box; position: relative; display: flex; flex-direction: column; align-items: flex-start;
+  width: 100%; padding: calc(var(--k) * 16px) calc(var(--k) * 22px); gap: calc(var(--k) * 6px);
+  border: calc(var(--k) * 3px) solid #ad91df; border-radius: calc(var(--k) * 22px); color: #f8f0ff; text-align: left;
+  background: linear-gradient(135deg, #58369a, #321964); box-shadow: 0 calc(var(--k) * 4px) 0 #1e0e43; cursor: pointer; }
+#ui .u-difficulty-choice[aria-pressed="true"] { border-color: #ffe17c; background: linear-gradient(135deg, #386747, #234739); }
+#ui .u-difficulty-choice[data-difficulty="hard"][aria-pressed="true"] { background: linear-gradient(135deg, #a03d52, #66213e); }
+.u-difficulty-choice strong { font-size: calc(var(--k) * 32px); font-weight: 900; }
+.u-difficulty-choice span { font-size: calc(var(--k) * 21px); line-height: 1.3; }
+.u-difficulty-choice small { position: absolute; right: calc(var(--k) * 20px); top: calc(var(--k) * 20px);
+  font-size: calc(var(--k) * 19px); font-weight: 800; color: #ffe6a1; }
+.u-difficulty-choice.down { transform: translateY(calc(var(--k) * 3px)); }
+.u-difficulty-note { text-align: center; font-size: calc(var(--k) * 18px); line-height: 1.35; color: #e1cfff; }
 .u-pause-panel .u-btn.wide { max-width: 100%; }
-.u-pause-panel .u-btn.r, .u-pause-panel .u-btn.p.wide { font-size: calc(var(--k) * 29px); }
+.u-pause-panel .u-btn.p.wide { font-size: calc(var(--k) * 32px); }
 .u-asktxt small { display: block; margin-top: 1em; font-size: 0.6em; line-height: 1.45; font-weight: 600; }
 @media (max-height: 450px) and (min-width: 700px) {
-  .u-pause-panel { box-sizing: border-box; width: min(94%, 720px); padding: 10px 22px; gap: 7px; }
-  .u-pause-panel .u-main { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 7px 12px; justify-items: stretch; }
-  .u-pause-panel .u-mode-card { grid-column: 1 / -1; }
+  .u-pause-panel { width: min(94%, 720px); padding: 10px 22px; gap: 7px; }
+  .u-pause-panel:not(.asking):not(.choosing-difficulty) .u-main { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; justify-items: stretch; }
   .u-pause-panel .u-btn.wide { min-width: 0; width: 100%; }
-  .u-pause-panel .u-prow { flex-wrap: nowrap; align-items: center; }
-  .u-pause-panel .u-prow > .u-btn { font-size: calc(var(--k) * 23px); }
+  .u-pause-panel .u-difficulty { width: 100%; gap: 8px; }
+  .u-difficulty-choices { flex-direction: row; }
+  .u-difficulty-hint br { display: none; }
+  .u-pause-panel .u-ask { height: auto; gap: 8px; }
+  .u-pause-panel .u-yesbox { margin-right: 0; }
 }
 
 /* FPS meter ("." key or ?fps): top-left under the portrait, above every screen, never catches a touch */
@@ -700,3 +713,71 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   pointer-events: none; padding: 5px 10px; border-radius: 8px; background: rgba(18, 11, 34, 0.82); color: #fff;
   font: 700 14px/1.3 ui-monospace, Menlo, Consolas, monospace; letter-spacing: 0.2px; white-space: pre-line;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+
+/* The travelling moon-cat's shop: readable offers, exact costs, and a quiet pause while choosing. */
+.u-shop-panel { box-sizing: border-box; width: min(92vw, 800px); max-height: 92vh; padding: 24px; gap: 14px; overflow: hidden; }
+.u-shop-head { display: flex; align-items: center; gap: 18px; width: 100%; }
+.u-shop-seal { display: grid; place-items: center; width: 76px; height: 76px; flex: 0 0 auto; border: 2px solid #eac47b; border-radius: 50%;
+  background: radial-gradient(circle, #7961b1, #392957); color: #fff0b5; font-size: 66px; line-height: 1; box-shadow: 0 0 26px #b4e6d344; }
+.u-shop-kicker { color: #b6eadd; font-size: 11px; font-weight: 900; letter-spacing: 1.8px; margin-bottom: 7px; }
+.u-shop-panel .u-ptitle { font-size: clamp(25px, 3.7vw, 39px); }
+.u-shop-greeting { font-size: 15px; color: #eadbf7; margin-top: 6px; }
+.u-shop-gold { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; border-radius: 14px; background: #25153e99; padding: 10px 14px; color: #ffe098; font-size: 22px; font-weight: 900; }
+.u-shop-gold small { margin-left: auto; color: #d8c9ec; font-size: 13px; font-weight: 600; }
+.u-shop-offers { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 0; overflow-y: auto; touch-action: pan-y; }
+.u-shop-head, .u-shop-gold, .u-shop-status, .u-shop-foot { flex-shrink: 0; }
+.u-shop-card { flex-shrink: 0; }
+.u-shop-card { display: grid; grid-template-columns: 49px 1fr 138px; align-items: center; gap: 12px; padding: 12px; border: 1px solid #ab8eca88; border-radius: 18px; background: linear-gradient(120deg, #5b4384, #37245f); }
+.u-shop-card.sold { background: #392c4e; }
+.u-shop-icon { font-size: 32px; text-align: center; }
+.u-shop-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.u-shop-copy strong { color: #fff0c6; font-size: 20px; }
+.u-shop-copy span { color: #f3eafa; font-size: 14px; line-height: 1.3; }
+.u-shop-copy small { color: #afe7d6; font-size: 12px; }
+#ui .u-shop-buy { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 10px 8px; min-height: 64px; border: 2px solid #f2d690; border-radius: 14px;
+  background: linear-gradient(#5aab80, #337157); color: #fff9dd; box-shadow: 0 3px 0 #233b38; cursor: pointer; }
+.u-shop-buy b { display: flex; align-items: center; gap: 6px; font-size: 21px; }
+.u-shop-buy > span { font-size: 13px; line-height: 1.2; }
+#ui .u-shop-buy:disabled { background: #433651; border-color: #8d7c9a; color: #c5b9cb; cursor: default; box-shadow: none; }
+.u-shop-buy.down { transform: translateY(2px); }
+.u-shop-status { color: #d2f7e4; font-size: 13px; text-align: center; min-height: 1.4em; }
+.u-shop-foot { display: flex; width: 100%; align-items: center; gap: 16px; }
+.u-shop-note { flex: 1; color: #ddcce9; font-size: 12px; line-height: 1.4; }
+#ui .u-shop-foot .u-btn { min-height: 48px; font-size: 22px; padding: 0 20px; }
+#ui .u-merchant-prompt { position: absolute; pointer-events: auto; left: 50%; bottom: max(190px, 25vh); transform: translateX(-50%); white-space: nowrap;
+  padding: 10px 18px; background: #49336dee; border: 2px solid #d9c68b; border-radius: 24px; color: #fff0c6; font-size: 17px; font-weight: 800; box-shadow: 0 3px 18px #29113977; }
+.u-merchant-prompt small { border: 1px solid #ceafd9; padding: 1px 5px; border-radius: 4px; margin-left: 8px; }
+#ui:not(.kbd) .u-merchant-prompt small { display: none; }
+.u-ward-tag { position: absolute; left: 0; top: 100%; margin-top: 30px; padding: 4px 9px; border-radius: 12px; color: #c8f9f0; background: #253950cc; font-size: calc(var(--k) * 18px); white-space: nowrap; }
+@media (max-width: 520px) {
+  .u-shop-panel { padding: 16px 12px; gap: 10px; border-width: 3px; border-radius: 26px; }
+  .u-shop-head { gap: 9px; }
+  .u-shop-seal { width: 46px; height: 46px; font-size: 40px; }
+  .u-shop-kicker { font-size: 8px; letter-spacing: 0.5px; }
+  .u-shop-greeting { font-size: 11px; }
+  .u-shop-gold { font-size: 20px; padding: 8px; }
+  .u-shop-gold small { font-size: 10px; }
+  .u-shop-card { grid-template-columns: 30px 1fr 94px; gap: 8px; padding: 10px 8px; }
+  .u-shop-icon { font-size: 25px; }
+  .u-shop-copy strong { font-size: 16px; }
+  .u-shop-copy span { font-size: 12px; }
+  .u-shop-buy b { font-size: 18px; }
+  .u-shop-buy > span { font-size: 11px; }
+  .u-shop-status { font-size: 11px; }
+  .u-shop-foot { flex-direction: column; gap: 8px; text-align: center; }
+  #ui .u-shop-foot .u-btn { width: 100%; }
+}
+@media (max-height: 500px) and (min-width: 521px) {
+  .u-shop-panel { padding: 12px 18px; gap: 8px; }
+  .u-shop-head { gap: 10px; }
+  .u-shop-seal { width: 42px; height: 42px; font-size: 38px; }
+  .u-shop-panel .u-ptitle { font-size: 27px; }
+  .u-shop-greeting { display: none; }
+  .u-shop-card { grid-template-columns: 30px 1fr 120px; padding: 8px; }
+  .u-shop-offers { display: grid; grid-template-columns: 1fr 1fr; scrollbar-width: thin; scrollbar-color: #d9c68b #392457; }
+  .u-shop-status::before { content: "Diğer ürünler için listeyi kaydır. "; color: #ffe098; }
+  .u-shop-card { grid-template-columns: 28px 1fr; }
+  #ui .u-shop-buy { grid-column: 1 / -1; flex-direction: row; min-height: 38px; padding: 4px 8px; }
+  .u-shop-copy strong { font-size: 16px; }
+  .u-shop-copy span { font-size: 12px; }
+}
