@@ -721,6 +721,20 @@ const { FEZA, ITEMS } = (function () {
     g.translate(0, 0, -depth / 2); g.deleteAttribute('uv'); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     return g;
   }
+  function heartShape(w) {   // point down at −w/2, cleft at 0.3 w
+    const s = new THREE.Shape();
+    s.moveTo(0, -0.5 * w);
+    s.bezierCurveTo(0.14 * w, -0.32 * w, 0.52 * w, -0.08 * w, 0.5 * w, 0.18 * w);
+    s.bezierCurveTo(0.48 * w, 0.46 * w, 0.16 * w, 0.56 * w, 0, 0.3 * w);
+    s.bezierCurveTo(-0.16 * w, 0.56 * w, -0.48 * w, 0.46 * w, -0.5 * w, 0.18 * w);
+    s.bezierCurveTo(-0.52 * w, -0.08 * w, -0.14 * w, -0.32 * w, 0, -0.5 * w);
+    return s;
+  }
+  function flatGeo(shape, depth, bevel) {   // extruded, centred on z, with a zero uv (Kit-mergeable)
+    const g = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 14 });
+    g.translate(0, 0, -depth / 2); g.deleteAttribute('uv'); g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    return g;
+  }
   const GEO = {};   // cached item geometries
   const geoC = (k, f) => GEO[k] || (GEO[k] = keep(f()));
 
@@ -749,6 +763,17 @@ const { FEZA, ITEMS } = (function () {
     ['dalga', '#41e8cb', 'classic', 0x84d6c8, 'wave'], ['joleikiz', '#b0ff76', 'round', 0xdab750, 'jelly'],
     ['lavikiz', '#ffac4e', 'crown', 0x4b435b, 'lava'],
   ]) SABER[id] = { ...SABER.demir, col, shroud, metal, L: 0.78, motif };
+  // (Round 6) boss rewards told apart at a glance: the knight's sword is a red / white-gold jousting lance (3 turns),
+  // the turtle's lava blade runs sun-yellow → lava-red (+ the lava shell grip), the Güneş blade keeps its sun (bigger).
+  Object.assign(SABER.sovalyeikiz, { fx: 'stripe', col: '#fff0b8', col2: '#ff2438', halo2: '#ff4556', haloCol: '#ffd27a', sn: 6, sk: 2, trail: '#ff5b6b' });
+  Object.assign(SABER.lavikiz, { fx: 'grad', col: '#ffd23f', col2: '#ff4a1c', haloCol: '#ff6a2a', trail: '#ff8a2a', bossGrip: true });
+  // (Round 6) new ordinary lightsabers (fx: blade shader variant; motif: hilt ornament; col2: ramp tip colour)
+  Object.assign(SABER, {
+    pamukseker: { ...SABER.demir, fx: 'grad', col: '#ff8fd0', col2: '#8fd8ff', coreCol: '#ffe9f6', coreCol2: '#e6f7ff', L: 0.76, metal: 0xfbe6f1, grip: 0xffc6e2, shroud: 'round', btn: '#8fd8ff', motif: 'cotton' },
+    kalp: { ...SABER.demir, col: '#ff4fa0', haloCol: '#ffb3d9', L: 0.76, metal: 0xf4e7c8, grip: 0xfff4ea, shroud: 'plain', btn: '#ffd1e6', motif: 'heart', btnPos: [0, 0.119, 0.03] },
+    uzay: { ...SABER.demir, fx: 'stars', col: '#3b5bff', col2: '#b46bff', L: 0.78, metal: 0xf1f3f8, grip: 0x2b3352, shroud: 'nose', nose: '#ff4a4a', btn: '#7ff3ff', motif: 'rocket', porthole: true },
+    kuyruklu: { ...SABER.demir, fx: 'stars', col: '#ffc53a', col2: '#ffeaa0', haloCol: '#c9a8ff', L: 0.8, metal: 0xece4ff, grip: 0x3a2c5c, shroud: 'crown', btn: '#fff6c8', motif: 'star', btnPos: [0, 0.1, 0.029], trail: '#ffe38a' },
+  });
   const WAND = {
     findik: { wood: '#855137', col: '#a1cfff', L: 0.48, band: '#c9a16b' },
     mese: { wood: '#533c2c', col: '#79dbbd', L: 0.53, band: '#b8ca9b' },
@@ -768,6 +793,12 @@ const { FEZA, ITEMS } = (function () {
     magaraikiz: { wood: '#584474', col: '#8bdcff', L: 0.7, band: '#e2b569', motif: 'ice' },
     ejderikiz: { wood: '#315665', col: '#62ffda', L: 0.73, band: '#f4cf71', boss: 'dragon', motif: 'dragon' },
   });
+  // (Round 6) new ordinary wands. tipP / tipS: the tip light's position / size (default: an egg on the stick's end)
+  Object.assign(WAND, {
+    lolipop: { wood: '#fff7fb', col: '#ff6fb5', L: 0.5, band: '#ff8fc8', stripe: '#ff5aa6', motif: 'lollipop', tipP: [0, 0.53, 0.026], tipS: [0.021, 0.021, 0.012], tipI: 2.0 },
+    kedipati: { wood: '#f1dfc1', col: '#ffc2de', L: 0.55, band: '#ffb0d2', motif: 'paw', tipP: [0, 0.543, 0.03], tipS: [0.025, 0.021, 0.011], tipI: 1.9 },
+    gezegen: { wood: '#1f2a5c', col: '#ffa24a', L: 0.6, band: '#f2c45a', motif: 'planet', tipP: [0, 0.605, 0], tipS: [0.036, 0.036, 0.036], tipI: 1.7 },
+  });
   const saberDef = id => SABER[id] || SABER.demir;
   // rainbow blade: hue = fract(t * RB_SPEED + y * RB_GRAD) (y along the blade in metres), HSV saturation RB_SAT
   const RB_SPEED = 0.11, RB_GRAD = 0.3, RB_SAT = 0.8, RB_Y = 0.35;
@@ -781,26 +812,47 @@ const { FEZA, ITEMS } = (function () {
   // ITEMS.bladeColor(item | baseId) → '#rrggbb' (the rainbow blade: its colour right now, at mid-blade)
   function bladeColor(item) {
     const id = typeof item === 'string' ? item : item ? baseId(item) : 'tahta', d = WAND[id] || saberDef(id);
-    return d.rainbow ? hsvHex(fract(nowT() * RB_SPEED + RB_Y * RB_GRAD), RB_SAT, 1) : d.col;
+    return d.rainbow ? hsvHex(fract(nowT() * RB_SPEED + RB_Y * RB_GRAD), RB_SAT, 1) : d.trail || d.col;
   }
+  // (Round 6) blade variants (glow shell + halo only, one program each): SB_GRAD colour ramp hilt → tip (uCol → uCol2),
+  // SB_STRIPE barber-pole ribbons in uCol2 (uSN stripes along the blade, uSK ribbons around it), SB_STARS twinkling star dots
+  // drifting up the blade (the stars program ramps uCol → uCol2 too). The angle around the blade is taken per fragment from the
+  // interpolated local position (no seam streak). The core ramps uCol → uCol2 with plain uniforms (uCol2 = uCol: no ramp).
   const SABER_VS = `varying vec3 vN; varying vec3 vV; varying float vY;
+    #if defined(SB_STRIPE) || defined(SB_STARS)
+    varying vec2 vXZ;
+    #endif
     void main() {
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       vN = normalize(normalMatrix * normal); vV = -mv.xyz; vY = position.y;
+      #if defined(SB_STRIPE) || defined(SB_STARS)
+      vXZ = position.xz;
+      #endif
       gl_Position = projectionMatrix * mv;
     }`;
   // SB_U: shared by every blade. Thumbnails render without tone mapping, so they dim the blades (k) to keep the hues
   // (HDR blue clipped per channel turns cyan, purple turns pink) and spread the rainbow over the whole blade (grad).
-  const SB_U = { k: { value: 1 }, grad: { value: RB_GRAD } };
-  const SABER_FS = `uniform vec3 uCol; uniform float uI, uRb, uT, uPow, uOcc, uK, uGrad;
+  const SB_U = { k: { value: 1 }, grad: { value: RB_GRAD }, ramp: { value: 1 } };   // ramp: colour ramp stretch (thumbnails: the lower 60 % shows it all)
+  const SABER_FS = `uniform vec3 uCol, uCol2; uniform float uI, uRb, uT, uPow, uOcc, uK, uGrad, uGL, uRamp;
+    #if defined(SB_STRIPE) || defined(SB_STARS)
+    uniform float uSN, uSK, uSt;
+    varying vec2 vXZ;
+    #endif
     varying vec3 vN; varying vec3 vV; varying float vY;
     vec3 sbCol() {
+    #if defined(SB_GRAD) || defined(SB_STARS) || defined(SABER_CORE)
+      if (uRb < 0.5) return mix(uCol, uCol2, smoothstep(0.0, 1.0, clamp(vY * uGL * uRamp, 0.0, 1.0)));
+    #else
       if (uRb < 0.5) return uCol;
+    #endif
       vec3 p = abs(fract(fract(uT * ${RB_SPEED.toFixed(4)} + vY * uGrad) + vec3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
       return pow(mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), ${RB_SAT.toFixed(4)}), vec3(2.2));
     }
     float sbFlick() { float t = mod(uT, 600.0); return 1.0 + 0.045 * sin(t * 47.0) + 0.03 * sin(t * 113.0 + vY * 9.0) + 0.02 * sin(t * 7.3); }
     float sbNV() { return abs(dot(normalize(vN), normalize(vV))); }
+    #ifdef SB_STARS
+    float sbHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    #endif
     void main() {
     #ifdef SABER_CORE
       vec3 k = sbCol();
@@ -808,7 +860,23 @@ const { FEZA, ITEMS } = (function () {
       gl_FragColor = vec4(c, 1.0);
     #else
       float a = pow(sbNV(), uPow) * sbFlick();
-      gl_FragColor = vec4(sbCol() * uI * uK * a, min(1.0, a * uOcc));
+      vec3 col = sbCol();
+      #if defined(SB_STRIPE) || defined(SB_STARS)
+      float ang = atan(vXZ.x, vXZ.y) * ${(1 / TAU).toFixed(6)} + 0.5;
+      #endif
+      #ifdef SB_STRIPE
+      float s = abs(fract(vY * uSN + ang * uSK) - 0.5), w = clamp(fwidth(vY * uSN + ang * uSK), 0.02, 0.2);
+      col = mix(col, uCol2, clamp((s - 0.25) / w + 0.5, 0.0, 1.0) * uSt);
+      #endif
+      #ifdef SB_STARS
+      vec2 q = vec2(vY * uSN - uT * 0.35, ang * uSK), cell = floor(q), f = fract(q) - 0.5;
+      float h = sbHash(cell), tw = 0.55 + 0.45 * sin(uT * (2.0 + 3.0 * h) + h * 40.0);
+      vec2 o = (vec2(sbHash(cell + 17.0), sbHash(cell + 31.0)) - 0.5) * 0.4;
+      float st = step(0.45, h) * smoothstep(0.3, 0.06, length(f - o)) * tw;
+      col += vec3(1.0, 0.97, 0.9) * st * uSt * 2.2;
+      a = max(a, st * uSt * 0.8);
+      #endif
+      gl_FragColor = vec4(col * uI * uK * a, min(1.0, a * uOcc));
     #endif
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
@@ -819,15 +887,21 @@ const { FEZA, ITEMS } = (function () {
   function saberMat(id, part, r) {
     const d = saberDef(id);
     return mat('sb:' + part + ':' + id + '|' + r, () => {
-      const glow = part !== 'core', boost = 1 + 0.06 * r;
+      const glow = part !== 'core', boost = 1 + 0.06 * r, fx = glow ? d.fx || '' : '';   // fx: 'grad' | 'stripe' | 'stars'
+      // uCol2: the ramp's tip colour (grad / stars; the core ramps along) or the stripe colour (shell + halo only)
+      const c1 = part === 'halo' && d.haloCol ? d.haloCol : part === 'core' && d.coreCol ? d.coreCol : d.col;
+      const c2 = part === 'core' ? (d.coreCol ? d.coreCol2 || c1 : d.fx === 'grad' || d.fx === 'stars' ? d.col2 || c1 : c1)
+        : part === 'halo' && (d.haloCol || d.halo2) ? d.halo2 || c1 : d.col2 || c1;
       const m = new THREE.ShaderMaterial({
-        uniforms: { uCol: { value: new THREE.Color(part === 'halo' && d.haloCol ? d.haloCol : d.col) }, uI: { value: d[part] * boost }, uRb: { value: d.rainbow ? 1 : 0 }, uT: TIME.u,
-          uPow: { value: part === 'halo' ? 2.4 : 1.25 }, uOcc: { value: part === 'halo' ? 0.22 : 0.6 }, uK: SB_U.k, uGrad: SB_U.grad },
-        vertexShader: SABER_VS, fragmentShader: SABER_FS, defines: glow ? {} : { SABER_CORE: 1 },
+        uniforms: { uCol: { value: new THREE.Color(c1) }, uCol2: { value: new THREE.Color(c2) }, uGL: { value: 1 / d.L }, uRamp: SB_U.ramp,
+          uI: { value: d[part] * boost }, uRb: { value: d.rainbow ? 1 : 0 }, uT: TIME.u,
+          uPow: { value: part === 'halo' ? 2.4 : 1.25 }, uOcc: { value: part === 'halo' ? 0.22 : 0.6 }, uK: SB_U.k, uGrad: SB_U.grad,
+          uSN: { value: fx === 'stars' ? 40 : (d.sn || 6) / d.L }, uSK: { value: fx === 'stars' ? 8 : d.sk || 2 }, uSt: { value: part === 'halo' ? (fx === 'stars' ? 0.25 : 0.45) : 1 } },
+        vertexShader: SABER_VS, fragmentShader: SABER_FS, defines: glow ? (fx ? { ['SB_' + fx.toUpperCase()]: 1 } : {}) : { SABER_CORE: 1 },
       });
       if (glow) Object.assign(m, { transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation,
         blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor });
-      m.customProgramCacheKey = () => 'saber' + (glow ? 'G' : 'C');
+      m.customProgramCacheKey = () => 'saber' + (glow ? 'G' + fx : 'C');
       return m;
     });
   }
@@ -864,7 +938,7 @@ const { FEZA, ITEMS } = (function () {
         kcyl(k, 0.053, 0.066, 0.0198, 0.0198, M);
         kcyl(k, 0.066, 0.113, 0.0172, 0.0172, M);
         for (const y of [0.074, 0.105]) kcyl(k, y - 0.0015, y + 0.0015, 0.0178, 0.0178, DK);
-        k.add(G.rbox(2), D, [0, 0.089, 0.0158], 0, [0.016, 0.028, 0.009]);
+        if (!d.porthole) k.add(G.rbox(2), D, [0, 0.089, 0.0158], 0, [0.016, 0.028, 0.009]);
       }
       kcyl(k, 0.113, 0.121, 0.0196, 0.0196, M);
       // emitter shroud (the blade starts inside it) + dark emitter disc
@@ -876,6 +950,9 @@ const { FEZA, ITEMS } = (function () {
         k.add(G.sphere(24), M, [0, 0.134, 0], 0, [0.0232, 0.019, 0.0232]);
         kcyl(k, 0.14, 0.155, 0.0198, 0.0186, M);
         kcyl(k, 0.1515, 0.1555, 0.0158, 0.0158, D);
+      } else if (d.shroud === 'nose') {   // (Round 6) the rocket's red nose cone, the blade shoots out of its tip
+        kcyl(k, 0.121, 0.129, 0.0206, 0.0206, M, 28);   // (the red cone itself is part of the rocket ornament: painted, not metal)
+        kcyl(k, 0.1575, 0.1605, 0.0098, 0.0098, D);
       } else if (d.shroud === 'plain') {
         kcyl(k, 0.121, 0.155, 0.0205, 0.0205, M);
         kcyl(k, 0.134, 0.139, 0.0212, 0.0212, DK);
@@ -942,9 +1019,63 @@ const { FEZA, ITEMS } = (function () {
         for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; k.add(G.sphere(12), i & 1 ? band : col, [Math.sin(a) * 0.045, y + Math.cos(a) * 0.042, 0], 0, [0.035, 0.039, 0.027]); }
       } else if (motif === 'ice') {
         for (const side of [-1, 1]) k.add(G.cone(5), col, [side * 0.044, y, 0], [0, 0, side * -0.32], [0.024, 0.13, 0.024]);
-      } else if (motif === 'sun' || motif === 'flower') {
-        for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; k.add(G.sphere(10), col, [Math.sin(a) * 0.06, y + Math.cos(a) * 0.06, 0], [0, 0, -a], [0.021, 0.035, 0.013]); }
-        k.add(G.sphere(12), band, [0, y, 0.015], 0, [0.033, 0.033, 0.015]);
+      } else if (motif === 'sun' || motif === 'flower') {   // (Round 6) the Güneş blade's sun is bigger (rays at 0.075)
+        const sun = motif === 'sun', R = sun ? 0.075 : 0.06, S = sun ? 1.2 : 1;
+        for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; k.add(G.sphere(10), col, [Math.sin(a) * R, y + Math.cos(a) * R, 0], [0, 0, -a], [0.021 * S, 0.035 * S, 0.013 * S]); }
+        k.add(G.sphere(12), band, [0, y, 0.015], 0, [0.033 * S, 0.033 * S, 0.015 * S]);
+      } else if (motif === 'cotton') {   // (Round 6) a fluffy cotton-candy cloud round the emitter: pink, sky and white puffs
+        const R = mulberry32(31), C = ['#ff9ad4', '#ffc4e6', '#9fdcff', '#ffffff', '#ff86c8'];
+        for (let i = 0; i < 30; i++) {
+          const a = i * 2.39996 + R() * 0.3, h = i / 29, rr = 0.027 + 0.014 * Math.sin(h * Math.PI) + R() * 0.004, s = 0.011 + R() * 0.007;
+          k.add(G.sphere(10), C[i % 5], [Math.sin(a) * rr, 0.094 + h * 0.056, Math.cos(a) * rr], 0, [s, s * 0.85, s]);
+        }
+      } else if (motif === 'heart') {   // (Round 6) a heart crossguard (the blade comes out of its cleft), a pale inner heart on each face
+        k.add(geoC('heart:0.1', () => flatGeo(heartShape(0.1), 0.03, 0.006)), col, [0, 0.122, 0]);
+        for (const z of [1, -1]) k.add(geoC('heart:0.056', () => flatGeo(heartShape(0.056), 0.006, 0.003)), '#ffd6ea', [0, 0.122, z * 0.0205], [0, z < 0 ? Math.PI : 0, 0]);
+        for (const sd of [-1, 1]) k.add(G.sphere(10), '#fff1c4', [sd * 0.055, 0.14, 0], 0, 0.0075);
+      } else if (motif === 'rocket') {   // (Round 6) rocket: three red fins at the pommel, a ring round the porthole window
+        const fin = new THREE.Shape();
+        fin.moveTo(0, 0.05); fin.quadraticCurveTo(0.012, 0.012, 0.034, -0.012); fin.lineTo(0.036, -0.036); fin.quadraticCurveTo(0.018, -0.03, 0, -0.022); fin.closePath();
+        const fg = geoC('rocketFin', () => flatGeo(fin, 0.004, 0.0018));
+        for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + Math.PI / 6; k.add(fg, '#ff4a4a', [Math.sin(a) * 0.016, -0.07, Math.cos(a) * 0.016], [0, a - Math.PI / 2, 0]); }
+        k.add(G.torus(TAU, 0.22, 24), band, [0, 0.089, 0.0172], 0, 0.0118);
+        k.add(lathe([[0.0212, 0], [0.021, 0.008], [0.0194, 0.016], [0.0162, 0.023], [0.0124, 0.029], [0.0106, 0.0315]], 28, 0, 0, 1, 1), '#ff4a4a', [0, 0.1285, 0]);
+        k.add(G.torus(TAU, 0.2, 28), '#ffffff', [0, 0.1295, 0], [Math.PI / 2, 0, 0], 0.0212);
+        k.add(G.sphere(10), '#ffd23f', [0, -0.112, 0], 0, [0.012, 0.008, 0.012]);   // a little flame glow under the pommel
+      } else if (motif === 'star') {   // (Round 6) comet: a big golden star on the guard with a swooping three-strand tail
+        k.add(geoC('cometStar', () => flatGeo(starShape(0.05, 0.023), 0.026, 0.006)), '#ffd64a', [0, 0.1, 0]);
+        const T = [['#c9a8ff', 0.0068, 0], ['#ffb3e0', 0.0056, 0.35], ['#fff1a8', 0.005, -0.35]];
+        for (const [c, r0, o] of T) {
+          const P = [];
+          for (let i = 0; i <= 8; i++) { const t = i / 8; P.push([-0.02 - t * 0.085, 0.092 - t * 0.02 + Math.sin(t * Math.PI) * (0.012 + o * 0.03) - t * t * 0.03 + o * t * 0.02, -0.004 - t * 0.01]); }
+          for (let i = 0; i < 8; i++) { const t = i / 8; k.seg(P[i], P[i + 1], r0 * (1 - t * 0.8), c, r0 * (1 - (t + 0.125) * 0.8), 8); k.add(G.sphere(8), c, P[i + 1], 0, r0 * (1 - (t + 0.125) * 0.8)); }
+        }
+      } else if (motif === 'lollipop') {   // (Round 6) a round lollipop behind the tip light: white disc, pink + sky swirl on both faces
+        const cy = y + 0.075;
+        k.add(G.cyl(1, 1, 36), '#fff6fb', [0, cy, 0], [Math.PI / 2, 0, 0], [0.074, 0.02, 0.074]);
+        k.add(G.torus(TAU, 0.1, 40), '#ff8fc8', [0, cy, 0], 0, 0.074);
+        for (const zs of [1, -1]) for (const [c, a0] of [['#ff4f9e', 0], ['#7fd0ff', Math.PI]]) {
+          let prev = null;
+          for (let i = 0; i <= 40; i++) {
+            const th = a0 + i / 40 * 2.6 * TAU, rr = 0.006 + i / 40 * 0.058, p = [Math.sin(th) * rr * zs, cy + Math.cos(th) * rr, zs * 0.0102];
+            if (prev) k.seg(prev, p, 0.0068, c, 0.0068, 6);
+            k.add(G.sphere(6), c, p, 0, [0.0068, 0.0068, 0.0045]); prev = p;
+          }
+        }
+      } else if (motif === 'paw') {   // (Round 6) a cat's paw: a soft cream mitten, four pink toe beans round the glowing pad
+        const cy = y + 0.05;
+        k.add(G.sphere(20), '#fff4e2', [0, cy, 0], 0, [0.062, 0.06, 0.03]);
+        for (let i = 0; i < 4; i++) { const a = (i - 1.5) * 0.66, p = [Math.sin(a) * 0.043, cy + 0.006 + Math.cos(a) * 0.041]; k.add(G.sphere(14), col, [p[0], p[1], 0.024 - Math.abs(i - 1.5) * 0.003], [0, 0, -a], [0.0125, 0.0145, 0.008]); }
+        for (let i = 0; i < 4; i++) { const a = (i - 1.5) * 0.66; k.add(G.sphere(14), col, [Math.sin(a) * 0.043, cy + 0.006 + Math.cos(a) * 0.041, -0.024 + Math.abs(i - 1.5) * 0.003], [0, 0, -a], [0.0125, 0.0145, 0.008]); }
+        k.add(G.sphere(16), col, [0, cy - 0.012, -0.022], 0, [0.024, 0.02, 0.009]);
+      } else if (motif === 'planet') {   // (Round 6) a tilted glowing ring and a tiny moon round the planet tip; gold star studs on the stick
+        const cy = y + 0.05;
+        k.push([0, cy, 0], [1.18, 0, 0.42]);
+        k.add(G.torus(TAU, 0.07, 48), '#6fe8ff', [0, 0, 0], 0, 0.074);
+        k.add(G.torus(TAU, 0.05, 48), '#c4f6ff', [0, 0, 0], 0, 0.086);
+        k.pop();
+        k.add(G.sphere(12), '#f4f0ff', [0.066, cy + 0.052, 0.018], 0, 0.0145);
+        for (const [yy, a] of [[0.16, 0.3], [0.27, -0.9], [0.38, 1.9]]) { const rr = lerp(0.029, 0.013, (yy - 0.055) / (y + 0.045 - 0.055)) + 0.003; k.add(geoC('wandStud', () => starGeo(0.013, 0.004)), band, [Math.sin(a) * rr, yy, Math.cos(a) * rr], [0, a, 0]); }
       } else {
         for (const side of [-1, 1]) {
           k.seg([0, y - 0.11, 0], [side * 0.057, y - 0.01, 0], 0.012, band, 0.009, 8);
@@ -961,21 +1092,29 @@ const { FEZA, ITEMS } = (function () {
       kcyl(k, 0.055, d.L, 0.029, 0.013, d.wood, 12);
       k.add(G.sphere(12), d.wood, [0, -0.081, 0], 0, [0.038, 0.022, 0.038]);
       for (let i = 0; i < 4; i++) kcyl(k, -0.065 + i * 0.027, -0.06 + i * 0.027, 0.039, 0.039, d.band, 12);
-      for (let i = 0; i < 3; i++) k.seg([0.012, 0.1 + i * 0.1, 0.008], [-0.009, 0.14 + i * 0.1, 0.01], 0.003, d.band, 0.002, 6);
+      if (d.stripe) for (const a0 of [0, Math.PI]) {   // (Round 6) candy stick: two ribbons wound round the stick
+        const P = [], U = [], rad = y => lerp(0.029, 0.013, (y - 0.055) / (d.L - 0.055)) + 0.0006;
+        for (let i = 0; i <= 64; i++) { const y = 0.058 + i / 64 * (d.L - 0.066), a = a0 + i / 64 * 4.5 * TAU, rr = rad(y); P.push(v3(Math.sin(a) * rr, y, Math.cos(a) * rr)); U.push(v3(Math.sin(a), 0, Math.cos(a))); }
+        k.add(sweep(P, U, t => lerp(0.011, 0.006, t), () => 0.0014, 6, 0.2, () => {}, null), d.stripe);
+      } else for (let i = 0; i < 3; i++) k.seg([0.012, 0.1 + i * 0.1, 0.008], [-0.009, 0.14 + i * 0.1, 0.01], 0.003, d.band, 0.002, 6);
     }));
     g.add(new THREE.Mesh(wood, vcM('wandWood', { roughness: 0.65, metalness: 0.05 })));
     if (d.boss) g.add(new THREE.Mesh(bossGrip(id), glowVC('bossGrip', 0.25, { roughness: 0.38, metalness: 0.45 })));
-    const light = new THREE.Mesh(G.sphere(12), mat('wandTip:' + id, () => glowMat(d.col, 1.8)));
-    light.position.y = d.L; light.scale.set(0.031 + r * 0.002, 0.063, 0.031 + r * 0.002); light.userData.noShadow = true; g.add(light);
+    const light = new THREE.Mesh(G.sphere(d.tipS ? 20 : 12), mat('wandTip:' + id, () => glowMat(d.col, d.tipI || 1.8))), tp = d.tipP || [0, d.L, 0];
+    light.position.set(...tp); light.userData.noShadow = true; g.add(light);
+    if (d.tipS) light.scale.set(d.tipS[0] + r * 0.002, d.tipS[1] + r * 0.002, d.tipS[2]); else light.scale.set(0.031 + r * 0.002, 0.063, 0.031 + r * 0.002);
     g.add(new THREE.Mesh(weaponOrnament(d.motif || 'vine', d.band, d.col, d.L - 0.045), glowVC('wandInlay', 0.3, { roughness: 0.45, metalness: 0.2 })));
-    const tip = new THREE.Object3D(); tip.position.y = d.L; g.add(tip); g.fzTip = tip;
+    const tip = new THREE.Object3D(); tip.position.set(...tp); g.add(tip); g.fzTip = tip;
     return g;
   }
+  // (Round 6) ornament finishes for the new hilts (same shader program as saberInlay): [key, glow, roughness, metalness]
+  const INLAY = { cotton: ['saberFluff', 0.3, 0.85, 0], heart: ['saberGem', 0.4, 0.22, 0.12], rocket: ['saberRocket', 0.16, 0.38, 0.25], star: ['saberStar', 0.45, 0.3, 0.4] };
   function buildSword(id, r) {   // (name kept: "sword" = the weapon slot's model)
     if (WAND[id]) return buildWand(id, r);
-    const d = saberDef(id), L = d.L, g = new THREE.Group();
-    if (d.motif) g.add(new THREE.Mesh(weaponOrnament(d.motif, '#' + d.metal.toString(16).padStart(6, '0'), d.col, 0.1), glowVC('saberInlay', 0.2, { roughness: 0.35, metalness: 0.6 })));
-    if (id === 'lavkilic' || id === 'ejderkilic') g.add(new THREE.Mesh(bossGrip(id), glowVC('bossGrip', 0.25, { roughness: 0.38, metalness: 0.45 })));
+    const d = saberDef(id), L = d.L, g = new THREE.Group(), inl = INLAY[d.motif];
+    if (d.motif) g.add(new THREE.Mesh(weaponOrnament(d.motif, '#' + d.metal.toString(16).padStart(6, '0'), d.col, 0.1),
+      inl ? glowVC(inl[0], inl[1], { roughness: inl[2], metalness: inl[3] }) : glowVC('saberInlay', 0.2, { roughness: 0.35, metalness: 0.6 })));
+    if (id === 'lavkilic' || id === 'ejderkilic' || d.bossGrip) g.add(new THREE.Mesh(bossGrip(id), glowVC('bossGrip', 0.25, { roughness: 0.38, metalness: 0.45 })));
     g.add(new THREE.Mesh(geoC('sbHilt:' + id, () => hiltGeo(id)), mat('sbMetal|' + (r >= 2 ? r : 0), () => {
       const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.26, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.35, 0.35), envMapIntensity: 1.0 });
       return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.55 : 0.4, 2.4) : rimify(m, 0xffffff, 0.14);
@@ -986,6 +1125,8 @@ const { FEZA, ITEMS } = (function () {
     const btn = new THREE.Mesh(G.sphere(12), mat('sbBtn:' + d.btn, () => glowMat(d.btn, 2.6)));
     btn.scale.setScalar(0.0052); btn.position.set(0, 0.096, 0.0214); btn.userData.noShadow = true; g.add(btn);
     if (d.guard) { btn.scale.set(0.0105, 0.0105, 0.005); btn.position.set(0, GUARD_Y, 0.0152); }
+    if (d.porthole) { btn.scale.set(0.0102, 0.0102, 0.0042); btn.position.set(0, 0.089, 0.0166); }   // the rocket's round window
+    if (d.btnPos) { btn.scale.set(0.0085, 0.0085, 0.004); btn.position.set(...d.btnPos); }
     // blade (ignited): core + glow shell + halo; the tip marker rides at the end of the blade
     const blade = new THREE.Group(), P = bladeParts(L);
     blade.name = 'fzBlade'; blade.position.y = HILT_TOP - 0.004;
@@ -1020,6 +1161,10 @@ const { FEZA, ITEMS } = (function () {
     g.computeVertexNormals();
     return g;
   }
+  const knightSteelM = r => mat('knightSteel|' + (r >= 2 ? r : 0), () => {
+    const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.34, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.3, 0.3), envMapIntensity: 0.95, side: THREE.DoubleSide });
+    return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.6 : 0.42, 2.3) : rimify(m, 0xffffff, 0.14);
+  });
   function buildHat(id, r) {
     const g = new THREE.Group(), h = new THREE.Group(); g.add(h);
     const add = (geo, m, pos, rot) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(...pos); if (rot) o.rotation.set(...rot); h.add(o); return o; };
@@ -1090,10 +1235,7 @@ const { FEZA, ITEMS } = (function () {
         { const p = vp(0, 0.78, 0.004, v3()); k.add(G.sphere(16), GD, [p.x, p.y, p.z], [-0.62, 0, 0], [0.026, 0.026, 0.012]); }   // a gold stud under the slit
         k.pop();
         k.add(G.cyl(0.8, 1, 20), GD, [0, 0.335, -0.075], [-0.25, 0, 0], [0.036, 0.06, 0.036]);                  // plume holder
-      })), mat('knightSteel|' + (r >= 2 ? r : 0), () => {
-        const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.34, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.3, 0.3), envMapIntensity: 0.95, side: THREE.DoubleSide });
-        return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.6 : 0.42, 2.3) : rimify(m, 0xffffff, 0.14);
-      }));
+      })), knightSteelM(r));
       // tall rainbow plume: six fluffy, round-tipped feathers rising out of the holder, fanning out and curling back
       add(geoC('knightPlume', () => {
         const RB = ['#ff4f6a', '#ff9a3c', '#ffd84a', '#5fd86a', '#48b6ff', '#9a6bff'], geos = [];
@@ -1167,6 +1309,133 @@ const { FEZA, ITEMS } = (function () {
       add(geoC('pirStar', () => starGeo(0.026, 0.006)), mat('pirStarW', () => stdMat({ color: 0xfff6e0, roughness: 0.4 })), [0, 0.075, 0.222], [-0.1, 0, 0]);
       add(geoC('pirFeather', () => plume([[0.13, 0.12, 0.03], [0.22, 0.24, -0.05], [0.26, 0.3, -0.19], [0.22, 0.26, -0.35]], 0.05, '#ff5a6a', '#ffffff', 2, 0.03, 5)),
         vcM('plume', { roughness: 0.75 }));
+    } else if (id === 'kedikulak') {   // (Round 6) pink knit beanie pulled down to the forehead, two cat ears, a small pompom
+      h.position.set(0, 0.085, -0.02); h.rotation.x = -0.2;
+      const DR = [0.33, 0.3, 0.34], EAR = sd => [[sd * 0.175, 0.27, 0.03], [0.05, 0, sd * -0.45]];
+      add(geoC('kittyDome', () => {
+        const g = new THREE.SphereGeometry(1, 64, 24, 0, TAU, 0, Math.PI * 0.55), P = g.attributes.position;
+        for (let i = 0; i < P.count; i++) {   // soft knitted ribs running up the dome
+          const x = P.getX(i), y = P.getY(i), z = P.getZ(i), k = 1 + 0.016 * Math.pow(Math.abs(Math.cos(Math.atan2(x, z) * 16)), 0.6) * sstep(1, 0.3, y);
+          P.setXYZ(i, x * DR[0] * k, y * DR[1], z * DR[2] * k);
+        }
+        g.computeVertexNormals();
+        return kitGeo(k => {
+          k.add(g, 0xffffff);
+          for (const sd of [-1, 1]) { const [p, rt] = EAR(sd); k.add(G.cone(20), 0xffffff, p, rt, [0.1, 0.19, 0.054]); }
+        });
+      }), feltMat('kitty', 0xff93c4, r));
+      add(geoC('kittyCuff', () => {
+        const g = new THREE.TorusGeometry(1, 0.062, 10, 128), P = g.attributes.position, c = v3(), q = v3();
+        for (let i = 0; i < P.count; i++) {   // ribbed cuff
+          q.fromBufferAttribute(P, i); const a = Math.atan2(q.y, q.x); c.set(Math.cos(a), Math.sin(a), 0);
+          q.sub(c).multiplyScalar(1 + 0.2 * Math.pow(Math.abs(Math.cos(a * 36)), 0.5)).add(c); P.setXYZ(i, q.x, q.y, q.z);
+        }
+        g.computeVertexNormals();
+        return kitGeo(k => k.add(g, 0xffffff, [0, -0.03, 0], [Math.PI / 2, 0, 0], [0.334, 0.344, 0.55]));
+      }), feltMat('kittyCuff', 0xffc3de, r));
+      add(geoC('kittyBits', () => kitGeo(k => {
+        for (const sd of [-1, 1]) { const [p, rt] = EAR(sd); k.push(p, rt); k.add(G.cone(20), '#ffe3f0', [0, -0.012, 0.036], [0.1, 0, 0], [0.058, 0.125, 0.012]); k.pop(); }   // inner ears
+        const R = mulberry32(5);
+        for (let i = 0; i < 12; i++) { const a = i * 2.4, b = R() * 1.3, s = 0.02 + R() * 0.009; k.add(G.sphere(10), i & 1 ? '#fff4fa' : '#ffd6ea', [Math.sin(a) * Math.sin(b) * 0.026, 0.3 + Math.cos(b) * 0.024, Math.cos(a) * Math.sin(b) * 0.026 - 0.06], 0, s); }
+      })), glowVC('kittyBits', 0.12, { roughness: 0.8 }));
+    } else if (id === 'dondurma') {   // (Round 6) triple scoop: strawberry, vanilla, mint, a cherry and sprinkles on a waffle-cone band
+      h.position.set(0, 0.215, -0.012); h.rotation.set(-0.12, 0, 0.07);
+      add(geoC('waffle', () => kitGeo(k => {
+        k.add(lathe([[0.196, -0.012], [0.206, -0.014], [0.226, 0.058], [0.222, 0.066], [0.2, 0.066], [0.186, -0.004]], 56, 0, 0, 1, 1), '#e4a95e');
+        for (let i = 0; i < 18; i++) for (const sd of [-1, 1]) {   // criss-cross waffle ridges
+          const a0 = i / 18 * TAU, a1 = a0 + sd * 0.42, r0 = 0.208, r1 = 0.229;
+          k.seg([Math.sin(a0) * r0, -0.006, Math.cos(a0) * r0], [Math.sin(a1) * r1, 0.058, Math.cos(a1) * r1], 0.0042, '#b8733a', 0.0042, 5);
+        }
+        k.add(G.torus(TAU, 0.07, 56), '#c98a4a', [0, 0.064, 0], [Math.PI / 2, 0, 0], 0.216);
+      })), vcM('waffle', { roughness: 0.78 }));
+      add(geoC('scoops', () => kitGeo(k => {
+        const S = [['#ff9fc2', [0, 0.1, 0], [0.24, 0.12, 0.24]], ['#ffe8b6', [-0.012, 0.2, -0.008], [0.17, 0.1, 0.17]], ['#9fe6c4', [0.012, 0.283, 0], [0.12, 0.078, 0.12]]];
+        S.forEach(([c, p, sc], j) => {
+          k.add(G.sphere(40), c, p, 0, sc);
+          const n = [9, 7, 6][j];   // drippy scalloped rim
+          for (let i = 0; i < n; i++) { const a = (i + j * 0.37) / n * TAU; k.add(G.sphere(14), c, [p[0] + Math.sin(a) * sc[0] * 0.93, p[1] - sc[1] * 0.42 - (i % 3 === 0 ? 0.012 : 0), p[2] + Math.cos(a) * sc[2] * 0.93], 0, [sc[0] * 0.2, sc[1] * (i % 3 === 0 ? 0.52 : 0.36), sc[0] * 0.2]); }
+        });
+        k.add(G.sphere(24), '#ff2f4a', [0.02, 0.385, 0.012], 0, 0.036);   // cherry + stem
+        k.seg([0.024, 0.415, 0.012], [0.05, 0.47, -0.012], 0.0045, '#5b8a2a', 0.0035, 6);
+        const R = mulberry32(77), SP = ['#ff5a7a', '#ffd23f', '#5ac8ff', '#7be07a', '#b27bff', '#ffffff'];
+        for (let i = 0; i < 46; i++) {   // sprinkles on the upper half of each scoop
+          const j = i % 3, [, p, sc] = S[j], th = R() * 1.15, ph = R() * TAU;
+          const x = Math.sin(th) * Math.sin(ph), y = Math.cos(th), z = Math.sin(th) * Math.cos(ph);
+          k.add(G.capsule(1, 6), SP[i % 6], [p[0] + x * sc[0] * 1.0, p[1] + y * sc[1] * 1.0, p[2] + z * sc[2] * 1.0], [R() * 3, R() * 3, R() * 3], [0.0048, 0.006, 0.0048]);
+        }
+      })), glowVC('scoops', 0.04, { roughness: 0.42 }));
+    } else if (id === 'yunikorn') {   // (Round 6) unicorn headband: pearly spiral horn, two little ears, flowers, a rainbow mane tuft
+      h.position.set(0, 0.02, -0.02); h.rotation.x = -0.06;
+      const BR = [0.35, 0.345];
+      add(geoC('uniBand', () => kitGeo(k => {
+        k.add(G.torus(Math.PI, 0.075, 56), '#d6b6ff', [0, 0, 0], 0, [BR[0], BR[1], 0.36]);
+        for (let i = 0; i < 9; i++) { const a = 0.35 + i / 8 * (Math.PI - 0.7); k.add(G.sphere(8), '#fff8ff', [Math.cos(a) * BR[0], Math.sin(a) * BR[1], 0.024], 0, 0.0085); }   // pearls
+        for (const sd of [-1, 1]) {
+          const a = Math.PI / 2 - sd * 0.62, x = Math.cos(a) * BR[0], y = Math.sin(a) * BR[1];
+          k.add(G.cone(16), '#fffafc', [x, y + 0.04, -0.012], [0.12, 0, sd * -0.45], [0.048, 0.105, 0.03]);
+          k.add(G.cone(16), '#ffc2dc', [x - sd * 0.002, y + 0.034, 0.012], [0.12, 0, sd * -0.45], [0.028, 0.072, 0.01]);
+          const fa = Math.PI / 2 - sd * 1.02, fx = Math.cos(fa) * BR[0], fy = Math.sin(fa) * BR[1], fc = sd < 0 ? '#ff9fcf' : '#ffe07a';   // a flower by each ear
+          for (let i = 0; i < 5; i++) { const b = i / 5 * TAU; k.add(G.sphere(10), fc, [fx + Math.sin(b) * 0.022, fy + Math.cos(b) * 0.022, 0.03], 0, [0.016, 0.016, 0.009]); }
+          k.add(G.sphere(10), sd < 0 ? '#ffe07a' : '#ff9fcf', [fx, fy, 0.036], 0, [0.011, 0.011, 0.007]);
+        }
+      })), vcM('uniBand', { roughness: 0.5 }));
+      add(geoC('uniHorn', () => {
+        const prof = []; for (let i = 0; i <= 28; i++) { const t = i / 28; prof.push(V2(Math.max(0.002, 0.054 * Math.pow(1 - t, 0.85)), t * 0.27)); }
+        const g = new THREE.LatheGeometry(prof, 32), P = g.attributes.position, C = new Float32Array(P.count * 3), c = new THREE.Color(), A = new THREE.Color('#fffaf0'), Bc = new THREE.Color('#ffc4e4'), T = new THREE.Color('#ffe6a0');
+        for (let i = 0; i < P.count; i++) {
+          const x = P.getX(i), y = P.getY(i), z = P.getZ(i), t = y / 0.27, a = Math.atan2(x, z), w = 0.5 + 0.5 * Math.sin(2 * a - t * TAU * 3.2), k = 1 + 0.2 * w * (1 - t * 0.5);
+          P.setXYZ(i, x * k, y, z * k);
+          c.copy(A).lerp(Bc, (1 - w) * 0.85).lerp(T, sstep(0.55, 1, t) * 0.7); c.toArray(C, i * 3);
+        }
+        g.setAttribute('color', new THREE.BufferAttribute(C, 3));
+        g.computeVertexNormals();
+        g.rotateX(0.28); g.translate(0, BR[1] + 0.005, 0.03);
+        return g;
+      }), glowVC('uniHorn', 0.22, { roughness: 0.18, metalness: 0.15 }));
+      add(geoC('uniMane', () => {
+        const RB = ['#ff8fb0', '#ffb36b', '#ffe07a', '#8ee89a', '#7cc8ff', '#b99bff'], geos = [];
+        RB.forEach((c, i) => {
+          const f = (i - 2.5) / 2.5, a = mixCol(c, '#ffffff', 0.05), b = mixCol(c, '#ffffff', 0.4);
+          const P = curvePts([v3(f * 0.03, BR[1] + 0.005, -0.012), v3(f * 0.075, BR[1] + 0.085, -0.045), v3(f * 0.12, BR[1] + 0.095, -0.13), v3(f * 0.145, BR[1] + 0.03, -0.2), v3(f * 0.13, BR[1] - 0.02, -0.19)], 26);
+          const U = P.map(() => v3(f * 0.3, 1, 0.15).normalize());
+          geos.push(sweep(P, U, t => 0.034 * (0.6 + 0.4 * Math.sin(Math.PI * Math.min(1, 0.25 + t))) * (1 - 0.45 * t * t), t => 0.014 * (1 - 0.5 * t), 6, 0.6,
+            (t, cc) => cc.copy(a).lerp(b, sstep(0.3, 1, t)), null));
+        });
+        return concat(geos);
+      }), glowVC('knightPlume', 0.1, { roughness: 0.7 }));
+    } else if (id === 'astronot') {   // (Round 6) astronaut helmet: white, gold visor raised on top (face shows), antenna with a star
+      h.position.set(0, 0.07, -0.03); h.rotation.x = -0.26;
+      const HR = [0.345, 0.335, 0.355], edge = a => Math.PI * (0.57 + 0.13 * sstep(0.95, 1.5, a) - 0.06 * sstep(2.1, 2.9, a));
+      const hp = (ph, t, d, o) => o.set(Math.sin(ph) * Math.sin(t) * (HR[0] + d), Math.cos(t) * (HR[1] + d), Math.cos(ph) * Math.sin(t) * (HR[2] + d));
+      add(geoC('astroShell', () => kitGeo(k => {
+        const tube = (pts, w, c) => k.add(sweep(pts, pts.map(p => p.clone().normalize()), () => w, () => w, 8, 1, () => {}, null), c);
+        k.add(paramGeo((u, v, o) => { const ph = u * TAU - Math.PI; return hp(ph, v * edge(Math.abs(ph)), 0.006, o); }, 56, 20, v3(0, 0, 0), true), '#f6f8fc');
+        const rimP = []; for (let i = 0; i <= 72; i++) { const ph = i / 72 * TAU - Math.PI; rimP.push(hp(ph, edge(Math.abs(ph)) - 0.01, 0.01, v3())); }
+        tube(rimP, 0.024, '#9db7e6');
+        const combP = []; for (let i = 0; i <= 24; i++) combP.push(hp(Math.PI, lerp(0.6 * Math.PI, 0.16, i / 24), 0.008, v3()));
+        tube(combP, 0.017, '#ff6b6b');                                                                         // a red racing stripe
+        for (const sd of [-1, 1]) {   // round ear pods (the visor hinges)
+          k.add(G.cyl(1, 1, 24), '#b9cdf0', [sd * 0.362, 0.0, 0.0], [0, 0, Math.PI / 2], [0.052, 0.036, 0.052]);
+          k.add(G.cyl(1, 1, 24), '#6f95db', [sd * 0.382, 0.0, 0.0], [0, 0, Math.PI / 2], [0.036, 0.012, 0.036]);
+        }
+        k.seg([0.2, 0.275, -0.12], [0.255, 0.47, -0.16], 0.0055, '#c8d2e4', 0.004, 8);                          // antenna
+        k.add(G.sphere(10), '#c8d2e4', [0.2, 0.275, -0.12], 0, 0.016);
+      })), mat('astroShell|' + (r >= 2 ? r : 0), () => {
+        const t = tex('metal'), m = vcMat({ metalness: 0.05, roughness: 0.3, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.12, 0.12), envMapIntensity: 0.9, side: THREE.DoubleSide });
+        return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.6 : 0.42, 2.3) : rimify(m, 0xffffff, 0.16);
+      }));
+      add(geoC('astroVisor', () => kitGeo(k => {   // the raised gold visor (knight's visor shape, one smooth lens)
+        const VS = [0.372, 0.36, 0.382], th = (U, v) => Math.PI * lerp(0.5 - 0.04 * (1 - U * U), 0.5 + 0.25 * Math.pow(1 - U * U, 0.55), v);
+        const vp = (U, v, d, o) => { const ph = U * Math.PI / 2, t = th(U, v); return o.set(Math.sin(ph) * Math.sin(t) * (VS[0] + d), Math.cos(t) * (VS[1] + d), Math.cos(ph) * Math.sin(t) * (VS[2] + d)); };
+        const tube = (pts, w, c) => k.add(sweep(pts, pts.map(p => p.clone().normalize()), () => w, () => w, 6, 1, () => {}, null), c);
+        const UW = 0.8, VL = 0.62;   // a smaller lens than the knight's: the white shell shows all round it
+        k.push([0, 0, 0], [-0.9, 0, 0]);
+        k.add(paramGeo((u, v, o) => vp((u * 2 - 1) * UW, v * VL, 0, o), 40, 6, v3(0, 0, 0), false), '#ffc24a');
+        for (const v of [0, VL]) { const P = []; for (let i = 0; i <= 28; i++) P.push(vp((i / 14 - 1) * UW, v, 0.002, v3())); tube(P, 0.009, '#e7eefa'); }
+        for (const sd of [-1, 1]) { const P = []; for (let i = 0; i <= 8; i++) P.push(vp(sd * UW, i / 8 * VL, 0.002, v3())); tube(P, 0.009, '#e7eefa'); }
+        k.pop();
+      })), knightSteelM(r));
+      add(geoC('astroStar', () => starGeo(0.036, 0.012)), mat('astroStar', () => glowMat('#ffe36a', 1.7)), [0.258, 0.49, -0.162], [-0.26, 0, 0]);
     } else {   // tac: golden crown with gems, perched on the hair
       h.position.set(0.015, 0.27, -0.03); h.rotation.set(-0.12, 0, 0.14);
       add(geoC('tacBand', () => kitGeo(k => {
@@ -1186,7 +1455,7 @@ const { FEZA, ITEMS } = (function () {
     }
     // inner volume (ellipsoid centre, radii, band height, fade — hat-local metres): hair above the band is kept inside it
     const IN = { kostebekfener: [[0, 0, 0], [0.33, 0.28, 0.34], -0.025, 0.08], migfer: [[0, 0, 0], [0.335, 0.31, 0.345], -0.035, 0.09], sihirbaz: [[0, -0.01, 0], [0.2, 0.24, 0.2], 0, 0.06],
-      sovalyemigfer: [[0, 0, 0], [0.345, 0.335, 0.355], -0.2, 0.08],
+      sovalyemigfer: [[0, 0, 0], [0.345, 0.335, 0.355], -0.2, 0.08], astronot: [[0, 0, 0], [0.345, 0.335, 0.355], -0.2, 0.08], kedikulak: [[0, 0, 0], [0.33, 0.3, 0.34], -0.04, 0.07],
       kovboy: [[0, 0, 0], [0.195, 0.21, 0.21], 0, 0.06], korsan: [[0, 0, 0], [0.195, 0.15, 0.205], 0, 0.06] }[id];
     if (IN) g.fzHatIn = { h, c: IN[0], r: IN[1], y0: IN[2], fade: IN[3] };
     return g;
@@ -1206,6 +1475,10 @@ const { FEZA, ITEMS } = (function () {
     gunes: { base: '#ffa348', dark: '#a74243', trim: '#ffe7a0', edge: 'points', motif: 'sun' },
     kefirsihir: { base: '#8b7bc9', dark: '#544790', trim: '#fff0bb', edge: 'wave', motif: 'foam' },
     sovalyesihir: { base: '#3068ea', dark: '#1b2f96', trim: '#ffd24a', edge: 'scallop', check: '#fff4d2' },   // (Round 5) the knight's arms
+    // (Round 6) new ordinary capes (their own painters below)
+    sekerpelerin: { base: '#ff9fd0', dark: '#b08bff', trim: '#9ff0cf', edge: 'scallop' },
+    panda: { base: '#eceef3', dark: '#c4cad6', trim: '#74c663', edge: 'leaf' },
+    galaksi: { base: '#4b2a92', dark: '#0f1a4e', trim: '#ffcf4a', edge: 'points' },
   });
   const CAPE_TEX = {};
   function capeTex(id) {
@@ -1292,6 +1565,63 @@ const { FEZA, ITEMS } = (function () {
         g.fillStyle = '#ffffff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(cx + s * 9 + 1.2, cy - 6.6, 1.4, 0, TAU); g.fill(); }
         g.strokeStyle = '#5a2f14'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy + 2, 10, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
         g.restore(); ge.restore();
+      } else if (id === 'sekerpelerin') {   // (Round 6) candy: swirl lollipops and sprinkles on pink → lilac
+        const pop = (x, y, rr, c1, c2, a0) => {
+          g.strokeStyle = '#fff8fc'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(x, y + rr * 0.8); g.lineTo(x + rr * 0.35, y + rr * 2.1); g.stroke();
+          g.fillStyle = c1; g.beginPath(); g.arc(x, y, rr, 0, TAU); g.fill();
+          g.strokeStyle = c2; g.lineWidth = rr * 0.28; g.beginPath();
+          for (let i = 0; i <= 60; i++) { const t = i / 60, a = a0 + t * 2.4 * TAU, q = rr * 0.86 * t; i ? g.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q) : g.moveTo(x, y); }
+          g.stroke();
+          g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, rr - 1, 0, TAU); g.stroke();
+          ge.fillStyle = mixCol(c1, '#000000', 0.55).getStyle(); ge.beginPath(); ge.arc(x, y, rr, 0, TAU); ge.fill();
+        };
+        const SP = ['#ff5a8a', '#ffe066', '#5ac8ff', '#7be07a', '#ffffff', '#b27bff'];
+        for (let i = 0; i < 90; i++) {   // sprinkles
+          const x = R() * S, y = 6 + R() * 210, a = R() * Math.PI;
+          g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = SP[i % 6]; g.beginPath(); g.ellipse(0, 0, 5, 1.8, 0, 0, TAU); g.fill(); g.restore();
+        }
+        pop(128, 92, 34, '#ff78b8', '#ffffff', 0);
+        for (const [x, y, rr, c1, c2, a] of [[48, 54, 17, '#8fdcff', '#ffffff', 1], [210, 58, 17, '#b58cff', '#ffffff', 2], [58, 168, 19, '#7fe3b6', '#ffffff', 3], [200, 166, 19, '#ffd46b', '#ff6fae', 4]]) pop(x, y, rr, c1, c2, a);
+      } else if (id === 'panda') {   // (Round 6) panda: black paw prints on white → grey, a round panda face, bamboo leaves by the hem
+        const paw = (x, y, sc, a) => {
+          g.save(); g.translate(x, y); g.rotate(a); g.scale(sc, sc); g.fillStyle = 'rgba(40,40,48,0.9)';
+          g.beginPath(); g.ellipse(0, 4, 8, 6.5, 0, 0, TAU); g.fill();
+          for (let i = 0; i < 4; i++) { const b = (i - 1.5) * 0.62; g.beginPath(); g.ellipse(Math.sin(b) * 11, -4 - Math.cos(b) * 7, 3.2, 3.8, b, 0, TAU); g.fill(); }
+          g.restore();
+        };
+        for (const [x, y, sc, a] of [[34, 30, 1, -0.3], [222, 36, 1, 0.4], [30, 118, 0.95, 0.2], [226, 124, 0.95, -0.25], [58, 196, 1, -0.5], [196, 200, 1, 0.5], [128, 196, 0.9, 0.05], [92, 22, 0.8, 0.15], [166, 22, 0.8, -0.15]]) paw(x, y, sc, a);
+        const cx = 128, cy = 102;
+        g.fillStyle = '#26262e'; for (const sd of [-1, 1]) { g.beginPath(); g.arc(cx + sd * 34, cy - 34, 17, 0, TAU); g.fill(); }
+        g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(cx, cy, 50, 44, 0, 0, TAU); g.fill();
+        g.strokeStyle = '#26262e'; g.lineWidth = 4; g.stroke();
+        g.fillStyle = '#26262e'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(cx + sd * 19, cy - 3, 11, 15, sd * -0.5, 0, TAU); g.fill(); }
+        g.fillStyle = '#ffffff'; for (const sd of [-1, 1]) { g.beginPath(); g.arc(cx + sd * 18, cy - 5, 4.5, 0, TAU); g.fill(); }
+        g.fillStyle = '#26262e'; g.beginPath(); g.ellipse(cx, cy + 14, 7, 5, 0, 0, TAU); g.fill();
+        g.strokeStyle = '#26262e'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.arc(cx - 5, cy + 19, 5, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke(); g.beginPath(); g.arc(cx + 5, cy + 19, 5, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke();
+        g.fillStyle = 'rgba(255,130,160,0.6)'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(cx + sd * 33, cy + 14, 8, 5, 0, 0, TAU); g.fill(); }
+        for (let i = 0; i < 9; i++) {   // bamboo leaves just above the green hem
+          const x = 12 + i * 29 + R() * 6, y = 206 + R() * 8, a = -0.6 + R() * 1.2;
+          for (const c of [g, ge]) { c.save(); c.translate(x, y); c.rotate(a); c.fillStyle = c === g ? (i & 1 ? '#5fb454' : '#8fd66e') : '#10300c'; c.beginPath(); c.ellipse(0, 0, 13, 4.5, 0, 0, TAU); c.fill(); c.restore(); }
+        }
+      } else if (id === 'galaksi') {   // (Round 6) galaxy: a glowing spiral galaxy, stars and a ringed planet on violet → navy
+        for (let i = 0; i < 70; i++) { const x = R() * S, y = R() * 220, c = R() < 0.3 ? '#ffe9a8' : '#ffffff', q = 0.6 + R() * 1.4; g.fillStyle = c; g.fillRect(x, y, q, q); ge.fillStyle = c; ge.fillRect(x, y, q * 0.8, q * 0.8); }
+        const cx = 128, cy = 98;
+        for (const c of [g, ge]) {
+          const rg = c.createRadialGradient(cx, cy, 2, cx, cy, 70); rg.addColorStop(0, 'rgba(255,240,255,0.95)'); rg.addColorStop(0.25, 'rgba(255,140,230,0.55)'); rg.addColorStop(0.6, 'rgba(120,120,255,0.22)'); rg.addColorStop(1, 'rgba(60,40,160,0)');
+          c.fillStyle = rg; c.beginPath(); c.ellipse(cx, cy, 72, 60, 0, 0, TAU); c.fill();
+          for (const arm of [0, Math.PI]) for (let i = 0; i < 70; i++) {
+            const t = i / 70, a = arm + t * 3.4, rr = 6 + t * 62, jx = (R() - 0.5) * 8 * t, jy = (R() - 0.5) * 8 * t;
+            c.fillStyle = t < 0.45 ? '#ffd6f6' : i & 1 ? '#8fe6ff' : '#ff9ae6';
+            c.beginPath(); c.arc(cx + Math.cos(a) * rr + jx, cy + Math.sin(a) * rr * 0.8 + jy, 3.4 * (1 - t * 0.6), 0, TAU); c.fill();
+          }
+        }
+        for (let i = 0; i < 14; i++) { const x = 10 + R() * 236, y = 8 + R() * 205, rr = 3 + R() * 4.5, a = R(); if (Math.hypot(x - cx, (y - cy) * 1.2) < 80) continue; g.fillStyle = '#fff4c2'; star(g, x, y, rr, a); ge.fillStyle = '#fff0b0'; star(ge, x, y, rr, a); }
+        const px = 58, py = 180;   // the ringed planet
+        g.strokeStyle = '#ffd9a0'; g.lineWidth = 4; g.beginPath(); g.ellipse(px, py, 30, 9, -0.35, Math.PI, TAU); g.stroke();
+        const pg = g.createRadialGradient(px - 6, py - 6, 2, px, py, 18); pg.addColorStop(0, '#ffd08a'); pg.addColorStop(1, '#ff7a45'); g.fillStyle = pg; g.beginPath(); g.arc(px, py, 17, 0, TAU); g.fill();
+        g.strokeStyle = '#ffd9a0'; g.beginPath(); g.ellipse(px, py, 30, 9, -0.35, 0, Math.PI); g.stroke();
+        ge.strokeStyle = '#7a4a20'; ge.lineWidth = 4; ge.beginPath(); ge.ellipse(px, py, 30, 9, -0.35, 0, TAU); ge.stroke();
+        g.fillStyle = '#dfe8ff'; g.beginPath(); g.arc(206, 176, 9, 0, TAU); g.fill(); g.fillStyle = '#b9c6ee'; g.beginPath(); g.arc(203, 174, 2.4, 0, TAU); g.arc(209, 180, 1.8, 0, TAU); g.fill();   // a little moon
       } else {   // kirmizi: golden star emblem
         g.fillStyle = '#ffcf4a'; star(g, S / 2, S * 0.3, 26, 0); g.fillStyle = '#ffe79a'; star(g, S / 2, S * 0.3, 14, 0);
         ge.fillStyle = '#6a4a00'; star(ge, S / 2, S * 0.3, 26, 0);
@@ -2258,6 +2588,11 @@ const { FEZA, ITEMS } = (function () {
   for (const [id, ad, minLvl] of [['mercan', 'Mercan Değneği', 2], ['bulut', 'Bulut Değneği', 4], ['cicek', 'Çiçek Değneği', 6]]) BASES.weapon.push({ id, ad, minLvl, heroClass: 'wizard' });
   BASES.hat.push({ id: 'bulutbere', ad: 'Bulut Beresi', minLvl: 1 }, { id: 'yaprakbaslik', ad: 'Orman Gezgini Başlığı', minLvl: 4 });
   BASES.cape.push({ id: 'deniz', ad: 'Deniz Dalgası Pelerini', minLvl: 1 }, { id: 'gunes', ad: 'Güneş Pelerini', minLvl: 4 });
+  // (Round 6) 14 new ordinary looks (zone item levels: orman 1 · kefir 2 · mağara 4 · yanardağ 6 · şehir 7 · kale 8)
+  for (const [id, ad, minLvl] of [['pamukseker', 'Pamuk Şeker Işın Kılıcı', 1], ['kalp', 'Kalpli Işın Kılıcı', 2], ['uzay', 'Uzay Roketi Işın Kılıcı', 5], ['kuyruklu', 'Kuyruklu Yıldız Işın Kılıcı', 8]]) BASES.weapon.push({ id, ad, minLvl });
+  for (const [id, ad, minLvl] of [['lolipop', 'Lolipop Değneği', 1], ['kedipati', 'Kedi Patisi Değneği', 3], ['gezegen', 'Gezegen Değneği', 7]]) BASES.weapon.push({ id, ad, minLvl, heroClass: 'wizard' });
+  for (const [id, ad, minLvl] of [['kedikulak', 'Kedi Kulaklı Bere', 1], ['dondurma', 'Dondurma Şapkası', 2], ['yunikorn', 'Yunikorn Tacı', 4], ['astronot', 'Astronot Kaskı', 6]]) BASES.hat.push({ id, ad, minLvl });
+  for (const [id, ad, minLvl] of [['sekerpelerin', 'Şeker Pelerini', 2], ['panda', 'Panda Pelerini', 3], ['galaksi', 'Galaksi Pelerini', 7]]) BASES.cape.push({ id, ad, minLvl });
   for (const slot of Object.keys(BASES)) for (const b of BASES[slot]) if (b.boss) b.classLock = b.heroClass || 'warrior';
   for (const [slot, id, ad, classLock] of [
     ['weapon', 'jolesihir', 'Jöle Kralının Köpük Değneği', 'wizard'], ['cape', 'kefirsihir', 'Kefir Devinin Sihirli Pelerini', 'wizard'],
@@ -2342,15 +2677,19 @@ const { FEZA, ITEMS } = (function () {
         offSetup();
         const o = template(slot, id, r).clone(), wrap = new THREE.Group(); wrap.add(o); OFF.scene.add(wrap);
         let dir = v3(0.25, 0.35, 1), fov = 28;
-        if (slot === 'weapon') { o.rotation.set(0, 0.35, -Math.PI / 4); const b = o.getObjectByName('fzBlade'); if (b) b.scale.set(1.5, 1, 1.5); }   // bolder blade on a small card
+        const b = slot === 'weapon' ? o.getObjectByName('fzBlade') : null;
+        if (slot === 'weapon') { o.rotation.set(0, 0.35, -Math.PI / 4); if (b) b.scale.set(1.5, 0.6, 1.5); }   // bolder blade on a small card
         else if (slot === 'hat') { o.rotation.set(0.12, 0.55, 0); dir = v3(0.1, 0.55, 1); }
         else { o.rotation.set(0, Math.PI + 0.35, 0); dir = v3(0, 0.15, 1); }
+        // (Round 6) a lightsaber card frames the hilt + the lower 60 % of the blade (bigger hilts: the looks tell apart), the blade
+        // runs on out of the corner; its colour ramp is squeezed into that visible part
         wrap.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(wrap), c = v3(), sz = v3(); box.getCenter(c); box.getSize(sz);
-        const wk = SB_U.k.value, wg = SB_U.grad.value;
-        if (slot === 'weapon') { SB_U.k.value = 0.45; SB_U.grad.value = 1.15; }
+        if (b) { b.scale.y = 1; wrap.updateMatrixWorld(true); }
+        const wk = SB_U.k.value, wg = SB_U.grad.value, wr = SB_U.ramp.value;
+        if (slot === 'weapon') { SB_U.k.value = 0.45; SB_U.grad.value = 1.15; SB_U.ramp.value = 1 / 0.6; }
         try { offDraw(c, Math.max(sz.x, sz.y, sz.z) * (slot === 'weapon' ? 0.46 : 0.56), dir, fov); }
-        finally { SB_U.k.value = wk; SB_U.grad.value = wg; OFF.scene.remove(wrap); }
+        finally { SB_U.k.value = wk; SB_U.grad.value = wg; SB_U.ramp.value = wr; OFF.scene.remove(wrap); }
       },
       finish(cv) {
         if (THUMBS[k]) return THUMBS[k];
@@ -2361,9 +2700,57 @@ const { FEZA, ITEMS } = (function () {
         g.shadowColor = 'rgba(0,0,0,0.35)'; g.shadowBlur = 4; g.shadowOffsetY = 2;
         g.drawImage(cv, 4, 4, 120, 120);
         g.restore();
+        if (slot === 'weapon' && !WAND[id]) {   // the blade fades out into the top-right corner (instead of a hard cut)
+          g.save(); g.globalCompositeOperation = 'destination-out';
+          const fd = g.createLinearGradient(96, 32, 124, 4); fd.addColorStop(0, 'rgba(0,0,0,0)'); fd.addColorStop(1, 'rgba(0,0,0,1)');
+          g.fillStyle = fd; g.fillRect(64, 0, 64, 64); g.restore();
+        }
+        if (CREST_OF[id]) crest(g, CREST_OF[id], 110, 110, 15);
         return (THUMBS[k] = out.toDataURL('image/png'));
       },
     };
+  }
+  // (Round 6) boss treasures carry their boss's round crest in the card's corner (30 px on the 128 px card):
+  // Kral Jöle crown · Kefir Devi bottle · Usta Köstebek drill hat · Lav Kaplumbağası hex shell · Şövalye horseshoe · Ejderha wing-heart
+  const CREST_OF = {}, CREST_COL = { kraljole: '#6fd84e', kefirdev: '#3fc0b0', kostebekusta: '#c47e45', lavkaplumbaga: '#ff6a2a', sovalye: '#3a6ee8', ejderha: '#a65cf0' };
+  for (const [type, ids] of Object.entries({ kraljole: 'joletac jolesihir joleikiz', kefirdev: 'kefirkopuk kefirsihir kefirikiz', kostebekusta: 'kostebekfener magarasihir magaraikiz',
+    lavkaplumbaga: 'lavkilic lavdegnek lavikiz', sovalye: 'sovalyemigfer sovalyesihir sovalyeikiz', ejderha: 'ejderkilic ejderdegnek ejderikiz' })) for (const id of ids.split(' ')) CREST_OF[id] = type;
+  function crest(g, type, x, y, R) {
+    g.save(); g.translate(x, y);
+    g.shadowColor = 'rgba(0,0,0,0.4)'; g.shadowBlur = 3; g.shadowOffsetY = 1;
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill(); g.shadowColor = 'transparent';
+    const bg = g.createRadialGradient(-R * 0.3, -R * 0.4, 1, 0, 0, R); bg.addColorStop(0, mixCol(CREST_COL[type], '#ffffff', 0.35).getStyle()); bg.addColorStop(1, CREST_COL[type]);
+    g.fillStyle = bg; g.beginPath(); g.arc(0, 0, R - 2.2, 0, TAU); g.fill();
+    const k = R / 15; g.scale(k, k); g.lineJoin = 'round'; g.lineCap = 'round';
+    const W = '#ffffff';
+    g.fillStyle = W; g.strokeStyle = W;
+    if (type === 'kraljole') {   // crown
+      g.beginPath(); g.moveTo(-8, 5); g.lineTo(-8.5, -4); g.lineTo(-4, 0); g.lineTo(0, -7); g.lineTo(4, 0); g.lineTo(8.5, -4); g.lineTo(8, 5); g.closePath(); g.fill();
+      g.fillStyle = CREST_COL[type]; for (const xx of [-4, 0, 4]) { g.beginPath(); g.arc(xx, 2.5, 1.3, 0, TAU); g.fill(); }
+    } else if (type === 'kefirdev') {   // bottle
+      g.beginPath(); g.moveTo(-2.5, -9); g.lineTo(2.5, -9); g.lineTo(2.5, -5); g.quadraticCurveTo(6.5, -3, 6.5, 1); g.lineTo(6.5, 7); g.quadraticCurveTo(6.5, 9, 4.5, 9);
+      g.lineTo(-4.5, 9); g.quadraticCurveTo(-6.5, 9, -6.5, 7); g.lineTo(-6.5, 1); g.quadraticCurveTo(-6.5, -3, -2.5, -5); g.closePath(); g.fill();
+      g.fillStyle = CREST_COL[type]; g.fillRect(-6.5, 1, 13, 4);
+    } else if (type === 'kostebekusta') {   // miner's hat with a drill on top
+      g.beginPath(); g.moveTo(-9, 6); g.quadraticCurveTo(-9, -3, 0, -3.5); g.quadraticCurveTo(9, -3, 9, 6); g.closePath(); g.fill();
+      g.fillRect(-10.5, 5, 21, 2.6);
+      g.beginPath(); g.moveTo(-2.4, -3.5); g.lineTo(0, -10.5); g.lineTo(2.4, -3.5); g.closePath(); g.fill();
+      g.strokeStyle = CREST_COL[type]; g.lineWidth = 1; g.beginPath(); g.moveTo(-1.7, -5.5); g.lineTo(1.4, -6.6); g.moveTo(-1, -7.8); g.lineTo(0.9, -8.5); g.stroke();
+      g.fillStyle = '#fff3a0'; g.beginPath(); g.arc(0, 1.5, 2.4, 0, TAU); g.fill();
+    } else if (type === 'lavkaplumbaga') {   // hexagon shell
+      const hex = (cx, cy, r) => { g.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + Math.PI / 6; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } g.closePath(); };
+      g.beginPath(); g.ellipse(0, 0.5, 10, 8, 0, 0, TAU); g.fill();
+      g.fillStyle = CREST_COL[type]; hex(0, 0.5, 3.6); g.fill();
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; hex(Math.cos(a) * 6.2, 0.5 + Math.sin(a) * 5, 1.9); g.fill(); }
+    } else if (type === 'sovalye') {   // horseshoe
+      g.lineWidth = 4.2; g.beginPath(); g.arc(0, -1, 6.5, Math.PI * 0.82, Math.PI * 2.18, false); g.stroke();
+      g.fillStyle = CREST_COL[type]; for (const a of [0.95, 1.3, 1.7, 2.05]) { g.beginPath(); g.arc(Math.cos(a * Math.PI) * 6.5, -1 + Math.sin(a * Math.PI) * 6.5, 0.9, 0, TAU); g.fill(); }
+    } else {   // ejderha: heart with little wings
+      for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(sd * 3, -1); g.quadraticCurveTo(sd * 9, -9, sd * 11, -4); g.quadraticCurveTo(sd * 8, -4, sd * 9, 0); g.quadraticCurveTo(sd * 6, -1, sd * 5, 2); g.closePath(); g.fill(); }
+      g.beginPath(); g.moveTo(0, 8); g.bezierCurveTo(-3, 5, -7, 2, -6.5, -1.5); g.bezierCurveTo(-6, -5, -1.5, -5, 0, -2); g.bezierCurveTo(1.5, -5, 6, -5, 6.5, -1.5); g.bezierCurveTo(7, 2, 3, 5, 0, 8); g.fill();
+      g.fillStyle = '#ff7ab8'; g.beginPath(); g.arc(-2.2, -1.4, 1.2, 0, TAU); g.fill();
+    }
+    g.restore();
   }
   const ITEMS = {
     RARITY, BASES,

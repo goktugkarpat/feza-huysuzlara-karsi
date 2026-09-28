@@ -18,7 +18,11 @@
    şişkin yanaklar, büzük dudak, kalkık kaşlar); mutlu yüz yine ^ ^. Şövalyenin turnuva sancağı: EMODEL.sancak() (devrilir,
    yerde güneşi gülümser). Boss Huysuz Şövalye: kocaman, sevimli bir atın üstünde minik ve çok huysuz bir şövalye (gökkuşağı
    sorguçlu miğfer, kıvrık bıyık, ponpon toplu mızrak, dama desenli at örtüsü, kirpikli kocaman at gözleri). Dörtnala koşar,
-   şahlanır, mızrağını savurur, at nalı fırlatır, borusunu çalar; yenilince miğferini çıkarıp sallar. */
+   şahlanır, mızrağını savurur, at nalı fırlatır, borusunu çalar; yenilince miğferini çıkarıp sallar.
+   6. tur: bossların bonus oyunları için yeni hâller (Kral Jöle tacını kaybedip utanır, Kefir Devi köpük balonu üfler ve hıçkırır,
+   Usta Köstebek delikten başını çıkarır, Lav Kaplumbağası taşa çarpıp yan yatar, Şövalyenin atı havuç yer, Ejderha kalp üfler),
+   yüz ifadeleri (s.eyeK / s.browY / s.mouthO …), Feza'yı görmeden önceki küçük oyalanmalar, ilk kükremede şaşkın bir zıplama ve
+   yeni sahne eşyaları: EMODEL.jellyCrown (taç), havuc, serinTas (serin taş), hole (köstebek deliği). */
 
 // Base stats (zone 1 scale; GAME multiplies by zone and its DIFF table). hover = flying height of the model origin.
 // Feza's request: no spiders any more (orumcek removed); the cave has moles (kostebek) and snails (salyangoz).
@@ -35,7 +39,10 @@ const EDEF = {
   asker:   { ad: 'Teneke Asker', hp: 55, dmg: 10, speed: 2.6, r: 0.55, height: 1.6, xp: 22, gold: 6, kind: 'melee', atkRange: 1.2, atkCd: 1.9, windup: 0.7, fly: false, aggro: 9 },
   atescik: { ad: 'Ateşçik', hp: 32, dmg: 8, speed: 2.4, r: 0.5, height: 0.95, xp: 16, gold: 4, kind: 'ranged', atkRange: 7, atkCd: 2.5, windup: 0.7, fly: true, hover: 0.3, aggro: 9, shot: { kind: 'fire', speed: 5.5, r: 0.32 } },
   ejderha: { ad: 'Huysuz Ejderha', hp: 1600, dmg: 16, speed: 1.6, r: 2.2, height: 4.6, xp: 600, gold: 150, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, fly: false, aggro: 14, shot: { kind: 'dragonfire', speed: 5.5, r: 0.55 },
-    final: true, lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim' } },
+    final: true, lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim' },
+    // (the dragon animates bite / stomp / breath / fireball / roar from st.windup … st.fireball; Round 6's 'sigh' and 'charmed' from
+    // st.phase + st.phaseT like the zone bosses — GAME sets st.breath etc. to −1 then)
+    phases: ['idle', 'move', 'roar', 'bite', 'stomp', 'breath', 'fireball', 'sigh', 'charmed'], sighAt: 0.55 },
   // ── Round 3: volcano creatures (zone 2 'yanardag'; the volcano also uses jole variant 'lava' and golem variant 'magma') ──
   // kaplumbaga: melee — the wind-up tucks it into its shell, the attack is a forward roll along a lane (GAME moves it; st.attack =
   // share of the lane rolled, then 1 while it recovers: the model tumbles in whole turns and pops out only after it stops).
@@ -45,13 +52,16 @@ const EDEF = {
   // st.phase + st.phaseT (0..1); the lists are the phases each model knows. summon/slamR/rollSpeed are suggestions for GAME. ──
   kraljole: { ad: 'Kral Jöle', hp: 700, dmg: 8, speed: 2.2, r: 1.45, height: 2.8, xp: 220, gold: 60, kind: 'boss', atkRange: 2.6, atkCd: 1.6, windup: 0.8, fly: false, aggro: 13,
     shot: { kind: 'jelly', speed: 4.5, r: 0.45 }, lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' },
-    phases: ['idle', 'move', 'hop', 'spit', 'summon', 'roar'], summon: { type: 'jole', n: 3, at: [0.66, 0.33] }, slamR: 3.2 },
+    phases: ['idle', 'move', 'hop', 'spit', 'summon', 'roar', 'shy', 'crownon', 'blush'], summon: { type: 'jole', n: 3, at: [0.66, 0.33] }, slamR: 3.2,
+    crownOnAt: 0.35 },
   kostebekusta: { ad: 'Usta Köstebek', hp: 1000, dmg: 11, speed: 2.4, r: 1.25, height: 2.6, xp: 330, gold: 90, kind: 'boss', atkRange: 2.4, atkCd: 1.6, windup: 0.8, fly: false, aggro: 13,
     shot: { kind: 'rock', speed: 5, r: 0.45 }, lines: { giris: 'usta_giris', bitti: 'usta_bitti' },
-    phases: ['idle', 'move', 'burrow', 'emerge', 'throw', 'drill', 'summon', 'roar'], summon: { type: 'kostebek', n: 3, at: [0.66, 0.33] }, slamR: 3.0, burrowIn: 0.8, burrowOut: 0.45 },
+    phases: ['idle', 'move', 'burrow', 'emerge', 'throw', 'drill', 'summon', 'roar', 'peek', 'bonk', 'dizzy'], summon: { type: 'kostebek', n: 3, at: [0.66, 0.33] }, slamR: 3.0, burrowIn: 0.8, burrowOut: 0.45,
+    peek: { up: 0.2, duck: 0.85, sink: 1.55 }, bonkSink: 0.3 },
   lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', hp: 1300, dmg: 14, speed: 1.5, r: 1.65, height: 2.8, xp: 450, gold: 120, kind: 'boss', atkRange: 3, atkCd: 1.6, windup: 0.8, fly: false, aggro: 14,
     shot: { kind: 'lavaball', speed: 5, r: 0.5 }, lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' },
-    phases: ['idle', 'move', 'erupt', 'hide', 'roll', 'stomp', 'summon', 'roar'], summon: { type: 'kaplumbaga', n: 2, at: [0.5] }, slamR: 4.2, rollSpeed: 7 },
+    phases: ['idle', 'move', 'erupt', 'hide', 'roll', 'stomp', 'summon', 'roar', 'rollend', 'flip'], summon: { type: 'kaplumbaga', n: 2, at: [0.5] }, slamR: 4.2, rollSpeed: 7,
+    flipAt: [0.12, 0.88] },
   // ── Round 4: Kefir Vadisi (zone 1 'kefir', theme 'dairy'; the valley also has jole variant 'muhallebi'). Their 'grumpy' face is the
   // funny sour 😜 face. All melee in spirit, with GAME's moves: yogurt kind 'hop' (hops at Feza and bumps: st.windup = crouch,
   // st.attack/st.air = the hop GAME carries, st.attack 1 = squashed recover), kaymak 'glide' (whooshes along a lane like the
@@ -67,7 +77,8 @@ const EDEF = {
   // then hops, waves and twirls away — dieDur (s) is the suggested length of that goodbye (st.give 0..1 may drive the hand-over instead).
   kefirdev: { ad: 'Köpüklü Kefir Devi', hp: 1000, dmg: 13, speed: 1.7, r: 1.45, height: 3.0, xp: 200, gold: 50, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, fly: false, aggro: 12,
     shot: { kind: 'fizz', speed: 4, r: 0.45 }, lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' },
-    phases: ['idle', 'move', 'shake', 'geyser', 'bubbles', 'slam', 'summon', 'roar'], summon: { type: 'kopuk', n: 3, at: [0.66, 0.33] }, slamR: 3.0,
+    phases: ['idle', 'move', 'shake', 'geyser', 'bubbles', 'slam', 'summon', 'roar', 'blow', 'hiccup'], summon: { type: 'kopuk', n: 3, at: [0.66, 0.33] }, slamR: 3.0,
+    blowAt: [0.45, 0.5, 0.75], hiccupAt: [0.15, 0.45, 0.75],
     cone: { angle: 0.9, len: 6 }, fizzAt: [0.4, 0.5, 0.6, 0.7, 0.8], sprayAt: [0.14, 0.84], slamAt: 0.8, give: { from: 0.05, to: 0.45 }, dieDur: 6.5 },
   // ── Round 5: Surlu Şehir (zone 4 'sehir', theme 'town'). The huysuz are PEOPLE here (the dragon tricked them): the sulky "hıh!"
   // face while grumpy. nobetci melee (wind-up = draws the spear back level, attack = the poke-lunge), simitci ranged (the wind-up
@@ -87,7 +98,7 @@ const EDEF = {
   // Defeat (dieDur s): takes off his helmet and waves it while the horse prances (st.dying 0–0.35), happy hops (0.35–0.7), twirl.
   sovalye: { ad: 'Huysuz Şövalye', hp: 1400, dmg: 15, speed: 2.0, r: 1.7, height: 3.4, xp: 500, gold: 130, kind: 'boss', atkRange: 3.2, atkCd: 1.6, windup: 0.8, fly: false, aggro: 14,
     shot: { kind: 'horseshoe', speed: 5, r: 0.45 }, lines: { giris: 'sovalye_giris', bitti: 'sovalye_bitti' },
-    phases: ['idle', 'move', 'charge', 'rear', 'sweep', 'toss', 'summon', 'roar', 'dizzy'], summon: { type: 'nobetci', n: 2, at: [0.66, 0.33] }, slamR: 3.6, chargeSpeed: 9,
+    phases: ['idle', 'move', 'charge', 'rear', 'sweep', 'toss', 'summon', 'roar', 'dizzy', 'seek', 'munch'], summon: { type: 'nobetci', n: 2, at: [0.66, 0.33] }, slamR: 3.6, chargeSpeed: 9,
     chargeAt: [0.3, 0.9], rearAt: 0.5, sweepAt: 0.5, sweep: [0.4, 0.6], cone: { angle: 2.4, len: 1.6 }, tossAt: [0.35, 0.5, 0.65], hornAt: 0.5, dieDur: 3.2 },
 };
 
@@ -565,8 +576,16 @@ const EMODEL = (function (G0) {
     r.bone('eyes', o.bone, [0, ec.y, ec.z]);
     r.bone('brow', o.bone, [0, bc.y, bc.z]);
     r.bone('joy', o.bone, [c[0], c[1] + R * 0.7, c[2]]);
-    const mc = o.mc || c, mR = o.mR || R, mt = o.mTilt ?? tilt, mBone = o.mouthBone || o.bone;
+    const mc = o.mc || c, mR = o.mR || R, mt = o.mTilt ?? tilt;
     const mw = o.mouthW ?? er * 1.2, my = o.mouthY ?? (ey - er * 1.55);
+    let mBone = o.mouthBone || o.bone;
+    // (o.mouthPivot: the mouth rides on its own bone 'mouth' pivoting at its centre — the boss anims stretch it into an "O" or a
+    // wide smile through s.mouthO / s.mouthW, see build())
+    if (o.mouthPivot && !o.noMouth) {
+      r.push(mc, [-mt, 0, 0]);
+      const mp = new THREE.Vector3(...onSphere(0, my, mR, o.mInset ?? 0)[0]).applyMatrix4(r.k.top()).toArray();
+      r.pop(); r.bone('mouth', mBone, mp); mBone = 'mouth';
+    }
     const blushAt = (k) => {
       for (const s of [-1, 1]) {
         const [p, q] = onSphere(s * (ex + er * (o.blushX ?? 0.3)), ey - er * (o.blushY ?? 1.05), R, -er * 0.02); r.push(p, q); blush(r, er, o, k); r.pop();
@@ -1721,26 +1740,37 @@ const EMODEL = (function (G0) {
     face(r, [0, 3.56, 0.74], 0.8, {   // goofy, smiling: big friendly eyes, playful brows, round buck teeth, tongue out
       bone: 'head', tilt: 0.22, ex: 0.33, ey: 0.12, er: 0.27, iris: '#b8661e', skin: mixc(body, bodyL, 0.55), browCol: '#3a1d66', browY: 1.36, browW: 1.05,
       mc: [0, 3.28, 1.36], mR: 0.52, mTilt: 0.0, mouthY: -0.09, mouthW: 0.44, mouthCol: '#3a1250', blushX: 0.45, blushY: 1.2, buck: true, toothCol: '#fffaf0',
-      heartY: 0.72, heartX: 1.08, heartS: 0.3,
+      heartY: 0.72, heartX: 1.08, heartS: 0.3, mouthPivot: true,
     });
     r.on('head').mark('muzzle', [0, 3.2, 1.95]);
     return { height: 4.6, glowC: col('#ff5aa0'), tex: scaleTex(), mat: { rough: 0.45, ns: 0.45, rimK: 0.16, sss: col('#c9a0ff').multiplyScalar(0.04) } };
   }
   function animEjderha(m, dt, st, s) {
-    const B = m.B;
+    const B = m.B, P = bph(st), pt = bpt(st), dying = st.dying >= 0;
     const br = Math.sin(s.t * 1.5 + s.ph);
     if (s.mv > 0.03) s.walk += dt * (3 + 2 * s.mv);
     const ph = s.walk, k = Math.min(1, s.mv * 1.4);
+    const calm = (P === 'idle') && !(st.move > 0.05) && !(st.roar >= 0) && !(st.windup >= 0) && !(st.attack >= 0), pre = preAggro(s, st, P, dt);
     B.body.scale.set(1 + 0.018 * br, 1 + 0.022 * br, 1 + 0.018 * br);
-    B.hips.rotation.z = Math.sin(ph) * 0.06 * k; B.hips.position.y += Math.abs(Math.cos(ph)) * 0.1 * k;
+    // walk: the hips roll, the neck bobs against them, the tail swings the other way, the little arms swing
+    B.hips.rotation.z = Math.sin(ph) * 0.08 * k; B.hips.rotation.y = Math.sin(ph) * 0.05 * k; B.hips.position.y += Math.abs(Math.cos(ph)) * 0.1 * k;
     B.legL.rotation.x = Math.sin(ph) * 0.4 * k; B.legR.rotation.x = -Math.sin(ph) * 0.4 * k;
     B.legL.position.y += Math.max(0, Math.sin(ph)) * 0.15 * k; B.legR.position.y += Math.max(0, -Math.sin(ph)) * 0.15 * k;
-    B.neck.rotation.y = Math.sin(s.t * 0.6 + s.ph) * 0.12; B.neck.rotation.x = 0.03 * br;
-    B.head.rotation.z = Math.sin(s.t * 0.9) * 0.05; B.head.rotation.x = -0.03 * br;
-    B.armL.rotation.x = -0.1 * br + Math.sin(ph) * 0.2 * k; B.armR.rotation.x = -0.1 * br - Math.sin(ph) * 0.2 * k;
+    // idle: looks about now and then
+    s.lkT = (s.lkT ?? frand(1, 3)) - dt;
+    if (s.lkT < 0) { s.lkT = frand(1.8, 4); s.lkTo = fpick([0, 0, -0.4, 0.35, 0.2, -0.25]); }
+    s.lk = damp(s.lk || 0, calm && pre < 0.05 ? s.lkTo || 0 : 0, 2.5, dt);
+    B.neck.rotation.y = Math.sin(s.t * 0.6 + s.ph) * 0.12 + s.lk * 0.6 - B.hips.rotation.y; B.neck.rotation.x = 0.03 * br - Math.abs(Math.cos(ph)) * 0.08 * k + 0.04 * k;
+    B.head.rotation.z = Math.sin(s.t * 0.9) * 0.05 - B.hips.rotation.z * 0.8; B.head.rotation.x = -0.03 * br; B.head.rotation.y = s.lk * 0.4;
+    B.armL.rotation.x = -0.1 * br + Math.sin(ph) * 0.35 * k; B.armR.rotation.x = -0.1 * br - Math.sin(ph) * 0.35 * k;
     s.flap += dt * (1.3 + 1.2 * k);
     let wAmp = 0.14, wBase = 0.05;
-    for (let i = 1; i <= 5; i++) { const t = B['t' + i]; t.rotation.y = Math.sin(s.t * 1.3 - i * 0.55 + s.ph) * (0.08 + i * 0.02); t.rotation.x = Math.sin(s.t * 0.9 - i * 0.4) * 0.03; }
+    const wag = (() => { if (!calm || pre > 0.05) return 0; const a = act(s, 'wagT', dt, 3, 6, 1.4, true); return a >= 0 ? Math.sin(PI * a) : 0; })();
+    for (let i = 1; i <= 5; i++) {
+      const t = B['t' + i]; t.rotation.y = Math.sin(s.t * 1.3 - i * 0.55 + s.ph) * (0.08 + i * 0.02) - Math.sin(ph - i * 0.4) * 0.06 * k + Math.sin(s.t * 9 - i * 0.7) * 0.12 * wag;
+      t.rotation.x = Math.sin(s.t * 0.9 - i * 0.4) * 0.03;
+    }
+    { const ws = calm && pre < 0.05 ? act(s, 'wsT', dt, 6, 10, 1.6, true) : -1; if (ws >= 0) { const e = Math.sin(PI * ws); wBase += 0.75 * e; wAmp += 0.08 * e; B.chest.scale.setScalar(1 + 0.04 * e); B.neck.rotation.x -= 0.12 * e; s.eyeK = lerp(1, 0.6, e); } }   // a big wing stretch
     let jaw = 0, glow = 0;
     if (st.windup >= 0) {   // bite: pull back
       const w = smooth01(st.windup);
@@ -1763,19 +1793,62 @@ const EMODEL = (function (G0) {
       B.neck.rotation.x = -0.25 * ch; B.head.rotation.x = -0.12 * ch; glow = a < 0.8 ? smooth01(a / 0.38) : 1 - smooth01((a - 0.8) / 0.15); jaw = 0.2 * ch;
       for (const sa of [0.4, 0.575, 0.75]) { const d = a - sa; if (d > 0 && d < 0.12) { const p = Math.sin(PI * d / 0.12); B.neck.rotation.x += 0.5 * p; B.head.rotation.x += 0.2 * p; jaw = 0.2 + 0.5 * p; } }
     }
-    if (st.stomp >= 0) {
-      const a = st.stomp, up = smooth01(a / 0.5), hit = smooth01((a - 0.55) / 0.07), rec = smooth01((a - 0.7) / 0.3);
-      const lift = up * (1 - hit);
-      B.hips.position.y += 0.45 * lift; B.hips.rotation.x = -0.3 * lift; B.legL.rotation.x = -0.7 * lift; B.legR.rotation.x = -0.35 * lift;
-      B.armL.rotation.x = -1.1 * lift; B.armR.rotation.x = -1.1 * lift; wBase += 0.5 * lift; jaw = 0.4 * lift;
+    if (st.stomp >= 0) {   // (Round 6: a little squat first, the wings snap up as it lands)
+      const a = st.stomp, up = smooth01((a - 0.1) / 0.4), hit = smooth01((a - 0.55) / 0.07), rec = smooth01((a - 0.7) / 0.3), squat = bump(a, 0.18);
+      const lift = up * (1 - hit), snap = bump(a - 0.56, 0.22);
+      B.hips.position.y += 0.45 * lift - 0.16 * squat; B.hips.rotation.x = -0.3 * lift + 0.06 * squat; B.legL.rotation.x = -0.7 * lift; B.legR.rotation.x = -0.35 * lift;
+      B.armL.rotation.x = -1.1 * lift; B.armR.rotation.x = -1.1 * lift; wBase += 0.5 * lift + 0.9 * snap - 0.15 * squat; jaw = 0.4 * lift;
       const sq = hit * (1 - rec);
-      B.hips.scale.set(1 + 0.08 * sq, 1 - 0.1 * sq, 1 + 0.08 * sq); B.neck.rotation.x = 0.2 * sq - 0.25 * lift;
+      B.hips.scale.set(1 + 0.08 * sq + 0.05 * squat, 1 - 0.1 * sq - 0.07 * squat, 1 + 0.08 * sq + 0.05 * squat); B.neck.rotation.x = 0.2 * sq - 0.25 * lift + 0.1 * squat;
+      s.eyeK = 1 - 0.3 * squat;
     }
     if (st.breath >= 0) {
       const a = st.breath, inh = smooth01(a / 0.33) * (1 - smooth01((a - 0.33) / 0.05)), fire = smooth01((a - 0.33) / 0.06) * (1 - smooth01((a - 0.88) / 0.1));
       B.neck.rotation.x = -0.45 * inh + 0.3 * fire; B.head.rotation.x = -0.2 * inh + 0.18 * fire; B.chest.scale.setScalar(1 + 0.1 * inh);
       jaw = 0.2 * inh + 0.6 * fire; glow = Math.max(inh, fire);
       B.neck.rotation.y += Math.sin(s.t * 3) * 0.08 * fire;
+    }
+    // ── Round 6: 'sigh' (1.6 s: 0–0.4 the head droops, wings fold, big eyes · 0.4–0.6 breathes in, the chest swells ×1.1 · at 0.55 a
+    // soft blow, jaw 0.3 — GAME lets the hearts out · 0.6–1 the head tilts) and 'charmed' (4 s: sits back, hands clasped at its
+    // chest, head tilted and swaying, slow wing flutter, a fast tail wag, slow happy blinks). GAME sets st.breath etc. to −1. ──
+    if (P === 'sigh') {
+      const dr = smooth01(pt / 0.4) * (1 - smooth01((pt - 0.9) / 0.1)), inh = smooth01((pt - 0.4) / 0.15) * (1 - smooth01((pt - 0.55) / 0.08));
+      const blow = bump(pt - 0.53, 0.2), tilt = smooth01((pt - 0.6) / 0.15) * (1 - smooth01((pt - 0.9) / 0.1));
+      B.neck.rotation.x += 0.28 * dr - 0.18 * inh; B.head.rotation.x += 0.2 * dr - 0.1 * inh; B.head.rotation.z += 0.22 * tilt; B.neck.rotation.y *= 1 - dr;
+      wBase -= 0.2 * dr; wAmp *= 1 - 0.7 * dr; B.chest.scale.setScalar(1 + 0.1 * inh + 0.05 * blow);
+      jaw = Math.max(jaw, 0.3 * blow); s.eyeK = lerp(1, 1.2, dr); s.mouthO = Math.max(blow, 0.3 * inh); s.browY = 0.03 * dr;
+      B.armL.rotation.x -= 0.3 * dr; B.armR.rotation.x -= 0.3 * dr;
+    }
+    if (P === 'charmed') {
+      const kk = smooth01(pt / 0.08) * (1 - smooth01((pt - 0.93) / 0.07));
+      B.hips.position.y -= 0.32 * kk; B.hips.rotation.x -= 0.22 * kk; B.legL.rotation.x -= 0.55 * kk; B.legR.rotation.x -= 0.55 * kk;
+      B.body.rotation.x = (B.body.rotation.x || 0) + 0.1 * kk; B.neck.rotation.x += 0.12 * kk;
+      B.armL.rotation.x = lerp(B.armL.rotation.x, -1.05, kk); B.armR.rotation.x = lerp(B.armR.rotation.x, -1.05, kk);
+      B.armL.rotation.z = lerp(B.armL.rotation.z, -0.55, kk); B.armR.rotation.z = lerp(B.armR.rotation.z, 0.55, kk);
+      B.head.rotation.z += (0.22 + 0.1 * Math.sin(s.t * 1.8)) * kk; B.neck.rotation.z = Math.sin(s.t * 1.8) * 0.08 * kk; B.neck.rotation.y *= 1 - kk;
+      wBase += 0.25 * kk; wAmp = lerp(wAmp, 0.22, kk); s.flap += dt * 0.6 * kk;
+      for (let i = 1; i <= 5; i++) B['t' + i].rotation.y += Math.sin(s.t * 11 - i * 0.6) * 0.16 * kk;
+      const sb = 0.5 + 0.5 * Math.sin(s.t * 1.6); s.eyeK = lerp(1, 0.5 + 0.5 * (1 - Math.pow(sb, 6)) * 0.4, kk); s.mouthW = kk;
+    }
+    // before it notices Feza: sulking, curled up — lying low, chin on its arms, tail curled round, wings folded, sleepy eyes
+    if (pre > 0.01) {
+      B.hips.position.y -= 0.5 * pre; B.hips.rotation.x += 0.12 * pre; B.legL.rotation.x -= 0.6 * pre; B.legR.rotation.x -= 0.6 * pre;
+      B.chest.rotation.x = 0.14 * pre; B.neck.rotation.x += 0.2 * pre; B.head.rotation.x -= 0.32 * pre; B.neck.rotation.y = lerp(B.neck.rotation.y, 0.25, pre); B.head.rotation.z += 0.12 * pre;
+      B.armL.rotation.x = lerp(B.armL.rotation.x, -0.9, pre); B.armR.rotation.x = lerp(B.armR.rotation.x, -0.9, pre);
+      for (let i = 1; i <= 5; i++) B['t' + i].rotation.y = lerp(B['t' + i].rotation.y, 0.5 + Math.sin(s.t * 0.7 - i) * 0.03, pre);
+      wBase -= 0.12 * pre; wAmp *= 1 - 0.8 * pre; s.eyeK = lerp(s.eyeK, 0.55, pre);
+    }
+    // hit: the wings flinch in, the head recoils, eyes squeezed
+    if (st.hurt > 0 && !dying) { const h = st.hurt * st.hurt; wBase -= 0.3 * h; B.head.rotation.x -= 0.25 * h; B.neck.rotation.x -= 0.15 * h; s.eyeK = Math.min(s.eyeK, 1 - 0.4 * h); }
+    // the goodbye (the root's hops and twirl are in build): 0–0.3 surprised, then its arms open for a hug with fast happy flaps and
+    // a wagging tail, happy bounces after 0.3
+    if (dying) {
+      const d = st.dying, open = smooth01((d - 0.08) / 0.15), sur = bump(d, 0.12);
+      B.armL.rotation.x = -0.6 * open; B.armR.rotation.x = -0.6 * open; B.armL.rotation.z = 1.1 * open; B.armR.rotation.z = -1.1 * open;
+      B.neck.rotation.x -= 0.2 * sur + 0.1 * open; B.head.rotation.x -= 0.1 * open; B.head.rotation.z += Math.sin(s.t * 7) * 0.1 * open;
+      s.flap += dt * 7 * open; wBase += 0.55 * open; wAmp += 0.4 * open;
+      for (let i = 1; i <= 5; i++) B['t' + i].rotation.y += Math.sin(s.t * 13 - i * 0.6) * 0.2 * open;
+      jaw = Math.max(jaw, 0.25 * sur);
     }
     const f = Math.sin(s.flap * TAU * 0.5);
     B.wingL.rotation.z = wBase + f * wAmp; B.wingR.rotation.z = -(wBase + f * wAmp);
@@ -1872,13 +1945,19 @@ const EMODEL = (function (G0) {
     return [B[0], B[1] + h, B[2]];
   }
   // Steam puffs over a crater: three soft balls on bones 'puff0..2' (animated by puffAnim; they rise, grow and fade out).
-  function puffs(r, parent, top, size) {
+  // (happy: the colours of the puffs on the happy face — the big turtle's goodbye puffs are pink)
+  function puffs(r, parent, top, size, happy) {
     for (let i = 0; i < 3; i++) {   // each puff = a tiny cloud of three soft balls
       r.bone('puff' + i, parent, top);
-      const s0 = size * (1 - i * 0.1), c = i === 1 ? '#fff6ee' : '#f2e8e0';
-      r.fx(0.45, 0).add(G.sphere(14, 10), c, top, null, s0);
-      r.add(G.sphere(12, 8), c, [top[0] + s0 * 0.85, top[1] - s0 * 0.25, top[2] + s0 * 0.1], null, s0 * 0.7);
-      r.add(G.sphere(12, 8), c, [top[0] - s0 * 0.8, top[1] - s0 * 0.2, top[2] - s0 * 0.15], null, s0 * 0.62);
+      const s0 = size * (1 - i * 0.1);
+      for (const md of happy ? [1, 2] : [0]) {
+        const c = md === 2 ? happy[i % happy.length] : i === 1 ? '#fff6ee' : '#f2e8e0';
+        r.mood = md;
+        r.fx(0.45, 0).add(G.sphere(14, 10), c, top, null, s0);
+        r.add(G.sphere(12, 8), c, [top[0] + s0 * 0.85, top[1] - s0 * 0.25, top[2] + s0 * 0.1], null, s0 * 0.7);
+        r.add(G.sphere(12, 8), c, [top[0] - s0 * 0.8, top[1] - s0 * 0.2, top[2] - s0 * 0.15], null, s0 * 0.62);
+      }
+      r.mood = 0;
     }
     r.fx(0, 0);
   }
@@ -2186,8 +2265,23 @@ const EMODEL = (function (G0) {
     r.fx(0, 2);
     for (const sd of [-1, 1]) { const a = -PI / 2 + sd * 1.45; r.add(G.sphere(14, 10), GOLD, [Math.cos(a) * 1.03, 1.58, Math.sin(a) * 1.03], null, 0.1); }
     r.fx(0, 0);
-    // big golden crown: band with gems, velvet cap, six points with pearls, a heart on top
+    // big golden crown (kjCrown; the same crown flies about as EMODEL.jellyCrown in the bonus game)
     r.on('crown').push([0, TOP - 0.1, -0.12], [-0.22, 0, 0]);
+    kjCrown(r);
+    r.pop().fx(0, 0);
+    r.on('crown').mark('crown', [0, TOP + 0.22, -0.2]);
+    // face (model space on the front of the jelly)
+    face(r, [0, 0.86, 0], 1.3, {
+      bone: 'body', tilt: 0.42, ex: 0.4, ey: 0.1, er: 0.31, iris: mixc(deep, '#081a2a', 0.6), skin: mixc(base, light, 0.1), browCol: mixc(deep, '#06121c', 0.72),
+      browY: 1.36, mouthY: -0.34, mouthW: 0.36, heartY: 0.72, heartX: 1.05, heartS: 0.28, mouthPivot: true,
+    });
+    r.on('body').mark('muzzle', [0, 0.52, 1.42]);
+    return { height: 2.8, glowC: col('#7ef0ff'), tex: texOf('fabric'), dieHop: 0.14,
+      mat: { rough: 0.2, ns: 0.6, sss: mixc(base, '#ffffff', 0.2).multiplyScalar(0.06), rim: mixc(light, '#ffffff', 0.4), rimK: 0.24, rimP: 2.4, wob: 0.03, wobF: 1.0, wobS: 3.5 } };
+  }
+  // The king's big golden crown around the current frame (its base centre at the origin, +y up): band with gems, velvet cap,
+  // six points with pearls, a heart on top (≈ 1.15 m wide, 0.9 m tall).
+  function kjCrown(r) {
     r.fx(0, 0.15).add(G.hemi(24), '#d8264a', [0, 0.2, 0], null, [0.5, 0.38, 0.5]);
     r.fx(0, 2).add(G.cyl(1, 0.94, 36, true), GOLD, [0, 0.14, 0], null, [0.56, 0.28, 0.56]);
     r.add(G.cyl(0.94, 0.9, 36, true), mixc(GOLD, '#b07a18', 0.4), [0, 0.14, 0], null, [0.545, 0.27, 0.545]);
@@ -2202,49 +2296,74 @@ const EMODEL = (function (G0) {
     }
     r.fx(0, 2).add(G.sphere(14, 10), GOLD, [0, 0.58, 0], null, 0.1);
     r.fx(0.5, 1).add(heartGeo(), hdr('#ff4f93', 1.3), [0, 0.76, 0], null, 0.22);
-    r.pop().fx(0, 0);
-    // face (model space on the front of the jelly)
-    face(r, [0, 0.86, 0], 1.3, {
-      bone: 'body', tilt: 0.42, ex: 0.4, ey: 0.1, er: 0.31, iris: mixc(deep, '#081a2a', 0.6), skin: mixc(base, light, 0.1), browCol: mixc(deep, '#06121c', 0.72),
-      browY: 1.36, mouthY: -0.34, mouthW: 0.36, heartY: 0.72, heartX: 1.05, heartS: 0.28,
-    });
-    r.on('body').mark('muzzle', [0, 0.52, 1.42]);
-    return { height: 2.8, glowC: col('#7ef0ff'), tex: texOf('fabric'), dieHop: 0.14,
-      mat: { rough: 0.2, ns: 0.6, sss: mixc(base, '#ffffff', 0.2).multiplyScalar(0.06), rim: mixc(light, '#ffffff', 0.4), rimK: 0.24, rimP: 2.4, wob: 0.03, wobF: 1.0, wobS: 3.5 } };
+    r.fx(0, 0);
+  }
+  // ── Round 6 helpers for the bosses' little acts ──
+  const _ke = new THREE.Euler(), _kq6 = new THREE.Quaternion();
+  // A little idle act: fires every a … b s while `on`, returns its progress 0..1 over len s, or −1 while none plays (paused
+  // while not `on`; an act cut short by a phase just stops — they are all small). s[key] holds the countdown.
+  function act(s, key, dt, a, b, len, on) {
+    let c = s[key] ?? frand(a, b);
+    if (c > 0) { s[key] = on ? c - dt : Math.max(c, 1); return -1; }
+    c -= dt;
+    if (-c >= len || !on) { s[key] = frand(a, b); return -1; }
+    s[key] = c; return -c / len;
+  }
+  // The side a new hit came from (st.hurt jumps up): ±1, random (GAME does not say where the hit came from).
+  function hurtSide(s, st) {
+    const h = +st.hurt || 0;
+    if (h > (s.hPrev || 0) + 0.2) s.hSide = Math.random() < 0.5 ? -1 : 1;
+    s.hPrev = h;
+    return s.hSide || 1;
+  }
+  // Pre-aggro loop weight: the boss has not noticed Feza yet (GAME: st.aggro === false), stands in its idle, not walking home.
+  function preAggro(s, st, ph, dt) {
+    s.preK = damp(s.preK || 0, st.aggro === false && ph === 'idle' && !(st.move > 0.05) && !(st.dying >= 0) ? 1 : 0, 3, dt);
+    return s.preK;
   }
   function animKraljole(m, dt, st, s) {
     const B = m.B, ph = bph(st), t = bpt(st);
     const br = Math.sin(s.t * 2.2 + s.ph);
-    let sy = 1 + 0.03 * br, sxz = 1 - 0.018 * br, y = 0, z = 0, rx = 0, rz = 0, armUp = 0, wave = 0, crownL = 0, gem = 0, air = 0, hopY = 0;
-    // travelling hops (phase 'move', or walking while idle)
-    s.hopK = damp(s.hopK || 0, ph === 'move' || (ph === 'idle' && st.move > 0.05) ? 1 : 0, 5, dt);
-    if (s.hopK > 0.02 || (s.hop % 1) > 0.03) s.hop += dt * (1.3 + 0.4 * s.mv);
+    let sy = 1 + 0.03 * br, sxz = 1 - 0.018 * br, y = 0, z = 0, rx = 0, rz = 0, ry = 0, armUp = 0, wave = 0, crownL = 0, gem = 0, air = 0, hopY = 0;
+    let aL = 0, aR = 0, aLx = 0, aRx = 0, aLy = 0, aRy = 0, scZ = 0, capeF = 0, scT = 0, crY = 0, crSpin = 0, crRz = 0, crRx = 0, crS = 1, crOn = st.crownOff ? 0 : 1;
+    const shy = ph === 'shy', calm = ph === 'idle' && !(st.move > 0.05), pre = preAggro(s, st, ph, dt);
+    // travelling hops (phase 'move', or walking while idle; 'shy' = quick little tip-toe hops)
+    s.hopK = damp(s.hopK || 0, ph === 'move' || ((ph === 'idle' || shy) && st.move > 0.05) ? (shy ? 0.4 : 1) : 0, 5, dt);
+    if (s.hopK > 0.02 || (s.hop % 1) > 0.03) s.hop += dt * (shy ? 2.7 : 1.3 + 0.4 * s.mv);
     {
       const u = s.hop % 1, A = s.hopK;
       if (u < 0.2) { const k = Math.sin(PI * u / 0.2); sy -= 0.16 * k * A; sxz += 0.1 * k * A; }
       else if (u < 0.82) { const k = (u - 0.2) / 0.62; y += Math.sin(PI * k) * 0.45 * A; const e = Math.abs(Math.cos(PI * k)); sy += 0.1 * e * A; sxz -= 0.05 * e * A; air = Math.sin(PI * k) * A * 0.4; crownL -= Math.cos(PI * k) * 0.5 * A; }
-      else { const k = Math.sin(PI * (u - 0.82) / 0.18); sy -= 0.2 * k * A; sxz += 0.12 * k * A; if (!s.landed && A > 0.3) { s.landed = true; s.wobA = 0.06; } }
+      else { const k = Math.sin(PI * (u - 0.82) / 0.18); sy -= 0.2 * k * A; sxz += 0.12 * k * A; if (!s.landed && A > 0.3) { s.landed = true; s.wobA = 0.06; s.crS = 0; s.crA = 0.6 * A; } }
       if (u < 0.5) s.landed = false;
     }
     switch (ph) {
-      case 'hop': {   // big hop toward Feza: crouch 0–0.2, airborne 0.2–0.8 (peak ≈ 1.7 m), lands at 0.8 (slam ring), wobble
-        if (t < 0.2) { const k = smooth01(t / 0.2); sy *= 1 - 0.3 * k; sxz *= 1 + 0.18 * k; armUp = 0.5 * k; rx = -0.1 * k; }
-        else if (t < 0.8) {
+      case 'hop': {   // big hop toward Feza: crouch 0–0.2 (eyes squeezed in focus, brows up, arms swung back), airborne 0.2–0.8 (a tall
+        // stretch at take-off, peak ≈ 1.7 m), lands at 0.8 (slam ring): squash, wobble, the crown springs up twice, the cape flares
+        if (t < 0.2) {
+          const k = smooth01(t / 0.2); sy *= 1 - 0.3 * k; sxz *= 1 + 0.18 * k; armUp = 0.15 * k; aLx = aRx = 0.75 * k; rx = -0.1 * k;
+          s.eyeK = 1 - 0.5 * k; s.browY = 0.03 * k; capeF = 0.25 * k;
+        } else if (t < 0.8) {
           const u = (t - 0.2) / 0.6, e = Math.abs(Math.cos(PI * u));
           hopY = Math.sin(PI * u) * 1.7; sy *= 1 + 0.2 * e; sxz *= 1 - 0.09 * e; armUp = 0.5 + 0.5 * Math.sin(PI * u); air = Math.sin(PI * u);
-          crownL = -Math.cos(PI * u); rx = 0.12 * Math.sin(PI * u);
+          crownL = -Math.cos(PI * u); rx = 0.12 * Math.sin(PI * u); aLx = aRx = 0.75 * (1 - smooth01(u / 0.25));
         } else {
           const u = (t - 0.8) / 0.2, k = Math.sin(PI * Math.min(1, u * 1.3)) * (1 - 0.5 * u);
           sy *= 1 - 0.36 * k; sxz *= 1 + 0.22 * k; crownL = -0.6 * k;
-          if (!s.slam) { s.slam = true; s.wobA = 0.08; }
+          if (!s.slam) { s.slam = true; s.wobA = 0.08; s.crS = 0; s.crA = 1; }
         }
         if (t < 0.8) s.slam = false;
         break;
       }
-      case 'spit': {   // puffs up (0–0.35), then spits three slow jelly blobs (pulses at 0.42 / 0.6 / 0.78)
+      case 'spit': {   // puffs up (0–0.35), then spits three slow jelly blobs (pulses at 0.42 / 0.6 / 0.78): the cheeks bulge just
+        // before each, the mouth pops into an "O"
         const k = smooth01(t / 0.35) * (1 - smooth01((t - 0.86) / 0.14));
         sxz *= 1 + 0.12 * k; sy *= 1 + 0.05 * k; rx = -0.14 * k;
-        for (const c of [0.42, 0.6, 0.78]) { const p = bump(t - c, 0.12); rx += 0.3 * p; z += 0.16 * p; sy *= 1 - 0.1 * p; sxz *= 1 + 0.06 * p; }
+        for (const c of [0.42, 0.6, 0.78]) {
+          const p = bump(t - c, 0.12), cb = bump(t - c + 0.06, 0.07);
+          rx += 0.3 * p; z += 0.16 * p; sy *= 1 - 0.1 * p - 0.03 * cb; sxz *= 1 + 0.06 * p + 0.07 * cb;
+          s.mouthO = Math.max(s.mouthO, bump(t - c + 0.04, 0.13));
+        }
         armUp = 0.25 * k;
         break;
       }
@@ -2255,13 +2374,83 @@ const EMODEL = (function (G0) {
         s.wobA = Math.max(s.wobA || 0, 0.04 * k);
         break;
       }
-      case 'roar': {   // playful royal shout: stretches up tall, arms up, jiggles
+      case 'roar': {
+        if (s.intro) {   // his entrance (after the double take, see build): three royal bounces, the heart sceptre raised high
+          const u = clamp((t - 0.25) / 0.75, 0, 1), k = smooth01(u / 0.12) * (1 - smooth01((u - 0.86) / 0.14)), b = Math.abs(Math.sin(u * PI * 3));
+          y += b * 0.42 * k; sy *= 1 + 0.1 * (b - 0.5) * k; sxz *= 1 - 0.04 * (b - 0.5) * k; rx = -0.08 * k;
+          aR = 1.35 * k; aRx = -0.3 * k; aL = 0.35 * k + 0.25 * Math.sin(s.t * 9) * k; gem = k; crownL = Math.sin(u * PI * 6) * 0.45 * k;
+          s.wobA = Math.max(s.wobA || 0, 0.05 * k);
+          break;
+        }
+        // playful royal shout: stretches up tall, arms up, jiggles
         const k = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
         sy *= 1 + 0.15 * k; sxz *= 1 - 0.06 * k; armUp = k; wave = Math.sin(s.t * 14) * 0.5 * k; rz = Math.sin(s.t * 9) * 0.06 * k; rx = -0.12 * k;
         crownL = Math.abs(Math.sin(s.t * 12)) * 0.5 * k; s.wobA = Math.max(s.wobA || 0, 0.05 * k);
         break;
       }
-      case 'dying': armUp = 0.95; wave = Math.sin(s.t * 11); gem = 0.6; break;   // overjoyed: waves goodbye with both arms
+      case 'shy': {   // no crown: "oops!" for 1.2 s (big eyes, an O mouth, a startled little jump, both hands fly up to his bare head),
+        // then he pats his head, looks up where the crown went, shivers a little; GAME walks him (st.move = quick tip-toe hops)
+        const o = 1 - smooth01((s.pT - 1.0) / 0.25), ent = smooth01(s.pT / 0.15);
+        s.eyeK = lerp(1.1, 1.25, o); s.browY = lerp(0.02, 0.05, o); s.mouthO = o * ent;
+        y += o * bump(s.pT, 0.35) * 0.25;
+        armUp = 0.95 * ent; aLx = aRx = -0.2 * ent; aLy = -0.5 * ent; aRy = 0.5 * ent;
+        const pat = (1 - o) * ent;
+        aL += 0.22 * Math.max(0, Math.sin(s.t * 10)) * pat; aR += 0.22 * Math.max(0, Math.sin(s.t * 10 + PI)) * pat;
+        rx -= 0.16 * ent; rz += Math.sin(s.t * 38) * 0.013 * ent; sxz *= 1 + 0.008 * Math.sin(s.t * 41) * ent;
+        break;
+      }
+      case 'crownon': {   // 0.8 s: both arms up, the crown is back at 0.35 (pops in 1.2 → 1 with a little squash), a proud flourish
+        const up = smooth01(t / 0.3) * (1 - smooth01((t - 0.45) / 0.3));
+        armUp = up; crOn = t >= 0.35 ? 1 : 0;
+        crS = 1 + 0.2 * (1 - smooth01((t - 0.35) / 0.3));
+        const land = bump(t - 0.35, 0.2); sy *= 1 - 0.1 * land; sxz *= 1 + 0.06 * land; crownL -= 0.5 * land;
+        const fl = smooth01((t - 0.5) / 0.15) * (1 - smooth01((t - 0.9) / 0.1));
+        aR += 0.9 * fl; wave += Math.sin(s.t * 10) * 0.5 * fl; scT = smooth01((t - 0.5) / 0.4); sy *= 1 + 0.06 * fl; rx -= 0.1 * fl; gem = Math.max(gem, fl);
+        s.eyeK = 1 - 0.3 * fl; s.mouthW = fl;
+        break;
+      }
+      case 'blush': {   // 3.5 s: a surprised stretch (0–0.12), then both hands on his cheeks, rocking side to side (±0.12 at 1.6 Hz)
+        // with giggly squeezed eyes and a wide smile; recovers 0.9–1
+        const sur = bump(t, 0.16), k = smooth01((t - 0.08) / 0.08) * (1 - smooth01((t - 0.9) / 0.1));
+        sy *= 1 + 0.15 * sur; sxz *= 1 - 0.06 * sur;
+        s.eyeK = lerp(1 + 0.3 * sur, 0.35, k); s.mouthO = sur * (1 - k); s.mouthW = k; s.browY = 0.04 * sur + 0.02 * k;
+        armUp = 0.55 * k; aLx = aRx = -0.3 * k; aLy = -1.0 * k; aRy = 1.0 * k;   // (his little arms swing forward, up to his cheeks)
+        const rk = Math.sin(s.t * TAU * 1.6);
+        rz += rk * 0.12 * k; y += Math.abs(rk) * 0.05 * k; ry += rk * 0.06 * k;
+        s.wobA = Math.max(s.wobA || 0, 0.035 * k);
+        break;
+      }
+      case 'dying': {   // overjoyed: tosses his crown up (≈ 0.8 m, spinning), catches it back on his head, then waves goodbye
+        const d = st.dying, u = clamp((d - 0.05) / 0.3, 0, 1);
+        armUp = 0.95; wave = Math.sin(s.t * 11) * (u > 0 && u < 1 ? 0.3 : 1); gem = 0.6;
+        crY = Math.sin(PI * u) * 0.8; crSpin = smooth01(u) * TAU * 2; crownL -= 0.6 * bump(u - 0.85, 0.3);
+        break;
+      }
+    }
+    // idle: every 5–8 s a sceptre twirl, then he re-adjusts his crown
+    const ia = act(s, 'twT', dt, 5, 8, 1.7, calm && pre < 0.05 && !st.crownOff);
+    if (ia >= 0) {
+      scT = smooth01(ia / 0.5); aR += 0.35 * bump(ia, 0.55);
+      const ad = bump(ia - 0.55, 0.45); aL += 1.55 * ad; aLx -= 0.45 * ad; crRz += Math.sin((ia - 0.55) / 0.45 * PI * 3) * 0.09 * ad; crY += 0.05 * ad;
+    }
+    // before he notices Feza: polishing the heart on his sceptre (held up in front, the left hand rubbing it)
+    if (pre > 0.01) {
+      aR += 0.3 * pre; aRx -= 0.3 * pre; aRy += 0.75 * pre; scZ -= 0.5 * pre;
+      aL += (0.6 + 0.12 * Math.sin(s.t * 9 + 1)) * pre; aLx -= 0.3 * pre; aLy -= (0.95 + 0.18 * Math.sin(s.t * 9)) * pre;
+      if (Math.sin(s.t * 0.9 + s.ph) > 0.93) s.mouthO = Math.max(s.mouthO, pre);   // now and then a "hah!" on the gem
+      rx += 0.07 * pre; ry -= 0.1 * pre; s.eyeK = lerp(s.eyeK, 0.7, pre); gem = Math.max(gem, (0.25 + 0.35 * Math.max(0, Math.sin(s.t * 2.3))) * pre);
+    }
+    // hit: the crown tilts over, his eyes squeeze
+    if (st.hurt > 0 && ph !== 'dying') {
+      const h = st.hurt * st.hurt, sd = hurtSide(s, st);
+      crRz += sd * 0.32 * h; crRx -= 0.16 * h; crY += 0.06 * h; s.eyeK = Math.min(s.eyeK, 1 - 0.45 * h);
+    }
+    // the crown springs on each landing (two damped bounces, up to 0.15 m), the gem flashes, the cape flares
+    if (s.crS !== undefined && s.crS < 0.7) {
+      s.crS += dt;
+      const A = s.crA ?? 1, k = Math.exp(-s.crS * 4) * Math.abs(Math.sin(s.crS * PI / 0.21));
+      crY += 0.15 * k * A; crownL -= 0.2 * k * A; gem = Math.max(gem, 0.7 * A * Math.exp(-s.crS * 7));
+      capeF = Math.max(capeF, A * Math.exp(-s.crS * 5) * Math.sin(Math.min(PI, s.crS * PI / 0.3)));
     }
     // The big hop's height is kept in s.airY: when the hop is cut short in the air (cheered up → 'dying', Feza napped → the
     // boss calms to 'idle'), the king falls down with gravity and lands with a squash instead of snapping to the ground.
@@ -2273,7 +2462,7 @@ const EMODEL = (function (G0) {
       s.airY = Math.max(0, s.airY - s.airV * dt);
       const k = Math.min(1, s.airY / 1.7);
       air = Math.max(air, k); armUp = Math.max(armUp, 0.5 + 0.5 * k); crownL -= 0.8 * k;
-      if (s.airY <= 0) { s.airV = 0; s.landT = 1; s.wobA = Math.max(s.wobA || 0, 0.08); }
+      if (s.airY <= 0) { s.airV = 0; s.landT = 1; s.wobA = Math.max(s.wobA || 0, 0.08); s.crS = 0; s.crA = 1; }
     }
     y += s.airY || 0;
     if (s.landT > 0) {   // (only after such a cut-short hop; the normal hop lands inside its own phase)
@@ -2282,15 +2471,18 @@ const EMODEL = (function (G0) {
       s.landT = Math.max(0, s.landT - dt / 0.32);
     }
     B.body.position.set(B.body.position.x, B.body.position.y + y, B.body.position.z + z);
-    B.body.scale.set(sxz, sy, sxz); B.body.rotation.x = rx; B.body.rotation.z = rz;
-    B.crown.scale.set(1 / sxz, 1 / sy, 1 / sxz);   // the crown stays rigid on the squashy jelly
-    B.crown.position.y += crownL * 0.12; B.crown.rotation.z = Math.sin(s.t * 1.1 + s.ph) * 0.04 + crownL * 0.05; B.crown.rotation.x = -0.05 * crownL;
+    B.body.scale.set(sxz, sy, sxz); B.body.rotation.set(rx, ry, rz);
+    if (!crOn) B.crown.scale.setScalar(0.0001);   // (st.crownOff: the crown is off his head — GAME's EMODEL.jellyCrown flies about)
+    else B.crown.scale.set(crS / sxz, crS / sy, crS / sxz);   // the crown stays rigid on the squashy jelly
+    B.crown.position.y += crownL * 0.12 + crY;
+    B.crown.rotation.set(-0.05 * crownL + crRx, crSpin, Math.sin(s.t * 1.1 + s.ph) * 0.04 + crownL * 0.05 + crRz);
     const sw = Math.sin(s.t * 1.8 + s.ph) * 0.08;
-    B.armL.rotation.z = 0.1 + sw + 1.9 * armUp + 0.35 * wave; B.armR.rotation.z = -(0.1 + sw + 1.7 * armUp - 0.35 * wave);
-    B.armL.rotation.x = -0.3 * armUp; B.armR.rotation.x = -0.3 * armUp;
-    B.scep.rotation.z = -B.armR.rotation.z * 0.92; B.scep.rotation.x = 0.3 * armUp;
+    B.armL.rotation.z = 0.1 + sw + 1.9 * armUp + 0.35 * wave + aL; B.armR.rotation.z = -(0.1 + sw + 1.7 * armUp - 0.35 * wave + aR);
+    B.armL.rotation.x = -0.3 * armUp + aLx; B.armR.rotation.x = -0.3 * armUp + aRx; B.armL.rotation.y = aLy; B.armR.rotation.y = aRy;
+    B.scep.rotation.order = 'ZYX';   // (the twirl spins it about its own shaft, inside the upright counter-turn)
+    B.scep.rotation.set(0.3 * armUp - 0.85 * aRx, scT * TAU - aRy, -B.armR.rotation.z * 0.92 + scZ);
     B.gem.scale.setScalar(1 + 0.45 * gem + 0.12 * gem * Math.sin(s.t * 20));
-    B.cape.rotation.x = 0.35 * air + 0.03 * Math.sin(s.t * 1.5 + s.ph);
+    B.cape.rotation.x = 0.35 * air + 0.03 * Math.sin(s.t * 1.5 + s.ph) + 0.3 * capeF; B.cape.scale.x = 1 + 0.12 * capeF;
     s.wobA = damp(s.wobA ?? 0.022, 0.022, 3, dt);
     if (st.hurt > 0.5) s.wobA = Math.max(s.wobA, 0.05 * st.hurt);
     m.U.uWob.value.x = s.wobA;
@@ -2328,7 +2520,8 @@ const EMODEL = (function (G0) {
     r.bone('clod', 'armR', [-1.05, 0.86, 0.88]);
     r.bone('footL', 'body', [0.38, 0.1, 0.3]); r.bone('footR', 'body', [-0.38, 0.1, 0.3]);
     const HP = [0, 2.04, -0.1], HS = 1.1, hatTop = [0, HP[1] + 0.34 * HS * Math.cos(DRILL_TILT), HP[2] + 0.34 * HS * Math.sin(DRILL_TILT)];
-    r.bone('drill', 'head', hatTop);
+    r.bone('hat', 'head', HP);   // (the hard hat with its goggles and headlamp: knocked askew when dizzy)
+    r.bone('drill', 'hat', hatTop);
     r.bone('mound', 'root', [0, 0, 0]);
     // chubby body with blue overalls (lower half, bib with a star patch pocket, straps, gold buttons, a wrench)
     r.on('body').add(G.sphere(40, 30), vgrad(0.05, 1.6, [[0, furD], [0.4, fur], [1, mixc(fur, furL, 0.5)]]), BC, null, BA);
@@ -2362,7 +2555,7 @@ const EMODEL = (function (G0) {
     for (const sd of [-1, 1]) r.add(G.sphere(8, 6), '#b83a64', [0.055 * sd, 1.55, 1.02], null, [0.026, 0.02, 0.014]);
     r.fx(0, 0);
     // hard hat (tilted back so the eyes stay visible) with goggles, headlamp and the drill on top
-    r.push(HP, [DRILL_TILT, 0, 0], HS);
+    r.on('hat').push(HP, [DRILL_TILT, 0, 0], HS);
     r.fx(0, 0.35).add(G.hemi(32), vgrad(HP[1] - 0.05, HP[1] + 0.42, [[0, hatD], [0.35, hat], [1, mixc(hat, '#fff0b0', 0.3)]]), [0, 0, 0], null, [0.5, 0.36, 0.52]);
     r.add(G.cyl(1, 1, 36), hatD, [0, 0.01, 0.05], null, [0.58, 0.05, 0.62]);
     r.add(G.torus(PI, 0.2, 24), mixc(hat, '#fff6c8', 0.3), [0, 0.0, 0], [0, PI / 2, 0], [0.51, 0.365, 0.16]);
@@ -2407,7 +2600,7 @@ const EMODEL = (function (G0) {
     face(r, HC, 0.63, {
       bone: 'head', tilt: 0.46, ex: 0.23, ey: 0.16, er: 0.155, iris: '#3a2210', skin: mixc(fur, furL, 0.4), browCol: '#3a2212', browY: 1.4, browT: 0.42,
       mc: [0, 1.45, 0.64], mR: 0.28, mTilt: 0.12, mouthY: -0.1, mouthW: 0.2, buck: true, buckW: 0.22, buckH: 0.3, noTongue: true,
-      blushX: 0.75, blushY: 1.05, heartY: 0.95, heartX: 1.05,
+      blushX: 0.75, blushY: 1.05, heartY: 0.95, heartX: 1.05, mouthPivot: true,
     });
     // big dirt mound (only while burrowing)
     r.on('mound').fx(0, 0).add(moundGeo(), mcol, [0, -0.2, 0], null, [1.45, 0.8, 1.45]);
@@ -2423,7 +2616,7 @@ const EMODEL = (function (G0) {
   function animKostebekusta(m, dt, st, s) {
     const B = m.B, ph = bph(st), t = bpt(st);
     s.bd = st.dying >= 0 ? damp(s.bd ?? 0, 0, 10, dt) : clamp(st.burrow || 0, 0, 1);
-    const bur = s.bd, up = 1 - bur;
+    const bur = s.bd, up = 1 - bur, calm = ph === 'idle' && !(st.move > 0.05), pre = preAggro(s, st, ph, dt);
     if (s.mv > 0.03) s.walk += dt * (4.5 + 3.5 * s.mv);
     const wk = s.walk, k = Math.min(1, s.mv * 1.4) * up, br = Math.sin(s.t * 2.1 + s.ph);
     // waddle + breathing + now and then a happy sniff
@@ -2436,11 +2629,14 @@ const EMODEL = (function (G0) {
     B.head.rotation.z = Math.sin(s.t * 1.2 + s.ph) * 0.05;
     const sniff = Math.max(0, Math.sin(s.t * 0.7 + s.ph * 2) - 0.86) * 7;
     B.head.rotation.x = Math.sin(s.t * 20) * 0.025 * sniff - 0.04 * sniff;
-    let spin = 2.5, clod = 0;
+    let spin = 2.5, clod = 0, pk = -1, mnd = -1, hatZ = 0, hatX = 0, droop = 0;
     switch (ph) {
-      case 'burrow': {   // dives in nose first, paws paddling, drill whirring (the sinking itself follows st.burrow)
-        spin = 30; aLx = -1.3 + Math.sin(s.t * 18) * 0.5; aRx = -1.3 - Math.sin(s.t * 18) * 0.5;
-        B.body.rotation.x += 0.35 * smooth01(t * 2);
+      case 'burrow': {   // a little "hup!" hop (0–0.15), then dives in nose first, paws paddling, drill whirring (the sinking follows st.burrow)
+        const hop = bump(t, 0.15);
+        B.body.position.y += 0.35 * hop; B.body.scale.y *= 1 + 0.08 * hop; aLx = aRx = -2.2 * hop;
+        const dv = smooth01((t - 0.1) / 0.1);
+        spin = 4 + 26 * dv; aLx = lerp(aLx, -1.3 + Math.sin(s.t * 18) * 0.5, dv); aRx = lerp(aRx, -1.3 - Math.sin(s.t * 18) * 0.5, dv);
+        B.body.rotation.x += 0.35 * smooth01(t * 2) * dv;
         break;
       }
       case 'emerge': {   // pops out like a jack-in-the-box (springy stretch, paws up), then sits a bit dizzy (GAME: whack it!)
@@ -2452,12 +2648,13 @@ const EMODEL = (function (G0) {
         B.body.rotation.z += Math.sin(s.t * 5.5 + 1) * 0.06 * dz;
         break;
       }
-      case 'throw': {   // winds the right paw back over the head (clod in it), throws at 0.5, follows through
-        const w = smooth01(t / 0.45), rel = smooth01((t - 0.48) / 0.12), back = smooth01((t - 0.7) / 0.3);
+      case 'throw': {   // winds the right paw back over the head (clod in it), throws at 0.5 (a little squash), follows through
+        const w = smooth01(t / 0.45), rel = smooth01((t - 0.48) / 0.12), back = smooth01((t - 0.7) / 0.3), sq = bump(t - 0.48, 0.16);
         aRx = lerp(-2.7 * w, 0.5, rel) * (1 - back); aRz = -0.25 * w * (1 - rel);
         aLx = -0.9 * w * (1 - back) + 0.3 * rel * (1 - back);
         B.body.rotation.y = (0.3 * w - 0.55 * rel) * (1 - back); B.body.rotation.x = (-0.12 * w + 0.22 * rel) * (1 - back);
-        B.head.rotation.x -= 0.1 * w * (1 - rel);
+        B.body.scale.y *= 1 - 0.1 * sq; B.body.scale.x *= 1 + 0.06 * sq; B.body.scale.z *= 1 + 0.06 * sq;
+        B.head.rotation.x -= 0.1 * w * (1 - rel); s.eyeK = 1 - 0.3 * w * (1 - rel);
         clod = t < 0.52 ? 1 : 0;
         break;
       }
@@ -2465,7 +2662,7 @@ const EMODEL = (function (G0) {
         const kk = smooth01(t / 0.2) * (1 - smooth01((t - 0.85) / 0.15));
         spin = 8 + 34 * kk; B.body.rotation.x += 0.26 * kk; B.head.rotation.x += 0.08 * kk;
         B.body.position.x += Math.sin(s.t * 70) * 0.025 * kk; B.body.position.z += Math.cos(s.t * 63) * 0.02 * kk;
-        aLx = 0.5 * kk; aRx = 0.5 * kk; aLz = 0.6 * kk; aRz = -0.6 * kk;
+        aLx = 0.5 * kk; aRx = 0.5 * kk; aLz = 0.6 * kk; aRz = -0.6 * kk; s.eyeK = 1 - 0.3 * kk;
         break;
       }
       case 'summon': {   // drums the ground with both paws three times, then paws up ("friends, come out!")
@@ -2477,24 +2674,97 @@ const EMODEL = (function (G0) {
         B.body.rotation.x += (pound < -1 ? -0.1 : 0.12) * kk * (1 - fin); spin = 12;
         break;
       }
-      case 'roar': {   // happy shout: paws up, head back, drill spinning, a little jump
+      case 'roar': {
+        if (s.intro) {   // entrance (after the double take): a big jump with the drill whirring, paws up, a happy landing
+          const u = clamp((t - 0.25) / 0.5, 0, 1), j = Math.sin(PI * u), land = bump(t - 0.75, 0.15), kk = smooth01((t - 0.2) / 0.1) * (1 - smooth01((t - 0.9) / 0.1));
+          B.body.position.y += 0.55 * j; B.body.scale.y *= 1 + 0.1 * j - 0.14 * land; B.body.scale.x *= 1 + 0.07 * land; B.body.scale.z *= 1 + 0.07 * land;
+          aLx = aRx = -2.4 * kk; aLz = (0.5 + Math.sin(s.t * 14) * 0.2) * kk; aRz = -(0.5 + Math.sin(s.t * 14) * 0.2) * kk;
+          B.footL.position.y += 0.1 * j; B.footR.position.y += 0.1 * j; B.head.rotation.x -= 0.2 * kk;
+          spin = 44 * kk + 2.5; s.mouthW = kk;
+          break;
+        }
+        // happy shout: paws up, head back, drill spinning, a little jump
         const kk = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
         aLx = -2.3 * kk; aRx = -2.3 * kk; aLz = 0.45 * kk + Math.sin(s.t * 14) * 0.15 * kk; aRz = -0.45 * kk - Math.sin(s.t * 14) * 0.15 * kk;
         B.head.rotation.x -= 0.25 * kk; B.head.rotation.z += Math.sin(s.t * 9) * 0.1 * kk; B.body.position.y += Math.abs(Math.sin(t * PI * 2)) * 0.15 * kk;
         spin = 14;
         break;
       }
-      case 'dying': {   // overjoyed: both paws up, the left one waving goodbye
-        aLx = -2.4; aLz = 0.5 + Math.sin(s.t * 11) * 0.35; aRx = -1.6; aRz = -0.4; spin = 10;
+      case 'peek': {   // hide-and-seek (GAME: st.burrow 0.6): pops up in a hole — head, goggles, hat and paws on the rim show (sunk
+        // ≈ 1.55 m) — overshooting 0–0.2, looks about cheekily 0.2–0.85 (±0.5, the headlamp swinging), paws tapping, ducks 0.85–1
+        const P = EDEF.kostebekusta.peek || { up: 0.2, duck: 0.85, sink: 1.55 }, S = P.sink;
+        pk = t < 0.12 ? lerp(3.1, S - 0.22, 1 - Math.pow(1 - t / 0.12, 2)) : t < P.up ? lerp(S - 0.22, S, smooth01((t - 0.12) / (P.up - 0.12))) : t < P.duck ? S : lerp(S, 3.1, smooth01((t - P.duck) / (1 - P.duck)));
+        const on = smooth01(t / 0.1) * (1 - smooth01((t - P.duck) / 0.08)), lk = clamp((t - P.up) / (P.duck - P.up), 0, 1);
+        B.head.rotation.y = 0.5 * Math.sin(lk * TAU) * on; B.head.rotation.z += 0.1 * Math.sin(lk * TAU * 2) * on; B.head.rotation.x -= 0.12 * on;
+        aLx = aRx = -1.6 * on; aLz = 0.35 * on; aRz = -0.35 * on;
+        aLx += Math.max(0, Math.sin(s.t * 13)) * 0.22 * on; aRx += Math.max(0, Math.sin(s.t * 13 + PI)) * 0.22 * on;
+        s.eyeK = 1.12; s.browY = 0.025 * Math.max(0, Math.sin(lk * TAU * 2)); s.mouthW = on; spin = 6; mnd = 1;
+        break;
+      }
+      case 'bonk': {   // 0.45 s: bonked! squashed down into the hole, the drill whirs backwards, eyes squeezed shut, cheeks puffed, sinks from 0.3
+        const S = (EDEF.kostebekusta.peek || {}).sink || 1.55, at = EDEF.kostebekusta.bonkSink ?? 0.3, sq = Math.sin(PI * Math.min(1, t / 0.5));
+        pk = t < at ? S + 0.12 * sq : lerp(S + 0.12 * sq, 3.1, smooth01((t - at) / (1 - at)));
+        B.body.scale.y *= 1 - 0.18 * sq; B.body.scale.x *= 1 + 0.1 * sq; B.body.scale.z *= 1 + 0.1 * sq;
+        B.head.scale.set(1 + 0.12 * sq, 1 - 0.06 * sq, 1 + 0.08 * sq);
+        aLx = aRx = -1.6 + 0.8 * sq; aLz = 0.35 + 0.4 * sq; aRz = -0.35 - 0.4 * sq;
+        s.eyeK = 0.2; s.mouthO = 0.5 * sq; spin = -24; mnd = 1;
+        break;
+      }
+      case 'dizzy': {   // (loops) a dizzy sway, the drill droops and slows, goggles and hat askew, arms hanging limp, eyes rolling
+        const kk = smooth01(s.pT / 0.3), a = s.t * 2.6;
+        B.body.rotation.z += 0.12 * Math.sin(a) * kk; B.body.rotation.x += 0.06 * Math.cos(a * 1.3) * kk;
+        B.head.rotation.z += 0.14 * Math.sin(a + 0.8) * kk; B.head.rotation.x += 0.08 * kk;
+        aLx = (0.2 + 0.18 * Math.sin(a + 1)) * kk; aRx = (0.2 + 0.18 * Math.sin(a + 2.2)) * kk; aLz = -0.12 * kk; aRz = 0.12 * kk;
+        hatZ = (0.28 + 0.06 * Math.sin(a * 0.7)) * kk; hatX = 0.12 * kk; droop = 0.55 * kk; spin = lerp(2.5, 0.8, kk);
+        s.eyeWob = kk; s.eyeK = 1.05; s.mouthO = 0.35 * kk;
+        break;
+      }
+      case 'dying': {   // overjoyed: both paws up waving goodbye, the drill spinning three times as fast
+        aLx = -2.4; aLz = 0.5 + Math.sin(s.t * 11) * 0.35; aRx = -2.4; aRz = -0.5 - Math.sin(s.t * 11 + 1) * 0.35; spin = 30;
         break;
       }
     }
+    // idle: every 5–8 s it rubs its paws together, then pushes its goggles straight; before it notices Feza: lazily paddling
+    // the ground in front of it, the drill turning slowly
+    const ia = act(s, 'igT', dt, 5, 8, 1.8, calm && pre < 0.05 && bur < 0.05);
+    if (ia >= 0) {
+      const rb = bump(ia, 0.5), ad = bump(ia - 0.45, 0.55);
+      aLx -= 1.0 * rb; aRx -= 1.0 * rb; aLz -= (0.35 + 0.1 * Math.sin(s.t * 22)) * rb; aRz += (0.35 + 0.1 * Math.sin(s.t * 22 + 1)) * rb; s.eyeK = lerp(s.eyeK, 0.6, rb);
+      aRx -= 1.9 * ad; aRz -= 0.1 * ad; B.head.rotation.z -= 0.08 * ad; hatZ += Math.sin((ia - 0.45) / 0.55 * PI * 3) * 0.08 * ad; hatX -= 0.05 * ad;
+    }
+    if (pre > 0.01) {
+      aLx = lerp(aLx, -0.95 + Math.sin(s.t * 4.2) * 0.45, pre); aRx = lerp(aRx, -0.95 - Math.sin(s.t * 4.2) * 0.45, pre);
+      B.body.rotation.x += 0.14 * pre; B.head.rotation.x += 0.08 * pre; spin = lerp(spin, 1.0, pre); s.eyeK = lerp(s.eyeK, 0.8, pre);
+    }
+    // hit: the head and the drill wobble, eyes squeezed
+    let wob = 0;
+    if (st.hurt > 0 && ph !== 'dying') {
+      const h = st.hurt * st.hurt; wob = h;
+      B.head.rotation.z += Math.sin(s.t * 32) * 0.18 * h; B.head.rotation.x -= 0.1 * h; s.eyeK = Math.min(s.eyeK, 1 - 0.4 * h);
+    }
     B.armL.rotation.x = aLx; B.armR.rotation.x = aRx; B.armL.rotation.z = aLz; B.armR.rotation.z = aRz;
+    B.hat.rotation.set(hatX, 0, hatZ);
     s.drill = (s.drill || 0) + dt * spin;
     B.drill.quaternion.setFromAxisAngle(DRILL_AX, s.drill);
+    if (droop > 0 || wob > 0) {   // (the drill flops over to one side / wobbles on its hat)
+      _kq6.setFromEuler(_ke.set(0.1 * droop + Math.sin(s.t * 30) * 0.12 * wob, 0, 0.5 * droop + Math.cos(s.t * 27) * 0.14 * wob));
+      B.drill.quaternion.premultiply(_kq6);
+    }
     B.clod.scale.setScalar(clod ? 1 : 0.0001);
-    // burrowing: sinks with a wiggle; the big dirt mound grows, then bumps along while travelling
-    if (bur > 0.001) {
+    // (out of a peek / bonk straight into the open — the 'dizzy' after the third bonk: it pops up out of the hole in ~0.3 s)
+    if (pk < 0 && s.pkL > 0 && bur < 0.3) {
+      s.pkL = Math.max(0, damp(s.pkL, 0, 11, dt) - dt * 0.3);
+      const j = Math.sin(PI * clamp(1 - s.pkL / 1.6, 0, 1));
+      B.body.position.y -= s.pkL; B.body.scale.y *= 1 + 0.1 * j; B.armL.rotation.x = B.armR.rotation.x = -1.8 * j;
+      B.mound.scale.set(0.95, 0.3 * Math.min(1, s.pkL * 2), 0.95);
+    } else if (pk < 0) s.pkL = 0;
+    if (pk >= 0) {   // peek / bonk: its own sink (only the top of it shows in the hole), a low dirt ring round it
+      s.pkL = Math.min(pk, 1.6);
+      B.body.position.y -= pk;
+      if (pk > 3.0) B.body.scale.setScalar(0.0001);
+      B.mound.scale.set(0.95, 0.3, 0.95); B.mound.position.y -= 0.02;
+      B.mound.rotation.y = Math.sin(s.t * 4 + s.ph) * 0.2;
+    } else if (bur > 0.001) {   // burrowing: sinks with a wiggle; the big dirt mound grows, then bumps along while travelling
       const sink = smooth01(bur);
       B.body.position.y -= sink * 3.0;
       B.body.rotation.x += 0.3 * sink;
@@ -2509,7 +2779,7 @@ const EMODEL = (function (G0) {
         B.mound.position.x += Math.sin(s.t * 57) * 0.06 * w; B.mound.position.z += Math.cos(s.t * 49) * 0.05 * w;
         B.mound.scale.multiplyScalar(1 + 0.12 * w);
       }
-    } else B.mound.scale.setScalar(0.0001);
+    } else if (!(s.pkL > 0)) B.mound.scale.setScalar(0.0001);
   }
 
   // ── Koca Lav Kaplumbağası: big mint turtle (~2.8 m) whose shell is a little volcano (glowing crater, lava drips, steam
@@ -2547,9 +2817,10 @@ const EMODEL = (function (G0) {
     r.bone('lava', 'body', [0, top[1] - 0.14, top[2]]);
     r.fx(1, 0).add(G.sphere(20, 14), hdr('#ffe07a', 2.3), [0, top[1] - 0.14, top[2]], null, 0.2);
     r.fx(0, 0);
-    puffs(r, 'body', [top[0], top[1] + 0.08, top[2]], 0.22);
+    puffs(r, 'body', [top[0], top[1] + 0.08, top[2]], 0.22, ['#ffb8dc', '#ffd0e8', '#ff9ccc']);
     // head on a chunky neck, spots, cute snout
     const HC = [0, 1.32, 1.85], HR = 0.56;
+    r.bone('stars', 'head', [0, HC[1] + 0.72, HC[2] - 0.05]);
     r.on('head').fx(0, 0.3).seg([0, 0.95, 1.3], [0, 1.22, 1.72], 0.3, sk, 0.3, 16);
     r.add(G.sphere(40, 30), vgrad(0.85, 1.9, [[0, skin], [1, mixc(skin, skinL, 0.45)]]), HC, null, [HR * 1.04, HR * 0.97, HR]);
     r.add(G.sphere(28, 20), mixc(skin, skinL, 0.5), [0, 1.16, 2.2], null, [0.34, 0.24, 0.26]);
@@ -2560,20 +2831,34 @@ const EMODEL = (function (G0) {
     r.fx(0, 0);
     face(r, HC, HR, {
       bone: 'head', tilt: 0.34, ex: 0.225, ey: 0.13, er: 0.18, iris: '#2e1a0c', skin: mixc(skin, skinL, 0.3), browCol: '#1f5a44', browY: 1.38,
-      mc: [0, 1.16, 2.2], mR: 0.25, mTilt: 0.1, mouthY: -0.05, mouthW: 0.2, heartY: 0.8, heartX: 1.15, blushX: 0.4, blushY: 1.0,
+      mc: [0, 1.16, 2.2], mR: 0.25, mTilt: 0.1, mouthY: -0.05, mouthW: 0.2, heartY: 0.8, heartX: 1.15, blushX: 0.4, blushY: 1.0, mouthPivot: true,
     });
+    // dizzy stars circling its head (shown after a roll and while it lies flipped on its side)
+    r.on('stars').fx(0.75, 0.5);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; r.add(starFlat(), hdr('#ffe14a', 1.25), [Math.sin(a) * 0.52, HC[1] + 0.72 + (i & 1) * 0.06, HC[2] - 0.05 + Math.cos(a) * 0.52], new THREE.Quaternion().setFromEuler(new THREE.Euler(-PI / 2 + 0.45, a, 0, 'YXZ')), 0.22); }
+    r.fx(0, 0);
     r.on('body').mark('muzzle', [top[0], top[1] + 0.1, top[2]]);
-    return { height: 2.8, glowC: col('#ffb03a'), dieHop: 0.08, mat: { rough: 0.8, sss: col('#c8ffe0').multiplyScalar(0.03), rim: '#fff0d0', rimK: 0.22 } };
+    return { height: 2.8, glowC: col('#ffb03a'), dieHop: 0.08, hide: ['stars'], mat: { rough: 0.8, sss: col('#c8ffe0').multiplyScalar(0.03), rim: '#fff0d0', rimK: 0.22 } };
   }
   function animLavkaplumbaga(m, dt, st, s) {
-    const B = m.B, ph = bph(st), t = bpt(st);
+    const B = m.B, ph = bph(st), t = bpt(st), calm = ph === 'idle' && !(st.move > 0.05), pre = preAggro(s, st, ph, dt);
     if (s.mv > 0.03) s.walk += dt * (3.2 + 2.5 * s.mv);
     const wk = s.walk, k = Math.min(1, s.mv * 1.4), br = Math.sin(s.t * 1.7 + s.ph);
-    // hidden in the shell: 'hide' tucks in over the phase, 'roll' stays tucked
-    if (ph === 'hide') s.tk = Math.max(s.tk || 0, smooth01(t * 1.25));
+    // hidden in the shell: 'hide' — a "hup!" hop 0–0.2, tucks in 0.2–0.8, a spin-up shimmy 0.8–1; 'roll' stays tucked; 'rollend'
+    // pops out again over 0–0.2
+    if (ph === 'hide') s.tk = Math.max(s.tk || 0, smooth01((t - 0.2) / 0.6));
+    else if (ph === 'rollend') s.tk = Math.min(s.tk ?? 1, 1 - smooth01(t / 0.2));
     else s.tk = damp(s.tk || 0, ph === 'roll' ? 1 : 0, ph === 'roll' ? 14 : 6, dt);
-    const T = s.tk, out = 1 - T;
-    let lava = 0, puffR = 0.45, flLx = 0, flRx = 0, lift = 0;
+    // flipped onto its side ('flip': 0–0.12 tumbles over with a 0.6 m hop, lies on its side, 0.88–1 hops back up); damped, so a
+    // flip cut short rights itself within ~0.4 s
+    let flipT = 0, fy = 0;
+    if (ph === 'flip') {
+      flipT = t < 0.12 ? smooth01(t / 0.12) : t < 0.88 ? 1 : 1 - smooth01((t - 0.88) / 0.1);
+      fy = 0.6 * bump(t, 0.12) + 0.4 * bump(t - 0.88, 0.1);
+      s.flip = flipT;
+    } else s.flip = damp(s.flip || 0, 0, 9, dt);
+    const T = s.tk, out = 1 - T, F = s.flip;
+    let lava = 0, puffR = 0.45, flLx = 0, flRx = 0, lift = 0, stars = 0, legW = 0, lazy = 0;
     B.body.position.y += Math.abs(Math.sin(wk)) * 0.05 * k * out + br * 0.012 - 0.42 * T;
     B.body.rotation.z = Math.sin(wk) * 0.04 * k * out;
     B.body.scale.set(1 + 0.012 * br, 1 + 0.015 * br, 1 + 0.012 * br);
@@ -2582,12 +2867,19 @@ const EMODEL = (function (G0) {
     B.head.rotation.y = Math.sin(s.t * 0.5 + s.ph) * 0.22 * (1 - k) * out;
     B.tail.rotation.y = Math.sin(s.t * 2.4 + s.ph) * 0.3;
     switch (ph) {
-      case 'erupt': {   // crouches and trembles (0–0.3), then the volcano puffs out lava balls (pulses 0.36 … 0.78)
+      case 'erupt': {   // crouches and trembles (0–0.3), then the volcano puffs out lava balls (pulses 0.36 … 0.78): it looks up at each
         const c0 = smooth01(t / 0.3) * (1 - smooth01((t - 0.88) / 0.12));
         B.body.position.y -= 0.12 * c0; B.body.rotation.z += Math.sin(s.t * 48) * 0.02 * c0 * (t < 0.34 ? 1 : 0.3);
-        B.head.rotation.x -= 0.25 * c0; lava = 0.4 * c0; puffR = 1.6;
+        B.head.rotation.x -= 0.3 * c0; lava = 0.4 * c0; puffR = 1.6;
         // GAME lobs 3–5 balls evenly over 0.36 … 0.78: five soft puffs cover every count
-        for (const c of [0.36, 0.465, 0.57, 0.675, 0.78]) { const p = bump(t - c + 0.02, 0.09); B.body.position.y += 0.1 * p; B.body.scale.y *= 1 + 0.06 * p; lava += 0.7 * p; B.head.rotation.x -= 0.1 * p; }
+        for (const c of [0.36, 0.465, 0.57, 0.675, 0.78]) { const p = bump(t - c + 0.02, 0.09); B.body.position.y += 0.1 * p; B.body.scale.y *= 1 + 0.06 * p; lava += 0.7 * p; B.head.rotation.x -= 0.18 * p; s.eyeK = Math.max(s.eyeK, 1 + 0.2 * p); }
+        break;
+      }
+      case 'hide': {   // "hup!" (0–0.2), tucks in (0.2–0.8), shimmies and starts to spin (0.8–1)
+        const hop = bump(t, 0.2), sh = smooth01((t - 0.8) / 0.08);
+        B.body.position.y += 0.3 * hop; B.body.scale.y *= 1 + 0.06 * hop; s.eyeK = 1 + 0.2 * hop; s.mouthO = hop;
+        B.body.rotation.z += Math.sin(s.t * 30) * 0.045 * sh; B.body.rotation.x += Math.cos(s.t * 27) * 0.025 * sh;
+        s.spinV = Math.max(s.spinV || 0, 6 * sh);
         break;
       }
       case 'roll': {   // spins like a top along its lane, wobbling and bouncing
@@ -2595,6 +2887,22 @@ const EMODEL = (function (G0) {
         B.body.position.y += Math.abs(Math.sin(s.t * 9)) * 0.08;
         B.body.rotation.x = Math.sin(s.t * 5) * 0.07; B.body.rotation.z = Math.cos(s.t * 5) * 0.07;
         puffR = 1.2;
+        break;
+      }
+      case 'rollend': {   // 1.3–1.8 s after a roll: pops out (0–0.2), then its head goes round and round, dizzy eyes, stars circling
+        const kk = smooth01((t - 0.15) / 0.1) * (1 - smooth01((t - 0.9) / 0.1));
+        B.head.rotation.y += 0.35 * Math.sin(s.t * 5.5) * kk; B.head.rotation.x += 0.18 * Math.cos(s.t * 5.5) * kk; B.head.rotation.z += 0.12 * Math.sin(s.t * 5.5 + 1) * kk;
+        B.body.rotation.z += 0.04 * Math.sin(s.t * 3) * kk;
+        stars = kk; s.eyeWob = kk; s.mouthO = 0.4 * kk; s.eyeK = 1.05;
+        s.eyeK = lerp(s.eyeK, 1.2, bump(t, 0.25)); B.body.position.y += 0.12 * bump(t, 0.2);
+        break;
+      }
+      case 'flip': {   // on its side: legs paddling in the air, head wiggling, big eyes, the volcano puffing sideways, a little rocking
+        const kk = smooth01((t - 0.1) / 0.06) * (1 - smooth01((t - 0.86) / 0.04));
+        legW = kk; puffR = 1.4; lava = 0.2 * kk;
+        B.head.rotation.z += Math.sin(s.t * 7) * 0.25 * kk; B.head.rotation.y += Math.sin(s.t * 3.1) * 0.2 * kk; B.head.rotation.x -= 0.2 * kk;
+        s.eyeK = lerp(1, 1.2, kk); s.mouthO = 0.6 * kk + 0.4 * bump(t, 0.14); stars = 0.8 * kk;
+        B.tail.rotation.y += Math.sin(s.t * 12) * 0.4 * kk;
         break;
       }
       case 'stomp': {   // rears up on its back legs (0–0.55) and slams down (0.62) → ring
@@ -2617,25 +2925,52 @@ const EMODEL = (function (G0) {
         flLx = flRx = -0.35 * kk; lava = 0.8 * kk; puffR = 2;
         break;
       }
-      case 'dying': {   // overjoyed: head up, waves a front foot
-        B.head.rotation.x -= 0.3; flLx = -1.1 + Math.sin(s.t * 10) * 0.35; lava = 0.2;
+      case 'dying': {   // overjoyed: head up, waves a front foot, the tail wags, one big pink puff after another
+        B.head.rotation.x -= 0.3; flLx = -1.1 + Math.sin(s.t * 10) * 0.35; lava = 0.2; puffR = 1.3;
+        B.tail.rotation.y = Math.sin(s.t * 14) * 0.5;
         break;
       }
     }
-    if (ph !== 'roll') s.spinV = damp(s.spinV || 0, 0, 6, dt);
+    // idle: a tail wag now and then, a slow happy blink; before it notices Feza it sunbathes: chin on the ground, eyes nearly
+    // shut, legs sprawled, lazy slow puffs
+    if (calm && pre < 0.05) {
+      const w = act(s, 'wagT', dt, 3, 6, 1.2, true); if (w >= 0) B.tail.rotation.y += Math.sin(w * PI * 7) * 0.45 * Math.sin(PI * w);
+      const b = act(s, 'sbT', dt, 4, 7, 1.3, true); if (b >= 0) s.eyeK = Math.min(s.eyeK, 1 - 0.9 * smooth01(Math.min(b, 1 - b) / 0.35));
+    }
+    if (pre > 0.01) {
+      lazy = pre;
+      B.head.rotation.x += 0.28 * pre; B.head.position.y -= 0.18 * pre; B.head.rotation.y *= 1 - pre; B.head.rotation.z += 0.12 * pre;
+      B.body.position.y -= 0.12 * pre; B.body.scale.y *= 1 + 0.02 * Math.sin(s.t * 0.9) * pre;
+      s.eyeK = Math.min(s.eyeK, lerp(1, 0.22, pre)); s.mouthW = 0.6 * pre; puffR = lerp(puffR, 0.18, pre);
+      B.tail.rotation.y = lerp(B.tail.rotation.y, Math.sin(s.t * 0.8) * 0.15, pre);
+    }
+    // hit: the head flinches into the shell, eyes squeezed
+    if (st.hurt > 0 && ph !== 'dying') { const h = st.hurt * st.hurt; B.head.position.z -= 0.35 * h; B.head.position.y -= 0.06 * h; B.head.scale.multiplyScalar(1 - 0.12 * h); s.eyeK = Math.min(s.eyeK, 1 - 0.5 * h); }
+    if (ph !== 'roll' && ph !== 'hide') s.spinV = damp(s.spinV || 0, 0, 6, dt);
     s.spin = (s.spin || 0) + dt * (s.spinV || 0);
-    if (ph !== 'roll' && s.spinV < 1.5) s.spin = dampAngle(s.spin, 0, 5, dt);
+    if (ph !== 'roll' && ph !== 'hide' && s.spinV < 1.5) s.spin = dampAngle(s.spin, 0, 5, dt);
     B.body.rotation.y = s.spin;
     B.legFL.rotation.x = lg + flLx; B.legBR.rotation.x = lg; B.legFR.rotation.x = -lg + flRx; B.legBL.rotation.x = -lg + 0.3 * lift;
     B.legBR.rotation.x += 0.3 * lift;
+    if (lazy > 0.01) for (const [n, sx, sz] of [['legFL', 1, 1], ['legFR', -1, 1], ['legBL', 1, -1], ['legBR', -1, -1]]) { B[n].rotation.z += sx * 0.45 * lazy; B[n].rotation.x -= sz * 0.3 * lazy; B[n].position.y -= 0.06 * lazy; }
+    if (legW > 0.01) {   // paddling in the air (the top ones faster; the ones underneath barely move)
+      const P = { legFL: [0, 1], legBL: [1.9, 1], legFR: [0.9, 0.35], legBR: [2.8, 0.35] };
+      for (const n in P) { B[n].rotation.x += Math.sin(s.t * 13 + P[n][0]) * 0.6 * P[n][1] * legW; B[n].rotation.z += (n === 'legFL' || n === 'legBL' ? 0.35 : 0.1) * legW; }
+    }
     if (T > 0.001) {   // head, legs and tail slide into the shell
-      B.head.position.z -= 0.9 * T; B.head.position.y -= 0.1 * T; B.head.scale.setScalar(1 - 0.65 * T);
+      B.head.position.z -= 0.9 * T; B.head.position.y -= 0.1 * T; B.head.scale.multiplyScalar(1 - 0.65 * T);
       for (const n of ['legFL', 'legFR', 'legBL', 'legBR']) { const b = B[n]; b.scale.setScalar(1 - 0.72 * T); b.position.y += 0.15 * T; b.position.x *= 1 - 0.25 * T; b.position.z *= 1 - 0.2 * T; }
       B.tail.scale.setScalar(1 - 0.85 * T);
     }
+    if (F > 0.001) {   // tipped onto its right side (≈ 1.3 rad): lifted so the shell's rim rests on the floor, the volcano sticks out sideways
+      B.body.rotation.z += F * 1.3 + (ph === 'flip' ? Math.sin(s.t * 3.2) * 0.07 * F : 0);
+      B.body.position.y += F * 0.5 + fy; B.body.position.x -= F * 0.12;
+    } else if (fy) B.body.position.y += fy;
+    B.stars.scale.setScalar(stars > 0.01 ? stars : 0.0001); B.stars.rotation.y = s.t * 4.5;
     const lp = Math.sin(s.t * 2 + s.ph);
     B.lava.position.y += -0.06 + 0.03 * lp + 0.28 * lava; B.lava.scale.setScalar(0.6 + 0.08 * lp + 0.7 * lava);
     puffAnim(m, s, dt, puffR * 0.5, 1.1, ph === 'roll' ? 0.4 : 1);
+    if (ph === 'dying') for (let i = 0; i < 3; i++) m.B['puff' + i].scale.multiplyScalar(1.8);   // (big pink puffs)
   }
 
   // ════════════════ Round 4: Kefir Vadisi (dairy) — yogurt, kaymak, kopuk, peynir (+ jole 'muhallebi') and kefirdev ════════════════
@@ -3465,7 +3800,7 @@ const EMODEL = (function (G0) {
     }
     r.mood = 0; r.fx(0, 0);
     face(r, KD_FACE, 1.16, dairyFace({ bone: 'body', tilt: 0.3, ex: 0.36, ey: 0.1, er: 0.235, inset: 0.028, skin: '#fff6e6',
-      mouthY: -0.27, mouthW: 0.27, browY: 1.32, heartX: 1.0, heartY: 0.5, heartS: 0.24, blushY: 0.92, blushX: 0.38, openK: 1.06 }));
+      mouthY: -0.27, mouthW: 0.27, browY: 1.32, heartX: 1.0, heartY: 0.5, heartS: 0.24, blushY: 0.92, blushX: 0.38, openK: 1.06, mouthPivot: true }));
     r.on('body').mark('muzzle', [0, 2.6, 0.12]);
     const glassGeo = lathe('kdGlass', KD_GLASS, 64, 4);
     return { height: 3.0, glowC: col('#bfe8ff'), tex: labTex || undefined, dieHop: 0.1, dieFrom: ((EDEF.kefirdev && EDEF.kefirdev.give) || KD_GIVE).to + 0.05, hide: ['gift', 'plume'], glowK: 0.6,
@@ -3483,7 +3818,8 @@ const EMODEL = (function (G0) {
   function animKefirdev(m, dt, st, s) {
     const B = m.B, ph = bph(st), t = bpt(st), br = Math.sin(s.t * 1.8 + s.ph);
     let sy = 1 + 0.018 * br, sxz = 1 - 0.01 * br, y = 0, z = 0, rx = 0, rz = 0, ry = 0, armUp = 0, wave = 0, fwd = 0, capY = 0, capSpin = 0, capTip = 0,
-      foamY = 0, foamS = 1, fizz = 1, hopY = 0, air = 0, plume = 0;
+      foamY = 0, foamS = 1, fizz = 1, hopY = 0, air = 0, plume = 0, capX = 0, flex = 0;
+    const calm = ph === 'idle' && !(st.move > 0.05), pre = preAggro(s, st, ph, dt);
     // waddle (phase 'move', or walking while idle): rocks from one side of its base to the other, little feet stepping
     s.wk = damp(s.wk || 0, ph === 'move' || (ph === 'idle' && st.move > 0.05) ? 1 : 0, 5, dt);
     if (s.wk > 0.01) s.walk += dt * 5.2 * s.wk;
@@ -3522,7 +3858,9 @@ const EMODEL = (function (G0) {
         else if (t < 0.8) {
           const u = (t - 0.2) / 0.6, e = Math.abs(Math.cos(PI * u));
           hopY = Math.sin(PI * u) * 1.3; sy *= 1 + 0.08 * e; sxz *= 1 - 0.04 * e; armUp = 0.4 + 0.6 * Math.sin(PI * u); air = Math.sin(PI * u);
-          capY = 0.12 * Math.sin(PI * u); foamY = 0.08 * Math.sin(PI * u);
+          // the cap lags behind (it lifts off as the bottle comes down), the little arms flail
+          capY = 0.06 * Math.sin(PI * u) + 0.2 * Math.max(0, -Math.cos(PI * u)); capTip = 0.18 * Math.sin(PI * u);
+          wave = Math.sin(s.t * 22) * 0.7 * Math.sin(PI * u); foamY = 0.08 * Math.sin(PI * u);
         } else { const u = (t - 0.8) / 0.2, k = Math.sin(PI * Math.min(1, u * 1.3)) * (1 - 0.5 * u); sy *= 1 - 0.22 * k; sxz *= 1 + 0.12 * k; capY = -0.04 * k; foamY = 0.2 * k; fizz = 3; }
         break;
       }
@@ -3532,14 +3870,62 @@ const EMODEL = (function (G0) {
         capY = 0.3 * b * k; capSpin = t * 6 * k; foamY = 0.3 * k; foamS = 1 + 0.3 * k; fizz = 1 + 4 * k;
         break;
       }
-      case 'roar': {   // "fizz!": stretches up tall, arms up, the cap hops and spins, foam puffs out
+      case 'roar': {
+        if (s.intro) {   // entrance (after the double take): POP! the cap spins up 1.5 m and lands back on at 0.7, a foam plume, then a flex
+          const cu = clamp((t - 0.27) / 0.43, 0, 1), fl = smooth01((t - 0.72) / 0.1) * (1 - smooth01((t - 0.93) / 0.07));
+          capY = 1.5 * Math.sin(PI * cu) - 0.05 * bump(t - 0.7, 0.08); capSpin = smooth01(cu) * TAU * 2.5; capTip = 0.4 * Math.sin(PI * cu);
+          plume = bump(t - 0.28, 0.28); foamY = 0.25 * bump(t - 0.26, 0.4); fizz = 1 + 4 * bump(t - 0.26, 0.5);
+          sy *= 1 - 0.06 * bump(t - 0.26, 0.08) - 0.08 * bump(t - 0.7, 0.1) + 0.07 * fl; armUp = 0.4 * bump(t - 0.26, 0.4) + 0.8 * fl; flex = fl;
+          s.eyeK = lerp(1, 0.75, fl); s.mouthW = fl;
+          break;
+        }
+        // "fizz!": stretches up tall, arms up, the cap hops and spins, foam puffs out
         const k = smooth01(t / 0.2) * (1 - smooth01((t - 0.8) / 0.2));
         sy *= 1 + 0.1 * k; sxz *= 1 - 0.04 * k; armUp = k; wave = Math.sin(s.t * 14) * 0.5 * k; rz += Math.sin(s.t * 9) * 0.04 * k; rx -= 0.08 * k;
         capY = 0.25 * k + Math.abs(Math.sin(s.t * 12)) * 0.08 * k; capSpin = s.t * 4 * k; foamY = 0.3 * k; foamS = 1 + 0.35 * k; fizz = 1 + 3 * k;
         break;
       }
+      case 'blow': {   // 2.4 s: breathes in (0–0.45, fatter by 12 %), the cap hovers up 0.3 m (0.45–0.5), blows a big foam bubble forward
+        // out of its mouth (0.5–0.75: GAME grows the bubble at muzzle()), lets it go at 0.75 — the cap drops back on, a happy wobble
+        const inh = smooth01(t / 0.45), blowK = smooth01((t - 0.48) / 0.04) * (1 - smooth01((t - 0.74) / 0.04)), rel = t > 0.75 ? 1 - smooth01((t - 0.75) / 0.25) : 0;
+        const fat = inh * (1 - smooth01((t - 0.5) / 0.25));
+        sxz *= 1 + 0.12 * fat; sy *= 1 + 0.03 * fat - 0.03 * blowK;
+        const hov = smooth01((t - 0.45) / 0.05) * (1 - smooth01((t - 0.75) / 0.07));
+        capY = 0.3 * hov + Math.sin(s.t * 20) * 0.015 * hov - 0.05 * bump(t - 0.82, 0.08); capTip = 0.3 * hov; capX = -0.05 * hov;
+        rx += 0.2 * blowK; z += 0.06 * blowK; fwd = 0.6 * blowK; armUp = 0.35 * inh * (1 - blowK);
+        foamY = 0.1 * inh + 0.1 * blowK; fizz = 1 + 1.5 * inh + 2.5 * blowK;
+        rz += Math.sin(s.t * 17) * 0.07 * rel; sy *= 1 + 0.05 * Math.sin(s.t * 21) * rel;
+        s.eyeK = lerp(lerp(1, 1.15, inh), 0.75, blowK); s.mouthO = Math.max(blowK, 0.6 * inh * (1 - blowK)); s.browY = 0.02 * inh;
+        break;
+      }
+      case 'hiccup': {   // 3 s: three hiccups (0.15 / 0.45 / 0.75: hops up 0.18 m, the cap jumps 0.35 m, big eyes, an "O"), dizzy sway between
+        const k = smooth01(t / 0.05) * (1 - smooth01((t - 0.95) / 0.05));
+        let hk = 0; for (const c of EDEF.kefirdev.hiccupAt || [0.15, 0.45, 0.75]) hk = Math.max(hk, bump(t - c + 0.015, 0.07));
+        y += 0.18 * hk; capY += 0.35 * hk; capSpin = 0.4 * hk; sy *= 1 + 0.08 * hk; sxz *= 1 - 0.03 * hk; fizz = 1 + 3 * hk;
+        const sway = k * (1 - hk);
+        rz += Math.sin(s.t * 3.3) * 0.07 * sway; rx += Math.sin(s.t * 2.1 + 1) * 0.04 * sway; wave = Math.sin(s.t * 3) * 0.3 * sway; armUp = 0.2 * sway + 0.6 * hk;
+        s.eyeK = lerp(1, 1.25, hk); s.mouthO = hk; s.eyeWob = sway; s.browY = 0.03 * hk;
+        capTip = Math.sin(s.t * 3.3) * 0.1 * sway;
+        break;
+      }
       case 'dying': armUp = 0.9; wave = Math.sin(s.t * 10); capY = 0.08 + 0.05 * Math.sin(s.t * 6); fizz = 2.5; break;   // overjoyed
     }
+    // idle: a little hum now and then (content eyes, the mouth pulsing "mm-mm", swaying) — before it notices Feza it hums all the
+    // time, tapping a foot
+    const hum = Math.max(pre, (() => { const a = act(s, 'humT', dt, 6, 10, 2.6, calm && pre < 0.05); return a >= 0 ? Math.sin(PI * a) : 0; })());
+    if (hum > 0.01) {
+      rz += Math.sin(s.t * 3.8) * 0.045 * hum; ry += Math.sin(s.t * 1.9) * 0.06 * hum; y += Math.abs(Math.sin(s.t * 3.8)) * 0.02 * hum;
+      s.eyeK = lerp(s.eyeK, 0.55, hum); s.mouthO = Math.max(s.mouthO, (0.35 + 0.25 * Math.sin(s.t * 7.6)) * hum); fizz *= 1 + 0.5 * hum;
+      B.footL.position.y += Math.max(0, Math.sin(s.t * 7.6)) * 0.06 * pre;
+    }
+    // hit: the foam sloshes up, a burst of bubbles (× 3 for 0.3 s), the cap rattles, eyes squeezed
+    if (st.hurt > 0 && ph !== 'dying') {
+      const h = st.hurt * st.hurt;
+      if (st.hurt > (s.hPrev || 0) + 0.2) s.hB = 0.3;
+      s.hPrev = st.hurt;
+      foamY += 0.08 * h; capY += Math.abs(Math.sin(s.t * 45)) * 0.05 * h; capTip += Math.sin(s.t * 40) * 0.1 * h; s.eyeK = Math.min(s.eyeK, 1 - 0.4 * h);
+    } else s.hPrev = 0;
+    if (s.hB > 0) { s.hB -= dt; fizz *= 3; }
     // hand-over of the kefir glass (dying start, or st.give)
     const g = kdGive(st);
     s.giving = g >= 0;
@@ -3567,9 +3953,11 @@ const EMODEL = (function (G0) {
     const jy = Math.max(0, y - wy);   // hops and bounces lift the little feet too (the waddle steps them on its own)
     B.footL.position.y += jy; B.footR.position.y += jy; B.footL.position.z += z; B.footR.position.z += z;
     B.cap.scale.set(1 / sxz, 1 / sy, 1 / sxz);   // the metal cap stays rigid on the wobbly bottle
-    B.cap.position.y += capY + Math.abs(Math.sin(s.t * 2.3 + s.ph)) * 0.012; B.cap.rotation.y = capSpin; B.cap.rotation.z = capTip * Math.sin(s.t * 2.5) + Math.sin(s.t * 1.2 + s.ph) * 0.03;
+    B.cap.position.y += capY + Math.abs(Math.sin(s.t * 2.3 + s.ph)) * 0.012; B.cap.position.z += capX; B.cap.rotation.y = capSpin; B.cap.rotation.z = capTip * Math.sin(s.t * 2.5) + Math.sin(s.t * 1.2 + s.ph) * 0.03;
     B.cap.rotation.x = -0.15 * capTip;
     B.foam.position.y += foamY; B.foam.scale.set(foamS, 1 + (foamS - 1) * 1.6 + 0.04 * Math.sin(s.t * 5), foamS);
+    s.flg = damp(s.flg ?? rz, rz, 5, dt); s.flx = damp(s.flx ?? rx, rx, 5, dt);   // the foam lags behind the bottle's sway
+    B.foam.rotation.set((s.flx - rx) * 1.3, 0, (s.flg - rz) * 1.3);
     if (plume > 0.001) {   // the foam fountain grows out of the bottle's mouth and bubbles (wobbles, pulses)
       const w = Math.sin(s.t * 13), w2 = Math.sin(s.t * 9.3 + 1);
       B.plume.scale.set(plume * (1 + 0.08 * w), Math.max(0.0001, plume * (1 + 0.1 * w2)), plume * (1 + 0.08 * w2));
@@ -3578,6 +3966,7 @@ const EMODEL = (function (G0) {
     const sw = Math.sin(s.t * 1.6 + s.ph) * 0.08;
     B.armL.rotation.z = 0.08 + sw + 1.6 * armUp + 0.3 * wave; B.armR.rotation.z = -(0.08 + sw + 1.5 * armUp - 0.3 * wave);
     B.armL.rotation.x = -0.35 * armUp + 0.4 * fwd; B.armR.rotation.x = -0.35 * armUp + 0.4 * fwd;
+    if (flex > 0) { B.armL.rotation.y = -0.9 * flex; B.armR.rotation.y = 0.9 * flex; }   // (flexing: arms up, bent forward)
     if (give > 0) {   // right arm reaches forward-out holding the glass up (kept upright), a little bow; the left hand waves
       _kq0.copy(B.armR.quaternion); _kq.copy(_kq0).slerp(KD_ARM_Q, give);
       B.armR.quaternion.copy(_kq); B.armR.scale.setScalar(1 + 0.12 * give);
@@ -4383,6 +4772,9 @@ const EMODEL = (function (G0) {
   // left-arm poses [x, y, z, forearm] (short chibi arms: the hand reaches about shoulder height): on the reins, holding the horn
   // to his lips (with the horn's length), loose while dizzy, raised high waving his helmet
   const SV_LREIN = [-1.0, -0.6, -0.5, -0.3], SV_LHORN = [-1.4, -0.9, -0.6, -1.2], SV_LDIZZY = [0.25, 0, 0.55, 0.35], SV_LWAVE = [0, -0.2, 1.7, 0.6];
+  // Round 6: arms crossed in a huff (left arm [x, y, z, forearm]; the right one [x, y, z, forearm] crosses over it, lance tucked
+  // out to his right), polishing his visor (the left hand up at the helmet's brim)
+  const SV_LCROSS = [-0.1, -1.6, 0, -1.1], SV_RCROSS = [-0.05, 0.9, 0, -0.9], SV_LPOLISH = [-2.25, -0.1, -1.1, -0.9];   // (solved for the hand spots)
   const SV_CAP = { z0: -0.82, z1: 0.58, k: 1.05, hem: 0.46, S: 6, T: 14, dag: 0.075 };
   // The caparison's drape: s 0..1 along the body (back → front), l = the length across from the left hem (0 … L): up the left
   // side, over the barrel's top arc, down the right side; a hem of rounded tabs, one per square, flaring out a little.
@@ -4549,6 +4941,7 @@ const EMODEL = (function (G0) {
       r.mood = 2; r.push(p, q); smile(r, 0.17, { mouthIn: '#7a2440', buck: true, buckW: 0.2, buckH: 0.24 }); r.pop();
       r.mood = 0; }
     for (const sd of [-1, 1]) { r.push([sd * 0.27, 2.06, 1.5], qz(sd * 0.75, 0.1, 0.66)); blush(r, 0.12, { blushCol: '#ff8aa0' }); r.pop(); }
+    r.mark('mouth', [0, 1.88, 1.95]);   // (the horse's mouth: where GAME's carrot goes in the bonus game)
     // ears (pink inside), the forelock plait with a red bow, the silver chanfron with its golden star
     for (const sd of [-1, 1]) {
       const q = qb([sd * 0.35, 1, 0.05], [sd * 0.2, 0, 1]);
@@ -4691,7 +5084,7 @@ const EMODEL = (function (G0) {
     r.push(HC, [-SV_KTILT, 0, 0]);
     { const [p, q] = onSphere(0, -0.01 - 0.1 * 0.95, HR, HR * 0.02); r.fx(0, 0.4).add(G.sphere(14, 10), mixc(skin, '#ff8a70', 0.25), p, q, [HR * 0.14, HR * 0.12, HR * 0.13]); }
     for (const sd of [-1, 1]) { const [p, q] = onSphere(sd * 0.012, -0.125, HR, -0.012); r.push(p, q).fx(0, 0.25).add(stacheGeo(sd), ginger, [0, 0, 0], null, [0.18, 0.21, 0.19]).pop(); }
-    r.mark('mouth', new THREE.Vector3(...onSphere(0, -0.19, HR, -0.03)[0]).applyMatrix4(r.k.top()).toArray());
+    r.mark('kMouth', new THREE.Vector3(...onSphere(0, -0.19, HR, -0.03)[0]).applyMatrix4(r.k.top()).toArray());   // (his own lips: the horn)
     r.pop().fx(0, 0);
     face(r, HC, HR, { bone: 'head', pout: true, tilt: SV_KTILT, skin, ex: 0.13, ey: -0.01, er: 0.1, iris: '#3a64b4', lipCol: TOWN.lip, blushCol: '#ff7f9c',
       browCol: '#8e3a14', browY: 1.2, browT: 0.72, browW: 1.4, browH: 1.45, browSide: 1, browRaise: 0.26, mouthY: -0.19, mouthW: 0.11, glance: 0.75, poutX: 0.14,
@@ -4777,8 +5170,10 @@ const EMODEL = (function (G0) {
     // the knight: hips lift / lean (+ = forward) / roll, torso twist (+ = to his left) / side lean / puff, head nod / turn / tilt,
     // the lance in the saddle's frame (psi yaw + = to his left, phi pitch + = up), arms (x swing − = forward, z out), plume lag
     let ky = 0, kp = 0, tw = 0, ks = 0, puff = 0, nd = 0, tn = 0, tt = 0, psi = SV_REST.psi, phi = SV_REST.phi;
-    let rX = -0.05 + br * 0.02, rZ = 0, rF = 0, lX = br * 0.02, lY = 0, lZ = 0, lF = 0, shoe = 0, horn = 0, hornP = 0, stars = 0, helm = 0, plX = 0, plZ = 0;
+    let rX = -0.05 + br * 0.02, rY = 0, rZ = 0, rF = 0, lX = br * 0.02, lY = 0, lZ = 0, lF = 0, shoe = 0, horn = 0, hornP = 0, stars = 0, helm = 0, plX = 0, plZ = 0;
     const poseL = (P, k) => { lX = lerp(lX, P[0], k); lY = lerp(lY, P[1], k); lZ = lerp(lZ, P[2], k); lF = lerp(lF, P[3], k); };   // (left arm → a pose, by k)
+    const poseR = (P, k) => { rX = lerp(rX, P[0], k); rY = lerp(rY, P[1], k); rZ = lerp(rZ, P[2], k); rF = lerp(rF, P[3], k); };
+    const pre = preAggro(s, st, ph, dt);
     // ── idle life: breathing, ears flicking, the horse looks about, a hoof stamp now and then, the tail swishes ──
     hy += br * 0.008; tsw += Math.sin(s.t * 1.3 + s.ph) * 0.18 + Math.sin(s.t * 3.1) * 0.05;
     s.lkT = (s.lkT ?? frand(1, 3)) - dt;
@@ -4820,7 +5215,7 @@ const EMODEL = (function (G0) {
     s.rx = rp.x; s.rz = rp.z; s.ry = ry;
     // (after GAME stops him the placed hooves stay on for a moment, so the ones left behind step back under him)
     const walkOn = ph !== 'charge' && ph !== 'rear' && ph !== 'dying' && (ph === 'move' || st.move > 0.05);
-    s.tk = walkOn ? 0.5 : ph === 'idle' || ph === 'sweep' || ph === 'toss' ? (s.tk || 0) - dt : 0;
+    s.tk = walkOn ? 0.5 : ph === 'idle' || ph === 'sweep' || ph === 'toss' || ph === 'seek' || ph === 'munch' ? (s.tk || 0) - dt : 0;
     const trot = ph === 'sweep' || walkOn || s.tk > 0;
     s.gk = damp(s.gk || 0, trot ? 1 : 0, trot ? 30 : 12, dt);   // (placed at once: a straight leg on its spot is the rest pose)
     const TR = SV_TROT, gv = Math.min(TR.vMax, s.gvOn ? s.gv : s.mv * TR.v), om = TR.rate + TR.rateV * gv;
@@ -4964,13 +5359,44 @@ const EMODEL = (function (G0) {
         hy += Math.abs(Math.sin(t * PI * 6)) * 0.05 * k; nk -= 0.25 * k; hx -= 0.12 * k; ear += 0.5 * k; tl += 0.3 * k;
         break;
       }
-      case 'roar': {   // "hımf!": chin up, face turned away, puffed up, the lance shaken; the horse half-rears and neighs
+      case 'roar': {
+        if (s.intro) {   // entrance (after the double take): up on a half-rear, the lance raised straight up, then dipped forward in a
+          // knightly salute (0.45–0.7 of the rest), a proud nod; the horse paws the air and neighs
+          const u = clamp((t - 0.25) / 0.75, 0, 1), k = smooth01(u / 0.2) * (1 - smooth01((u - 0.8) / 0.2)), A = 0.42 * k, sal = bump(u - 0.42, 0.33);
+          hp -= A; for (const [n, o] of [['FL', 0], ['FR', 1.7]]) { LG[n][0] -= (0.8 + 0.3 * Math.sin(s.t * 12 + o)) * k; LG[n][1] += (1.2 + 0.2 * Math.sin(s.t * 12 + o + 1)) * k; }
+          for (const n of ['BL', 'BR']) LG[n][0] += A * 0.92;
+          kp += A * 0.62; nk -= 0.3 * k; hx -= 0.2 * k; jaw += 0.36 * bump(u - 0.05, 0.45); ear += 0.45 * k; tl += 0.3 * k; tsw += Math.sin(s.t * 7) * 0.25 * k;
+          psi = lerp(psi, 0, k); phi = lerp(phi, 1.5, k) - 1.05 * sal; rX -= (1.9 - 1.1 * sal) * k; rF -= 0.2 * k;
+          nd += 0.16 * sal - 0.08 * k; poseL(SV_LREIN, k); plX += 0.4 * k;
+          break;
+        }
+        // "hımf!": chin up, face turned away, puffed up, the lance shaken; the horse half-rears and neighs
         const k = smooth01(t / 0.18) * (1 - smooth01((t - 0.8) / 0.2)), away = smooth01((t - 0.22) / 0.12) * (1 - smooth01((t - 0.62) / 0.14));
         nd -= 0.24 * k; tn += 0.5 * away; tt -= 0.08 * away; puff += 0.06 * k; kp -= 0.06 * k;
         rX -= 0.5 * k; psi = lerp(psi, -0.1, k) + Math.sin(s.t * 18) * 0.08 * k; phi = lerp(phi, 1.25, k);
         hp -= 0.22 * k; LG.FL[0] -= 0.5 * k; LG.FL[1] += 1.0 * k; LG.FR[0] -= 0.35 * k; LG.FR[1] += 0.8 * k;
         for (const n of ['BL', 'BR']) LG[n][0] += 0.2 * k;
         nk -= 0.35 * k; hx -= 0.3 * k; jaw += (0.38 + 0.06 * Math.sin(s.t * 34)) * bump(t - 0.12, 0.62); ear += 0.5 * k; tl += 0.4 * k; tsw += Math.sin(s.t * 10) * 0.3 * k;
+        break;
+      }
+      case 'seek': {   // (loops; GAME walks him with st.move) the horse wants the carrot: trots hungrily, head low and reaching, ears
+        // pricked, big eyes, its tongue out a little, tail swishing — the knight leans back tugging the reins, pouting
+        const k = smooth01(s.pT / 0.3);
+        nk += 0.34 * k; hx -= 0.3 * k; ear += 0.85 * k; tongue = Math.max(tongue, 0.65 * k); tsw += Math.sin(s.t * 6.5) * 0.3 * k; tl += 0.2 * k;
+        eyeK *= 1 + 0.2 * k; hyw += Math.sin(s.t * 2.2) * 0.08 * k;
+        kp -= 0.3 * k; ky += 0.02 * k; nd -= 0.12 * k; tt += 0.05 * k; puff += 0.03 * k;
+        poseL(SV_LREIN, k); lX += Math.max(0, Math.sin(s.t * 7)) * 0.25 * k; lF -= Math.max(0, Math.sin(s.t * 7)) * 0.3 * k;
+        rX += 0.25 * k; psi = lerp(psi, -0.35, k); phi = lerp(phi, 1.25, k);
+        break;
+      }
+      case 'munch': {   // (5 s, loops) the horse munches the carrot happily (a 0.5 s chew), eyes half shut, ears relaxed, tail swishing;
+        // the knight sits with his arms crossed, shaking his head, and every 1.5 s a "hımf!" chin-up
+        const k = smooth01(s.pT / 0.25), ch = Math.sin(s.t * TAU / 0.5);
+        jaw += (0.08 + 0.14 * Math.max(0, ch)) * k; nk += (0.14 + 0.03 * ch) * k; hx += 0.03 * ch * k; eyeK *= 1 - 0.5 * k; ear -= 0.35 * k;
+        tsw += Math.sin(s.t * 4.2) * 0.32 * k; hyw += Math.sin(s.t * 1.3) * 0.06 * k; hz += Math.sin(s.t * TAU / 0.5) * 0.03 * k;
+        poseL(SV_LCROSS, k); poseR(SV_RCROSS, k); psi = lerp(psi, -1.05, k); phi = lerp(phi, 0.95, k);
+        const hb = bump((s.pT % 1.5) / 1.5 - 0.04, 0.3);
+        nd -= 0.3 * hb * k; tn += (0.4 * hb + Math.sin(s.t * 7.5) * 0.14 * (1 - hb)) * k; tt -= 0.06 * hb * k; puff += 0.04 * hb * k; kp -= 0.05 * k;
         break;
       }
       case 'dizzy': {   // wobbling round, little stars circling his helmet; the horse sways, cross-eyed, its tongue out
@@ -5002,10 +5428,19 @@ const EMODEL = (function (G0) {
     }
     // hit (st.hurt; m.anim leaves his root alone, def.ownHurt): he jolts back in the saddle, the horse tosses its head up with
     // a squeezed blink and its ears back — its hooves stay where they are
+    // (Round 6: the horse sidesteps, the plume whips, the knight wobbles, the ears flick)
+    let side = 0;
     if (st.hurt > 0 && ph !== 'dying') {
-      const h = st.hurt * st.hurt;
+      const h = st.hurt * st.hurt, sd = hurtSide(s, st);
       kp -= 0.32 * h; ky -= 0.04 * h; nd -= 0.14 * h; tt += 0.08 * h; plX += 0.4 * h;
       nk -= 0.3 * h; hx -= 0.18 * h; ear -= 0.7 * h; eyeK = Math.min(eyeK, 1 - 0.7 * h); tl += 0.3 * h;
+      side = 0.12 * sd * Math.sin(PI * Math.min(1, st.hurt)); hw += 0.08 * sd * h; plZ += 0.6 * sd * h; plX += 0.4 * h;
+      ks += Math.sin(s.t * 22) * 0.1 * h; s.ekS = sd;
+    }
+    // before he notices Feza: the horse grazes (head down, chewing), the knight polishes his visor with his mitten
+    if (pre > 0.01) {
+      nk += 1.2 * pre; hx += 0.45 * pre; jaw += (0.05 + 0.12 * Math.max(0, Math.sin(s.t * 9))) * pre; ear -= 0.2 * pre; eyeK *= 1 - 0.25 * pre; hyw += Math.sin(s.t * 0.7) * 0.1 * pre;
+      poseL(SV_LPOLISH, pre); lZ += Math.sin(s.t * 8) * 0.14 * pre; lY += Math.sin(s.t * 8 + 1.2) * 0.1 * pre; nd += 0.1 * pre; tn -= 0.1 * pre;
     }
     // cut short up on its hind legs (cheered up, or Feza napped and the knight calmed down): the horse comes down by itself and
     // lands with a little squash instead of snapping to the ground
@@ -5020,7 +5455,9 @@ const EMODEL = (function (G0) {
     // any other phase cut short (a phase ends in its rest pose; a nap or the goodbye may come in the middle): blend out of the
     // pose it left over a quarter of a second
     const pose = s.pose || (s.pose = new Float32Array(13));
-    if (s.lastPh !== ph) { s.lastPh = ph; s.pose0 = s.pose0 || new Float32Array(13); s.pose0.set(pose); s.bl = s.t > 0.1 ? 1 : 0; }
+    // (also when the same phase starts over: its phaseT jumps back)
+    if (s.lastPh !== ph || t < (s.lastT ?? 0) - 0.05) { s.lastPh = ph; s.pose0 = s.pose0 || new Float32Array(13); s.pose0.set(pose); s.bl = s.t > 0.1 ? 1 : 0; }
+    s.lastT = t;
     if (s.bl > 0) {
       s.bl = Math.max(0, s.bl - dt / 0.25); const k = smooth01(s.bl), P = s.pose0;
       hp = lerp(hp, P[0], k); hy = lerp(hy, P[1], k); nk = lerp(nk, P[2], k); hx = lerp(hx, P[3], k); kp = lerp(kp, P[4], k); psi = lerp(psi, P[5], k); phi = lerp(phi, P[6], k);
@@ -5046,7 +5483,7 @@ const EMODEL = (function (G0) {
       FZ[n] = -(LG[n][2] + hr) * gk;
     }
     // ── apply: the horse ──
-    B.horse.position.y += hy; B.horse.rotation.set(hp, hw, hr);
+    B.horse.position.y += hy; B.horse.position.x += side; B.horse.rotation.set(hp, hw, hr);
     if (sq > 0.001) B.horse.scale.set(1 + 0.04 * sq, 1 - 0.07 * sq, 1 + 0.03 * sq);
     for (const [n] of SV_LEGS) { B['leg' + n].rotation.set(LG[n][0], 0, LG[n][2]); B['shin' + n].rotation.x = LG[n][1]; B['hoof' + n].rotation.set(FT[n], 0, FZ[n]); }
     B.hNeck.rotation.set(nk, hyw * 0.35, hz * 0.3);
@@ -5062,13 +5499,13 @@ const EMODEL = (function (G0) {
     B.body.rotation.set(0, tw, ks); if (puff) B.body.scale.setScalar(1 + puff);
     B.head.rotation.set(nd + Math.sin(s.t * 1.1 + s.ph) * 0.02, tn, tt + Math.sin(s.t * 0.9 + s.ph) * 0.03);
     B.kLegL.rotation.z = 1.2 * ky; B.kLegR.rotation.z = -1.2 * ky;   // (his short legs flap as he bounces)
-    B.armR.rotation.set(rX, 0, rZ); B.foreR.rotation.set(rF, 0, 0);
+    B.armR.rotation.set(rX, rY, rZ); B.foreR.rotation.set(rF, 0, 0);
     B.armL.rotation.set(lX, lY, lZ); B.foreL.rotation.set(lF, 0, 0);
     holdDir(B.lance, SV_Y, svDir(psi, phi, _lv), B.kHips);
     B.shoe.scale.setScalar(shoe ? 1 : 0.0001);
     B.hornH.scale.setScalar(horn ? 1 + 0.12 * hornP : 0.0001); B.hornB.scale.setScalar(horn ? 0.0001 : 1);
     if (horn) {   // the mouthpiece at his lips (the tube stretched to reach them: chibi arms), the bell out in front of his hand
-      m.marker('mouth', _hw); B.hornH.getWorldPosition(_ap); _hw.sub(_ap);
+      m.marker('kMouth', _hw); B.hornH.getWorldPosition(_ap); _hw.sub(_ap);
       B.body.getWorldQuaternion(_uq); holdBasis(B.hornH, _hw, _av.set(0, 0.3, 1).applyQuaternion(_uq));
       B.hornH.scale.y *= clamp(_hw.length() / 0.34, 0.85, 1.3);
     }
@@ -5178,10 +5615,28 @@ const EMODEL = (function (G0) {
         s.t += dt;
         s.mv = damp(s.mv, st.move || 0, 8, dt);
         resetPose(I.bones);
+        // Round 6 expression hooks, set by the boss anims every frame (reset here): s.eyeK = eye height ×, s.eyeW = eye width ×,
+        // s.browY = brow lift (× height), s.mouthO 0..1 = the "O" mouth, s.mouthW 0..1 = a wide smile, s.eyeWob 0..1 = dizzy eyes
+        s.eyeK = 1; s.eyeW = 1; s.browY = 0; s.mouthO = 0; s.mouthW = 0; s.eyeWob = 0;
+        // (a boss's time in its current phase: s.pT, the phase s.pPh; its first roar after it notices Feza = s.intro, the
+        // double take + its entrance; once per model, i.e. per zone load: s.introDone)
+        if (boss) {
+          const ph = dying ? 'dying' : (st.phase || 'idle');
+          if (ph !== s.pPh) { s.pPh = ph; s.pT = 0; } else s.pT = (s.pT || 0) + dt;
+          const roarNow = !dying && (ph === 'roar' || (type === 'ejderha' && st.roar >= 0));
+          if (roarNow && !s.introDone && st.aggro !== false) s.intro = true;
+          else if (s.intro && !roarNow) { s.intro = false; s.introDone = true; }
+        }
         anim(m, dt, st, s);
-        const R = I.B.root;
-        if (st.hurt > 0 && !dying && !def.ownHurt) {   // (bosses: a smaller squash — they are big and get hit a lot)
-          const h = st.hurt * st.hurt * (boss ? 0.45 : 1);
+        const R = I.B.root, Hm = m.height / sc;
+        if (boss && s.intro) {   // the double take: 0–0.25 of the first roar a surprised little hop with big round eyes
+          const rt = type === 'ejderha' && st.roar >= 0 ? st.roar : bpt(st), k = bump(rt, 0.25);
+          R.position.y += k * Hm * 0.05;
+          const e = smooth01(rt / 0.05) * (1 - smooth01((rt - 0.2) / 0.08));
+          s.eyeK = Math.max(s.eyeK, 1 + 0.3 * e); s.browY = Math.max(s.browY, 0.04 * e); s.mouthO = Math.max(s.mouthO, e);
+        }
+        if (st.hurt > 0 && !dying && !def.ownHurt) {   // (bosses: a smaller squash — they are big and get hit a lot; each adds its own reaction)
+          const h = st.hurt * st.hurt * (boss ? 0.3 : 1);
           R.scale.set(1 + 0.2 * h, 1 - 0.2 * h, 1 + 0.2 * h); R.rotation.x -= 0.22 * h; R.position.z -= 0.08 * h;
         }
         if (def.lava) m.U.uLava.value.w = def.lava.k * (0.82 + 0.18 * Math.sin(s.t * 2.1 + s.ph));   // molten cracks breathe
@@ -5203,14 +5658,31 @@ const EMODEL = (function (G0) {
               else { const g = Math.sin(u * PI); bl = Math.min(bl, 1 - 0.38 * g); R.rotation.z += Math.sin(s.t * 36) * 0.035 * g; R.position.y += Math.abs(Math.sin(s.t * 18)) * 0.02 * g; }
             }
           }
-          I.B.eyes.scale.y = bl;
+          I.B.eyes.scale.y = bl * s.eyeK; I.B.eyes.scale.x = s.eyeW;
+          if (s.eyeWob > 0) {   // dizzy: the eyes roll a little
+            I.B.eyes.rotation.z += Math.sin(s.t * 7.3) * 0.12 * s.eyeWob; I.B.eyes.position.x += Math.sin(s.t * 5.1) * 0.006 * Hm * s.eyeWob;
+            I.B.eyes.scale.y *= 1 + 0.06 * Math.sin(s.t * 9.7) * s.eyeWob;
+          }
+          if (I.B.brow && s.browY) I.B.brow.position.y += s.browY * Hm;
+          if (I.B.mouth && (s.mouthO > 0 || s.mouthW > 0)) {   // "O" = narrower and taller (× 0.8, × 1.5); wide smile = wider, a little flatter
+            const o = clamp(s.mouthO, 0, 1), w = clamp(s.mouthW, 0, 1) * (1 - o);
+            I.B.mouth.scale.set((1 - 0.2 * o) * (1 + 0.3 * w), (1 + 0.5 * o) * (1 - 0.08 * w), 1 + 0.2 * o);
+          }
         }
         if (s.mood === 'happy' && I.B.joy) {   // hearts pulse and bob
           const p = Math.sin(s.t * 9);
           I.B.joy.scale.setScalar(1 + 0.18 * p);
           I.B.joy.position.y += (0.03 + 0.03 * Math.sin(s.t * 5)) * (m.height / sc);
         }
-        if (dying && boss && type !== 'ejderha') {
+        if (dying && type === 'ejderha') {
+          // the dragon: 0–0.3 surprised, then arms open for a hug with fast happy flaps (its anim) · 0.3–0.7 happy bounces with a
+          // little hover · 0.7–1 the twirl while it shrinks into sparkles
+          const d = st.dying, u = clamp((d - 0.3) / 0.4, 0, 1), on = d > 0.3 && d < 0.7 ? 1 : 0;
+          R.position.y += (Math.abs(Math.sin(u * PI * 3)) * 0.06 + Math.sin(PI * u) * 0.05) * Hm * on;
+          R.rotation.y += smooth01((d - 0.7) / 0.3) * TAU;
+          R.rotation.z += Math.sin(d * 26) * 0.04 * (1 - d);
+          R.scale.multiplyScalar(d < 0.7 ? 1 + 0.04 * Math.sin(PI * d / 0.7) : Math.max(0.0001, 1 - smooth01((d - 0.7) / 0.3)));
+        } else if (dying && boss) {
           // zone bosses: overjoyed happy hops while waving goodbye (their own anim waves), then a twirl into sparkles
           // (def.dieFrom: the kefir bottle stands still while it hands Feza its glass of kefir, the goodbye plays after that)
           const from = def.dieFrom || 0, d = s.giving ? 0 : from ? Math.max(0, (st.dying - from) / (1 - from)) : st.dying;
@@ -5222,11 +5694,11 @@ const EMODEL = (function (G0) {
           R.scale.multiplyScalar(k);
         } else if (dying) {
           const d = st.dying, H = m.height / sc;
-          const hop = Math.abs(Math.sin(d * PI * 2.2)) * H * 0.32 * (1 - smooth01(d)) * (type === 'ejderha' ? 0.35 : 1);
+          const hop = Math.abs(Math.sin(d * PI * 2.2)) * H * 0.32 * (1 - smooth01(d));
           R.position.y += hop;
           // the creatures keep their overjoyed face to Feza for the two happy hops, then one twirl while they shrink away
           // (flat-faced ones — cheese wedge, cream swirl, yogurt cup — would otherwise show their edge/back at the happy moment)
-          R.rotation.y += type === 'ejderha' ? smooth01(d) * TAU : smooth01((d - 0.5) / 0.5) * TAU;
+          R.rotation.y += smooth01((d - 0.5) / 0.5) * TAU;
           R.rotation.z += Math.sin(d * 26) * 0.12 * (1 - d);
           const k = d < 0.55 ? 1 + 0.12 * Math.sin(PI * d / 0.55) : Math.max(0.0001, 1 - smooth01((d - 0.55) / 0.45));
           R.scale.multiplyScalar(k);
@@ -5540,6 +6012,184 @@ const EMODEL = (function (G0) {
     };
   }
 
+  // ════════════════ Round 6: the bosses' bonus-game props (GAME pools them) ════════════════
+  // Each is ONE merged mesh (cached geometry shared by every instance, its own material for the glow and the hit flash):
+  // {root, anim(dt, o), flash(a, c), dispose()}. root: feet / base at y = 0; GAME positions, turns and scales root.
+  //   EMODEL.jellyCrown() — the Kral Jöle's crown (same look and size as on his head) · o = {spin: turns per second, glow 0..1
+  //     (golden shimmer), bob 0..1 (floats 0.12–0.24 m up, rocking)}
+  //   EMODEL.havuc() — a cute golden-orange carrot (≈ 0.5 m with its leafy top) with a tiny smiling face · o = {spin, glow, bob}
+  //   EMODEL.serinTas() — a round glossy mint-blue "cool stone" (≈ 1.1 m wide, 1 m tall; collision r ≈ 0.75), frosty top, frost
+  //     sparkles, a soft cool glow, no face · o = {pop 0..1 (rises out of the ground; 1 = up, default 1), glow 0..1,
+  //     crack 0..1 (shakes, squashes and whitens — at 1 it is about to burst: GAME hides it and plays FX 'crack')}
+  //   EMODEL.hole() — a dirt hole with a lumpy rim of clods (≈ 1.3 m radius; the mole peeks out of it) · o = {open 0..1 (opens up
+  //     from nothing with a little overshoot; default 1), shake 0..1 (the rim trembles: the mole is coming)}
+  const PROP_GLOW = 'outgoingLight += uGR * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 1.8);';   // (as the banner's)
+  function propInst(key, lod, make, name, o = {}) {
+    const def = DEFS[key] || (DEFS[key] = lodBuild(lod, make));
+    const mat = eMat(Object.assign({}, def.mat || {}));
+    const uGR = { value: new THREE.Color(0, 0, 0) };
+    patchMat(mat, { uniforms: { uGR }, fDecl: 'uniform vec3 uGR;', fOut: PROP_GLOW, key: 'sancakGlow' });
+    const mesh = new THREE.Mesh(def.g[0], mat); mesh.castShadow = o.shadow !== false; mesh.receiveShadow = !!o.receive; mesh.name = name;
+    mesh.frustumCulled = true;
+    const root = new THREE.Group(); root.name = name; root.add(mesh);
+    const s = { t: frand(0, 10), ph: frand(0, TAU), spin: 0, fa: 0, fc: new THREE.Color(1, 1, 1), tint: null, glow: 0 };
+    const em = { s, U: mat.userData.U, mat, def: { glowC: col(def.glowC || '#fff0c8') } };
+    return {
+      root, mesh, s, em, uGR,
+      flash(a, c = '#ffffff') { s.fa = clamp(a || 0, 0, 1); s.fc.set(c); applyEm(em); },
+      dispose() { if (root.parent) root.parent.remove(root); mat.dispose(); },
+    };
+  }
+  function buildCrownProp(r) { r.on('root'); kjCrown(r); return { height: 0.9, glowC: '#ffe08a', mat: { rough: 0.3, rimK: 0.3, rim: '#fff4d0' } }; }
+  function jellyCrown() {
+    const P = propInst('jellyCrown', LOD.kraljole, buildCrownProp, 'jellyCrown'), s = P.s, M = P.mesh;
+    return {
+      root: P.root, flash: P.flash, dispose: P.dispose,
+      anim(dt, o = {}) {
+        s.t += dt;
+        const g = clamp(+o.glow || 0, 0, 1), b = clamp(+o.bob || 0, 0, 1), pulse = 0.5 + 0.5 * Math.sin(s.t * 3.4 + s.ph);
+        s.spin += dt * (+o.spin || 0) * TAU;
+        M.position.y = b * (0.18 + 0.06 * Math.sin(s.t * 2.6 + s.ph));
+        M.rotation.set(Math.sin(s.t * 2.3 + s.ph) * 0.09 * b, s.spin, Math.cos(s.t * 1.9 + s.ph) * 0.07 * b);
+        P.uGR.value.setRGB(1, 0.78, 0.25).multiplyScalar(g * (0.45 + 0.6 * pulse));
+        s.glow = g * (0.03 + 0.05 * pulse);
+        applyEm(P.em);
+      },
+    };
+  }
+  function buildHavuc(r) {
+    const H = 0.4, CP = [[0, 0], [0.02, 0.014], [0.05, 0.06], [0.085, 0.14], [0.115, 0.23], [0.13, 0.31], [0.13, 0.36], [0.112, 0.39], [0.06, 0.402], [0, 0.404]];
+    r.on('root').push([0, 0.02, 0], [0, 0, 0.22]);
+    const oc = col('#ff8a1c'), ol = col('#ffb444'), od = col('#e8640e'), out = new THREE.Color();
+    r.fx(0, 0.55).add(lathe('havuc', CP, 24, 3), (x, y, z) => {   // warm orange, lighter at the top, soft darker ridges round it
+      const ring = Math.pow(0.5 + 0.5 * Math.sin(y * 70 + Math.atan2(x, z) * 0.6), 6);
+      return out.copy(oc).lerp(ol, smooth01((y - 0.1) / 0.25) * 0.7).lerp(od, ring * 0.45 * smooth01(y / 0.06));
+    });
+    // the leafy top: five fat round leaves fanning up
+    r.fx(0, 0.35);
+    for (let i = 0; i < 5; i++) {
+      const a = (i - 2) * 0.45, h = 0.15 + 0.06 * (1 - Math.abs(i - 2) / 2), d = [Math.sin(a) * 0.55, 1, Math.cos(i * 2.1) * 0.2];
+      const n = new THREE.Vector3(...d).normalize(), c = i & 1 ? '#5ad060' : '#3cb450';
+      r.add(G.sphere(12, 8), c, [n.x * h * 0.55, H + n.y * h * 0.55, n.z * h * 0.55], qy(n.x, n.y, n.z), [0.05, h * 0.55, 0.03]);
+    }
+    r.add(G.sphere(10, 8), '#2f9a42', [0, H + 0.005, 0], null, [0.045, 0.025, 0.045]);
+    // a tiny happy face: two shiny black eyes, a little smile, pink cheeks (on the front, a little up: the camera looks down)
+    r.push([0, 0.27, 0], [-0.3, 0, 0]);
+    const fz = 0.13;
+    for (const sd of [-1, 1]) {
+      r.fx(0, 1).add(G.sphere(10, 8), '#1a0c10', [sd * 0.042, 0.02, fz], null, [0.02, 0.025, 0.012]);
+      r.fx(1, 0).add(G.sphere(6, 4), hdr('#ffffff', 1.6), [sd * 0.042 - 0.006, 0.028, fz + 0.01], null, 0.007);
+      r.fx(0.35, 0).add(G.sphere(8, 6), '#ff7aa2', [sd * 0.075, -0.012, fz - 0.018], [0, sd * 0.5, 0], [0.02, 0.012, 0.007]);
+    }
+    r.fx(0, 0.3).add(G.torus(PI * 0.7, 0.28, 12), '#6a1f2c', [0, -0.012, fz + 0.002], [0, 0, -PI / 2 - PI * 0.35], [0.026, 0.02, 0.016]);
+    r.pop();
+    r.pop().fx(0, 0);
+    return { height: 0.6, glowC: '#ffd08a', mat: { rough: 0.35, rimK: 0.3, rim: '#fff0d8', sss: col('#ffb060').multiplyScalar(0.05) } };
+  }
+  function havuc() {
+    const P = propInst('havuc', 0.8, buildHavuc, 'havuc'), s = P.s, M = P.mesh;
+    return {
+      root: P.root, flash: P.flash, dispose: P.dispose,
+      anim(dt, o = {}) {
+        s.t += dt;
+        const g = clamp(+o.glow || 0, 0, 1), b = clamp(+o.bob || 0, 0, 1), pulse = 0.5 + 0.5 * Math.sin(s.t * 3.6 + s.ph);
+        s.spin += dt * (+o.spin || 0) * TAU;
+        M.position.y = b * (0.14 + 0.07 * Math.sin(s.t * 2.8 + s.ph));
+        M.rotation.set(Math.sin(s.t * 2.1 + s.ph) * 0.12 * b, s.spin, Math.sin(s.t * 3.3) * 0.1 * b);
+        P.uGR.value.setRGB(1, 0.62, 0.2).multiplyScalar(g * (0.5 + 0.7 * pulse));
+        s.glow = g * (0.03 + 0.05 * pulse);
+        applyEm(P.em);
+      },
+    };
+  }
+  function buildSerinTas(r) {
+    const C = [0, 0.5, 0], A = [0.62, 0.52, 0.6], lo = col('#1f86a0'), mid = col('#46c4c8'), hi = col('#8ee8e4'), frost = col('#e6fbff'), out = new THREE.Color();
+    const w = sN(36, 16), h = sN(26, 10);
+    const geo = gx('serinTas@' + w, () => {   // a round boulder, softly lumpy (no sharp cuts: it is a friendly cool stone)
+      const g = new THREE.SphereGeometry(1, w, h), p = g.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {
+        v.fromBufferAttribute(p, i); v.multiplyScalar(0.94 + 0.12 * fbm3(v.x * 1.6 + 7, v.y * 1.6, v.z * 1.6 - 3));
+        if (v.y < -0.55) v.y = -0.55 - (v.y + 0.55) * 0.3;   // (a flatter bottom: it sits on the ground)
+        p.setXYZ(i, v.x, v.y, v.z);
+      }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+    r.on('root').fx(0, 1).add(geo, (x, y, z) => {
+      const t = clamp((y - 0.05) / 0.9, 0, 1), n = fbm3(x * 4 + 1, y * 4, z * 4 + 2);
+      out.copy(lo).lerp(mid, smooth01(t * 1.4)).lerp(hi, smooth01((t - 0.55) / 0.35) * 0.8);
+      return out.lerp(frost, clamp(smooth01((t - 0.74 + 0.3 * (n - 0.5)) / 0.1) * 0.7, 0, 1));   // a frosty cap
+    }, [0, 0.46, 0], null, A);
+    // frost sparkles (tiny bright crystals on the surface) and a few little frost flakes
+    r.fx(1, 0);
+    const rnd = mulberry32(61);
+    for (let i = 0; i < 14; i++) {
+      const phi = 0.2 + rnd() * 1.1, th = rnd() * TAU, [p, n] = onEll([0, 0.46, 0], [A[0] * 1.01, A[1] * 1.01, A[2] * 1.01], phi, th);
+      r.add(G.octa(), hdr(i % 3 ? '#ffffff' : '#bff4ff', 1.9), p, qz(...n, rnd() * 3), [0.018 + rnd() * 0.014, 0.04 + rnd() * 0.03, 0.018]);
+    }
+    r.fx(0.4, 0.8);
+    for (let i = 0; i < 6; i++) {
+      const phi = 0.35 + rnd() * 0.7, th = rnd() * TAU, [p, n] = onEll([0, 0.46, 0], A, phi, th);
+      r.add(star5Geo(), '#eafcff', p, qz(...n, rnd() * 3), 0.07 + rnd() * 0.03);
+    }
+    r.fx(0, 0);
+    void C;
+    return { height: 1.0, glowC: '#bff4ff', mat: { rough: 0.25, rimK: 0.4, rim: '#d8fbff', sss: col('#9fe8ff').multiplyScalar(0.06) } };
+  }
+  function serinTas() {
+    const P = propInst('serinTas', 0.8, buildSerinTas, 'serinTas'), s = P.s, M = P.mesh;
+    return {
+      root: P.root, flash: P.flash, dispose: P.dispose,
+      anim(dt, o = {}) {
+        s.t += dt;
+        const pop = clamp(o.pop ?? 1, 0, 1), g = clamp(+o.glow || 0, 0, 1), c = clamp(+o.crack || 0, 0, 1), pulse = 0.5 + 0.5 * Math.sin(s.t * 2.6 + s.ph);
+        // rises out of the ground with a springy overshoot (like the banners)
+        const sy = pop < 1 ? Math.max(0.0001, 1 - Math.pow(1 - pop, 3) * Math.cos(pop * PI * 2.2)) : 1, sx = pop < 1 ? 1 + 0.14 * Math.sin(pop * PI) * (1 - pop) : 1;
+        const cs = c * c, sh = 0.035 * cs;
+        M.scale.set(sx * (1 + 0.05 * cs), sy * (1 - 0.06 * cs), sx * (1 + 0.05 * cs));
+        M.position.set(Math.sin(s.t * 61) * sh, -0.35 * (1 - smooth01(pop / 0.5)), Math.cos(s.t * 53) * sh);
+        M.rotation.set(Math.sin(s.t * 47) * 0.04 * cs, 0, Math.cos(s.t * 43) * 0.04 * cs);
+        P.uGR.value.setRGB(0.45, 0.95, 1).multiplyScalar(g * (0.16 + 0.16 * pulse) + 0.5 * cs);
+        s.glow = g * (0.01 + 0.015 * pulse) + 0.12 * cs;
+        applyEm(P.em);
+      },
+    };
+  }
+  function buildHole(r) {
+    const R = 1.0, dark = col('#1c1008'), dirt = col('#5a3a22'), dirtL = col('#8a6040'), out = new THREE.Color();
+    // the pit: a flat disc just over the floor, painted near-black in the middle to the dirt colour at its lip (reads as depth)
+    const disc = gx('holeDisc@' + sN(32, 14), () => new THREE.CircleGeometry(1, sN(32, 14), 0, TAU).rotateX(-PI / 2));
+    r.on('root').fx(0, 0).add(disc, (x, y, z) => out.copy(dark).lerp(dirt, Math.pow(clamp(Math.hypot(x, z) / (R * 1.02), 0, 1), 3)), [0, 0.012, 0], null, [R * 1.02, 1, R * 1.02]);
+    // the lip: a low lumpy dirt ring + clods and pebbles round it
+    const mc = (x, y, z) => { const n = fbm3(x * 3.5, y * 3.5, z * 3.5); return out.copy(dirt).lerp(dirtL, clamp(smooth01((y - 0.02) / 0.16) * 0.7 + 0.5 * n - 0.2, 0, 1)); };
+    r.fx(0, 0.05).add(G.torus(TAU, 0.14, 36), mc, [0, 0.02, 0], [PI / 2, 0, 0], [R * 1.1, R * 1.1, 0.7]);
+    const rnd = mulberry32(29);
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * TAU + rnd() * 0.3, rr = R * (1.1 + rnd() * 0.18), sz = 0.12 + rnd() * 0.09;
+      r.add(rockGeo(31 + (i % 3)), mc, [Math.sin(a) * rr, sz * 0.35, Math.cos(a) * rr], [rnd(), rnd() * 3, rnd()], [sz, sz * 0.7, sz]);
+    }
+    r.fx(0, 0.3);
+    for (let i = 0; i < 5; i++) { const a = rnd() * TAU, rr = R * (1.35 + rnd() * 0.25); r.add(G.dodeca(), i & 1 ? '#9ea6b2' : '#b3aa9c', [Math.sin(a) * rr, 0.03, Math.cos(a) * rr], [rnd(), rnd(), 0], 0.04 + rnd() * 0.03); }
+    r.fx(0, 0);
+    return { height: 0.3, glowC: '#ffd8a0', mat: { rough: 0.9, rimK: 0.12 } };
+  }
+  function hole() {
+    const P = propInst('hole', 0.8, buildHole, 'hole', { shadow: false, receive: true }), s = P.s, M = P.mesh;
+    return {
+      root: P.root, flash: P.flash, dispose: P.dispose,
+      anim(dt, o = {}) {
+        s.t += dt;
+        const op = clamp(o.open ?? 1, 0, 1), sh = clamp(+o.shake || 0, 0, 1);
+        const k = op < 1 ? Math.max(0.0001, 1 - Math.pow(1 - op, 3) * Math.cos(op * PI * 1.6)) : 1;
+        M.scale.set(k * (1 + 0.03 * sh * Math.sin(s.t * 41)), Math.max(0.0001, k * (1 + 0.25 * sh * Math.abs(Math.sin(s.t * 37)))), k * (1 + 0.03 * sh * Math.cos(s.t * 43)));
+        M.position.set(Math.sin(s.t * 57) * 0.025 * sh, 0, Math.cos(s.t * 49) * 0.025 * sh);
+        M.visible = op > 0.001;
+        applyEm(P.em);
+      },
+    };
+  }
+  const PROPS = { jellyCrown, havuc, serinTas, hole };
+
   // ── Neşe kristali: big faceted pink gem with an inner light ──
   let HALO = null;
   function haloTex() {
@@ -5594,7 +6244,8 @@ const EMODEL = (function (G0) {
 
   // Build geometry caches (and optionally compile the shader programs against the live scene's lights) ahead of time,
   // e.g. right after a zone loads, so the first spawn of a type never hitches. Warm instances stay alive (programs persist).
-  // types: ['jole', 'golem:magma', 'sancak', …] ('type:variant' builds just that variant; 'sancak' = the knight's banner);
+  // types: ['jole', 'golem:magma', 'sancak', 'jellyCrown', …] ('type:variant' builds just that variant; 'sancak' = the knight's
+  // banner; 'jellyCrown' / 'havuc' / 'serinTas' / 'hole' = the Round 6 bonus props);
   // variants: optional {type: [ids]} (the shape of ZONES[i].variants). Without either, jole builds its four forest colours and
   // every other type its default look.
   const WARM = {};
@@ -5603,6 +6254,7 @@ const EMODEL = (function (G0) {
     for (const tv of types || Object.keys(TYPES)) {
       const [t, v1] = String(tv).split(':');
       if (t === 'sancak') { if (compile && !WARM.sancak) fresh.push(WARM.sancak = sancak()); else if (!DEFS.sancak) sancak().dispose(); continue; }   // (the knight's banners)
+      if (PROPS[t]) { if (compile && !WARM[t]) fresh.push(WARM[t] = PROPS[t]()); else if (!DEFS[t]) PROPS[t]().dispose(); continue; }   // (Round 6 bonus props)
       if (!TYPES[t]) continue;
       const vs = v1 ? [v1] : (variants && variants[t] && variants[t].length) ? variants[t] : t === 'jole' ? ['green', 'pink', 'blue', 'purple'] : [undefined];
       for (const v of vs) getDef(t, v, false);
@@ -5617,5 +6269,5 @@ const EMODEL = (function (G0) {
   }
   function stats() { const out = {}; for (const k in DEFS) out[k] = DEFS[k].verts; return out; }
 
-  return { build, owl, babyDragon, sancak, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS };
+  return { build, owl, babyDragon, sancak, jellyCrown, havuc, serinTas, hole, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS, PROPS: Object.keys(PROPS) };
 })(G);

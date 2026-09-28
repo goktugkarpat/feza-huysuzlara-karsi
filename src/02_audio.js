@@ -598,6 +598,39 @@ const AUD = (() => {
       T(m, o, t, 240 * p, 0.08, 0.2, { f1: 140 * p, a: 0.002 });
       return 0.26;
     },
+    // ── Round 6: boss bonus moments. Silly and soft: toy taps, squeaks, crunches and breaths, never a real smack.
+    bonk(m, o, t, p) {   // a toy mallet tapping a head (the mole peeking out): a hollow wooden "tok!", a mini springy "boing", a twinkle
+      N(m, o, t, 0.03, 0.18, { f: 1300 * p, q: 4, a: 0.0006 });   // the woody "k"
+      T(m, o, t, 760 * p, 0.07, 0.34, { f1: 520 * p, a: 0.0008 });   // hollow toy body
+      T(m, o, t, 230 * p, 0.06, 0.12, { f1: 140 * p, a: 0.001 });   // soft padded thud
+      T(m, o, t + 0.05, 260 * p, 0.32, 0.24, { fs: [[0, 260 * p], [0.05, 520 * p], [0.32, 430 * p]], a: 0.004, vib: [14, 70, 0.05] });   // "boing"
+      T(m, o, t + 0.05, 520 * p, 0.22, 0.04, { fs: [[0, 520 * p], [0.05, 1040 * p], [0.22, 860 * p]], type: 'triangle', a: 0.004, vib: [14, 70, 0.05] });
+      B(m, o, t + 0.12, 1760 * p, 0.3, 0.03, 4, 0.8);
+      return 0.42;
+    },
+    hiccup(m, o, t, p) {   // a cartoon "hık!": a quick rising squeak that ends in a round little pop and a bubble plip
+      N(m, o, t, 0.04, 0.07, { f: 1200 * p, q: 1, a: 0.003 });   // the breathy "h"
+      T(m, o, t, 520 * p, 0.1, 0.22, { fs: [[0, 520 * p], [0.07, 1250 * p], [0.1, 1100 * p]], type: 'triangle', a: 0.003 });   // squeak up
+      N(m, o, t + 0.085, 0.012, 0.16, { f: 1500 * p, q: 1, a: 0.0005 });   // the snap of the pop
+      T(m, o, t + 0.085, 380 * p, 0.09, 0.3, { fs: [[0, 380 * p], [0.012, 820 * p], [0.09, 500 * p]], a: 0.001 });   // round cheek pop
+      for (let i = 0; i < 2; i++) { const f = rnd(1100, 1700) * p; T(m, o, t + 0.16 + i * 0.06, f, 0.035, 0.05, { f1: f * 1.8, a: 0.003 }); }
+      return 0.3;
+    },
+    munch(m, o, t, p) {   // the knight's horse eating the carrot: two crunchy bites ("kırt-kırt"), each with a soft jaw "nom"
+      for (let i = 0; i < 2; i++) {   // GAME calls it every 0.5 s while the horse chews
+        const tt = t + i * 0.19, q = p * (i ? 0.9 : 1);
+        T(m, o, tt, 300 * q, 0.08, 0.24, { f1: 130 * q, a: 0.002 });   // jaw "nom"
+        N(m, o, tt, 0.08, 0.09, { type: 'lowpass', f: 900, a: 0.002 });   // mouthful
+        for (let k = 0; k < 5; k++) N(m, o, tt + rnd(0, 0.07), 0.018, rnd(0.12, 0.2), { f: rnd(900, 2200) * q, q: 2.2, a: 0.0008 });   // crunch
+      }
+      return 0.36;
+    },
+    sigh(m, o, t, p) {   // the dragon's soft sigh before it blows hearts: a gentle falling breath "haaah" over a little "hmmm" hum
+      N(m, o, t, 0.95, 0.2, { fs: [[0, 1500 * p], [0.3, 1100 * p], [0.95, 500 * p]], q: 1.1, a: 0.18, hold: 1, rel: 0.5 });   // breath
+      T(m, o, t + 0.1, 330 * p, 0.9, 0.08, { fs: [[0, 330 * p], [0.25, 350 * p], [0.9, 235 * p]], type: 'triangle', lp: 1200, hold: 1, a: 0.15, rel: 0.45, vib: [5, 18, 0.2] });   // hum
+      T(m, o, t + 0.1, 165 * p, 0.9, 0.05, { fs: [[0, 165 * p], [0.25, 175 * p], [0.9, 118 * p]], hold: 1, a: 0.15, rel: 0.45 });
+      return 1.05;
+    },
     // extras
     nope(m, o, t, p) { T(m, o, t, 330 * p, 0.1, 0.14, { type: 'triangle', hold: 1, rel: 0.03 }); T(m, o, t + 0.12, 262 * p, 0.14, 0.14, { type: 'triangle', hold: 1, rel: 0.05 }); return 0.3; },
     open(m, o, t, p) { T(m, o, t, 620 * p, 0.09, 0.13, { f1: 930 * p }); B(m, o, t + 0.05, 1397 * p, 0.3, 0.05, 4, 0.7); return 0.35; },
@@ -616,18 +649,20 @@ const AUD = (() => {
     lava: 0.68, erupt: 0.58, drill: 0.5, roll: 1.43, bounce: 0.61, chirp: 2.14, splat: 0.91, rumble: 1.36,
     fizz: 2.55, cork: 1.04, slurp: 3.1, squish: 1.19, moo: 0.64,
     neigh: 0.49, gallop: 1.09, drum: 0.7, broom: 2.75, horn: 0.99, bell: 0.77, clank: 1.04,
+    bonk: 1.08, hiccup: 1.44, munch: 1.8, sigh: 1.27,
   };
   // Random pitch spread (semitones, default 0.45), min retrigger gap (s) and "droppable when busy".
   const SVAR = { levelup: 0.05, unlock: 0.05, checkpoint: 0.05, chest: 0.1, dropLegend: 0.05, dropRare: 0.15, portal: 0.1, click: 0.15, coin: 0.05, pop: 0.08,
     saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3, cork: 0.6, slurp: 0.2, moo: 1.2,
-    neigh: 0.3, gallop: 0.3, drum: 0.2, horn: 0.05, bell: 0.1 };   // horn / bell: a tune and a tuned bell stay in tune
+    neigh: 0.3, gallop: 0.3, drum: 0.2, horn: 0.05, bell: 0.1, hiccup: 0.3, sigh: 0.2 };   // horn / bell: a tune and a tuned bell stay in tune
   const SGAP = { step: 0.07, hit: 0.035, hitSoft: 0.035, coin: 0.035, pop: 0.05, swing: 0.06, bat: 0.12, spit: 0.05, drop: 0.05, zap: 0.04, boom: 0.05, heart: 0.05,
     saberOn: 0.2, saberOff: 0.2, dig: 0.14, emerge: 0.08, bubble: 0.08, bubblePop: 0.04,
     lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7,
     fizz: 0.12, cork: 0.12, slurp: 0.5, squish: 0.06, moo: 7,   // moo: a rare ambient, never twice within 7 s however often it is asked for
-    neigh: 0.7, gallop: 0.12, drum: 0.2, broom: 0.12, horn: 0.6, bell: 0.5, clank: 0.07 };   // gallop: one per hoof beat, strides ≥ 0.15 s apart all play
+    neigh: 0.7, gallop: 0.12, drum: 0.2, broom: 0.12, horn: 0.6, bell: 0.5, clank: 0.07,
+    bonk: 0.08, hiccup: 0.2, munch: 0.3, sigh: 0.8 };   // munch: one per chew (GAME calls it every 0.5 s)   // gallop: one per hoof beat, strides ≥ 0.15 s apart all play
   const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1,
-    fizz: 1, squish: 1, moo: 1, broom: 1, clank: 1 };
+    fizz: 1, squish: 1, moo: 1, broom: 1, clank: 1, munch: 1 };
   const STREAK = [0, 2, 4, 7, 9, 12, 14, 16];   // coins picked up / enemies cheered up in a row climb a pentatonic scale
 
   function playRecipe(m, name, o, t) {
@@ -1377,21 +1412,33 @@ AUD.LINES = /*SESLER*/{
   "kapi": "Sihirli kapı! İçine gir, yeni bir yere gidelim!",
   "kocaman": "Dikkat! Kocaman bir huysuz geliyor!",
   "kraljole_giris": "İşte Kral Jöle! Zıplayınca yere dikkat et!",
+  "kraljole_tac": "Bak bak! Kral Jöle'nin tacı düştü. Koş, tacı kap!",
+  "kraljole_saskin": "Tacını geri verdin! Kral Jöle çok şaşırdı, hadi dokun!",
   "kraljole_bitti": "Kral Jöle çok mutlu! Sihirli kapı Kefir Vadisi'ne açıldı!",
   "kefirdev_giris": "İşte Köpüklü Kefir Devi! Çalkalanınca köpük fışkırtıyor, dikkat et!",
+  "kefirdev_balon": "Kocaman bir köpük balonu geliyor! Ona vur, patlat!",
+  "kefirdev_hik": "Balon patladı! Kefir Devi hıçkırık tuttu. Hadi, şimdi vur!",
   "kefirdev_bitti": "Kefir Devi çok mutlu! Artık hiç ekşi değil!",
   "kefir_ikram": "Kefir Devi sana en güzel kefirinden verdi. Afiyet olsun Feza!",
   "kefirdev_yol": "Kefir Devi diyor ki: Ejderha dağların ardındaki kalesine uçtu. Yol mağaradan geçiyor!",
   "usta_giris": "Usta Köstebek geldi! Topraktan çıkınca hemen vur!",
+  "usta_saklambac": "Usta Köstebek saklambaç oynuyor! Parlayan deliğe koş, başı görününce dokun!",
+  "usta_yakaladin": "Yakaladın! Usta Köstebeğin başı döndü!",
   "usta_bitti": "Usta Köstebek kocaman gülümsüyor! Kapı yanardağa açıldı!",
   "kaplumbaga_giris": "Koca Lav Kaplumbağası! Yerde parlayan dairelerden uzak dur!",
+  "kaplumbaga_tas": "Serin taşlar çıktı! Kaplumbağa yuvarlanınca taşın arkasına saklan!",
+  "kaplumbaga_devrildi": "Kaplumbağa taşa çarptı ve yan yattı! Hadi, şimdi vur!",
   "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Sihirli kapı surlu şehre açıldı!",
   "sovalye_giris": "İşte Huysuz Şövalye ve kocaman atı! Koşmadan önce yolunu gösteriyor, kenara kaç!",
   "sovalye_sancak": "Sancaklara vur! Hepsi düşünce şövalyenin başı dönecek!",
+  "sovalye_havuc": "Bak bak, bir havuç! Havucu al, at gelince onu besle!",
+  "sovalye_atdoydu": "At havucu çok sevdi! Şövalye bekliyor, hadi vur!",
   "sovalye_bitti": "Huysuz Şövalye kocaman gülümsüyor! Artık kimse kaleye giden yolu kapatmıyor.",
   "ejderha_giris": "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!",
   "ejderha_yarim": "Ejderha yoruluyor! Devam et, çok az kaldı!",
   "ejderha_yumurta": "Ejderha yeni yumurtalar bıraktı! Dokununca içinden minik ejderhalar çıkıyor.",
+  "ejderha_kalp": "Ejderha kalpler üfledi! Uçan kalpleri topla!",
+  "ejderha_sevgi": "Bütün kalpleri topladın! Ejderha kocaman bir sevgi kalbi aldı.",
   "ejderha_bitti": "Başardın! Ejderha artık hiç huysuz değil. Meğer sadece bir arkadaş istiyormuş.",
   "kristal": "Neşe kristali! Ona dokun, köye neşe geri dönsün!",
   "son": "Tebrikler Feza! Herkesi neşelendirdin. Sen gerçek bir kahramansın!",

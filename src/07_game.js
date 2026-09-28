@@ -69,7 +69,16 @@
    loot) — all three knocked over → it is dizzy for SOV.dizzy s. He gallops all over his arena, so "Feza ran off" is
    counted from the arena's middle (kit.roam), and 'kapi' waits for his happy line (it never mentions the door). The town
    dings a far bell now and then (the kefir valley's moo). Balance: DIFF (test/r5_game_kid.html; mechanics, saves and
-   every boss's surprises in test/r5_game_boss.html, r5_game_save.html, r5_game_tbc.html). */
+   every boss's surprises in test/r5_game_boss.html, r5_game_save.html, r5_game_tbc.html).
+   Round 6 (boss polish): every boss has one optional "bonus" idea (BONUS, BOSS_KIT[type].bonus, bonusStep): do it and the
+   boss is silly and helpless for a few s (a stun phase via bonusStun, which the banners' dizzy uses too); ignore it and
+   nothing is lost. Kral Jöle's crown falls off (tac), the Kefir Devi blows a giant bubble to pop (balon), Usta Köstebek
+   plays hide-and-seek in 4 holes (avla), cool rocks tip the rolling turtle over (serintas), a carrot feeds the knight's horse
+   (havuc), friendship hearts charm the dragon (kalp). Its pickable things are L.breakObjs with .bonus; the TBC timer waits
+   while one runs (q.timer ≥ BONUS.timerAfter after it). Extra: event 'bonus' {on, kind, type, have, need, state},
+   GAME.bonusSpot() (where the camera should look too), __T.bonus(), b.st.aggro, b.st.crownOff; the turtle's roll now ends
+   in its own 'rollend' phase. EMODEL.jellyCrown / havuc / serinTas / hole, FX.marker / dizzy and the 'heart' / 'bigbubble'
+   projectiles are optional (plain stand-ins). test/r6_game_bonus.html. */
 const GAME = (() => {
   'use strict';
 
@@ -102,14 +111,20 @@ const GAME = (() => {
     // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
     // (Round 5: the town 50; the castle 54 → 58, Feza now comes through the town first)
     power: { dmg: [20, 28, 36, 44, 50, 58], k: 0.8 },
-    bossHp: 10.5,       // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger;
+    bossHp: 11.5,       // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger;
                         //    Round 5: → 10, after the town he meets it at lvl 15 with dmg 73–77: capped at 14 080 hp the kid bots
                         //    needed 53–70 s, at 16 000 58–86 s; Round 5 QA: the warrior masher, always at the cap, took 57–63 s
                         //    in 6 runs (2 under 60) → 10.5 (16 800 hp); the hybrid is sized on its wand below the cap, see bossHpNow:
                         //    21 masher runs: warrior 57–67 s (avg 63), wizard 76–79 (77), hybrid 75–86 (81; below the cap it
                         //    is unaffected: 72–90 s in 12 runs, was 88–100))
-    bossHpPerDmg: 220, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 220 × P.dmg, at least 58 % of the max (2nd round: 175;
+                        //    Round 6: → 11.5 (18 400 hp; the warrior now meets it with dmg 73–77, below the cap, see below)
+    bossHpPerDmg: 232, bossHpMin: 0.58, bossHybridK: 0.88,  // …sized to Feza's sword when the fight starts: 232 × P.dmg, at least 58 % of the max (2nd round: 175;
                                          //    Round 3: Feza reaches the castle a zone stronger, the fight stays ~1 minute, 60–90 s)
+                                         //    Round 6 (target 60–85 s; the friendship hearts: 3 waves, each −5 % hp + a 4 s
+                                         //    'charmed'): at 220 the warrior masher took 57–64 s, the hybrid who ignores the
+                                         //    hearts 85–91 s → 232, and the hybrid sized on 0.88 × its wand (bossHybridK). 42
+                                         //    runs (test/r6_game_kid.html, seeds 11–77): ignore 59–83 s avg 74 (warrior 64,
+                                         //    wizard 81, hybrid 76), go 55–75 avg 66 (64 / 72 / 62); 0 naps (Round 5: 74 s, 2 in 12)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
     // Round 3: the bosses at the end of zones 0–2. hp = per × Feza's damage (clamped to lo..hi) × (1 + 0.5 × round), sized
     // when the fight starts; dmg = the base hit (× 1 + 0.3 × round). Targets for a button-masher: kral jöle ~30–45 s,
@@ -117,10 +132,24 @@ const GAME = (() => {
     boss: {   // (Round 3 QA: masher fights measured 34 s / 45 s → per 100 / 125 raised a little to centre them in their targets)
       // (Round 4 QA, kid bots without potions: Kral Jöle put every run to sleep (~187 hp per fight vs 124–148 max hp) → dmg
       //  14 → 12; the Kefir Devi / Usta Köstebek ran 52–62 s for kids who tap or hold → per 140 → 130 and 130 → 124)
-      kraljole:      { per: 110, lo: 15, hi: 34, dmg: 12 },
-      kefirdev:      { per: 130, lo: 18, hi: 40, dmg: 16 },   // Round 4: Köpüklü Kefir Devi, ~35–50 s for a button-masher
-      kostebekusta:  { per: 124, lo: 21, hi: 48, dmg: 26 },   // (Round 4: met ~2 levels stronger: 23 → 26)
-      lavkaplumbaga: { per: 205, lo: 26, hi: 60, dmg: 26 },   // (25 → 26)
+      // Round 6 (each boss's bonus idea, BONUS; targets 35–50 / 40–55 / 45–60 / 50–70 / 55–75 / 60–85 s): test/r6_game_kid.html,
+      // masher + potion tap, 3 classes, seeds 11 23 37 51 64 77 (21 runs per policy): &bonus=ignore (the Round 5 kid) and
+      // &bonus=go (taps GAME.bonusSpot(): fetches the crown / carrot / hearts, pops the bubble, bonks the mole, hides behind a
+      // rock 8 s at a time). A stun gives a few free hits but going for it costs time too, so the two land close together.
+      // Before (Round 5 numbers, 12 runs): 34–55 s avg 44 · 37–56 avg 46 · 42–63 avg 51 · 55–84 avg 71 · 52–79 avg 62.
+      // The class spread stays (wizard ≈ 1.3 × warrior on the first four; no per-class hp factor, as in Round 5 QA).
+      //  kraljole 110 → 106, dmg 12 → 11 (the wizard fetching the crown napped in 4 of 4 fights at 12; at 11: 0 in 18):
+      //    ignore 34–52 avg 43 (warrior 35, wizard 50, hybrid 43), go 37–51 avg 43 (39 / 50 / 39), the crown won in 16 of 21 (go)
+      //  kefirdev 130 → 135: ignore 36–59 avg 48 (41 / 54 / 48), go 39–63 avg 49 (41 / 53 / 53); a bubble popped in every fight (the new due timer)
+      //  kostebekusta 124 → 114: ignore 42–66 avg 53 (46 / 63 / 50), go 41–68 avg 54 (49 / 64 / 50); the mole caught in every fight
+      //  lavkaplumbaga 205 → 165 (Round 5 already ran long, 71 s; hiding behind the rocks costs time): ignore 44–69 avg 58
+      //    (47 / 63 / 62), go 49–78 avg 64 (58 / 67 / 66), a flip in 20 of 21 (go)
+      //  sovalye 133 → 138 (below): ignore 48–86 avg 67 (69 / 75 / 59), go 48–82 avg 64 (61 / 72 / 59), carrot fed in 21 of 21
+      //  Boss naps: 8 in 252 fights, 5 of them Kral Jöle at dmg 12 (Round 5: 8 in 72). Hardcore (&hc&hcboss: god mode except in boss fights): 6 of 6 won.
+      kraljole:      { per: 106, lo: 15, hi: 34, dmg: 11 },
+      kefirdev:      { per: 135, lo: 18, hi: 40, dmg: 16 },   // Round 4: Köpüklü Kefir Devi, ~35–50 s for a button-masher (Round 6: 40–55)
+      kostebekusta:  { per: 114, lo: 21, hi: 48, dmg: 26 },   // (Round 4: met ~2 levels stronger: 23 → 26)
+      lavkaplumbaga: { per: 165, lo: 26, hi: 60, dmg: 26 },   // (25 → 26)
       // Round 5: Huysuz Şövalye, ~55–75 s for a button-masher. Feza meets him at lvl 12–14 with the volcano's treasure (dmg
       // 67–73 in every kid-bot run). SPEC's first guess per 230 (15 640 hp) took the bots 86–121 s (he gallops off across the
       // arena, rides his Berserker Charge and calls four sturdy guards); per 125 (8 625 hp): masher 52–76 s (avg 58), hold /
@@ -132,7 +161,7 @@ const GAME = (() => {
       // hybrid 64), 0 naps in all 39 fights, the guards' share 0–48 %, avg ~25 %; hold 58–115 s (the wizard's 102 / 115 s as in
       // his other zones), tap 64 / 84 s. The town's own naps: 0.6 per visit without potions (warrior 0.2, wizard 1.2, hybrid
       // 0.4), 0.25 with; the castle's 1.4 without (0.4 / 2 / 1.8), 0.3 with.
-      sovalye:       { per: 133, lo: 30, hi: 76, dmg: 28 },
+      sovalye:       { per: 138, lo: 30, hi: 76, dmg: 28 },
     },
     bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in a boss fight tires the boss: damage ×0.75 (down to ×0.55), −8 % hp
     dmg: 1.8,           // enemy damage (was 1.5)
@@ -217,19 +246,20 @@ const GAME = (() => {
   // ones it calls at the hp fractions `at` (n of them each time); roar: pitch of its (cute) roar; summonAt: when in its summon
   // phase (0..1) the little ones pop up (the model's "come out, friends!" beat; default 0.47); addHp / addDmg: the called
   // ones' hp / damage × this (default 1).
+  // Round 6: bonus = its arena bonus idea (BONUS, bonusStep).
   const BOSS_KIT = {
-    kraljole:      { lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' }, add: 'jole', at: [0.66, 0.33], n: [3, 3], roar: 1.45, col: '#5cc8ff' },
-    kostebekusta:  { lines: { giris: 'usta_giris', bitti: 'usta_bitti' }, add: 'kostebek', at: [0.66, 0.33], n: [3, 3], roar: 1.2, col: '#ffcf7a', summonAt: 0.8 },
-    lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c' },
+    kraljole:      { lines: { giris: 'kraljole_giris', bitti: 'kraljole_bitti' }, add: 'jole', at: [0.66, 0.33], n: [3, 3], roar: 1.45, col: '#5cc8ff', bonus: 'tac' },
+    kostebekusta:  { lines: { giris: 'usta_giris', bitti: 'usta_bitti' }, add: 'kostebek', at: [0.66, 0.33], n: [3, 3], roar: 1.2, col: '#ffcf7a', summonAt: 0.8, bonus: 'avla' },
+    lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c', bonus: 'serintas' },
     // Round 4: gift = it hands Feza a glass of kefir when it cheers up (see GIFT); roarSfx: its happy "fizz!" instead of a roar
-    kefirdev:      { lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' }, add: 'kopuk', at: [0.66, 0.33], n: [2, 3], roar: 1.1, col: '#bfe9ff', gift: true, roarSfx: 'fizz' },
+    kefirdev:      { lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' }, add: 'kopuk', at: [0.66, 0.33], n: [2, 3], roar: 1.1, col: '#bfe9ff', gift: true, roarSfx: 'fizz', bonus: 'balon' },
     // Round 5: the knight's horse neighs (+ an armour clink and a grumpy "Hımf!"); horn: he blows a little horn as the guards
     // come; roam: he gallops all over his arena (see bossStep). Round 5 QA (89 kid-bot runs): his 4 guards with full town
     // stats (~700 hp each) did ~40 % of the damage Feza took in his fight, more than his own warned moves, and made the
     // wand's fights long → lighter guards (addHp / addDmg): his own dodgeable moves are the danger
     sovalye:       { lines: { giris: 'sovalye_giris', bitti: 'sovalye_bitti' }, add: 'nobetci', at: [0.66, 0.33], n: [2, 2], roar: 1.05, col: '#ffd23f', roarSfx: 'neigh',
-      summonAt: 0.5, horn: true, word: 'Hımf!', roam: true, addHp: 0.6, addDmg: 0.7 },
-    ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yumurta' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
+      summonAt: 0.5, horn: true, word: 'Hımf!', roam: true, addHp: 0.6, addDmg: 0.7, bonus: 'havuc' },
+    ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yumurta' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0', bonus: 'kalp' },
   };
   // Fallback enemy stats (EDEF overrides every field it defines).
   const DEF0 = {
@@ -688,7 +718,7 @@ const GAME = (() => {
       crystal = null;
     }
     finale = false; ZF = {}; pathS = 0; pathCum = null; firstQ.length = 0; mooT = frand(18, 30);
-    C.cheerT = 0; C.castT = -1; removeMoustache();
+    C.cheerT = 0; C.castT = -1; removeMoustache(); fbClear();
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.queued = false; C.vel = 0;
     C.wandRoute = null; C.wandPlanAt = -99;
     C.lunge.t = 0; C.kbx = C.kbz = 0; C.route = null; C.lockT = 0; C.dragRoute = null; C.portalHold = false; C.dragWinT = -1;
@@ -748,7 +778,8 @@ const GAME = (() => {
     if (bt || L.boss) { const b = bt || 'ejderha'; types.add(b); types.add(bossKit(b).add); }
     const tmp = new THREE.Group(); tmp.name = 'gameWarm';
     const hasE = typeof EMODEL !== 'undefined' && EMODEL && EMODEL.build;
-    if (hasE && EMODEL.warm) { try { EMODEL.warm([...types], false); } catch (err) { warnOnce('EMODEL.warm', err); } }   // geometry caches
+    const propName = { tac: 'jellyCrown', havuc: 'havuc', serintas: 'serinTas', avla: 'hole' }[bt ? bossKit(bt).bonus : ''];   // (Round 6 bonus props)
+    if (hasE && EMODEL.warm) { try { EMODEL.warm([...types].concat(propName && EMODEL.PROPS && EMODEL.PROPS.includes(propName) ? [propName] : []), false); } catch (err) { warnOnce('EMODEL.warm', err); } }   // geometry caches
     if (hasE) for (const t of types) for (const el of [false, true]) {
       if (el && !elites.has(t)) continue;
       const vl = vars[t] ? [...vars[t]] : [VARIANTS[t] ? VARIANTS[t][0] : undefined];
@@ -768,6 +799,15 @@ const GAME = (() => {
       if (WARM_E._crystal && WARM_E._crystal.root) tmp.add(WARM_E._crystal.root);
     }
     if (bt === 'sovalye') { try { for (const s of sancakPool()) if (!s.used) tmp.add(s.m.root); } catch (err) { warnOnce('warm sancak', err); } }   // (Round 5) the tournament banners
+    // (Round 6) the boss's bonus things: its pooled models (the giant bubble / the hearts only when FX has no such shot)
+    const bk = bt && bossKit(bt).bonus, bonusFx = { balon: 'bigbubble', kalp: 'heart' }[bk], warmPools = [];
+    if (bk && BONUS_POOLS[bk]) {
+      try {
+        const fxShot = bonusFx ? fxProj(bonusFx, bk === 'kalp' ? '#ff6fb5' : undefined) : null;
+        if (fxShot) { tmp.add(fxShot); warmPools.push({ proj: fxShot }); }
+        for (const k of BONUS_POOLS[bk]) if (!(fxShot && (k === 'bubble' || k === 'heart'))) for (const p of bonusPool(k)) if (!p.used) { tmp.add(p.m.root); warmPools.push({ root: p.m.root }); }
+      } catch (err) { warnOnce('warm bonus', err); }
+    }
     const temp = [];   // FX handles to release after the draw
     try {
       const hm = new THREE.Mesh(heartGeo(), R.heartMat); hm.castShadow = true; tmp.add(hm);
@@ -790,6 +830,7 @@ const GAME = (() => {
         const tx = CAM.target.x, tz = CAM.target.z;
         temp.push(fx('telegraph', tx, tz, 2, 1, '#ff4a3a'), fx('telegraphCone', tx, tz, 0, 1.5, 2.5, 1, '#ff5a44'), fx('beam', tx, tz, '#ffd23f', 3));
         if (FX.telegraphLine) temp.push(fx('telegraphLine', tx - 2, tz, tx + 2, tz, 1.2, 1, '#ff6a3a'));
+        if (bk) { temp.push(bonusMark(tx + 1, tz, 0.9, bk === 'kalp' ? PINK_MARK : GOLD_MARK)); if (FX.dizzy) temp.push(fx('dizzy', tx, 1.5, tz, 0.55, 0)); }   // (Round 6)
       }
     } catch (err) { warnOnce('warmZone', err); }
     tmp.position.copy(CAM.target); tmp.position.y = 0;
@@ -839,6 +880,7 @@ const GAME = (() => {
     for (let k = 0; k < skVis.length; k += 2) skVis[k].visible = skVis[k + 1];
     R.coins.count = coinsN; R.bars.count = barsN;
     for (const h of temp) { if (h && h.proj) killProjectileObj(h.proj); else remove(h); }
+    for (const h of warmPools) { if (h.proj) killProjectileObj(h.proj); else removeObj(h.root); }
     for (const k in WARM_E) if (WARM_E[k] && WARM_E[k].root) removeObj(WARM_E[k].root);
     removeObj(potionTpl()); if (R.bottle) removeObj(R.bottle); if (R.glass) removeObj(R.glass); if (R.must && !must) removeObj(R.must);
     GAME.warmMs = Math.round(performance.now() - t0);
@@ -920,7 +962,7 @@ const GAME = (() => {
   // (Round 5 QA: the hybrid fights the dragon with its wand — the volcano's and the knight's treasures are swords, so sized
   // on P.dmg = its sword the dragon took it 88–100 s. The final boss — the one without DIFF.boss numbers — is sized on the
   // hybrid's wand; the other bosses stay on P.dmg)
-  const bossHpNow = type => { const c = bossCfg(type), ref = P.heroClass === 'hybrid' && !DIFF.boss[type] ? P.magicDmg : P.dmg;
+  const bossHpNow = type => { const c = bossCfg(type), ref = P.heroClass === 'hybrid' && !DIFF.boss[type] ? P.magicDmg * DIFF.bossHybridK : P.dmg;
     return Math.max(1, Math.round(c.per * clamp(ref, c.lo, c.hi) * (1 + 0.5 * P.ng) * (hardcore ? HC.bossHp : 1))); };
   // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
   function variantFor(type, sp) {
@@ -977,6 +1019,7 @@ const GAME = (() => {
     if (isBoss) {
       e.ph = 'idle'; e.phD = 1; e.wait = 1.5; e.last = ''; e.last2 = ''; e.th = []; e.yarim = false; e.summon = 0; e.dmg0 = e.dmg; e.naps = 0; e.sized = false;
       e.kit = bossKit(type); e.final = finalZone(); e.did = 0;
+      e.st.aggro = false; e.st.crownOff = 0;   // (Round 6: 05's pre-aggro idle loop needs a real false)
     }
     if (sp.whelp) {
       e.whelp = true; e.hp = e.maxHp = Math.max(12, Math.round(P.dmg * 2.1 * (hardcore ? HC.hp : 1))); e.dmg = (3 + Math.min(3, P.ng)) * (hardcore ? HC.dmg : 1);
@@ -1726,6 +1769,7 @@ const GAME = (() => {
   function bossCalm(b) {
     clearEncounter(b);
     b.aggro = false; remove(b.tele); b.tele = null; bossPhase(b, 'idle', 1); b.wait = 1;
+    b.st.crownOff = 0; b.st.aggro = false;   // (Round 6: the king's crown is back on; a mole peeking pops out in bossHome)
     emit('boss', { on: false, type: b.type });
     const Z = zdef(); if (Z.music) aud('music', Z.music);
   }
@@ -1754,26 +1798,31 @@ const GAME = (() => {
       if (!b.dead) burst('zzz', b.x + Math.sin(b.face) * b.r * 0.9, b.height * 0.45, b.z + Math.cos(b.face) * b.r * 0.9, {});
     });
   }
-  function bossPhase(b, ph, D) { b.ph = ph; b.stT = 0; b.did = 0; b.phD = D || 1; b.chT = null; }   // (chT: the knight's charge clock, see chargeK)
+  // (chT: the knight's charge clock, see chargeK; phM / phTM: the phase + phaseT the model shows when GAME's own phase has
+  // another name — Round 6: the mole's hide-and-seek dive shows as 'burrow')
+  function bossPhase(b, ph, D) { b.ph = ph; b.stT = 0; b.did = 0; b.phD = D || 1; b.chT = null; b.phM = null; b.phTM = -1; }
   function bossStep(b, dt, d, ux, uz, canTarget) {
     const st = b.st;
     if (!b.aggro) {
       if (canTarget && inBossArena(b)) bossAggro(b);
-      else { bossHome(b, dt); st.phase = st.move > 0.05 ? 'move' : 'idle'; st.phaseT = 0; return; }
+      else { st.aggro = false; bossHome(b, dt); st.phase = st.move > 0.05 ? 'move' : 'idle'; st.phaseT = 0; return; }
     }
+    st.aggro = true;   // (Round 6: 05's pre-aggro idle loop and the first roar's double take read it)
     // Feza gone (napping, or ran far off out of the room): the boss calms down and waits (its hp stays as it is)
     // (kit.roam: the knight gallops to the far rim — "far off" is counted from the arena's middle, not from him)
     const rm = b.kit.roam && bossRoom(), away = rm ? Math.hypot(P.pos.x - rm.x, P.pos.z - rm.z) : d;
     if (!canTarget || away > 34 || (!b.final && away > 22 && !inBossArena(b))) { bossCalm(b); return; }
-    if (encounterStep(b, dt)) {   // (a raid move that rides around poses the model itself: the knight's Berserker Charge)
+    const busy = encounterStep(b, dt);
+    if (b.dead) return;   // (Round 6: the dragon's big friendship heart can cheer it up)
+    if (busy) {   // (a raid move that rides around poses the model itself: the knight's Berserker Charge)
       const mv = b.encounter && b.encounter.move;
       if (!(mv && mv.anim)) { st.phase = 'idle'; st.phaseT = 0; st.move = 0; }
       return;
     }
     b.stT += dt;
     (BOSS_AI[b.type] || dragonStep)(b, dt, d, ux, uz);
-    st.phase = b.ph === 'idle' && st.move > 0.05 ? 'move' : b.ph;
-    st.phaseT = b.chT && b.ph === 'charge' ? chargeK(b) : clamp(b.stT / (b.phD || 1), 0, 1);
+    st.phase = b.phM || (b.ph === 'idle' && st.move > 0.05 ? 'move' : b.ph);
+    st.phaseT = b.phTM >= 0 ? b.phTM : b.chT && b.ph === 'charge' ? chargeK(b) : clamp(b.stT / (b.phD || 1), 0, 1);
   }
 
   // Little raid-inspired surprises. One cancellable state owns every marker, egg and playmate; no delayed callbacks
@@ -1802,7 +1851,7 @@ const GAME = (() => {
   }
   function startEncounter(b) {
     if (b.encounter) return;
-    b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true, sancak: null };
+    b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true, sancak: null, bonus: null };
     if (b.type === 'ejderha') { layEggs(b, 3); ftext(b.x, 1.7, b.z, 'Yumurtalara dikkat!', 'word'); }
   }
   // cheer: the boss itself just cheered up — its playmates stay so bossDown can cheer them up with everyone else
@@ -1812,6 +1861,7 @@ const GAME = (() => {
     if (q) {
       for (const egg of q.eggs) { removeObj(egg.pool.root); egg.pool.used = false; }
       clearBanners(q, cheer);
+      clearBonus(b, q, cheer);
       clearRaidMove(q); b.encounter = null;
     }
     if (cheer) return;
@@ -2120,7 +2170,10 @@ const GAME = (() => {
       }
     }
     if (b.type === 'sovalye') sancakStep(b, q, dt);   // (Round 5: the tournament banners; all down = it is dizzy, even mid-move)
+    bonusStep(b, q, dt);                              // (Round 6: the boss's bonus idea; it may cheer the boss up)
+    if (!b.encounter) return false;
     if (q.move) { raidMoveStep(b, dt); return true; }
+    if (bonusHold(q)) return false;                   // (the TBC clock waits while a bonus runs; no raid move starts)
     q.timer -= dt;
     if (b.ph !== 'idle') return false;
     if (q.timer <= 0 && q.nextNew) { q.nextNew = false; startRaidMove(b, RAID_NEW[b.type]); return true; }
@@ -2226,16 +2279,9 @@ const GAME = (() => {
     });
     if (S.state === 'up' && down === S.list.length) {   // all three down: the knight's head spins (a raid move or an attack stops)
       S.state = 'dizzy';
-      if (q.move) clearRaidMove(q);
-      remove(b.tele); b.tele = null; b.y = 0;
-      bossPhase(b, 'dizzy', SOV.dizzy);
       // (his horseshoes still in the air turn into sparkles: dizzy, he does nothing — one thrown just before must not land)
-      for (let i = mortars.length - 1; i >= 0; i--) {
-        const m = mortars[i];
-        if (m.kind !== 'horseshoe') continue;
-        burst('sparkle', m.obj.position.x, m.obj.position.y, m.obj.position.z, { color: '#f4f8ff', count: 10 });
-        remove(m.tele); killProjectileObj(m); mortars.splice(i, 1);
-      }
+      // (the banners' dizzy keeps its 4 s in Hardcore too, as in Round 5)
+      bonusStun(b, 'dizzy', SOV.dizzy, false);
       ftext(b.x, b.height + 0.5, b.z, 'Başı döndü!', 'word');
       sfx('neigh', { x: b.x, z: b.z, pitch: 1.35, vol: 0.8 }); sfx('bounce', { x: b.x, z: b.z, pitch: 0.7 });
       burst('star', b.x, b.height + 0.3, b.z, { count: 8, color: '#fff3a0' });
@@ -2362,6 +2408,12 @@ const GAME = (() => {
   // Timings follow the model's phases (05): hop = crouch 0–0.2, airborne 0.2–0.8 (the model jumps up by itself; GAME only
   // carries it across), lands at 0.8; spit = puff up, blobs at 0.42 / 0.6 / 0.78.
   const HOP = { D: 1.8, up: 0.2, down: 0.8, R: 3.0, maxD: 8.5 }, SPIT = { D: 1.7, at: [0.42, 0.6, 0.78] };
+  function jellyHop(b, D, R, crown) {   // lands right next to Feza (he is inside the circle), never on him; crown: BONUS.tac's big hop
+    bossPhase(b, 'hop', D);
+    const t = approachSpot(b, HOP.maxD);
+    b.hx0 = b.x; b.hz0 = b.z; b.hx1 = t.x; b.hz1 = t.z; b.hopR = R; b.crownHop = !!crown;
+    b.tele = fx('telegraph', t.x, t.z, R, D * HOP.down, '#ff4a3a');
+  }
   function kraljoleStep(b, dt, d, ux, uz) {
     const faceP = Math.atan2(ux, uz), st = b.st;
     st.air = 0;
@@ -2372,16 +2424,13 @@ const GAME = (() => {
         if (bossIdle(b, dt, d, ux, uz, 5.5)) {
           if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
           const ph = pickPhase(b, d < b.r + 3 ? [['hop', 0.65], ['spit', 0.35]] : d < 9 ? [['hop', 0.5], ['spit', 0.5]] : [['hop', 0.6], ['spit', 0.4]]);
-          if (ph === 'hop') {
-            bossPhase(b, 'hop', HOP.D);
-            const t = approachSpot(b, HOP.maxD);   // lands right next to Feza (he is inside the circle), never on him
-            b.hx0 = b.x; b.hz0 = b.z; b.hx1 = t.x; b.hz1 = t.z;
-            b.tele = fx('telegraph', t.x, t.z, b.def.slamR || HOP.R, HOP.D * HOP.down, '#ff4a3a');
-          } else bossPhase(b, 'spit', SPIT.D);
+          if (ph === 'hop') jellyHop(b, HOP.D, b.def.slamR || HOP.R, false);
+          else bossPhase(b, 'spit', SPIT.D);
         }
         break;
       case 'hop': {   // GAME carries it across while the model is in the air (st.air 0..1 = the flight)
-        const t = b.stT, c = HOP.D * HOP.up, a = HOP.D * (HOP.down - HOP.up);
+        // (Round 6: the big crown hop (BONUS.tac) is a longer one — its beats scale with phD — and knocks the crown off)
+        const t = b.stT, c = b.phD * HOP.up, a = b.phD * (HOP.down - HOP.up);
         if (t < c) b.face = dampAngle(b.face, Math.atan2(b.hx1 - b.x, b.hz1 - b.z), 6, dt);
         else if (t < c + a) {
           if (b.did === 0) { b.did = 1; sfx('bounce', { x: b.x, z: b.z, pitch: 0.7 }); burst('jelly', b.x, 0.3, b.z, { color: SHOT_COL.jelly, scale: 1.4 }); burst('dust', b.x, 0.05, b.z, { count: 10 }); }
@@ -2391,11 +2440,38 @@ const GAME = (() => {
           b.did = 2; b.x = b.hx1; b.z = b.hz1; remove(b.tele); b.tele = null;
           burst('jelly', b.x, 0.3, b.z, { color: SHOT_COL.jelly, scale: 2 }); burst('dust', b.x, 0.1, b.z, { count: 30, scale: 1.8 });
           sfx('slam', { x: b.x, z: b.z }); sfx('splat', { x: b.x, z: b.z, pitch: 0.7 });
-          bossRing(b, b.x, b.z, b.def.slamR || HOP.R, 1, 1.8, '#b8ecff');
+          bossRing(b, b.x, b.z, b.hopR || b.def.slamR || HOP.R, 1, 1.8, '#b8ecff');
+          if (b.crownHop) tacLand(b);
         }
-        if (t >= b.phD) bossEnd(b, 0.8, 1.3);
+        if (t >= b.phD) { if (b.crownHop && tacOn(b)) { b.crownHop = false; bossPhase(b, 'shy', 60); } else { b.crownHop = false; bossEnd(b, 0.8, 1.3); } }
         break;
       }
+      // (Round 6, BONUS.tac) the crown fell off: 'shy' — a short "oops!", then it tip-toes to its crown (no attacks; 05 hops
+      // it along by st.move); 'crownon' — it puts the crown back on (no stun); 'blush' — Feza gave it back: helpless, giggling
+      case 'shy': {
+        const Q = bonusOf(b), c = Q && Q.crown, B = BONUS.tac;
+        st.move = 0;
+        if (!c || Q.state !== 'on') { bossEnd(b, 0.5, 0.9); break; }
+        // (the "oops" counts from the landing: the hop's own recovery took the first part of it)
+        if (c.stage === 'lie' && b.stT >= Math.max(0, B.oops - B.hopD * (1 - HOP.down))) {
+          const dx = c.x - b.x, dz = c.z - b.z, dd = Math.hypot(dx, dz) || 1e-3;
+          if (dd <= b.r * 0.5 + B.king) { tacKingGets(b, Q); break; }   // (the crown right in front of its belly)
+          const w = B.walk * (hardcore ? HC.speed : 1);
+          bossWalk(b, dx / dd, dz / dd, w, dt);
+          st.move = Math.min(1, w / Math.max(1, b.speed));
+        } else b.face = dampAngle(b.face, Math.atan2(c.x - b.x, c.z - b.z), 3, dt);
+        break;
+      }
+      case 'crownon':
+        st.move = 0;
+        if (b.did === 0 && b.stT >= (b.def.crownOnAt || 0.35) * b.phD) { b.did = 1; st.crownOff = 0; burst('sparkle', b.x, b.height, b.z, { color: '#ffe27a', count: 14 }); sfx('pop', { x: b.x, z: b.z, pitch: 1.3 }); }
+        if (b.stT >= b.phD) { st.crownOff = 0; bossEnd(b, 0.6, 1.0); }
+        break;
+      case 'blush':
+        st.move = 0;
+        if (Math.random() < dt * 3) burst('sparkle', b.x + frand(-0.6, 0.6), b.height * 0.8, b.z + frand(-0.6, 0.6), { color: '#ffb3d9', count: 2 });
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
       case 'spit': {
         if (b.stT < 1.2) b.face = dampAngle(b.face, faceP, 4, dt);
         const t0 = SPIT.D * SPIT.at[0];
@@ -2417,7 +2493,7 @@ const GAME = (() => {
   // (drillAt 0.5 → 0.65: the drill was its most frequent hit with the shortest warning, 0.75 s; now ~1 s like the others)
   const DIG = { sink: 0.6, travel: 2.2, tele: 1.1, speed: 4.4, R: 2.7, rise: 0.35, rec: 1.3, throwD: 1.5, throwAt: 0.5, drillD: 1.5, drillAt: 0.65 };
   function kostebekustaStep(b, dt, d, ux, uz) {
-    const faceP = Math.atan2(ux, uz), sink = b.def.burrowIn || DIG.sink, rise = b.def.burrowOut || DIG.rise, R = b.def.slamR || DIG.R;
+    const st = b.st, faceP = Math.atan2(ux, uz), sink = b.def.burrowIn || DIG.sink, rise = b.def.burrowOut || DIG.rise, R = b.def.slamR || DIG.R;
     switch (b.ph) {
       case 'roar': bossRoar(b, 1.6); break;
       case 'summon': bossSummon(b, 1.5); break;
@@ -2495,6 +2571,25 @@ const GAME = (() => {
         if (b.stT >= b.phD) bossEnd(b, 0.9, 1.3);
         break;
       }
+      // (Round 6, BONUS.avla: hide-and-seek) 'avla' = GAME's dive / underground run / trembling mound (the model shows
+      // 'burrow'), 'peek' = its head pops out of a hole (st.burrow 0.6: it can be hit), 'bonk' = a tap on its head, 'dizzy'
+      case 'avla': avlaDive(b, dt, sink, R); break;
+      case 'peek':
+        b.bur = BONUS.avla.peekBur; st.move = 0;
+        b.face = dampAngle(b.face, faceP, 4, dt);
+        if (b.stT >= b.phD) avlaNext(b, true);
+        break;
+      case 'bonk':   // squashed into its hole, it sinks from 0.3 on (no more bonks: hidden again)
+        st.move = 0;
+        { const k0 = b.def.bonkSink || 0.3; b.bur = b.stT < k0 * b.phD ? BONUS.avla.peekBur : lerp(BONUS.avla.peekBur, 1, clamp((b.stT / b.phD - k0) / 0.5, 0, 1)); }
+        if (b.stT >= b.phD) avlaNext(b, false);
+        break;
+      case 'dizzy':   // caught: out of the hole, its head spins (it does nothing: whack it!)
+        st.move = 0;
+        if (b.bur > 0) { b.bur = Math.max(0, b.bur - dt / rise); if (b.bur <= 0) burst('dirt', b.x, 0.1, b.z, { count: 14, color: DIRT }); }
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
+      default: bossPhase(b, 'idle', 1); b.wait = 0.5;
     }
   }
 
@@ -2510,7 +2605,8 @@ const GAME = (() => {
       case 'idle':
         if (bossIdle(b, dt, d, ux, uz, 6)) {
           if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
-          let ph = pickPhase(b, d < b.r + 3 ? [['stomp', 0.5], ['hide', 0.2], ['erupt', 0.3]] : d < 10 ? [['erupt', 0.45], ['hide', 0.4], ['stomp', 0.15]] : [['erupt', 0.55], ['hide', 0.45]]);
+          const hw = serinRocks(b) ? BONUS.serintas.hideW : 1;   // (Round 6: rolls more often while the cool rocks stand)
+          let ph = pickPhase(b, d < b.r + 3 ? [['stomp', 0.5], ['hide', 0.2 * hw], ['erupt', 0.3]] : d < 10 ? [['erupt', 0.45], ['hide', 0.4 * hw], ['stomp', 0.15]] : [['erupt', 0.55], ['hide', 0.45 * hw]]);
           // no room for a real roll (Feza between it and the rim, a pillar in the way): stomp up close, else erupt
           if (ph === 'hide' && !startLavaRoll(b, ux, uz)) b.last = ph = d < b.r + 3.5 ? 'stomp' : 'erupt';
           if (ph === 'stomp') { bossPhase(b, 'stomp', LAVA.stompD); b.tele = fx('telegraph', b.x, b.z, SR, LAVA.stompD * LAVA.stompAt, '#ff4a3a'); }
@@ -2568,10 +2664,21 @@ const GAME = (() => {
         const bumped = moved < step * 0.3 || onFeza;
         if (b.rollD >= b.rollLen || bumped || b.stT >= b.phD) {
           if (bumped) { sfx('bounce', { x: b.x, z: b.z, pitch: 0.6 }); shake(0.25); burst('dust', b.x, 0.2, b.z, { count: 16, scale: 1.4 }); }
-          bossEnd(b, 1.3, 1.8);   // pops out of its shell, a bit dizzy: the time to whack it
+          // Round 6: a cool rock right in front (BONUS.serintas) tips it over; else it pops out of its shell a bit dizzy
+          // ('rollend': the time to whack it; was an idle wait of the same length)
+          if (!serinFlip(b)) { remove(b.tele); b.tele = null; bossPhase(b, 'rollend', frand(1.3, 1.8)); }
         }
         break;
       }
+      case 'rollend':
+        st.move = 0;
+        if (b.stT >= b.phD) bossEnd(b, 0.2, 0.2);
+        break;
+      case 'flip':   // (Round 6) tipped onto its side against a cool rock, legs paddling: helpless (whack it!)
+        st.move = 0;
+        if (Math.random() < dt * 4) burst('steam', b.x + frand(-0.8, 0.8), 0.6, b.z + frand(-0.8, 0.8), { count: 2 });
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
       case 'stomp':
         if (b.did === 0 && b.stT >= LAVA.stompD * LAVA.stompAt) {
           b.did = 1; b.tele = null;
@@ -2585,7 +2692,9 @@ const GAME = (() => {
   }
   function startLavaRoll(b, ux, uz) {   // false: the lane is too short for a roll
     const len = laneLen(b.x, b.z, ux, uz, 16, b.r * 0.85, bossRoom());
-    if (len < 3) return false;
+    // (Round 6: a lane cut short by a cool rock still makes a roll — Feza hiding right behind one is the whole idea, and
+    // the turtle walks up to ~6 m of him, too close for the usual 3 m lane)
+    if (len < 3 && !(len >= 1.5 && serinLaneRock(b, ux, uz, len))) return false;
     bossPhase(b, 'hide', 1.0);
     b.face = Math.atan2(ux, uz); b.rdx = ux; b.rdz = uz;
     b.rollLen = len;
@@ -2618,9 +2727,15 @@ const GAME = (() => {
       case 'idle':
         if (bossIdle(b, dt, d, ux, uz, 5.5)) {
           if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
-          const ph = pickPhase(b, d < b.r + 3 ? [['geyser', 0.45], ['slam', 0.35], ['bubbles', 0.2]]
-            : d < 9 ? [['geyser', 0.4], ['bubbles', 0.35], ['slam', 0.25]] : [['bubbles', 0.5], ['slam', 0.5]]);
-          if (ph === 'geyser') {   // it shakes first; the foam cone shows for the whole wind-up
+          // (Round 6: 'blow' = BONUS.balon's giant bubble, one at a time. It is DUE soon after its hp mark (first) and then
+          // every gap s: when due it blows whatever the distance (a kid right next to it: it scoots back while it inhales);
+          // before that only now and then from a little way off, ≥ cd s apart)
+          const br = balonReady(b), due = br && balonDue(b);
+          const bw = br && d >= b.r + 3 ? BONUS.balon.w : 0;
+          const ph = due ? 'blow' : pickPhase(b, d < b.r + 3 ? [['geyser', 0.45], ['slam', 0.35], ['bubbles', 0.2]]
+            : d < 9 ? [['geyser', 0.4], ['bubbles', 0.35], ['slam', 0.25], ['blow', bw]] : [['bubbles', 0.5], ['slam', 0.5], ['blow', bw]]);
+          if (ph === 'blow') balonBlow(b);
+          else if (ph === 'geyser') {   // it shakes first; the foam cone shows for the whole wind-up
             bossPhase(b, 'shake', KEF.shakeD); b.face = faceP;
             b.tele = fx('telegraphCone', b.x, b.z, b.face, kefCone(b), b.r + kefLen(b), KEF.shakeD + KEF.geyD * kefSpray(b)[0], '#ff5a44');
             sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 0.85 }); sfx('squish', { x: b.x, z: b.z, vol: 0.5, pitch: 0.7 });
@@ -2695,6 +2810,35 @@ const GAME = (() => {
           bossRing(b, b.x, b.z, b.def.slamR || KEF.R, 1, 1.8, '#ffe9c4', { k: 0.8, edge: 0.35 });
         }
         if (t >= b.phD) bossEnd(b, 0.8, 1.3);
+        break;
+      }
+      // (Round 6, BONUS.balon) 'blow': inhales, the cap hovers, it blows a giant bubble at its mouth (0.5–0.75), lets it go at
+      // 0.75 (the bubble itself: balonStep); 'hiccup': Feza popped it — three big hiccups, helpless (whack it!)
+      case 'blow': {
+        const k = b.stT / b.phD, ba = balonAt(b);
+        if (k < ba[0] && b.blowBack > 0) {   // (Feza right next to it: a little scoot back while it breathes in)
+          const rm = bossRoom(), ox = b.x, oz = b.z, v = Math.min(b.blowBack, BONUS.balon.back / Math.max(0.2, ba[0] * b.phD) * dt);
+          moveE(b, -ux * v, -uz * v); b.blowBack -= v;
+          if (rm && !inRoom(rm, b.x, b.z, b.r * 0.7)) { b.x = ox; b.z = oz; b.blowBack = 0; }
+        }
+        if (k < ba[0]) b.face = dampAngle(b.face, faceP, 4, dt);
+        if (k < ba[0] && Math.random() < dt * 6) { const m = muzzle(b); burst('fizz', m.x, m.y, m.z, { count: 2, scale: 0.7 }); }
+        if (b.did === 0 && k >= ba[1]) { b.did = 1; balonSpawn(b); }
+        if (b.did === 1 && k >= ba[2]) { b.did = 2; balonRelease(b); }
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.4);
+        break;
+      }
+      case 'hiccup': {
+        st.move = 0;
+        const k = b.stT / b.phD, at = Array.isArray(b.def.hiccupAt) && b.def.hiccupAt.length ? b.def.hiccupAt : [0.15, 0.45, 0.75];
+        if (b.did < at.length && k >= at[b.did]) {
+          b.did++;
+          const m = muzzle(b);
+          sfx('hiccup', { x: b.x, z: b.z, pitch: frand(0.95, 1.15) }); sfx('fizz', { x: b.x, z: b.z, vol: 0.7, pitch: 1.3 });
+          burst('fizz', m.x, m.y + 0.2, m.z, { count: 14, scale: 1.3 });
+          ftext(b.x, b.height + 0.5, b.z, 'Hık!', 'word');
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
         break;
       }
       default: bossPhase(b, 'idle', 1); b.wait = 0.5;
@@ -2903,8 +3047,935 @@ const GAME = (() => {
         if (Math.random() < dt * 3) burst('star', b.x + frand(-0.4, 0.4), b.height + 0.25, b.z + frand(-0.4, 0.4), { count: 2, color: '#fff3a0' });
         if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
         break;
+      // (Round 6, BONUS.havuc) 'seek': Feza holds the carrot — the hungry horse trots to him (no attacks) until its front is
+      // close enough to take it; 'munch': the horse chews happily, the knight sulks with crossed arms (whack him!)
+      case 'seek': {
+        const Q = bonusOf(b), H0 = BONUS.havuc;
+        if (!Q || Q.stage !== 'held') { bossEnd(b, 0.5, 0.9); break; }
+        if (d <= b.r + H0.feed) { havucFeed(b, Q); break; }
+        bossWalk(b, ux, uz, H0.seek * (hardcore ? HC.speed : 1), dt);
+        st.move = Math.min(1, H0.seek / Math.max(1, b.speed));
+        if ((b.trailT -= dt) <= 0) { b.trailT = 0.2; hoofFx(b, 1, 2); }
+        break;
+      }
+      case 'munch': {
+        st.move = 0;
+        b.face = dampAngle(b.face, faceP, 2, dt);
+        b.chew = (b.chew || 0) - dt;
+        if (b.chew <= 0) {
+          b.chew += 0.5;
+          let m = null;
+          if (b.m.marker) { try { m = b.m.marker('mouth', _hornV); } catch (err) { warnOnce('marker mouth', err); } }
+          if (!m || !isFinite(m.x)) m = muzzle(b);
+          sfx('munch', { x: b.x, z: b.z, pitch: frand(0.95, 1.1) });
+          burst('crumbs', m.x, m.y, m.z, { count: 5, color: '#ff9a2a' });
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
+      }
       default: bossPhase(b, 'idle', 1); b.wait = 0.5;
     }
+  }
+  // ── Round 6: the bosses' bonus ideas (BOSS_KIT[type].bonus; the approved plan test/r6_PLAN.md §0 / §1). One optional,
+  // kid-readable thing per boss: do it and the boss is silly and helpless for a few s (its stun phase, bonusStun: no attack,
+  // never hurts Feza, whack it!); ignore it and nothing is lost. q.bonus lives on b.encounter ({kind, state 'wait' | 'on' |
+  // 'stun' | 'done', t, have, need, hold, stage, …}; a nap / retreat / zone change clears it with everything else and it
+  // comes back, unless the kid already won it (b.bonusWon)). It starts only from idle, never during a raid move or with a
+  // summon waiting, and while it runs (hold) or the boss is stunned the TBC clock waits; afterwards q.timer ≥ timerAfter.
+  // Its pickable things are L.breakObjs entries with .bonus (a tap walks Feza there, a swing / skill / wand shot hits them,
+  // no loot; touching the crown / carrot / hearts takes them too). Pooled models: EMODEL.jellyCrown / havuc / serinTas / hole
+  // (plain Kit stand-ins while 05 has none), FX.projectile('heart' | 'bigbubble'), FX.marker (the gold / pink "come here"
+  // hoop), FX.dizzy (stars round a stunned head) — all optional. Hardcore: stuns × hcStun, the mole peeks shorter, the
+  // bubble takes one more hit, the hearts last less, the king waddles faster. Numbers (BONUS, s / m / m/s / hp fractions):
+  //   tac      at hp · hopD / hopR the big crown hop (its circle fills hopD × 0.8 = 2 s) · fly s the crown's arc to a spot
+  //            spot m from the king · walk m/s its waddle after oops s · touch Feza's reach · back s the crown flying home ·
+  //            stun s 'blush' · king m it grabs the crown from in front of its belly · max s then it gets it anyway
+  //   balon    w pick weight of 'blow' (from b.r + 3 m on) · cd s between blows · first s after the hp mark the first blow is
+  //            due (then every gap s after the last: blows at any distance; closer than b.r + back + 1 m it scoots back up to
+  //            back m while it inhales) · D s 'blow' · at hp · r0 → r the bubble grows
+  //            · speed / turn it floats after Feza · life s · hits (HC hitsHC) to pop · dmgK × b.dmg when it touches him (not in
+  //            its first grace s of flight) · stun
+  //   avla     at · holes on a ring m round the arena's middle · travel m/s underground · mark s the mound trembles on the
+  //            gold hoop · peek (HC peekHC) s its head is out · bonk s · need bonks → 'dizzy' stun s · max peeks, then an
+  //            ordinary pop-up under a lastTele s red circle
+  //   serintas at · n rocks on a ring m, r m each · hideW × the roll's weight while they stand · front m in front of its
+  //            shell at a roll's end → 'flip' stun s (≤ flips) · pop s they rise
+  //   havuc    at (the banners down and done, or still all standing: then ≥ banGap m from each) · spot m ≥ from the knight · touch · seek m/s the horse trots to Feza · feed m in
+  //            front of its nose · fly s into its mouth · stun s 'munch' · y the carrot over Feza's head
+  //   kalp     at (one wave each) · D s 'sigh', the hearts at blowAt · n hearts on a ring m, eggGap / heroGap m clear ·
+  //            life (HC lifeHC) s hovering · touch · send s the big heart to the dragon · dmgK × maxHp · stun s 'charmed'
+  const BONUS = {
+    tac:      { at: 0.55, hopD: 2.5, hopR: 3.4, fly: 1.0, spot: [5, 7], walk: 1.3, oops: 1.2, touch: 1.1, back: 0.6, stun: 3.5, king: 1.2, max: 12 },
+    balon:    { w: 0.25, cd: 10, first: 0.8, gap: [10, 14], back: 2.2, grace: 1.0, D: 2.4, at: 0.75, r0: 0.35, r: 1.0, speed: 1.5, turn: 0.6, life: 9, hits: 2, hitsHC: 3, dmgK: 0.45, stun: 3.0, kb: 0.9, y: 1.15 },
+    avla:     { at: 0.5, holes: 4, ring: 4.5, travel: 8, mark: 1.2, peek: 1.6, peekHC: 1.3, bonk: 0.45, need: 3, max: 6, stun: 4, lastTele: 2.0, peekBur: 0.6 },
+    serintas: { at: 0.7, n: 3, ring: 5, r: 0.75, hideW: 1.6, front: 0.9, stun: 4.5, pop: 0.4, flips: 3, crack: 0.35 },
+    havuc:    { at: 0.4, banGap: 6, spot: 5, touch: 1.0, seek: 2.4, feed: 1.2, fly: 0.4, stun: 5, y: 2.0, scale: 1.4 },
+    kalp:     { at: [0.8, 0.55, 0.3], D: 1.6, blowAt: 0.55, n: 3, ring: [5, 7], eggGap: 2.2, heroGap: 2.5, life: 14, lifeHC: 10, touch: 1.1, send: 0.8, dmgK: 0.05, stun: 4, fly: 1.2, y: 1.0 },
+    hcStun: 0.8, timerAfter: 4,
+  };
+  const GOLD_MARK = '#ffd23f', PINK_MARK = '#ff6fb5';
+  const bonusOf = b => (b && b.encounter && b.encounter.bonus) || null;
+  const bonusHold = q => { const Q = q && q.bonus; return !!Q && (Q.state === 'stun' || (Q.state === 'on' && Q.hold)); };
+  const canStartBonus = (b, q) => b.ph === 'idle' && !q.move && !b.summon && !P.dead && GAME.state === 'play' && !(q.bonus && gt < (q.bonus.after || 0));
+  const hpFrac = b => b.hp / Math.max(1, b.maxHp);
+  function bonusEvent(b, Q, on) {
+    emit('bonus', { on: on !== undefined ? !!on : Q.state === 'on' || Q.state === 'stun', kind: Q.kind, type: b.type, have: Q.have, need: Q.need, state: Q.state });
+  }
+  function bonusLine(b, flag, k) { if (!b[flag] && hasLine(k)) { b[flag] = true; say(k, 2); } }   // (once per fight; unknown keys: silent)
+  function bonusRelease(b, q, Q, state) {   // the bonus stops without a stun (the boss got its crown, the bubble faded…)
+    Q.state = state; Q.hold = false; Q.stage = null;
+    if (state === 'wait') Q.after = gt + 3;   // (a breather before it can come again)
+    if (q) q.timer = Math.max(q.timer, BONUS.timerAfter + 0.02);   // (+ a frame: the clock ticks on in this one)
+    remove(Q.mark); Q.mark = null;
+    bonusEvent(b, Q, false);
+  }
+  function unBreak(o) {   // out of L.breakObjs (broken: a tap walking to it gives up)
+    if (!o) return;
+    o.broken = true;
+    const i = L && L.breakObjs ? L.breakObjs.indexOf(o) : -1;
+    if (i >= 0) L.breakObjs.splice(i, 1);
+  }
+  function addBreak(o) { if (L) (L.breakObjs || (L.breakObjs = [])).push(o); return o; }
+  // The boss's stun: whatever it was doing stops (a raid move, a telegraph, its lobbed shots still in the air turn into
+  // sparkles), then its stun phase for D s. own: a bonus stun (Hardcore × hcStun, q.bonus → 'stun'); the knight's banners'
+  // dizzy (Round 5) keeps its full length.
+  function bonusStun(b, phase, D, own = true) {
+    const q = b.encounter;
+    if (q && q.move) clearRaidMove(q);
+    remove(b.tele); b.tele = null; b.y = 0; b.st.air = 0; b.crownHop = false;
+    for (let i = mortars.length - 1; i >= 0; i--) {
+      const m = mortars[i];
+      burst('sparkle', m.obj.position.x, m.obj.position.y, m.obj.position.z, { color: m.kind === 'horseshoe' ? '#f4f8ff' : '#ffd08a', count: 10 });
+      remove(m.tele); killProjectileObj(m); mortars.splice(i, 1);
+    }
+    bossPhase(b, phase, D * (own && hardcore ? BONUS.hcStun : 1));
+    const Q = own && q && q.bonus;
+    if (Q) { Q.state = 'stun'; Q.stunPh = phase; Q.hold = true; Q.stunAt = gt; remove(Q.mark); Q.mark = null; bonusEvent(b, Q, true); }
+  }
+  function bonusStunEnd(b, q, Q) {
+    remove(Q.dz); Q.dz = null; Q.stunPh = null; Q.hold = false; Q.stage = null;
+    q.timer = Math.max(q.timer, BONUS.timerAfter + 0.02);   // (+ a frame: the clock ticks on in this one)
+    const k = Q.kind;
+    Q.state = k === 'balon' ? 'wait' : k === 'kalp' ? ((b.kalpWave || 0) < BONUS.kalp.at.length ? 'wait' : 'done')
+      : k === 'serintas' ? (serinRocks(b) && Q.have < BONUS.serintas.flips ? 'on' : 'done') : 'done';
+    if (k === 'serintas' && Q.state === 'done') serinClear(Q, true);
+    bonusEvent(b, Q, Q.state === 'on');
+  }
+  function bonusStep(b, q, dt) {
+    const kind = b.kit && b.kit.bonus;
+    if (!kind || !BONUS[kind] || b.dead) return;
+    let Q = q.bonus;
+    if (!Q) {
+      if (b.bonusWon) return;
+      Q = q.bonus = { kind, state: 'wait', t: 0, have: 0, need: kind === 'avla' ? BONUS.avla.need : kind === 'kalp' ? BONUS.kalp.n : 1, hold: false, stage: null,
+        stunPh: null, dz: null, mark: null };
+    }
+    Q.t += dt;
+    if (Q.state === 'stun') {
+      if (Q.dz) Q.dz.move(b.x, b.y + b.height * (1 - 0.7 * (b.bur || 0)) + 0.3, b.z);
+      if (b.ph !== Q.stunPh) bonusStunEnd(b, q, Q);
+    }
+    BONUS_STEP[kind](b, q, Q, dt);
+  }
+  function bonusHit(o) {   // (breakObj) a swing, a skill, a wand shot or a tap hit one of the bonus things
+    const b = boss, Q = bonusOf(b);
+    if (!Q || o.broken || !b || b.dead) return;
+    if (o.bonus === 'tac') tacGive(b, Q);
+    else if (o.bonus === 'balon') balonHit(b, Q);
+    else if (o.bonus === 'havuc') havucTake(b, Q);
+    else if (o.bonus === 'kalp' && o.heart) kalpTake(b, Q, o.heart);
+  }
+  function clearBonus(b, q, cheer) {   // (clearEncounter: nap, calm, zone change; cheer: the boss cheered up — a sparkly poof)
+    if (b && b.st) b.st.crownOff = 0;
+    const Q = q && q.bonus;
+    if (!Q) return;
+    const poof = (x, y, z, col) => { if (cheer) burst('sparkle', x, y, z, { color: col || '#ffe27a', count: 12 }); };
+    remove(Q.mark); remove(Q.dz); Q.mark = Q.dz = null;
+    if (Q.crown) {
+      const c = Q.crown; poof(c.x, c.y, c.z); if (cheer) burst('sparkle', b.x, b.height, b.z, { color: '#ffe27a', count: 14 });
+      givePool(c.p); unBreak(c.brk); Q.crown = null;
+    }
+    if (Q.bub) { const u = Q.bub; burst('bigPop', u.x, u.y, u.z, { scale: u.s, ring: false }); bubbleGone(u); Q.bub = null; }
+    for (const h of Q.holes || []) { poof(h.x, 0.3, h.z, '#e8c89a'); givePool(h.p); }
+    Q.holes = [];
+    serinClear(Q, cheer);
+    if (Q.carrot) { const c = Q.carrot; poof(c.x, c.y, c.z, '#ffb24a'); givePool(c.p); unBreak(c.brk); Q.carrot = null; }
+    for (const h of Q.hearts || []) if (!h.done) { poof(h.x, h.y, h.z, '#ffb3d9'); kalpGone(h); }
+    Q.hearts = [];
+    if (Q.big) { kalpGone(Q.big); Q.big = null; }
+    if (Q.state === 'on' || Q.state === 'stun') { Q.state = 'wait'; bonusEvent(b, Q, false); }
+    q.bonus = null;
+  }
+
+  // ── pooled models (EMODEL's, else plain stand-ins) and the "come here" hoops / dizzy stars (FX's, else stand-ins) ──
+  const BONUS_MODEL = { crown: ['jellyCrown', 1], carrot: ['havuc', 1], rock: ['serinTas', 3], hole: ['hole', 4], heart: [null, 4], bubble: [null, 1] };
+  const BONUS_POOLS = { tac: ['crown'], balon: ['bubble'], avla: ['hole'], serintas: ['rock'], havuc: ['carrot'], kalp: ['heart'] };
+  function bonusPool(kind) {
+    const all = R.bonusP || (R.bonusP = {});
+    if (all[kind]) return all[kind];
+    const spec = BONUS_MODEL[kind], list = all[kind] = [];
+    for (let i = 0; i < spec[1]; i++) {
+      let m = null;
+      if (spec[0] && typeof EMODEL !== 'undefined' && EMODEL && typeof EMODEL[spec[0]] === 'function') { try { m = EMODEL[spec[0]](); } catch (err) { warnOnce('EMODEL.' + spec[0], err); } }
+      if (!m || !m.root) m = BONUS_FALLBACK[kind]();
+      m.root.userData.bonus = kind;
+      list.push({ m, used: false });
+    }
+    return list;
+  }
+  function takePool(kind) {
+    const p = bonusPool(kind).find(q => !q.used);
+    if (!p) return null;
+    p.used = true; const r = p.m.root; r.visible = true; r.scale.setScalar(1); r.rotation.set(0, 0, 0); r.position.set(0, 0, 0); scene.add(r);
+    return p;
+  }
+  function givePool(p) { if (!p) return; removeObj(p.m.root); p.m.root.scale.setScalar(1); p.used = false; }
+  function poolAnim(p, dt, s) { if (p && p.m.anim) { try { p.m.anim(dt, s); } catch (err) { warnOnce('bonus.anim', err); } } }
+  // FX's projectile of that kind, or null when this FX build does not know it (it would make its star instead)
+  const FXK = {};
+  function fxProj(kind, color) {
+    if (FXK[kind] === false) return null;
+    const o = fx('projectile', kind, color);
+    if (!o) { FXK[kind] = false; return null; }
+    const u = o.userData && o.userData.fxp;
+    if (u && u.star && kind !== 'star') { FXK[kind] = false; killProjectileObj(o); return null; }
+    FXK[kind] = true;
+    return o;
+  }
+  function kitModel(k, name, o) {
+    const mat = vcMat(Object.assign({ roughness: 0.5 }, o || {})), mesh = new THREE.Mesh(k.build(), mat);
+    mesh.castShadow = true;
+    const root = new THREE.Group(), body = new THREE.Group(); body.add(mesh); root.add(body); root.name = name;
+    return { root, body, mesh, mat, fallback: true, dispose() { mesh.geometry.dispose(); mat.dispose(); } };
+  }
+  // anim(dt, {spin, glow, bob}) etc.: 0..1 amounts (GAME places the root, with its own little bob)
+  const BONUS_FALLBACK = {
+    crown() {   // a chunky golden crown with five points and three jelly gems
+      const k = new Kit();
+      k.add(G.cyl(1, 1.08, 18), '#ffd23f', [0, 0.1, 0], 0, [0.3, 0.2, 0.3]);
+      for (let i = 0; i < 5; i++) {
+        const a = i * TAU / 5;
+        k.add(G.cone(8), '#ffd23f', [Math.sin(a) * 0.27, 0.3, Math.cos(a) * 0.27], 0, [0.075, 0.2, 0.075]);
+        k.add(G.sphere(8), '#fff3a0', [Math.sin(a) * 0.27, 0.42, Math.cos(a) * 0.27], 0, 0.04);
+      }
+      for (let i = 0; i < 3; i++) { const a = i * TAU / 3 + 0.5; k.add(G.sphere(10), i ? '#5cc8ff' : '#ff5aa0', [Math.sin(a) * 0.31, 0.1, Math.cos(a) * 0.31], 0, 0.06); }
+      const m = kitModel(k, 'bonusCrown', { metalness: 0.35, roughness: 0.3, emissive: '#6a4a00', emissiveIntensity: 0.3 });
+      m.anim = (dt, s) => { s = s || {}; m.t = (m.t || 0) + dt; m.body.rotation.y += dt * TAU * (s.spin || 0); m.body.position.y = (s.bob || 0) * (0.18 + 0.06 * Math.sin(m.t * 2.6)); m.mat.emissiveIntensity = 0.3 + 0.6 * (s.glow || 0); };
+      return m;
+    },
+    carrot() {   // a cute golden-orange carrot, leafy top, two dot eyes
+      const k = new Kit();
+      k.add(G.cone(12), '#ff8a1c', [0, 0.2, 0], [Math.PI, 0, 0], [0.12, 0.42, 0.12]);
+      for (let i = 0; i < 3; i++) { const a = (i - 1) * 0.45; k.add(G.cone(6), '#5ccf4a', [Math.sin(a) * 0.05, 0.5, 0], [0, 0, -a], [0.05, 0.22, 0.05]); }
+      for (const sx of [-1, 1]) k.add(G.sphere(6), '#3a2410', [0.045 * sx, 0.33, 0.1], 0, 0.018);
+      const m = kitModel(k, 'bonusCarrot', { roughness: 0.45, emissive: '#6a2a00', emissiveIntensity: 0.25 });
+      m.anim = (dt, s) => { s = s || {}; m.t = (m.t || 0) + dt; m.body.rotation.y += dt * TAU * (s.spin || 0); m.body.position.y = (s.bob || 0) * (0.14 + 0.07 * Math.sin(m.t * 2.8)); m.mat.emissiveIntensity = 0.25 + 0.55 * (s.glow || 0); };
+      return m;
+    },
+    rock() {   // a round glossy mint-blue boulder (no face) with a frosty highlight
+      const k = new Kit();
+      k.add(G.ico(1), '#9fe8e6', [0, 0.6, 0], 0, [0.8, 0.66, 0.8]);
+      k.add(G.sphere(8), '#eaffff', [0.28, 0.98, 0.3], 0, 0.1);
+      k.add(G.sphere(8), '#eaffff', [-0.3, 0.8, 0.4], 0, 0.06);
+      const m = kitModel(k, 'bonusRock', { roughness: 0.28, emissive: '#2aa8b8', emissiveIntensity: 0.3 });
+      m.anim = (dt, s) => {
+        s = s || {}; const p = s.pop === undefined ? 1 : s.pop, c = s.crack || 0, u = p - 1;
+        const sc = Math.max(0.01, (1 + 2.2 * u * u * u + 1.2 * u * u) * (1 - 0.6 * c));
+        m.body.scale.set(sc, sc * (1 - 0.3 * c), sc); m.body.position.y = -0.4 * c;
+        m.mat.emissiveIntensity = 0.3 + 0.4 * (s.glow || 0);
+      };
+      return m;
+    },
+    hole() {   // a dark dirt hole with a lumpy rim
+      const k = new Kit();
+      k.add(G.sphere(18), '#3b2716', [0, 0.01, 0], 0, [0.85, 0.035, 0.85]);
+      for (let i = 0; i < 9; i++) { const a = i * TAU / 9; k.add(G.sphere(8), i % 2 ? '#9a7550' : '#8a6644', [Math.sin(a) * 0.9, 0.05, Math.cos(a) * 0.9], 0, [0.24, 0.12, 0.2]); }
+      const m = kitModel(k, 'bonusHole', { roughness: 1 });
+      m.mesh.castShadow = false; m.mesh.receiveShadow = true;
+      m.anim = (dt, s) => { s = s || {}; const o = Math.max(0.01, s.open === undefined ? 1 : s.open); m.body.scale.set(o, 1, o); m.body.position.x = (s.shake || 0) * 0.04 * Math.sin(gt * 40); };
+      return m;
+    },
+    heart() {   // a glossy pink friendship heart (FX's 'heart' shot when there is one)
+      if (!R.pinkHeart) { heartGeo(); R.pinkHeart = rimify(stdMat({ color: '#ff5aa8', roughness: 0.2, metalness: 0.05, emissive: '#e0408a', emissiveIntensity: 0.35 }), '#ffc2e0', 0.35, 2.6); }
+      const mesh = new THREE.Mesh(heartGeo(), R.pinkHeart), root = new THREE.Group(), body = new THREE.Group();
+      mesh.castShadow = true; mesh.scale.setScalar(1.2); body.add(mesh); root.add(body); root.name = 'bonusHeart';
+      return { root, body, fallback: true, anim(dt) { body.rotation.y += dt * 2; }, dispose() {} };
+    },
+    bubble() {   // a giant soap bubble, radius 1 (FX's 'bigbubble' when there is one)
+      const mat = new THREE.MeshStandardMaterial({ color: '#e4f4ff', transparent: true, opacity: 0.34, roughness: 0.08, metalness: 0.1, emissive: '#8fd0ff', emissiveIntensity: 0.3, depthWrite: false });
+      const mesh = new THREE.Mesh(G.sphere(28), mat), root = new THREE.Group(); mesh.renderOrder = 24; root.add(mesh); root.name = 'bonusBubble';
+      return { root, fallback: true, anim() {}, dispose() { mat.dispose(); } };
+    },
+  };
+  // FX.marker / FX.dizzy, else a plain stand-in: a pulsing gold (or pink) hoop with rising sparkles / stars round a head
+  const fbFx = [];
+  function fbHandle(it) {
+    it.kill = () => { if (it.obj) { removeObj(it.obj); it.obj = null; } const i = fbFx.indexOf(it); if (i >= 0) fbFx.splice(i, 1); };
+    fbFx.push(it);
+    return { obj: it.obj, move(x, a, b2) { if (it.dizzy) { it.x = x; it.y = a; it.z = b2; } else { it.x = x; it.z = a; } }, remove: it.kill };
+  }
+  function bonusMark(x, z, r, color) {
+    if (typeof FX !== 'undefined' && FX && typeof FX.marker === 'function') { const h = fx('marker', x, z, r, 0, color); if (h) return h; }
+    const obj = decal(lootRingMat(color), r * 2.1); obj.position.set(x, 0.05, z); scene.add(obj);
+    return fbHandle({ x, z, r, t: 0, acc: 0, color, obj });
+  }
+  function bonusDizzy(b) {
+    const y = b.height + 0.3, r = Math.max(0.55, b.r * 0.45);
+    if (typeof FX !== 'undefined' && FX && typeof FX.dizzy === 'function') { const h = fx('dizzy', b.x, y, b.z, r, 0); if (h) return h; }
+    return fbHandle({ dizzy: true, x: b.x, y, z: b.z, r, t: 0, acc: 0 });
+  }
+  function fbStep(dt) {
+    for (const it of fbFx) {
+      it.t += dt; it.acc += dt;
+      if (it.dizzy) {
+        if (it.acc > 0.12) { it.acc = 0; const a = it.t * 3.4; burst('star', it.x + Math.cos(a) * it.r, it.y, it.z + Math.sin(a) * it.r, { count: 1, color: '#fff3a0' }); }
+      } else if (it.obj) {
+        it.obj.position.set(it.x, 0.05, it.z); it.obj.scale.setScalar(it.r * 2.1 * (1 + 0.04 * (1 - Math.cos(it.t * TAU * 3))));
+        while (it.acc >= 0.08) {
+          it.acc -= 0.08;
+          const a = frand(0, TAU);
+          emitP(it.x + Math.sin(a) * it.r, 0.12, it.z + Math.cos(a) * it.r, 0, frand(0.8, 1.4), 0, frand(0.7, 1.0), frand(0.18, 0.28), 0.04, it.color, '#fff6c8', 2, -0.2, 0.6);
+        }
+      }
+    }
+  }
+  function fbClear() { for (const it of fbFx.slice()) it.kill(); }
+  // A free spot on the floor: a ring round (cx, cz) at radius r0..r1, in the boss room, room for rad, `ok` for the rest
+  function bonusSpotOn(cx, cz, r0, r1, rad, ok, tries = 32) {
+    const rm = bossRoom(), a0 = frand(0, TAU);
+    for (let k = 0; k < tries; k++) {
+      const a = a0 + k * 2.39996, rr = lerp(r0, r1, ((k * 0.618) % 1)), x = cx + Math.sin(a) * rr, z = cz + Math.cos(a) * rr;
+      if (isFloor(x, z) && circleFree(x, z, rad) && inRoom(rm, x, z, rad + 0.6) && (!ok || ok(x, z))) return { x, z };
+    }
+    return null;
+  }
+  const nearPortal = (x, z, d) => !!(L && L.portalObj && dist2(x, z, L.portalObj.x, L.portalObj.z) < d * d);
+  // (Round 6 QA) a spot the kid can see from the boss camera: not far down toward the camera (+z = the bottom of the screen)
+  // and not across the whole arena — the crown / carrot / hearts try such spots first (a carrot on the south rim lay 16 m
+  // below Feza, off the screen)
+  const BONUS_VIEW = { south: 3.5, far: 11 };
+  const inView = (x, z) => z - P.pos.z <= BONUS_VIEW.south && dist2(x, z, P.pos.x, P.pos.z) <= sq(BONUS_VIEW.far);
+  const viewFirst = ok => (x, z) => inView(x, z) && (!ok || ok(x, z));
+
+  // ── Kral Jöle: "Taç Kovalamaca". Below at hp, from idle: a big crown hop at Feza (a bigger, longer circle); on landing its
+  // crown flies off to a free spot (gold hoop) — "Taç düştü!". Oops, then it waddles over to get it (no attacks). Feza first
+  // (touch or hit): the crown flies back onto its head and it blushes (stun); the king first: it just puts it back on. ──
+  function tacStep(b, q, Q, dt) {
+    const B = BONUS.tac;
+    if (Q.state === 'wait') {
+      if (hpFrac(b) <= B.at && canStartBonus(b, q)) {
+        Q.state = 'on'; Q.hold = true; Q.stage = 'hop'; Q.t = 0; Q.have = 0; Q.need = 1;
+        jellyHop(b, B.hopD, B.hopR, true);
+        bonusEvent(b, Q, true);
+      }
+      return;
+    }
+    if (Q.state !== 'on') return;
+    const c = Q.crown;
+    if (!c) { if (b.ph !== 'hop') bonusRelease(b, q, Q, 'wait'); return; }   // (the hop never landed: try again later)
+    c.t += dt;
+    if (c.stage === 'fly') {   // an arc off its head to the spot
+      const k = clamp(c.t / B.fly, 0, 1);
+      c.x = lerp(c.x0, c.x1, k); c.z = lerp(c.z0, c.z1, k); c.y = lerp(c.y0, 0.05, k) + 4 * 1.8 * k * (1 - k);
+      c.rot += dt * 9;
+      if (k >= 1) {
+        c.stage = 'lie'; c.t = 0; c.brk.x = c.x; c.brk.z = c.z; addBreak(c.brk);
+        burst('sparkle', c.x, 0.4, c.z, { color: '#ffe27a', count: 14 }); burst('dust', c.x, 0.05, c.z, { count: 6 });
+        sfx('clank', { x: c.x, z: c.z, pitch: 1.5, vol: 0.6 }); sfx('bounce', { x: c.x, z: c.z, pitch: 1.4, vol: 0.5 });
+      }
+    } else if (c.stage === 'lie') {
+      c.y = 0.02; c.rot += dt * 0.5;   // (it bobs and glows by itself: anim bob / glow)
+      if (!P.dead && dist2(P.pos.x, P.pos.z, c.x, c.z) <= B.touch * B.touch) tacGive(b, Q);
+      else if (Q.t > B.max) tacKingGets(b, Q);
+      else if (b.ph === 'idle') bossPhase(b, 'shy', 60);   // (a stray idle: back to waddling after it)
+    } else if (c.stage === 'back') {   // flying home onto its head
+      const k = clamp(c.t / B.back, 0, 1), hx = b.x, hy = b.height + 0.1, hz = b.z;
+      c.x = lerp(c.x0, hx, k); c.z = lerp(c.z0, hz, k); c.y = lerp(c.y0, hy, k) + 4 * 1.2 * k * (1 - k); c.rot += dt * 12;
+      if (Math.random() < dt * 20) emitP(c.x, c.y, c.z, frand(-0.3, 0.3), frand(0.2, 0.6), frand(-0.3, 0.3), 0.5, 0.22, 0.03, '#ffe27a', '#ffffff', 2, 0, 0.5);
+      if (k >= 1) {
+        givePool(c.p); Q.crown = null; b.st.crownOff = 0; b.bonusWon = true;
+        bonusStun(b, 'blush', B.stun);
+        burst('hearts', b.x, b.height * 0.8, b.z, { count: 10 }); burst('sparkle', b.x, b.height, b.z, { color: '#ffe27a', count: 16 });
+        ftext(b.x, b.height + 0.6, b.z, 'Pırıl!', 'word'); sfx('pop', { x: b.x, z: b.z, pitch: 1.4 });
+        bonusLine(b, 'saskinSaid', 'kraljole_saskin');
+        return;
+      }
+    }
+    if (Q.crown) {
+      const r = c.p.m.root; r.position.set(c.x, c.y, c.z); r.rotation.set(c.stage === 'fly' ? Math.sin(c.rot) * 0.5 : 0, c.rot, 0);
+      poolAnim(c.p, dt, { spin: 0, glow: c.stage === 'lie' ? 1 : 0.6, bob: c.stage === 'lie' ? 1 : 0 });
+    }
+  }
+  function tacLand(b) {   // (kraljoleStep: the big crown hop landed) the crown pops off its head and flies to a free spot
+    const Q = bonusOf(b), B = BONUS.tac;
+    if (!Q || Q.kind !== 'tac' || Q.state !== 'on' || Q.crown) return;
+    const far = (x, z) => dist2(x, z, P.pos.x, P.pos.z) >= 9 && dist2(x, z, b.x, b.z) >= 9 && !nearPortal(x, z, 2.5);
+    const spot = bonusSpotOn(b.x, b.z, B.spot[0], B.spot[1], 0.55, viewFirst(far), 40) || bonusSpotOn(b.x, b.z, B.spot[0], B.spot[1], 0.55, far)
+      || bonusSpotOn(b.x, b.z, 3.5, 8.5, 0.5, far, 40);
+    if (!spot) return;   // (nowhere to land: the crown stays on — the hop ends as a normal one)
+    const p = takePool('crown');
+    if (!p) return;
+    let h = null;
+    if (b.m.marker) { try { h = b.m.marker('crown', new THREE.Vector3()); } catch (err) { warnOnce('marker crown', err); } }
+    const x0 = h && isFinite(h.x) ? h.x : b.x, y0 = h && isFinite(h.y) ? h.y : b.height, z0 = h && isFinite(h.z) ? h.z : b.z;
+    b.st.crownOff = 1;
+    Q.crown = { p, stage: 'fly', t: 0, x0, y0, z0, x1: spot.x, z1: spot.z, x: x0, y: y0, z: z0, rot: 0,
+      brk: { x: spot.x, z: spot.z, r: 0.55, kind: 'bonus', bonus: 'tac', broken: false, tapY: 0.35, tapLim: 80, break() {} } };
+    Q.stage = 'off';
+    Q.mark = bonusMark(spot.x, spot.z, 0.9, GOLD_MARK);
+    ftext(b.x, b.height + 0.6, b.z, 'Taç düştü!', 'word');
+    sfx('pop', { x: b.x, z: b.z, pitch: 1.2 }); sfx('whoosh', { x: b.x, z: b.z, pitch: 1.4, vol: 0.6 });
+    burst('sparkle', x0, y0, z0, { color: '#ffe27a', count: 12 });
+    bonusLine(b, 'tacSaid', 'kraljole_tac');
+  }
+  const tacOn = b => { const Q = bonusOf(b); return !!(Q && Q.kind === 'tac' && Q.state === 'on' && Q.crown); };
+  function tacGive(b, Q) {   // Feza got there first: the crown flies back onto its head
+    const c = Q.crown;
+    if (!c || c.stage !== 'lie') return;
+    unBreak(c.brk); remove(Q.mark); Q.mark = null;
+    c.stage = 'back'; c.t = 0; c.x0 = c.x; c.y0 = c.y; c.z0 = c.z;
+    Q.have = 1; bonusEvent(b, Q, true);
+    burst('sparkle', c.x, 0.5, c.z, { color: '#ffe27a', count: 16 }); sfx('pop', { x: c.x, z: c.z, pitch: 1.5 });
+    C.cheerT = Math.max(C.cheerT, 0.5);
+  }
+  function tacKingGets(b, Q) {   // the king got there first (or it took too long): it puts its crown back on — no stun
+    const c = Q.crown;
+    if (c) { unBreak(c.brk); givePool(c.p); Q.crown = null; }
+    bossPhase(b, 'crownon', 0.8);
+    bonusRelease(b, b.encounter, Q, 'done');
+  }
+
+  // ── Kefir Devi: "Dev Köpük Balonu". Below at hp its new move 'blow' (see kefirdevStep) blows one giant bubble that floats
+  // slowly after Feza. Hit it `hits` times (Pof! Pof!) → it pops into a heart for Feza and the giant gets the hiccups (stun,
+  // after landing if it was mid-slam); touching it pops it on Feza (a soft bonk); after `life` s it pops by itself. ──
+  // the blow's beats (05: EDEF.kefirdev.blowAt = [inhale ends, the bubble starts growing at its mouth, it lets go])
+  const balonAt = b => (Array.isArray(b.def.blowAt) && b.def.blowAt.length === 3 ? b.def.blowAt : [0.45, 0.5, 0.75]);
+  function balonReady(b) {
+    const Q = bonusOf(b), B = BONUS.balon;
+    return !!Q && Q.kind === 'balon' && Q.state === 'wait' && hpFrac(b) <= B.at && gt - (Q.lastBlow === undefined ? -99 : Q.lastBlow) >= B.cd && !Q.bub && !P.dead;
+  }
+  // (Round 6 QA: at pick weight 0.25 from 3 m off only, one masher fight went 80 s before a bubble, others had none) —
+  // the first is due `first` s after the hp mark, then every gap s; balonReady still keeps cd between two
+  function balonDue(b) {
+    const Q = bonusOf(b);
+    return !!Q && Q.dueAt !== undefined && gt >= Q.dueAt;   // (dueAt: set by balonStep at the hp mark)
+  }
+  function balonBlow(b) {
+    const Q = bonusOf(b), B = BONUS.balon;
+    bossPhase(b, 'blow', B.D);
+    b.face = Math.atan2(P.pos.x - b.x, P.pos.z - b.z);
+    const d = Math.hypot(P.pos.x - b.x, P.pos.z - b.z);
+    b.blowBack = clamp(b.r + B.back + 1 - d, 0, B.back);
+    Q.dueAt = gt + frand(B.gap[0], B.gap[1]);
+    Q.state = 'on'; Q.hold = true; Q.stage = 'blow'; Q.lastBlow = gt; Q.have = 0; Q.need = hardcore ? BONUS.balon.hitsHC : BONUS.balon.hits;
+    sfx('fizz', { x: b.x, z: b.z, vol: 0.8, pitch: 0.7 });
+    bonusLine(b, 'balonSaid', 'kefirdev_balon');
+    bonusEvent(b, Q, true);
+  }
+  function balonSpawn(b) {   // (blow 0.5) the bubble starts growing at its mouth
+    const Q = bonusOf(b), B = BONUS.balon;
+    if (!Q || Q.kind !== 'balon' || Q.bub) return;
+    let obj = fxProj('bigbubble'), pool = null;
+    if (obj) { if (!obj.parent) scene.add(obj); }
+    else { pool = takePool('bubble'); if (!pool) return; obj = pool.m.root; }
+    const m = muzzle(b), fx0 = Math.sin(b.face), fz0 = Math.cos(b.face);
+    const u = Q.bub = { obj, pool, stage: 'grow', t: 0, x: m.x + fx0 * B.r0, y: m.y, z: m.z + fz0 * B.r0, ang: b.face, s: B.r0, hitT: -9, wob: 0,
+      brk: { x: m.x, z: m.z, r: B.r0, kind: 'bonus', bonus: 'balon', broken: false, tapY: 1.2, tapLim: 95, break() {} } };
+    addBreak(u.brk);
+    Q.stage = 'bubble';
+    obj.position.set(u.x, u.y, u.z); obj.scale.setScalar(u.s);
+    sfx('bubble', { x: b.x, z: b.z, pitch: 0.55, vol: 0.9 });
+  }
+  function balonRelease(b) { const Q = bonusOf(b), u = Q && Q.bub; if (u && u.stage === 'grow') { u.stage = 'fly'; u.t = 0; u.ang = b.face; sfx('whoosh', { x: b.x, z: b.z, pitch: 0.8, vol: 0.6 }); } }
+  function bubbleGone(u) {
+    unBreak(u.brk);
+    if (u.pool) givePool(u.pool); else killProjectileObj({ obj: u.obj });
+  }
+  function balonStep(b, q, Q, dt) {
+    const B = BONUS.balon;
+    if (Q.dueAt === undefined && hpFrac(b) <= B.at) Q.dueAt = gt + B.first;
+    if (Q.pend && b.ph !== 'slam') { Q.pend = false; balonStun(b); return; }   // (popped mid-slam: the hiccups after landing)
+    if (Q.state !== 'on' || Q.pend) return;
+    const u = Q.bub;
+    if (!u) { if (b.ph !== 'blow') bonusRelease(b, q, Q, 'wait'); return; }   // (the blow ended without a bubble)
+    u.t += dt; u.wob = Math.max(0, u.wob - dt * 3);
+    if (u.stage === 'grow') {
+      if (b.ph !== 'blow') { balonPop(b, Q, 'fade'); return; }
+      const ba = balonAt(b), k = clamp((b.stT / b.phD - ba[1]) / Math.max(0.05, ba[2] - ba[1]), 0, 1), m = muzzle(b);
+      u.s = lerp(B.r0, B.r, smooth01(k)); u.ang = b.face;
+      u.x = m.x + Math.sin(b.face) * u.s * 0.95; u.z = m.z + Math.cos(b.face) * u.s * 0.95; u.y = Math.max(u.s, m.y);
+    } else {
+      const want = Math.atan2(P.pos.x - u.x, P.pos.z - u.z), turn = B.turn * dt;
+      if (!P.dead) u.ang += clamp(angDiff(u.ang, want), -turn, turn);
+      const nx = u.x + Math.sin(u.ang) * B.speed * dt, nz = u.z + Math.cos(u.ang) * B.speed * dt;
+      if (!isFloor(nx, nz) || !inRoom(bossRoom(), nx, nz, 0.2) || u.t >= B.life) { balonPop(b, Q, 'fade'); return; }
+      u.x = nx; u.z = nz; u.y = damp(u.y, B.y, 1.6, dt);
+      // it floated right into him: a soft bonk (not in its first `grace` s: blown at a kid right next to it, it used to pop on
+      // him the moment it left its mouth — now his swings get a moment to pop it)
+      if (!P.dead && u.t >= B.grace && dist2(P.pos.x, P.pos.z, u.x, u.z) < sq(u.s + T.heroR * 0.6)) {
+        const x = u.x, z = u.z;
+        balonPop(b, Q, 'touch');
+        hurtPlayer(b.dmg * B.dmgK, x, z, B.kb);
+        return;
+      }
+      fx('trail', 'bigbubble', u.x, u.y, u.z);
+    }
+    u.brk.x = u.x; u.brk.z = u.z; u.brk.r = u.s;
+    const w = 1 + 0.14 * u.wob * Math.sin(u.t * 26);
+    u.obj.position.set(u.x, u.y + 0.08 * Math.sin(u.t * 2.6), u.z); u.obj.scale.set(u.s * w, u.s / w, u.s * w);
+  }
+  function balonHit(b, Q) {   // (breakObj) Pof! — each hit wobbles it; `need` hits pop it
+    const u = Q.bub;
+    if (!u || gt - u.hitT < 0.2) return;   // (a whirling skill hits every frame: one hit per 0.2 s)
+    u.hitT = gt; u.wob = 1; Q.have++;
+    ftext(u.x, u.y + u.s + 0.3, u.z, 'Pof!', 'word');
+    sfx('bubble', { x: u.x, z: u.z, pitch: 1.3 }); burst('sparkle', u.x, u.y, u.z, { color: '#e8f6ff', count: 8 });
+    bonusEvent(b, Q, true);
+    if (Q.have >= Q.need) balonPop(b, Q, 'feza');
+  }
+  function balonPop(b, Q, how) {   // feza: Feza popped it · touch: it bonked him · fade: it floated away / timed out
+    const u = Q.bub; if (!u) return;
+    Q.bub = null;
+    const x = u.x, y = u.y, z = u.z;
+    bubbleGone(u);
+    burst('bigPop', x, y, z, { scale: u.s, ring: how === 'feza' }); sfx('bubblePop', { x, z, pitch: how === 'feza' ? 0.6 : 0.8, vol: 1 });
+    if (how === 'feza') {
+      burst('cheer', x, y, z, { scale: 1.4 }); C.cheerT = Math.max(C.cheerT, 0.6);
+      spawnLoot('heart', x, z);
+      if (b.ph === 'slam') { Q.pend = true; return; }
+      balonStun(b);
+    } else bonusRelease(b, b.encounter, Q, 'wait');
+  }
+  function balonStun(b) {
+    const Q = bonusOf(b); if (!Q) return;
+    bonusStun(b, 'hiccup', BONUS.balon.stun);
+    bonusLine(b, 'hikSaid', 'kefirdev_hik');
+  }
+
+  // ── Usta Köstebek: "Saklambaç". Below at hp, from idle: it digs in, 4 holes open on a ring round the arena's middle and
+  // it plays hide-and-seek: the mound runs to one hole (a gold hoop on it), trembles, its head pops out for `peek` s — a hit
+  // on it is a bonk ("Tak!"). `need` bonks → it comes out dizzy (stun); `max` peeks without them → it pops up the usual way
+  // under a lastTele s red circle. The holes then sink away; little moles called meanwhile wait. ──
+  function avlaStep(b, q, Q, dt) {
+    const B = BONUS.avla;
+    if (Q.holes) for (let i = Q.holes.length - 1; i >= 0; i--) {
+      const h = Q.holes[i];
+      h.open = h.closing ? Math.max(0, h.open - dt / 0.5) : Math.min(1, h.open + dt / 0.35);
+      poolAnim(h.p, dt, { open: h.open, shake: h === Q.target && (Q.stage === 'mark' || Q.stage === 'last') ? 1 : 0 });
+      if (h.closing && h.open <= 0) { givePool(h.p); Q.holes.splice(i, 1); }
+    }
+    if (Q.state === 'wait') { if (hpFrac(b) <= B.at && canStartBonus(b, q)) avlaStart(b, q, Q); return; }
+    if (Q.state === 'on' && b.ph !== 'avla' && b.ph !== 'peek' && b.ph !== 'bonk') avlaEnd(b, q, Q);   // (cut short somehow)
+  }
+  function avlaHoles(b) {
+    const rm = bossRoom(), B = BONUS.avla, out = [];
+    if (!rm) return out;
+    const a0 = frand(0, TAU);
+    for (let i = 0; i < B.holes; i++) for (let j = 0; j < 14; j++) {
+      const a = a0 + i * TAU / B.holes + (j % 2 ? 1 : -1) * Math.ceil(j / 2) * 0.13, rr = B.ring * (1 - Math.floor(j / 7) * 0.2);
+      const x = rm.x + Math.sin(a) * rr, z = rm.z + Math.cos(a) * rr;
+      if (isFloor(x, z) && circleFree(x, z, 0.9) && inRoom(rm, x, z, 1.2) && dist2(x, z, P.pos.x, P.pos.z) >= 4 && !out.some(h => dist2(h.x, h.z, x, z) < 6.25)) { out.push({ x, z }); break; }
+    }
+    return out;
+  }
+  function avlaStart(b, q, Q) {
+    const spots = avlaHoles(b);
+    if (spots.length < 2) { Q.state = 'done'; return; }
+    Q.holes = [];
+    for (const s of spots) {
+      const p = takePool('hole'); if (!p) break;
+      p.m.root.position.set(s.x, 0.02, s.z); p.m.root.rotation.y = frand(0, TAU);
+      Q.holes.push({ x: s.x, z: s.z, p, open: 0, closing: false });
+      burst('dirt', s.x, 0.1, s.z, { count: 12, color: DIRT }); burst('dust', s.x, 0.05, s.z, { count: 6, color: '#c9a77e' });
+    }
+    Q.state = 'on'; Q.hold = true; Q.stage = 'sink'; Q.st = 0; Q.peeks = 0; Q.have = 0; Q.need = BONUS.avla.need; Q.cur = null; Q.target = null;
+    bossPhase(b, 'avla', 999); b.phM = 'burrow'; b.phTM = 0;
+    burst('dirt', b.x, 0.05, b.z, { count: 14, scale: 1.4, color: DIRT }); sfx('dig', { x: b.x, z: b.z, pitch: 0.8 });
+    ftext(b.x, b.height + 0.4, b.z, 'Saklambaç!', 'word');
+    bonusLine(b, 'saklambacSaid', 'usta_saklambac');
+    bonusEvent(b, Q, true);
+  }
+  function avlaGo(b, Q) {   // the mound runs to another hole: the gold hoop shows where its head will come out
+    const others = Q.holes.filter(h => h !== Q.cur && !h.closing);
+    const h = others.length ? fpick(others) : Q.cur;
+    Q.target = h; Q.stage = 'travel'; Q.st = 0;
+    remove(Q.mark); Q.mark = h ? bonusMark(h.x, h.z, 1.45, GOLD_MARK) : null;   // (round its lumpy rim)
+    if (!h) Q.stage = 'last';
+  }
+  function avlaDive(b, dt, sink, R) {   // (kostebekustaStep 'avla') the dive, the underground run, the trembling mound
+    const Q = bonusOf(b), B = BONUS.avla, st = b.st;
+    b.phM = 'burrow';
+    if (!Q || Q.kind !== 'avla' || Q.state !== 'on') {   // (cleared: it pops out where it is)
+      b.bur = Math.max(0, b.bur - dt / 0.45); b.phTM = 1;
+      if (b.bur <= 0) bossEnd(b, 0.5, 0.9);
+      return;
+    }
+    Q.st += dt;
+    const h = Q.target;
+    switch (Q.stage) {
+      case 'sink':
+        b.bur = Math.min(1, Q.st / sink); b.phTM = 0.3 * b.bur; digFx(b, dt, 0.06);
+        if (Q.st >= sink) avlaGo(b, Q);
+        break;
+      case 'travel': {
+        b.bur = 1; b.phTM = 0.5; digFx(b, dt, 0.05);
+        const dx = h.x - b.x, dz = h.z - b.z, dd = Math.hypot(dx, dz);
+        if (dd > 0.02) { const s = Math.min(dd, B.travel * dt); b.x += dx / dd * s; b.z += dz / dd * s; b.face = Math.atan2(dx, dz); st.move = 1; }
+        if (dd <= 0.05) { b.x = h.x; b.z = h.z; Q.stage = 'mark'; Q.st = 0; sfx('dig', { x: h.x, z: h.z, pitch: 1.25 }); }
+        break;
+      }
+      case 'mark':   // trembling under the hoop (05: st.windup ≥ 0 shakes the mound)
+        b.bur = 1; b.phTM = 0.5; st.windup = clamp(Q.st / B.mark, 0, 1); digFx(b, dt, 0.05);
+        b.face = dampAngle(b.face, Math.atan2(P.pos.x - b.x, P.pos.z - b.z), 4, dt);
+        if (Q.st >= B.mark) {
+          Q.cur = h; Q.stage = 'peek';
+          bossPhase(b, 'peek', hardcore ? B.peekHC : B.peek); b.bur = B.peekBur;
+          burst('dirt', b.x, 0.15, b.z, { count: 10, color: DIRT }); sfx('emerge', { x: b.x, z: b.z, pitch: 1.35, vol: 0.6 });
+        }
+        break;
+      case 'last':   // no luck: it pops up the ordinary way, under a red circle
+        b.bur = 1; b.phTM = 0.5; st.windup = clamp(Q.st / B.lastTele, 0, 1); digFx(b, dt, 0.05);
+        if (Q.st >= B.lastTele) {
+          bossPhase(b, 'emerge', (b.def.burrowOut || DIG.rise) + DIG.rec);   // (its ring + b.tele's removal: 'emerge')
+          avlaEnd(b, b.encounter, Q);
+        }
+        break;
+      default: Q.stage = 'sink';
+    }
+  }
+  function avlaNext(b, peeked) {   // (peek / bonk over) duck and run on — or, after max peeks, the last pop-up
+    const Q = bonusOf(b), B = BONUS.avla;
+    if (!Q || Q.kind !== 'avla' || Q.state !== 'on') { bossEnd(b, 0.5, 0.9); return; }
+    if (peeked) Q.peeks++;
+    bossPhase(b, 'avla', 999); b.phM = 'burrow'; b.phTM = 0.5; b.bur = 1;
+    if (Q.peeks >= B.max) {
+      Q.stage = 'last'; Q.st = 0; remove(Q.mark); Q.mark = null;
+      b.tele = fx('telegraph', b.x, b.z, b.def.slamR || DIG.R, B.lastTele, '#ff7a3a');
+      sfx('dig', { x: b.x, z: b.z, pitch: 1.2 });
+    } else avlaGo(b, Q);
+  }
+  function avlaBonk(b) {   // (damage) a hit on its head while it peeks out
+    const Q = bonusOf(b), B = BONUS.avla;
+    if (!Q || Q.kind !== 'avla' || Q.state !== 'on' || Q.stage !== 'peek') return;
+    Q.have++; Q.peeks++; Q.stage = 'bonk';
+    const hy = b.height * (1 - B.peekBur) + 0.3;
+    ftext(b.x, hy + 0.6, b.z, 'Tak!', 'word'); sfx('bonk', { x: b.x, z: b.z }); burst('bonk', b.x, hy, b.z, {});
+    bonusEvent(b, Q, true);
+    if (Q.have >= Q.need) {   // caught: out of that hole (no ring), dizzy
+      remove(Q.mark); Q.mark = null;
+      for (const h of Q.holes) h.closing = true;
+      b.bonusWon = true;
+      bonusStun(b, 'dizzy', B.stun); Q.dz = bonusDizzy(b);
+      ftext(b.x, b.height + 0.5, b.z, 'Yakaladın!', 'word');
+      bonusLine(b, 'yakaladinSaid', 'usta_yakaladin');
+    } else bossPhase(b, 'bonk', B.bonk);
+  }
+  function avlaEnd(b, q, Q) { for (const h of Q.holes || []) h.closing = true; bonusRelease(b, q, Q, 'done'); }
+
+  // ── Koca Lav Kaplumbağası: "Serin Taşlar". Below at hp three cool mint rocks rise (solid: its lane stops at them). A roll
+  // that ends with a rock right in front of its shell cracks it and tips the turtle onto its side (stun; ≤ flips). Its
+  // rolls come a bit more often while they stand. ──
+  function serinStep(b, q, Q, dt) {
+    const B = BONUS.serintas;
+    if (Q.rocks) for (let i = Q.rocks.length - 1; i >= 0; i--) {
+      const r = Q.rocks[i];
+      r.t += dt;
+      if (r.dead) {   // (05: crack 0 → 1 shakes and whitens it; at 1 GAME hides it and FX's 'crack' bursts)
+        r.ct += dt;
+        if (r.ct >= B.crack) {
+          burst('crack', r.x, 0.7, r.z, { dir: r.dir }); burst('steam', r.x, 0.8, r.z, { count: 10 }); burst('sparkle', r.x, 0.9, r.z, { color: '#bff7f2', count: 12 });
+          sfx('pop', { x: r.x, z: r.z, pitch: 0.7 });
+          givePool(r.p); serinUnsolid(r); Q.rocks.splice(i, 1); continue;
+        }
+      }
+      const pop = clamp(r.t / B.pop, 0, 1);
+      if (r.t >= 0) r.p.m.root.visible = true;
+      if (!r.shown && r.t >= 0) { r.shown = true; burst('sparkle', r.x, 0.8, r.z, { color: '#bff7f2', count: 10 }); burst('dust', r.x, 0.05, r.z, { count: 6 }); sfx('pop', { x: r.x, z: r.z, pitch: 0.8 + 0.1 * i }); }
+      poolAnim(r.p, dt, { pop, glow: 1, crack: r.dead ? clamp(r.ct / B.crack, 0, 1) : 0 });
+      if (!r.dead && Math.random() < dt * 1.5) emitP(r.x + frand(-0.6, 0.6), frand(0.5, 1.2), r.z + frand(-0.6, 0.6), 0, 0.4, 0, 0.8, 0.18, 0.02, '#dffcff', '#ffffff', 2, -0.1, 0.5);
+    }
+    if (Q.state === 'wait' && hpFrac(b) <= B.at && canStartBonus(b, q)) serinRise(b, q, Q);
+  }
+  function serinRise(b, q, Q) {
+    const rm = bossRoom(), B = BONUS.serintas;
+    if (!rm) { Q.state = 'done'; return; }
+    const path = (L && L.path) || [];
+    const offRoute = (x, z) => !path.some((p, i) => i > 0 && inRoom(rm, p.x, p.z, -2) && raidLineDistance(x, z, path[i - 1].x, path[i - 1].z, p.x, p.z) < 1.8);
+    Q.rocks = [];
+    for (let i = 0; i < B.n; i++) {
+      const ok = (x, z) => dist2(x, z, b.x, b.z) >= sq(Math.max(3, b.r + B.r + 1)) && dist2(x, z, P.pos.x, P.pos.z) >= 4 && !Q.rocks.some(r => dist2(r.x, r.z, x, z) < 6.25)
+        && !nearPortal(x, z, 3) && offRoute(x, z);
+      const s = bonusSpotOn(rm.x, rm.z, B.ring - 0.4, B.ring + 0.6, B.r + 0.45, ok, 40);
+      if (!s) continue;
+      const p = takePool('rock'); if (!p) break;
+      p.m.root.position.set(s.x, 0, s.z); p.m.root.rotation.y = frand(0, TAU); p.m.root.visible = false;
+      const solid = { x: s.x, z: s.z, r: B.r, alive: true, tag: 'serinTas' };
+      if (L) { (L.solids || (L.solids = [])).push(solid); L._sh = null; }
+      Q.rocks.push({ x: s.x, z: s.z, p, solid, t: -i * 0.18, dead: false, ct: 0, shown: false });
+    }
+    if (!Q.rocks.length) { Q.state = 'done'; return; }
+    Q.state = 'on'; Q.hold = false; Q.have = 0; Q.need = Q.rocks.length;
+    ftext(rm.x, 1.8, rm.z, 'Serin taşlar!', 'word');
+    bonusLine(b, 'tasSaid', 'kaplumbaga_tas');
+    bonusEvent(b, Q, true);
+  }
+  function serinUnsolid(r) {
+    r.solid.alive = false;
+    const i = L && L.solids ? L.solids.indexOf(r.solid) : -1;
+    if (i >= 0) { L.solids.splice(i, 1); L._sh = null; }
+  }
+  function serinLaneRock(b, ux, uz, len) {   // does a standing rock end this lane?
+    const Q = bonusOf(b);
+    if (!Q || Q.kind !== 'serintas' || Q.state !== 'on' || !Q.rocks) return false;
+    const ex = b.x + ux * len, ez = b.z + uz * len, reach = b.r * 0.85 + BONUS.serintas.r + 0.6;
+    return Q.rocks.some(r => !r.dead && dist2(r.x, r.z, ex, ez) < reach * reach);
+  }
+  function serinRocks(b) { const Q = bonusOf(b); return Q && Q.kind === 'serintas' && Q.rocks ? Q.rocks.filter(r => !r.dead).length : 0; }
+  function serinFlip(b) {   // (lavkaplumbagaStep, a roll's end) a rock right in front of the shell? crack — and over it goes
+    const Q = bonusOf(b), B = BONUS.serintas;
+    if (!Q || Q.kind !== 'serintas' || Q.state !== 'on' || !Q.rocks || Q.have >= B.flips) return false;
+    let hit = null;
+    for (const r of Q.rocks) {
+      if (r.dead) continue;
+      const dx = r.x - b.x, dz = r.z - b.z, d = Math.hypot(dx, dz) || 1e-3;
+      if (d <= b.r + B.r + B.front && (dx * b.rdx + dz * b.rdz) / d > 0.7) { hit = r; break; }
+    }
+    if (!hit) return false;
+    hit.dead = true; hit.ct = 0; hit.solid.alive = false; hit.dir = { x: b.rdx, z: b.rdz }; if (L) L._sh = null;
+    burst('dust', hit.x, 0.2, hit.z, { count: 10 }); burst('steam', hit.x, 0.8, hit.z, { count: 6 });
+    sfx('bounce', { x: b.x, z: b.z, pitch: 0.6 }); sfx('splat', { x: hit.x, z: hit.z, pitch: 1.4, vol: 0.6 }); shake(0.3);
+    ftext(b.x, b.height + 0.5, b.z, 'Devrildi!', 'word');
+    Q.have++;
+    if (Q.have >= B.flips || !serinRocks(b)) b.bonusWon = true;
+    bonusStun(b, 'flip', B.stun); Q.dz = bonusDizzy(b);
+    bonusLine(b, 'devrildiSaid', 'kaplumbaga_devrildi');
+    return true;
+  }
+  function serinClear(Q, poof) {
+    for (const r of Q.rocks || []) { if (poof && !r.dead) burst('sparkle', r.x, 0.8, r.z, { color: '#bff7f2', count: 12 }); givePool(r.p); serinUnsolid(r); }
+    Q.rocks = [];
+  }
+
+  // ── Huysuz Şövalye: "Havuç". Below at hp (once the banners are done, or while they all still stand
+  // — then well away from them; not during their dizzy), a golden carrot lies on the far rim (gold hoop). Feza
+  // takes it (touch or hit) and holds it up; the knight's next idle the hungry horse trots to him (no attacks) and, its
+  // nose close enough, gets the carrot: it munches happily while the knight sulks (stun). Once per fight. ──
+  function havucStep(b, q, Q, dt) {
+    const B = BONUS.havuc;
+    if (Q.state === 'wait') {
+      // (after the banners: once they are all down and he shook off his dizzy — one surprise at a time. Round 6 QA: a kid
+      // who never knocks the banners never saw the carrot either → also while they still stand (not during their dizzy),
+      // then on the rim well away from them, so a tap meant for a banner does not pick the carrot)
+      const S = q.sancak;
+      if (hpFrac(b) <= B.at && S && (S.state === 'done' || S.state === 'up') && canStartBonus(b, q)) havucPlant(b, q, Q);
+      return;
+    }
+    const c = Q.carrot;
+    if (!c) return;
+    c.t += dt;
+    if (Q.stage === 'lie') {
+      c.x = c.brk.x; c.z = c.brk.z; c.y = 0.05; c.rot += dt * 0.6;
+      if (!P.dead && dist2(P.pos.x, P.pos.z, c.x, c.z) <= B.touch * B.touch) havucTake(b, Q);
+    } else if (Q.stage === 'held') {   // up over Feza's head
+      c.x = P.pos.x; c.z = P.pos.z; c.y = B.y; c.rot += dt * 1.5;
+      if (Math.random() < dt * 8) emitP(c.x + frand(-0.3, 0.3), c.y + frand(-0.1, 0.3), c.z + frand(-0.3, 0.3), 0, frand(0.4, 0.9), 0, 0.7, 0.2, 0.03, '#ffd27a', '#ffffff', 2, -0.2, 0.5);
+      if (b.ph === 'idle' && !q.move && !b.summon && !P.dead) bossPhase(b, 'seek', 60);
+    } else if (Q.stage === 'feed') {   // into the horse's mouth
+      const k = clamp(c.t / B.fly, 0, 1), m = havucMouth(b);
+      c.x = lerp(c.x0, m.x, k); c.y = lerp(c.y0, m.y, k) + 1.2 * k * (1 - k); c.z = lerp(c.z0, m.z, k); c.rot += dt * 10;
+      if (k >= 1) {
+        burst('crumbs', m.x, m.y, m.z, { count: 12, color: '#ff9a2a' }); burst('hearts', m.x, m.y + 0.3, m.z, { count: 6 });
+        givePool(c.p); Q.carrot = null; return;
+      }
+    }
+    const r = c.p.m.root; r.position.set(c.x, c.y, c.z); r.rotation.set(0, c.rot, Q.stage === 'held' ? 0.25 : 0); r.scale.setScalar(B.scale);
+    poolAnim(c.p, dt, { glow: Q.stage === 'feed' ? 0.5 : 1, spin: 0, bob: Q.stage === 'feed' ? 0 : 1 });
+  }
+  function havucMouth(b) {
+    let m = null;
+    if (b.m.marker) { try { m = b.m.marker('mouth', _havV); } catch (err) { warnOnce('marker mouth', err); } }
+    if (m && isFinite(m.x)) return m;
+    return _havV.set(b.x + Math.sin(b.face) * b.r * 1.05, Math.max(1.2, b.height * 0.45), b.z + Math.cos(b.face) * b.r * 1.05);
+  }
+  const _havV = new THREE.Vector3();
+  function havucPlant(b, q, Q) {
+    const rm = bossRoom(), B = BONUS.havuc;
+    if (!rm) { Q.state = 'done'; return; }
+    const rx = rm.r ? rm.r - 2.2 : (rm.hw || 10) * 0.78, rz = rm.r ? rm.r - 2.2 : (rm.hh || 10) * 0.78;
+    const ban = ((q.sancak && q.sancak.list) || []).filter(s => !s.broken);
+    let best = null, bd = -1;
+    // the far rim from the knight (as far as a free spot allows); with banners still standing: at least banGap m from each
+    // (else 4 m), the score adds the distance to the nearest one (a tap on a banner must not pick the carrot)
+    // (and a spot in view first: see inView)
+    for (const [gap, view] of (ban.length ? [[B.banGap, 1], [4, 1], [B.banGap, 0], [4, 0]] : [[4, 1], [4, 0]])) {
+      for (let k = 0; k < 32; k++) {
+        const a = k * TAU / 32, f = 1 - (k % 3) * 0.1, x = rm.x + Math.sin(a) * rx * f, z = rm.z + Math.cos(a) * rz * f, d2 = dist2(x, z, b.x, b.z);
+        if (d2 < B.spot * B.spot || !isFloor(x, z) || !circleFree(x, z, 0.6) || !inRoom(rm, x, z, 1.0) || dist2(x, z, P.pos.x, P.pos.z) < 4
+          || nearPortal(x, z, 2.5) || ban.some(s => dist2(s.x, s.z, x, z) < gap * gap) || (view && !inView(x, z))) continue;
+        const sc = Math.sqrt(d2) + (ban.length ? Math.min(...ban.map(s => Math.hypot(s.x - x, s.z - z))) : 0);
+        if (sc > bd) { best = { x, z }; bd = sc; }
+      }
+      if (best) break;
+    }
+    const p = best && takePool('carrot');
+    if (!p) { Q.state = 'done'; return; }
+    Q.carrot = { p, t: 0, x: best.x, y: 0.3, z: best.z, rot: 0,
+      brk: { x: best.x, z: best.z, r: 0.5, kind: 'bonus', bonus: 'havuc', broken: false, tapY: 0.4, tapLim: 80, break() {} } };
+    addBreak(Q.carrot.brk);
+    Q.state = 'on'; Q.hold = false; Q.stage = 'lie'; Q.have = 0; Q.need = 1;
+    Q.mark = bonusMark(best.x, best.z, 0.9, GOLD_MARK);
+    burst('sparkle', best.x, 0.6, best.z, { color: '#ffd27a', count: 16 }); sfx('pop', { x: best.x, z: best.z, pitch: 1.3 });
+    ftext(best.x, 1.4, best.z, 'Havuç!', 'word');
+    bonusLine(b, 'havucSaid', 'sovalye_havuc');
+    bonusEvent(b, Q, true);
+  }
+  function havucTake(b, Q) {   // Feza has it (the next idle the horse comes for it)
+    const c = Q.carrot;
+    if (!c || Q.stage !== 'lie') return;
+    unBreak(c.brk); remove(Q.mark); Q.mark = null;
+    Q.stage = 'held'; Q.have = 1; Q.hold = true;
+    burst('sparkle', c.x, 0.6, c.z, { color: '#ffd27a', count: 14 }); sfx('pop', { x: c.x, z: c.z, pitch: 1.5 });
+    C.cheerT = Math.max(C.cheerT, 0.4);
+    bonusEvent(b, Q, true);
+  }
+  function havucFeed(b, Q) {   // (sovalyeStep 'seek') its nose is close: the carrot flies into its mouth — munch!
+    const c = Q.carrot;
+    if (!c) { bossEnd(b, 0.5, 0.9); return; }
+    Q.stage = 'feed'; c.t = 0; c.x0 = c.x; c.y0 = c.y; c.z0 = c.z;
+    b.bonusWon = true; b.chew = BONUS.havuc.fly;
+    bonusStun(b, 'munch', BONUS.havuc.stun);
+    burst('hearts', b.x, b.height * 0.6, b.z, { count: 8 });
+    ftext(b.x, b.height + 0.5, b.z, 'Hımf!', 'word');
+    bonusLine(b, 'atdoyduSaid', 'sovalye_atdoydu');
+  }
+
+  // ── Huysuz Ejderha: "Dostluk Kalpleri". At each hp mark (once each) its next idle is a sad little 'sigh' that blows three
+  // pink hearts out onto a ring round it (pink hoops); they hover for `life` s. Feza collects them (touch or hit); all three
+  // → one big heart flies from him to the dragon (a small hit) and it is charmed (stun). Missed ones just pop, no penalty.
+  // Its eggs keep their own clock. ──
+  function kalpStep(b, q, Q, dt) {
+    const B = BONUS.kalp;
+    if (Q.state === 'wait') {
+      const w = b.kalpWave || 0;
+      if (w < B.at.length && hpFrac(b) <= B.at[w] && canStartBonus(b, q)) {
+        Q.state = 'on'; Q.hold = true; Q.stage = 'sigh'; Q.have = 0; Q.need = B.n; Q.hearts = [];
+        bossPhase(b, 'sigh', B.D);
+        sfx('sigh', { x: b.x, z: b.z });
+        bonusEvent(b, Q, true);
+      } else if (w >= B.at.length) Q.state = 'done';
+      return;
+    }
+    if (Q.state !== 'on') return;
+    const life = hardcore ? B.lifeHC : B.life;
+    for (const h of Q.hearts) {
+      if (h.done) continue;
+      h.t += dt;
+      if (h.stage === 'fly') {
+        const k = clamp(h.t / B.fly, 0, 1);
+        h.x = lerp(h.x0, h.x1, k); h.z = lerp(h.z0, h.z1, k); h.y = lerp(h.y0, B.y, k) + 4 * 1.4 * k * (1 - k);
+        if (k >= 1) { h.stage = 'hover'; h.t = 0; h.brk.x = h.x; h.brk.z = h.z; addBreak(h.brk); burst('sparkle', h.x, h.y, h.z, { color: '#ffb3d9', count: 8 }); }
+      } else {
+        h.y = B.y + 0.12 * Math.sin(h.t * 3 + h.ph);
+        if (h.t >= life) { kalpFade(h); continue; }
+        if (!P.dead && dist2(P.pos.x, P.pos.z, h.x, h.z) <= B.touch * B.touch) { kalpTake(b, Q, h); continue; }
+      }
+      h.obj.position.set(h.x, h.y, h.z); h.obj.rotation.y += dt * 1.6;
+      if (h.pool) poolAnim(h.pool, dt, {});
+      if (h.stage === 'fly') fx('trail', 'heart', h.x, h.y, h.z);
+    }
+    if (Q.stage === 'sigh' && b.ph !== 'sigh') { bonusRelease(b, q, Q, 'wait'); return; }   // (cut short before the blow)
+    if (Q.stage === 'hearts' && Q.hearts.every(h => h.done)) {
+      if (Q.have >= Q.need) kalpSend(b, Q);
+      else { b.kalpWave = (b.kalpWave || 0) + 1; Q.hearts = []; bonusRelease(b, q, Q, 'wait'); }
+      return;
+    }
+    if (Q.stage === 'send' && Q.big) {   // the big heart flies from Feza to the dragon's chest
+      const s = Q.big; s.t += dt;
+      const k = clamp(s.t / B.send, 0, 1), tx = b.x, ty = b.y + b.height * 0.55, tz = b.z;
+      s.x = lerp(s.x0, tx, k); s.y = lerp(s.y0, ty, k) + 1.5 * k * (1 - k); s.z = lerp(s.z0, tz, k);
+      s.obj.position.set(s.x, s.y, s.z); s.obj.rotation.y += dt * 4;
+      fx('trail', 'heart', s.x, s.y, s.z);
+      if (k >= 1) {
+        kalpGone(s); Q.big = null; Q.hearts = [];
+        b.kalpWave = (b.kalpWave || 0) + 1;
+        burst('hearts', tx, ty, tz, { count: 16, scale: 1.8 }); burst('sparkle', tx, ty, tz, { color: '#ffb3d9', count: 20 }); sfx('heart', { x: tx, z: tz, pitch: 0.8 });
+        damage(b, Math.max(1, Math.round(b.maxHp * B.dmgK)), { force: true, kind: 'heart' });
+        if (b.dead || !b.encounter) return;
+        bonusStun(b, 'charmed', B.stun);
+        bonusLine(b, 'sevgiSaid', 'ejderha_sevgi');
+      }
+    }
+  }
+  function kalpObj(scale) {   // FX's glossy heart shot, else a pooled pink heart
+    let obj = fxProj('heart', '#ff6fb5'), pool = null;
+    if (obj) { if (!obj.parent) scene.add(obj); }
+    else { pool = takePool('heart'); if (!pool) return null; obj = pool.m.root; }
+    obj.scale.setScalar(scale || 1);
+    return { obj, pool };
+  }
+  function kalpBlow(b) {   // (dragonStep 'sigh' at blowAt) three hearts float out onto the ring
+    const Q = bonusOf(b), B = BONUS.kalp, q = b.encounter;
+    if (!Q || Q.kind !== 'kalp' || Q.stage !== 'sigh') return;
+    const m = muzzle(b), mx = m.x, my = m.y, mz = m.z;
+    Q.hearts = [];
+    for (let i = 0; i < B.n; i++) {
+      const ok = (x, z) => dist2(x, z, P.pos.x, P.pos.z) >= sq(B.heroGap) && !(q.eggs || []).some(e => dist2(e.x, e.z, x, z) < sq(B.eggGap))
+        && !Q.hearts.some(h => dist2(h.x1, h.z1, x, z) < 4) && !nearPortal(x, z, 2);
+      const s = bonusSpotOn(b.x, b.z, B.ring[0], B.ring[1], 0.45, viewFirst(ok), 40) || bonusSpotOn(b.x, b.z, B.ring[0], B.ring[1], 0.45, ok, 40);
+      if (!s) continue;
+      const o = kalpObj(1); if (!o) break;
+      const h = { obj: o.obj, pool: o.pool, stage: 'fly', t: -i * 0.12, x0: mx, y0: my, z0: mz, x1: s.x, z1: s.z, x: mx, y: my, z: mz, ph: frand(0, TAU), done: false,
+        mark: bonusMark(s.x, s.z, 0.8, PINK_MARK) };
+      h.brk = { x: s.x, z: s.z, r: 0.5, kind: 'bonus', bonus: 'kalp', broken: false, tapY: 1.0, tapLim: 80, heart: h, break() {} };
+      h.obj.position.set(mx, my, mz);
+      Q.hearts.push(h);
+    }
+    if (!Q.hearts.length) { b.kalpWave = (b.kalpWave || 0) + 1; bonusRelease(b, q, Q, 'wait'); return; }
+    Q.stage = 'hearts'; Q.need = Q.hearts.length;
+    burst('hearts', mx, my, mz, { count: 10 }); sfx('bubble', { x: b.x, z: b.z, pitch: 1.2, vol: 0.7 });
+    bonusLine(b, 'kalpSaid', 'ejderha_kalp');
+    bonusEvent(b, Q, true);
+  }
+  function kalpGone(h) {
+    h.done = true; remove(h.mark); h.mark = null; unBreak(h.brk);
+    if (h.pool) givePool(h.pool); else killProjectileObj({ obj: h.obj });
+  }
+  function kalpTake(b, Q, h) {
+    if (h.done || h.stage !== 'hover') return;
+    const x = h.x, y = h.y, z = h.z;
+    kalpGone(h); h.got = true; Q.have++;
+    sfx('heart', { x, z, pitch: 1 + 0.1 * Q.have }); burst('hearts', x, y, z, { count: 6 }); burst('sparkle', x, y, z, { color: '#ffb3d9', count: 10 });
+    bonusEvent(b, Q, true);
+  }
+  function kalpFade(h) {   // it waited long enough: a sad little pop (nothing lost)
+    burst('sparkle', h.x, h.y, h.z, { color: '#f0c8dc', count: 6 }); sfx('pop', { x: h.x, z: h.z, pitch: 0.6, vol: 0.5 });
+    kalpGone(h);
+  }
+  function kalpSend(b, Q) {
+    Q.stage = 'send';
+    const o = kalpObj(2);
+    if (!o) { Q.big = { obj: new THREE.Object3D(), pool: null, t: 0, x0: P.pos.x, y0: 1.3, z0: P.pos.z, x: P.pos.x, y: 1.3, z: P.pos.z, done: false }; return; }
+    Q.big = { obj: o.obj, pool: o.pool, t: 0, x0: P.pos.x, y0: 1.3, z0: P.pos.z, x: P.pos.x, y: 1.3, z: P.pos.z, done: false };
+    o.obj.position.set(P.pos.x, 1.3, P.pos.z);
+    burst('hearts', P.pos.x, 1.3, P.pos.z, { count: 10 }); sfx('heart', { pitch: 0.7 });
+    C.cheerT = Math.max(C.cheerT, 0.6);
+  }
+  const BONUS_STEP = { tac: tacStep, balon: balonStep, avla: avlaStep, serintas: serinStep, havuc: havucStep, kalp: kalpStep };
+  // Where the boss camera should look too (09): the crown / bubble / hole / nearest rock / carrot on the floor / nearest
+  // heart while a bonus is on; else null.
+  function bonusSpot() {
+    const b = boss, Q = bonusOf(b);
+    if (!b || b.dead || !b.aggro || !Q || Q.state !== 'on') return null;
+    const near = list => { let best = null, bd = 1e9; for (const o of list) { const d = dist2(o.x, o.z, P.pos.x, P.pos.z); if (d < bd) { bd = d; best = o; } } return best ? { x: best.x, z: best.z } : null; };
+    switch (Q.kind) {
+      case 'tac': return Q.crown ? (Q.crown.stage === 'fly' ? { x: Q.crown.x1, z: Q.crown.z1 } : { x: Q.crown.x, z: Q.crown.z }) : null;
+      case 'balon': return Q.bub ? { x: Q.bub.x, z: Q.bub.z } : null;
+      case 'avla': return Q.target && Q.stage !== 'last' ? { x: Q.target.x, z: Q.target.z } : null;
+      case 'serintas': return near((Q.rocks || []).filter(r => !r.dead));
+      case 'havuc': return Q.carrot && Q.stage === 'lie' ? { x: Q.carrot.x, z: Q.carrot.z } : null;
+      case 'kalp': return near((Q.hearts || []).filter(h => !h.done).map(h => ({ x: h.x1, z: h.z1 })));
+    }
+    return null;
   }
   // Lobbed shots (lava balls): an arc from the muzzle onto a telegraph circle; they hurt only where they land.
   function spawnMortar(o) {
@@ -3056,6 +4127,18 @@ const GAME = (() => {
         if (b.stT >= D) { bossPhase(b, 'idle', 1); b.wait = frand(1.0, 1.5); }
         break;
       }
+      // (Round 6, BONUS.kalp) 'sigh': a sad little sigh that blows three friendship hearts out (at blowAt; kalpStep flies
+      // them); 'charmed': Feza sent it all three as one big heart — it sits back all soft and happy (whack it!)
+      case 'sigh':
+        st.move = 0;
+        if (b.did === 0 && b.stT >= (b.def.sighAt || BONUS.kalp.blowAt) * b.phD) { b.did = 1; kalpBlow(b); }
+        if (b.stT >= b.phD) { bossPhase(b, 'idle', 1); b.wait = frand(0.8, 1.2); }
+        break;
+      case 'charmed':
+        st.move = 0;
+        if (Math.random() < dt * 3) burst('hearts', b.x + frand(-1, 1), b.height * 0.7, b.z + frand(-1, 1), { count: 2 });
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
       default: bossPhase(b, 'idle', 1); b.wait = 0.5;   // (a phase of another boss type: start over)
     }
   }
@@ -3090,6 +4173,7 @@ const GAME = (() => {
     if (o.freeze) freeze(e, o.freeze);
     if (o.crit && !e.boss && e.kind !== 'slam') cancelWindup(e);
     if (e.hp <= 0) { makeHappy(e, o); return true; }
+    if (amount > 0 && e.boss && e.ph === 'peek') avlaBonk(e);   // (Round 6: a hit on the mole's head peeking out of a hole)
     return false;
   }
   function makeHappy(e, o = {}) {
@@ -3582,7 +4666,9 @@ const GAME = (() => {
           if (C.blockT > 0.45) { C.waitT = 1.0; C.blockT = 0; }   // not getting anywhere: wait a moment, then try again
         }
       } else if (C.targetObj) {
-        const o = C.targetObj, dx = o.x - P.pos.x, dz = o.z - P.pos.z, d = Math.hypot(dx, dz) || 1e-3;
+        const o = C.targetObj;
+        if (o.type === 'break' && o.ref.bonus) { o.x = o.ref.x; o.z = o.ref.z; }   // (Round 6: the giant bubble floats, the crown flies)
+        const dx = o.x - P.pos.x, dz = o.z - P.pos.z, d = Math.hypot(dx, dz) || 1e-3;
         if (d <= o.reach || bannerShot(o, d)) { face = Math.atan2(dx, dz); interact(o); }
         else {
           watchTarget(d, dt);
@@ -3808,6 +4894,7 @@ const GAME = (() => {
   function breakObj(b) {
     if (b.broken) return;
     if (b.banner) { knockBanner(b); return; }   // (Round 5: the knight's tournament banners: no loot)
+    if (b.bonus) { bonusHit(b); return; }       // (Round 6: the crown, the giant bubble, the carrot, the hearts: no loot)
     try { b.break(); } catch (err) { warnOnce('break', err); }
     b.broken = true;
     sfx('break', { x: b.x, z: b.z, pitch: frand(0.9, 1.15) });
@@ -4660,7 +5747,7 @@ const GAME = (() => {
     };
     if (L.chestObjs) for (const c of L.chestObjs) if (!c.opened) test('chest', c, 0.5, 80, c.big ? 1.75 : 1.4);
     // a swing reaches ≈ 2.5 m + r (a tall tournament banner: tapped on its flag)
-    if (L.breakObjs) for (const b of L.breakObjs) if (!b.broken) test('break', b, b.banner ? 1.5 : 0.5, b.banner ? 85 : 60, 2.2 + (b.r || 0.4));
+    if (L.breakObjs) for (const b of L.breakObjs) if (!b.broken) test('break', b, b.tapY !== undefined ? b.tapY : b.banner ? 1.5 : 0.5, b.tapLim || (b.banner ? 85 : 60), 2.2 + (b.r || 0.4));
     if (L.cpObjs) for (const c of L.cpObjs) test('cp', c, 1.0, 75, 1.8);
     if (L.npcObj) test('npc', L.npcObj, 1.0, 85, 2.6);
     if (L.portalObj && L.portalObj.active !== false) test('portal', L.portalObj, 1.2, 90, 1.2);
@@ -5165,6 +6252,7 @@ const GAME = (() => {
     if (L && L.npcObj && L.npcObj.model && L.npcObj.model.anim) { try { L.npcObj.model.anim(dt, owlTalking()); } catch (err) { warnOnce('owl.anim', err); } }
     if (typeof SKILLS_update === 'function') { try { SKILLS_update(dt); } catch (err) { warnOnce('SKILLS_update', err); } }
     updateMarkers(dt);
+    fbStep(dt);
     updateBars(dt);
     updateHero(dt);
     moustacheStep(dt);
@@ -5238,6 +6326,21 @@ const GAME = (() => {
       // (Round 5) the knight's banners: where they stand and which are down; sancak = 'up' | 'dizzy' | 'done' (null: not yet)
       banners: q.sancak ? q.sancak.list.map(s => ({ x: s.x, z: s.z, down: s.broken })) : null, sancak: q.sancak ? q.sancak.state : null, dizzy: boss.ph === 'dizzy' } : null; },
     bossCfg(type) { return Object.assign({}, bossCfg(type || (boss && boss.type) || 'ejderha')); },   // {per, lo, hi, dmg}
+    // (Round 6) a read-only snapshot of the boss's bonus (null: none yet / no fight)
+    bonus() {
+      const b = boss, q = b && b.encounter, Q = q && q.bonus;
+      if (!b) return null;
+      const xz = o => (o ? { x: +o.x.toFixed(2), z: +o.z.toFixed(2) } : null);
+      return { type: b.type, kind: b.kit && b.kit.bonus, ph: b.ph, won: !!b.bonusWon, wave: b.kalpWave || 0, crownOff: b.st.crownOff || 0, timer: q ? +q.timer.toFixed(2) : null,
+        hold: bonusHold(q), spot: bonusSpot(), move: q && q.move ? q.move.kind : null,
+        ...(Q ? { state: Q.state, stage: Q.stage, t: +Q.t.toFixed(2), have: Q.have, need: Q.need, stun: Q.stunPh, mark: !!Q.mark, dizzy: !!Q.dz,
+          crown: Q.crown ? { stage: Q.crown.stage, ...xz(Q.crown), y: +Q.crown.y.toFixed(2), x1: Q.crown.x1, z1: Q.crown.z1 } : null,
+          bub: Q.bub ? { stage: Q.bub.stage, ...xz(Q.bub), y: +Q.bub.y.toFixed(2), s: +Q.bub.s.toFixed(2), t: +Q.bub.t.toFixed(2) } : null,
+          holes: (Q.holes || []).map(h => ({ ...xz(h), open: +h.open.toFixed(2), closing: h.closing })), target: xz(Q.target), peeks: Q.peeks || 0,
+          rocks: (Q.rocks || []).map(r => ({ ...xz(r), dead: r.dead, solid: !!(L && L.solids && L.solids.includes(r.solid) && r.solid.alive) })),
+          carrot: Q.carrot ? { stage: Q.stage, ...xz(Q.carrot), y: +Q.carrot.y.toFixed(2) } : null,
+          hearts: (Q.hearts || []).map(h => ({ ...xz(h), stage: h.stage, done: h.done, got: !!h.got, t: +h.t.toFixed(2) })), big: !!Q.big } : { state: null }) };
+    },
     bossHit(frac = 0.1) { if (boss && !boss.dead) damage(boss, Math.max(1, Math.round(boss.maxHp * frac)), { silent: true, force: true }); return boss ? boss.hp : null; },
     // extras for tests
     spawn(type = 'jole', x = P.pos.x, z = P.pos.z - 4, elite = false) { return makeEnemy({ type, x, z, elite: !!elite, pack: 'dbg', face: Math.atan2(P.pos.x - x, P.pos.z - z) }); },
@@ -5277,6 +6380,7 @@ const GAME = (() => {
     loadZone, update, titleUpdate, input, equipSlot, equip: item => equip(item), unequip, drinkPotion, addItem, cast,
     on, emit, enemiesNear, nearestEnemy, damage, spawnProjectile, hitBreakables, heroDamageNow, hurtPlayer, heal,
     xpFor, projectiles, loot, coins, wordOK,
+    bonusSpot,   // (Round 6) {x, z} the boss camera should keep on screen too (the crown, bubble, hole, rock, carrot, heart), else null
   };
   return GAME;
 })();

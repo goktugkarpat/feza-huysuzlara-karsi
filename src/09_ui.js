@@ -459,6 +459,7 @@ const UI = (() => {
     D.bossTrail = el('div', 'u-bosstrail', bbar);
     D.bossFill = el('div', 'u-bossfill', bbar);
     D.bossFizz = el('div', 'u-bossfizz', D.bossFill, '<i></i>');   // Kefir Devi: fizzy bubbles rising in its bar; the knight: lance stripes (ui.css; hidden for the others)
+    D.bossPips = el('div', 'u-bpips', D.boss);   // Round 6 bonus: gold stars / pink hearts right of the name (bonusPips)
 
     // toast, banner, item card, subtitles
     D.toast = el('div', 'u-toast', hud);
@@ -809,11 +810,12 @@ const UI = (() => {
   function onResize() {
     const w = innerWidth, h = innerHeight;
     const k = clamp(Math.min(w, h) / 800, 0.6, 1.12);
-    document.documentElement.style.setProperty('--k', k.toFixed(3));
+    document.documentElement.style.setProperty('--k', k.toFixed(3)); S.uk = k;
     S.dpr = Math.min(window.devicePixelRatio || 1, 2);
     D.root.classList.toggle('submid', w > h && w - (300 + 290) * k - 40 < 470);   // narrow landscape: subtitles sit right of the orb
     orbResize(); mapResize();
     measureBossBar(); subPlace();
+    if (BN.on) pipsPlace();
     S.needRender = true;
   }
   // Lowest screen y the boss bar covers (layout box, ignores its drop-in transform): the boss camera keeps the dragon below it.
@@ -1130,7 +1132,7 @@ const UI = (() => {
     MM.dirty = false;
   }
   // minimap view transform for the current frame (hoisted helpers: no per-frame closures)
-  const MV = { c: null, cx: 0, sc: 1, px: 0, pz: 0, d: 1, goal: null };
+  const MV = { c: null, cx: 0, sc: 1, px: 0, pz: 0, d: 1, goal: null, bonus: false };
   const msx = x => MV.cx + (x - MV.px) * MV.sc, msy = z => MV.cx + (z - MV.pz) * MV.sc;
   const mInView = (x, z, m) => dist2(x, z, MV.px, MV.pz) < (MAP_VIEW + m) * (MAP_VIEW + m);
   function mIcon(spr, x, z, k) { const w = spr.css * MV.d * k; MV.c.drawImage(spr, msx(x) - w / 2, msy(z) - w / 2, w, w); }
@@ -1211,6 +1213,24 @@ const UI = (() => {
     c.restore();
     c.restore();
     c.drawImage(MM.front, 0, 0);
+    // Round 6 bonus: where Feza should go (GAME.bonusSpot: the fallen crown, the glowing hole, the carrot, a heart…) — a gold
+    // dot with a soft pulsing ring, drawn over the rim shading and the boss badge so it pops; off the map, a gold dot on the
+    // rim toward it
+    const bs = bonusSpotNow(g);
+    MV.bonus = !!bs;
+    if (bs) {
+      const dx = bs.x - px, dz = bs.z - pz, dd = Math.hypot(dx, dz), lim = MAP_VIEW - 3;
+      let x = msx(bs.x), y = msy(bs.z), r = 5 * d;
+      if (dd > lim) { const a = Math.atan2(dz, dx), rr = cx - 14 * d; x = cx + Math.cos(a) * rr; y = cx + Math.sin(a) * rr; r = 4.6 * d; }
+      const k = (t * 1.6) % 1;
+      c.save(); c.beginPath(); c.arc(cx, cx, cx - 2 * d, 0, TAU); c.clip();
+      c.globalAlpha = 0.85 * (1 - k); c.lineWidth = 2.2 * d; c.strokeStyle = '#ffe37a';
+      c.beginPath(); c.arc(x, y, r + (3 + 9 * k) * d, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.beginPath(); c.arc(x, y, r * (1 + 0.12 * Math.sin(t * 6)), 0, TAU);
+      c.fillStyle = '#ffd23f'; c.fill(); c.lineWidth = 1.6 * d; c.strokeStyle = '#5a2a00'; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,0.85)'; c.beginPath(); c.arc(x - r * 0.3, y - r * 0.32, r * 0.3, 0, TAU); c.fill();
+      c.restore();
+    }
   }
   function starPath(c, x, y, R, r) {
     c.beginPath();
@@ -1576,7 +1596,7 @@ const UI = (() => {
   function bossApply(t) {   // swap the SVG stand-in for the portrait wherever this boss is on screen
     if (D.bossIco && D.boss.dataset.b === t) D.bossIco.innerHTML = bossHTML(t);
     if (MM.spr['b:' + t]) MM.spr['b:' + t] = bossSprite(t);
-    if (D.subIco && D.subIco.dataset.b === t) D.subIco.innerHTML = bossHTML(t);
+    if (D.subIco && D.subIco.dataset.b === t) D.subIco.innerHTML = bossHTML(t) + subBadge(D.subIco.dataset.badge);
     if (D.winBoss) D.winBoss.querySelectorAll('.u-wb[data-b="' + t + '"]').forEach(e => { e.innerHTML = bossHTML(t); });
   }
   // Voice line → boss (its portrait sits next to the subtitle): EDEF[type].lines {giris, bitti, yarim}, else the key prefixes.
@@ -1741,6 +1761,10 @@ const UI = (() => {
     kefir: '🥛', ilk_yogurt: '🥣', ilk_kaymak: '🍯', ilk_kopuk: '🫧', ilk_peynir: '🧀', kefir_ikram: '🥛', yolculuk: '🗺️',
     // Surlu Şehir (Round 5): the walled town and its grumpy townsfolk (the knight's lines show his portrait)
     sehir: '🏰', ilk_nobetci: '🛡️', ilk_simitci: '🥯', ilk_supurgeci: '🧹', ilk_tellal: '🥁' };
+  // Round 6 bonus lines: the boss's own portrait (lineBoss, by key prefix) with a small badge of the bonus thing in its corner
+  const SUB_BADGE = { kraljole_tac: '👑', kraljole_saskin: '👑', kefirdev_balon: '🫧', kefirdev_hik: '🫧', usta_saklambac: '👀', usta_yakaladin: '💫',
+    kaplumbaga_tas: '🧊', kaplumbaga_devrildi: '💫', sovalye_havuc: '🥕', sovalye_atdoydu: '🥕', ejderha_kalp: '💕', ejderha_sevgi: '💖' };
+  const subBadge = b => (b ? '<span class="u-sbadge">' + b + '</span>' : '');
   const SUB_MILK = { kefir: 1, ilk_yogurt: 1, ilk_kaymak: 1, ilk_kopuk: 1, ilk_peynir: 1, kefir_ikram: 1 };   // their icon sits on a milky-blue disc (ui.css .u-subico.milk)
   const SUB_TOWN = { sehir: 1, ilk_nobetci: 1, ilk_simitci: 1, ilk_supurgeci: 1, ilk_tellal: 1 };   // … on a sky-blue disc with a gold ring (.u-subico.town)
   // Title screen: the spoken "Oyna düğmesine bas…" line sits just above the Oyna / Devam Et buttons, never on them. Measured
@@ -1768,8 +1792,10 @@ const UI = (() => {
       // a boss's lines: that boss's friendly portrait (cached at its zone load); a line with its own icon keeps it (the
       // glass of kefir while Feza drinks, even if EDEF lists that line with the Kefir Devi)
       const key = lineKey(text), emo = SUB_EMO[key], bt = emo ? null : lineBoss(key);
-      if (bt) D.subIco.innerHTML = bossHTML(bt);
+      const badge = bt && SUB_BADGE[key] || '';
+      if (bt) D.subIco.innerHTML = bossHTML(bt) + subBadge(badge);
       else D.subIco.textContent = emo || '✨';
+      D.subIco.dataset.badge = badge;
       D.subIco.classList.toggle('drg', !!bt); D.subIco.classList.toggle('milk', !bt && !!SUB_MILK[key]); D.subIco.classList.toggle('town', !bt && !!SUB_TOWN[key]);
       D.subIco.dataset.b = bt || '';
       subPlace();
@@ -2075,6 +2101,7 @@ const UI = (() => {
     D.bossName.innerHTML = ol(ad);
     D.bossIco.innerHTML = bossHTML(t);
     measureBossBar();
+    if (BN.on) pipsPlace();
     bossFill(S.bossFrac); D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
     D.boss.classList.add('on');
   }
@@ -2085,7 +2112,77 @@ const UI = (() => {
     D.bossFill.style.transform = `scaleX(${f.toFixed(4)})`;
     if (BAR_FX[D.boss.dataset.b]) D.bossFizz.style.transform = `scaleX(${(1 / Math.max(0.02, f)).toFixed(4)})`;
   }
-  function hideBoss() { S.boss = false; D.boss.classList.remove('on'); }
+  function hideBoss() { S.boss = false; D.boss.classList.remove('on'); pipsOff(); }
+  // ── Round 6 bonus pips (GAME 'bonus' {on, kind, type, have, need}) ──
+  // Right of the boss's name (same line: the bar's height, so the boss camera's top edge, stays put): one little gold star per
+  // thing to do (bonk the peeking mole 3×, pop the bubble, bring the crown…) — the dragon's friendship hearts are pink hearts —
+  // filling with a pop as Feza does them. All done: a happy wiggle, then they fade; the bonus ending unfinished (ignored,
+  // timed out, the boss napped) just fades them. Costs nothing while no bonus runs (no DOM work, no idle animation).
+  const PIP_SVG = {
+    star: '<svg viewBox="0 0 24 24"><path d="M12 1.9l2.95 6.2 6.8.8-5.05 4.7 1.35 6.75L12 17l-6.05 3.35 1.35-6.75L2.25 8.9l6.8-.8z"/><ellipse class="sh" cx="9.6" cy="8.6" rx="2.2" ry="1.3" transform="rotate(-28 9.6 8.6)"/></svg>',
+    heart: '<svg viewBox="0 0 24 24"><path d="M12 21C5.9 16.5 2.3 13.1 2.3 8.8c0-3 2.3-5.3 5.1-5.3 1.9 0 3.6 1 4.6 2.6 1-1.6 2.7-2.6 4.6-2.6 2.8 0 5.1 2.3 5.1 5.3 0 4.3-3.6 7.7-9.7 12.2z"/><ellipse class="sh" cx="7.6" cy="8" rx="2" ry="1.3" transform="rotate(-35 7.6 8)"/></svg>',
+  };
+  const PIP_KIND = { kalp: 'heart' };
+  const BN = { on: false, kind: '', need: 0, have: 0, done: false, won: '', ev: 0 };   // won: the kind just finished (its repeats stay hidden)
+  let pipHide = 0;
+  // Just right of the name, as tall as its line. The name is centred over the bar: when a long name and its pips would run
+  // past the bar's end (toward the 🎒⏸ buttons), the name slides left just enough (never past the bar's start); if even
+  // that is not enough, the pips shrink a little (--ps).
+  function pipsPlace() {
+    const E = D.bossPips, N = D.bossName; if (!E || !N) return;
+    E.style.top = N.offsetTop + 'px'; E.style.height = N.offsetHeight + 'px';
+    const bw = D.boss.clientWidth, nw = N.offsetWidth, gap = 6 * (S.uk || 1), n = E.children.length;
+    const pw = n ? n * E.children[0].offsetWidth + (n - 1) * 3 * (S.uk || 1) : 0;
+    const room = Math.max(0, (bw - nw) / 2), sh = clamp(nw / 2 + gap + pw - bw / 2, 0, room);
+    const ps = pw > 0 ? clamp((bw / 2 - nw / 2 - gap + sh) / pw, 0.35, 1) : 1;
+    E.style.setProperty('--nw', nw + 'px'); E.style.setProperty('--sh', Math.round(sh) + 'px'); E.style.setProperty('--ps', ps.toFixed(3));
+    N.style.transform = sh > 0.5 ? `translateX(${-Math.round(sh)}px)` : '';
+  }
+  function pipsOff(fadeMs) {
+    clearTimeout(pipHide); BN.on = false; BN.done = false;
+    const E = D.bossPips; if (!E) return;
+    if (D.bossName && D.bossName.style.transform) D.bossName.style.transform = '';   // (the name slides back to the centre)
+    if (fadeMs > 0) pipHide = setTimeout(() => E.classList.remove('on', 'done'), fadeMs);
+    else E.classList.remove('on', 'done');
+  }
+  function bonusPips(d) {
+    const E = D.bossPips; if (!E) return;
+    BN.ev++;
+    const need = clamp(Math.round(Number(d.need) || 0), 0, 6), have = clamp(Math.round(Number(d.have) || 0), 0, need), kind = String(d.kind || '');
+    if (!d.on || !need) {   // over: a finished bonus keeps its happy stars a moment longer
+      const won = BN.done || (BN.on && BN.need > 0 && need > 0 && have >= need);
+      BN.won = '';
+      if (won && !BN.done && need === BN.need) pipsFill(have, true);
+      if (won) { E.classList.add('done'); if (!BN.done) { BN.done = true; clearTimeout(pipHide); pipHide = setTimeout(() => pipsOff(), 1800); } BN.on = false; }
+      else pipsOff();
+      return;
+    }
+    if (have >= need && BN.won === kind && !BN.on) return;   // (still "all done" after its stars faded, e.g. during the stun: stay away)
+    if (have < need) BN.won = '';
+    const shape = PIP_KIND[kind] || 'star', fresh = !BN.on || BN.need !== need || BN.kind !== kind || E.children.length !== need;
+    if (!fresh && have === BN.have) return;   // (nothing new: no DOM work)
+    clearTimeout(pipHide);
+    if (fresh) {
+      let h = ''; for (let i = 0; i < need; i++) h += '<i class="u-bpip">' + PIP_SVG[shape] + '</i>';
+      E.innerHTML = h; E.dataset.k = shape; E.classList.remove('done');
+      BN.done = false; BN.have = 0;
+      BN.on = true; BN.kind = kind; BN.need = need;
+      pipsPlace();
+      E.classList.add('on');
+    }
+    pipsFill(have, !fresh);
+    if (have >= need && !BN.done) { BN.done = true; BN.won = kind; E.classList.add('done'); pipHide = setTimeout(() => pipsOff(), 2200); }
+  }
+  function pipsFill(have, pop) {
+    const E = D.bossPips;
+    for (let i = 0; i < E.children.length; i++) {
+      const p = E.children[i], f = i < have;
+      if (f === p.classList.contains('f')) continue;
+      p.classList.toggle('f', f);
+      if (f && pop && p.animate) p.animate([{ transform: 'scale(0.3) rotate(-40deg)' }, { transform: 'scale(1.55) rotate(12deg)', offset: 0.55 }, { transform: 'scale(1) rotate(0deg)' }], { duration: 520, easing: 'ease-out' });
+    }
+    BN.have = have;
+  }
 
   // ───────────────────────── GAME events ─────────────────────────
   function wireEvents() {
@@ -2154,6 +2251,7 @@ const UI = (() => {
       if (d.hardcore) toast(d.zone === 0 ? 'Hardcore: 1. bölümden başlıyorsun' : `Hardcore: ${d.zone + 1}. bölüm kaydına döndün`, true);
     });
     on('boss', d => { if (d.on) showBoss(d); else hideBoss(); });
+    on('bonus', d => bonusPips(d));   // Round 6: the boss's bonus (07 bonusStep) — pips on the boss bar
     on('bossHp', d => {
       S.bossFrac = clamp(d.frac, 0, 1);
       bossFill(S.bossFrac);
@@ -2206,7 +2304,7 @@ const UI = (() => {
   // … and, only while a subtitle narrows the box (portrait: it crosses the middle), aiming closer to Feza (or a little past
   // him, away from the focus) may be needed to lift everything above it
   const FIT_FX = FIT_F.concat([0.22, 0.12, 0, -0.12, -0.25]);
-  const FIT = { pts: new Float32Array(120), n: 0, ox: 0, oz: 0, zoom: 1, res: 0, f: 0 };   // res/f: last rule + look-at fraction (tests)
+  const FIT = { pts: new Float32Array(120), n: 0, ox: 0, oz: 0, zoom: 1, res: 0, f: 0, views: 0 };   // res/f: last rule + look-at fraction, views: fitsView calls (tests)
   const CAMK = { k: 1 };   // cameraFollow's distance factor for this aspect (portrait pulls back), read off the real camera
   const _fc = new THREE.PerspectiveCamera(), _fv = new THREE.Vector3();
   function fitAdd(x, y, z) { if (FIT.n >= 40) return; const i = FIT.n++ * 3; FIT.pts[i] = x; FIT.pts[i + 1] = y; FIT.pts[i + 2] = z; }
@@ -2282,6 +2380,52 @@ const UI = (() => {
     }
     fitBoss(b, 1, 1, x - b.x, z - b.z);
   }
+  function fitBossAll(b, run, L) { fitBoss(b, 1); if (run) fitLead(b, L); }
+  // Round 6 bonus: while GAME.bonusSpot() names a spot for Feza to go to (the fallen crown, the glowing hole, the carrot…),
+  // the boss camera also keeps that spot (its marker ring and star, up to ~1.7 m) on screen — only when that costs at most BONUS_CAM.zoom
+  // more zoom-out than the plain boss framing chose and no stricter HUD / subtitle rule has to give way; else the plain boss
+  // framing stays (the gold ring and the minimap dot show the way). It first tries the plain framing's aim (a spot already in
+  // view changes nothing), then an aim leaning toward the spot. The spot glides (a new hole, the crown's arc); once the camera
+  // lets go of a spot it waits BONUS_CAM.dwell s before taking one in again, and a spot that does not fit is tried again
+  // only every BONUS_CAM.retry s — so it never jumps back and forth and the extra solve costs little.
+  const BONUS_CAM = { zoom: 1.12, dwell: 1.0, retry: 0.25, glide: 5, h: 1.7, r: 0.8, lean: 0.5 };   // r: most of FX.marker's ring, left and right
+  const BZ = { has: false, x: 0, z: 0, used: false, next: -9, frame: -9, n: 0, ok: 0, zN: 0, fitp: { ctx: '', sub: -2, rule: 0, t0: -9 } };
+  function bonusSpotNow(g) {
+    if (!g || typeof g.bonusSpot !== 'function') return null;
+    const p = safe('bonusSpot', () => g.bonusSpot());
+    return p && Number.isFinite(p.x) && Number.isFinite(p.z) ? p : null;
+  }
+  function fitpSwap(o) {   // the bonus solve keeps its own rule memory (FITP): the plain boss framing's dwell stays untouched
+    let v = FITP.ctx; FITP.ctx = o.ctx; o.ctx = v;
+    v = FITP.sub; FITP.sub = o.sub; o.sub = v;
+    v = FITP.rule; FITP.rule = o.rule; o.rule = v;
+    v = FITP.t0; FITP.t0 = o.t0; o.t0 = v;
+  }
+  function bonusTry(g, b, run, px, pz, fx, fz, ty, pitch, zN, resN) {
+    const r = BONUS_CAM.r;
+    fitBossAll(b, run, g.L); fitAdd(BZ.x - r, 0.1, BZ.z); fitAdd(BZ.x + r, 0.1, BZ.z); fitAdd(BZ.x, BONUS_CAM.h, BZ.z);
+    fitpSwap(BZ.fitp);
+    const res = fitSolve('bonus', px, pz, fx, fz, ty, pitch, zN, zN * BONUS_CAM.zoom, 2);
+    fitpSwap(BZ.fitp);
+    return res > 0 && res <= resN;
+  }
+  function bonusFit(g, b, run, px, pz, ty, pitch, dt) {
+    const p = bonusSpotNow(g), gap = S.frame - BZ.frame > 3;   // (gap: the boss camera was off — a new fight starts fresh)
+    BZ.frame = S.frame;
+    if (!p) { if (BZ.used) BZ.next = S.t + BONUS_CAM.dwell; BZ.has = BZ.used = false; return; }
+    if (!BZ.has || gap || Math.hypot(p.x - BZ.x, p.z - BZ.z) > 30) { BZ.x = p.x; BZ.z = p.z; BZ.has = true; }
+    else { BZ.x = damp(BZ.x, p.x, BONUS_CAM.glide, dt); BZ.z = damp(BZ.z, p.z, BONUS_CAM.glide, dt); }
+    const zN = FIT.zoom, oxN = FIT.ox, ozN = FIT.oz, resN = FIT.res, fN = FIT.f;
+    BZ.zN = zN;
+    if (resN <= 0 || (!BZ.used && S.t < BZ.next)) { BZ.used = false; return; }
+    BZ.n++;
+    const L = BONUS_CAM.lean;
+    if (bonusTry(g, b, run, px, pz, b.x, b.z, ty, pitch, zN, resN) ||
+      bonusTry(g, b, run, px, pz, b.x + (BZ.x - b.x) * L, b.z + (BZ.z - b.z) * L, ty, pitch, zN, resN)) { BZ.used = true; BZ.ok++; return; }
+    FIT.zoom = zN; FIT.ox = oxN; FIT.oz = ozN; FIT.res = resN; FIT.f = fN;
+    BZ.next = S.t + (BZ.used ? BONUS_CAM.dwell : BONUS_CAM.retry);
+    BZ.used = false;
+  }
   // The safe screen box for the fit (NDC, y up): below the boss bar (else the top 10 %), above the bottom controls, inside the
   // sides; under the stricter rules the points must also stay clear of the HUD corners (portrait + XP block, 🎒⏸ row, minimap,
   // health orb + potion, attack + skill buttons: their real layout boxes) and above the subtitle box while a line shows
@@ -2319,6 +2463,7 @@ const UI = (() => {
   // keeps clear of the HUD corners; FL.sub: 2 every point stays above the subtitle, 1 only Feza's (the last two points), 0 none
   // — but under every rule the subtitle box never covers Feza (his feet…head span stays above or below it).
   function fitsView(tx, ty, tz, zoom, pitch) {
+    FIT.views++;
     const d = CAM.dist * CAMK.k * zoom;   // same placement as cameraFollow (its aspect pull-back factor is measured, see CAMK)
     _fc.position.set(tx, ty + Math.sin(pitch) * d, tz + Math.cos(pitch) * d);
     _fc.lookAt(tx, ty, tz); _fc.updateMatrixWorld();
@@ -2354,7 +2499,8 @@ const UI = (() => {
   // rule first (FIT_RULES: [corners, subtitle, fractions, south steps]): everything clear of the HUD corners and above the
   // subtitle; then only Feza above it; then clear of the corners only; last the plain box (the older rule). Returns the rule's
   // number (1…), or 0 when nothing fits even at z1: then Feza alone stays in view at z1, leaning toward the focus as far as
-  // that allows (noLean: returns -1 and leaves FIT alone). Result in FIT.ox/oz/zoom.
+  // that allows (noLean: returns -1 and leaves FIT alone; noLean true also skips the rules that ignore the HUD corners, 2 tries
+  // every rule). Result in FIT.ox/oz/zoom.
   const FIT_RULES = [
     [[true, 0, FIT_F, false], [false, 0, FIT_F, false]],   // no subtitle on screen
     [[true, 2, FIT_F, false], [true, 2, FIT_FX, true], [true, 1, FIT_F, false], [true, 1, FIT_FX, true], [true, 0, FIT_F, false], [false, 0, FIT_F, false]],
@@ -2380,7 +2526,7 @@ const UI = (() => {
       const q = k < 0 ? st : k;
       if (q < 0 || (k >= 0 && q === st)) continue;
       const m = q + 1, u = rules[q]; FL.corners = u[0]; FL.sub = u[1]; FL.fr = frs || u[2]; FL.south = u[3];
-      if (noLean && !u[0]) continue;   // (story beat: a portal half behind the HUD is no view — it flies over instead)
+      if (noLean === true && !u[0]) continue;   // (story beat: a portal half behind the HUD is no view — it flies over instead)
       fresh = k >= 0;
       if (fitAim(px, pz, fx, fz, ty, z0, pitch)) { keepAim(); zoom = z0; res = m; break; }
       if (!fitAim(px, pz, fx, fz, ty, z1, pitch)) continue;
@@ -2473,13 +2619,13 @@ const UI = (() => {
     else if (P && P.dead) { zoom = 0.82; }
     else if (S.boss && g.boss && !g.boss.dead) {   // keep the whole boss on screen, not just Feza
       const run = bossRun(g.boss, dt), F = BOSS_SHAPE[g.boss.type];
-      fitBoss(g.boss, 1);
-      if (run) fitLead(g.boss, g.L);   // (the knight's gallop: also where he is heading, and a quicker camera below)
+      fitBossAll(g.boss, run, g.L);   // (the knight's gallop: also where he is heading, and a quicker camera below)
       const big = bigBoss(g.boss), bd = Math.hypot(g.boss.x - px, g.boss.z - pz);
       // a little more frontal (the tall dragon needs less zoom-out); zoom cap keeps Feza ≥ ~70 px tall, only when he is far
       // from the boss (it walks closer) a bit more is allowed
       if (big) { ty = 1.6; pitch = S.playPitch - 0.08; fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.05, 1.62 + clamp((bd - 10) * 0.05, 0, 0.16)); }
       else { ty = clamp((g.boss.height || 2.8) * 0.42, 0.9, 1.5); pitch = S.playPitch - (F && F.tilt > 0 ? F.tilt : 0.05); fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.0, 1.42 + ((F && F.zoom) || 0) + ((F && F.zoomN) || 0) * narrowK() * sideK(g.boss.x - px, bd) + clamp((bd - 10) * 0.05, 0, 0.16)); }
+      bonusFit(g, g.boss, run, px, pz, ty, pitch, dt);   // a bonus (the fallen crown, a glowing hole…): its spot too, when that fits
       zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = Math.max(1.5, run);
     } else if (S.cine && P) {   // boss defeated: look at the cheering boss, then at the rising crystal (castle) or the portal
       const c = S.cine, L = g.L, po = c.fin === false && L ? L.portalObj || L.exit : null;
@@ -2711,6 +2857,7 @@ const UI = (() => {
     _dragon() { DRG.tried = false; DRG.url = DRG.cv = null; return dragonPortrait(); },   // tests: render the dragon portrait again
     _boss(t) { const R = bpRec(t); R.tried = false; R.url = R.cv = null; return bossPortrait(t); },   // tests: (re)render a boss portrait
     _bossHTML: t => bossHTML(t), _bossSvg: t => bossSvg(t), _savedZone: () => savedZone(), _goal: () => MV.goal, _mapTheme: () => MM.theme, _CINE: CINE,
+    _BC: BONUS_CAM, _bonus: () => ({ used: BZ.used, has: BZ.has, x: BZ.x, z: BZ.z, zN: BZ.zN, n: BZ.n, ok: BZ.ok, map: MV.bonus, pips: BN.on, done: BN.done, have: BN.have, need: BN.need }),
     _step(n = 1, dt = 1 / 60) { for (let i = 0; i < n; i++) step(dt, dt, i === n - 1); },   // tests: deterministic frames
   };
 })();

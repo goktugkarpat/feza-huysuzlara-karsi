@@ -41,7 +41,10 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
 
-Eşya görünüşleri toplam 50 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
+Eşya görünüşleri toplam 64 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
+Son eklenen 14 eşya: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
+ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yunikorn Tacı** ve **Astronot Kaskı**; **Şeker**, **Panda** ve
+**Galaksi** pelerinleri. Bazıları ancak ilerideki bölgelerde çıkar (Uzay Roketi, Gezegen ve Galaksi gibi).
 
 ## Bölgeler
 
@@ -83,6 +86,24 @@ Her boss ayrıca bir TBC esintili hareket kullanır; tehlikeli alanlar 2 saniye 
 | Huysuz Ejderha | Illidan — Eye Blast | İki göz ışını işaretli hattı tarar ve kısa süreli mavi bir iz bırakır. |
 
 Yeni hareketler diğer özel saldırılarla sırayla kullanılır; yumurtalar savaş boyunca çoğalmaya devam eder.
+
+### Bossların oyunları
+
+Her bossun savaşın ortasında bir oyunu var. Yapılırsa boss bir süre şaşırıp hiçbir şey yapamaz (tam vurma zamanı!);
+yapılmazsa hiçbir şey kaybedilmez. Gidilecek yeri altın (ejderhada pembe) parlayan bir halka ve haritadaki altın nokta gösterir.
+
+- **Kral Jöle — Taç Kovalamaca:** büyük bir zıplayışta tacı başından düşer. Kral tacına yürürken Feza önce koşup tacı kaparsa
+  taç kralın başına geri uçar, kral utanıp kıpkırmızı olur.
+- **Kefir Devi — Dev Köpük Balonu:** kocaman bir köpük balonu üfler, balon yavaşça Feza'ya doğru süzülür. İki kez vurunca
+  "pof!" diye patlar, içinden bir kalp çıkar ve dev hıçkırık tutar.
+- **Usta Köstebek — Saklambaç:** yere girer, meydanda dört delik açılır. Parlayan deliğe koş, başı görününce dokun ("tak!");
+  üç kez yakalayınca köstebeğin başı döner.
+- **Lav Kaplumbağası — Serin Taşlar:** üç serin taş çıkar. Kaplumbağa yuvarlanmaya hazırlanırken taşın arkasına saklanınca
+  taşa çarpar ve yan yatıp ayaklarını sallar.
+- **Huysuz Şövalye — Havuç:** meydanın kenarında altın bir havuç belirir. Feza havucu alıp başının üstünde tutar; aç at
+  koşa koşa gelir, havucu mutlulukla yer, şövalye de surat asıp bekler.
+- **Huysuz Ejderha — Dostluk Kalpleri:** ejderha iç çekip üç pembe kalp üfler. Hepsini toplayınca kocaman bir sevgi kalbi
+  ejderhaya uçar ve ejderha bir süre sevgiyle oturur.
 
 
 ## Hardcore

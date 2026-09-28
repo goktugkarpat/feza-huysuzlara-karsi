@@ -410,6 +410,11 @@ const FX = (() => {
       SILV: lin('#eef4ff', 2.6), SILVB: lin('#bcd6ff', 2.4), SILVG: lin('#dfeaff', 1.6),
       SHOEG: lin('#ffb82a', 0.98), SHOEY: lin('#ffd644', 0.98), SHOEB: lin('#86bcff', 0.98),
       NOTEC: ['#ff5fa8', '#39b4ff', '#ffc21f', '#4cd46a', '#a47bff', '#ff8a2a'].map(h => lin(h, 0.95)),
+      // Round 6 (boss bonus games): solid bonk / dizzy / marker stars (a touch over 1: they bloom a little, but stay solid on
+      // pale floors), the serin taş's mint shards and cool mist, the big soap bubble's film pink-lilac.
+      BONK: lin('#ffd21f', 1.05), BONK2: lin('#ffb81a', 1.0), DZ0: lin('#ffd21f', 1.05), DZ1: lin('#ffe45a', 1.0), MSTAR: lin('#ffc21f', 1.0),
+      MINT: ['#9ff5e0', '#c4fbff', '#72dcc8', '#e8fffb', '#a8e8ff'].map(h => lin(h)), MINTG: lin('#8ff0e0', 2.2), MINTW: lin('#e6fffb', 2.6),
+      MIST: lin('#f2fffc', 0.97), SOAPF: lin('#d49cff', 0.95),
     };
     C.NOTEG = C.NOTEC.map(c => hueNorm(c, 2.2));
   }
@@ -431,7 +436,8 @@ const FX = (() => {
     slime: 2, dirt: 8, bubblePop: 7, bubbles: 3, bubble: 7, pop: 7, glitter: 3, dig: 8, mud: 8, clods: 8, trail: 2,
     lava: 12, magma: 12, erupt: 16, eruption: 16, volcano: 16, steam: 4, vent: 4, jelly: 9, splat: 9,
     milk: 12, cream: 12, yogurt: 12, splash: 12, fizz: 10, kefir: 10, foam: 6, fizzPop: 8, crumbs: 10, crumb: 10, biscuit: 10,
-    hoof: 5, gallop: 5, hooves: 5, notes: 7, note: 7, music: 7, horseshoe: 16, clink: 16, simit: 10, sesame: 10 };
+    hoof: 5, gallop: 5, hooves: 5, notes: 7, note: 7, music: 7, horseshoe: 16, clink: 16, simit: 10, sesame: 10,
+    bonk: 6, hearts: 10, heart: 10, love: 10, charm: 10, bigPop: 16, crack: 12 };
   const B = {
     // opts.color (the saber's blade colour, or a projectile's colour): the flash, ring and energy streaks take that hue and
     // a few crackling sparks fly off — a "zap". The cute yellow stars stay. No coloured droplets (a red blade must never
@@ -1091,6 +1097,112 @@ const FX = (() => {
       }
       if (o.ring) ring(x, z, { r0: 0.25 * bk, r1: (o.ring > 0.3 ? o.ring : 1.5) * bk, dur: 0.4, color: '#ffe6a8', k: 1.0, edge: 0.25, width: 0.4 * bk });
     },
+    // ── Boss bonus games (Round 6) ──
+    // Bonk! (Usta Köstebek's head tapped while it peeks; x, y, z = the head): a white "tok" flash + ring, a ring of 6 solid
+    // yellow stars flung out flat round the head, circling a little as they slow down and fade, twinkles, and a soft dust puff
+    // on the floor round the hole. opts: {color (dust tint), scale, count}.
+    bonk(x, y, z, o, K) {
+      const dc = o.color ? lin(o.color) : null;
+      flashGlow(x, y, z, 1.2, C.W3, 0.1, 0.6);
+      let q = P(1, SH.RING, x, y, z); q.size = 0.3; q.size1 = 1.7; q.life = 0.2; q.rot = 0; q.color = C.W2; q.alpha = 0.75; q.fade = 1.4; emitRaw(q);
+      for (let i = 0, n = N(6, K); i < n; i++) {
+        const a = (i / n) * TAU + frand(-0.1, 0.1), s = frand(3.0, 3.4);
+        q = P(0, SH.STAR, x + Math.cos(a) * 0.2, y + 0.12, z + Math.sin(a) * 0.2);
+        q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s; q.vy = frand(0.5, 0.9); q.drag = 3.8; q.grav = 0.8; q.orbit = 2.6; q.ox = x; q.oz = z;
+        q.size = frand(0.4, 0.46); q.size1 = 0.2; q.life = frand(0.75, 0.9); q.pop = 0.08; q.fade = 2.2; q.rot = frand(-0.4, 0.4); q.spin = frand(-6, 6);
+        q.color = i & 1 ? C.BONK2 : C.BONK; emitRaw(q);
+        q.add = 1; q.shape = SH.GLOW; q.size *= 2; q.size1 = 0.2; q.spin = 0; q.color = C.GOLD; q.alpha = 0.25; emitRaw(q);   // its glow, on the same path
+      }
+      twinkles(N(3, K), x, y + 0.2, z, 0.4, null, 0.36);
+      for (let i = 0, n = N(5, K); i < n; i++) {   // dust round the hole
+        const a = (i / n) * TAU + frand(-0.3, 0.3), s = frand(0.9, 1.5);
+        q = P(0, SH.SMOKE, x + Math.cos(a) * 0.4, 0.1, z + Math.sin(a) * 0.4);
+        q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s; q.vy = frand(0.2, 0.5); q.drag = 3.4;
+        q.size = frand(0.3, 0.4); q.size1 = q.size * 2.1; q.life = frand(0.5, 0.75); q.alpha = 0.85; q.fade = 2.2; q.pop = 0.1; q.spin = frand(-1, 1);
+        q.color = dc || (i & 1 ? C.DUST : C.DIRTDUST); emitRaw(q);
+      }
+    },
+    // Love hearts (the king's blush, the horse's happy munch, the dragon charmed): a fountain of big glossy hearts rising and
+    // swaying, each with a soft pink glow, a pink ring, pink and golden twinkles and a few little gold stars. Aliases
+    // 'heart', 'love', 'charm'. opts: {color (one colour for all hearts), scale, count}.
+    hearts(x, y, z, o, K) {
+      const tc = o.color ? lin(o.color) : null;
+      flashGlow(x, y, z, 2.2, C.PINKG, 0.32, 0.42);
+      let q = P(1, SH.RING, x, y, z); q.size = 0.5; q.size1 = 2.8; q.life = 0.36; q.rot = 0; q.color = C.PINKG; q.alpha = 0.55; q.fade = 1.5; emitRaw(q);
+      for (let i = 0, n = N(10, K); i < n; i++) {
+        const a = (i / n) * TAU + frand(-0.25, 0.25), s = frand(0.8, 1.8), ph = frand(0, TAU);
+        q = P(0, SH.HEART, x + Math.cos(a) * 0.25, y, z + Math.sin(a) * 0.25);
+        q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s * 0.7; q.vy = frand(2.0, 3.4); q.drag = 1.5; q.grav = -0.3; q.wob = 1.2; q.phase = ph;
+        q.size = frand(0.42, 0.66); q.size1 = q.size * 0.85; q.life = frand(1.5, 2.1); q.pop = 0.25; q.fade = 3; q.rot = frand(-0.35, 0.35); q.spin = frand(-0.5, 0.5);
+        q.color = tc || C.HEARTS[i % 4]; q.delay = i * 0.03; emitRaw(q);
+        q.add = 1; q.shape = SH.GLOW; q.size *= 2.1; q.size1 = q.size * 0.7; q.color = C.PINKG; q.alpha = 0.14; emitRaw(q);   // its glow, on the same path
+      }
+      twinkles(N(6, K), x, y + 0.3, z, 0.7, C.PINKG, 0.4);
+      twinkles(N(3, K), x, y + 0.3, z, 0.6, null, 0.36);
+      for (let i = 0, n = N(3, K); i < n; i++) {
+        q = P(0, SH.STAR, x, y + 0.2, z); radial(q, 0.6, 1.3, 2.4, 3.4); q.grav = 5; q.drag = 1.2;
+        q.size = frand(0.16, 0.2); q.size1 = 0.06; q.life = frand(0.7, 0.9); q.spin = frand(-6, 6); q.pop = 0.08; q.fade = 2; q.color = C.SHOEY; q.delay = frand(0.05, 0.15); emitRaw(q);
+      }
+    },
+    // The Kefir Devi's big soap bubble pops (x, y, z = its centre; scale = the bubble's radius): the film flicks out as a wide
+    // pink-lilac ring (normal blend: shows on the pale kefir floor) with a pastel shine, glossy droplets fly off the film and fall,
+    // confetti bursts out, baby bubbles fizz up, pastel sparkles, and a soft pink ring glides over the floor.
+    // opts: {color (droplet tint), scale, count, ring: false (no ground ring)}.
+    bigPop(x, y, z, o, K) {
+      const tint = o.color ? hueNorm(lin(o.color), 0.97) : null;
+      flashGlow(x, y, z, 2.6, C.PASTELG[1], 0.14, 0.3);
+      let q = P(0, SH.RING, x, y, z); q.size = 1.9; q.size1 = 3.6; q.life = 0.24; q.rot = 0; q.color = C.SOAPF; q.alpha = 0.85; q.fade = 1.3; emitRaw(q);
+      q = P(1, SH.RING, x, y, z); q.size = 1.7; q.size1 = 3.3; q.life = 0.2; q.rot = 0; q.color = C.PASTELG[0]; q.alpha = 0.35; q.fade = 1.3; emitRaw(q);
+      for (let i = 0, n = N(14, K); i < n; i++) {   // droplets flung off the film
+        const a = Math.random() * TAU, e = frand(-0.5, 0.9), c = Math.sqrt(1 - e * e), s = frand(2.2, 4);
+        q = P(0, SH.DOT, x + Math.cos(a) * c * 0.9, y + e * 0.9, z + Math.sin(a) * c * 0.9);
+        q.vx = Math.cos(a) * c * s; q.vy = e * s + 1.2; q.vz = Math.sin(a) * c * s;
+        q.grav = 9; q.drag = 0.7; q.bounce = 0.1; q.stretch = 1.7; q.soft = 1; q.size = frand(0.09, 0.15); q.size1 = q.size * 0.6;
+        q.life = frand(0.6, 0.9); q.fade = 3; q.color = tint || C.KEFR[i % 5]; emitRaw(q);
+      }
+      const shapes = [SH.SQUARE, SH.PETAL, SH.STAR, SH.HEART, SH.FLOWER, SH.SQUARE];
+      for (let i = 0, n = N(16, K); i < n; i++) {   // confetti
+        const a = Math.random() * TAU, e = frand(-0.2, 0.8), c = Math.sqrt(1 - e * e), s = frand(1.4, 3.2);
+        q = P(0, shapes[i % 6], x + Math.cos(a) * c * 0.7, y + e * 0.7, z + Math.sin(a) * c * 0.7);
+        q.vx = Math.cos(a) * c * s; q.vy = e * s + frand(2.4, 4); q.vz = Math.sin(a) * c * s;
+        q.grav = 4.5; q.drag = 2; q.wob = 1.1; q.spin = frand(-10, 10); q.size = frand(0.16, 0.24); q.life = frand(1.6, 2.2); q.fade = 4;
+        q.color = C.CONF[(i * 7) % 6]; q.delay = frand(0, 0.06); emitRaw(q);
+      }
+      for (let i = 0, n = N(5, K); i < n; i++) {   // baby bubbles fizz up
+        q = P(0, SH.RING, x + frand(-0.5, 0.5), y + frand(-0.3, 0.4), z + frand(-0.5, 0.5)); q.vx = frand(-0.3, 0.3); q.vy = frand(0.6, 1.2); q.vz = frand(-0.3, 0.3);
+        q.grav = -1; q.wob = 0.5; q.soft = 1; q.size = frand(0.12, 0.2); q.size1 = q.size * 1.25; q.life = frand(0.8, 1.1); q.fade = 5; q.pop = 0.12;
+        q.color = C.KEFR[i % 5]; q.delay = frand(0.04, 0.12); emitRaw(q);
+      }
+      for (let i = 0, n = N(8, K); i < n; i++) {   // pastel sparkles where the film was
+        const a = Math.random() * TAU, e = frand(-0.6, 0.8), c = Math.sqrt(1 - e * e);
+        q = P(1, SH.SPARK, x + Math.cos(a) * c * 0.95, y + e * 0.95, z + Math.sin(a) * c * 0.95); q.vx = Math.cos(a) * c * 0.8; q.vy = frand(0.3, 1.0); q.vz = Math.sin(a) * c * 0.8;
+        q.size = frand(0.26, 0.38); q.size1 = 0.04; q.life = frand(0.5, 0.75); q.pop = 0.08; q.flick = frand(14, 22); q.rot = frand(-0.3, 0.3);
+        q.color = C.PASTELG[i % C.PASTELG.length]; q.delay = frand(0, 0.08); emitRaw(q);
+      }
+      if (o.ring !== false) ring(x, z, { r0: 0.5 * bk, r1: 2.0 * bk, dur: 0.45, color: '#ff9ad8', k: 0.6, edge: 0.15, width: 0.5 * bk });
+    },
+    // A serin taş (the cool mint boulder) cracks when the rolling lava turtle bumps it: a cool flash + ring, mint crystal shards
+    // and rounded chips tumbling out and bouncing, cool white mist billowing, frosty twinkles. opts: {color (shard tint), dir, scale, count}.
+    crack(x, y, z, o, K) {
+      const v = o.color ? [lin(o.color, 0.8), lin(o.color), lin(o.color, 1.15)] : C.MINT, dx = o.dir ? o.dir.x * 1.5 : 0, dz = o.dir ? o.dir.z * 1.5 : 0;
+      flashGlow(x, y, z, 1.8, C.MINTG, 0.16, 0.5);
+      let q = P(1, SH.RING, x, y, z); q.size = 0.5; q.size1 = 2.2; q.life = 0.24; q.rot = 0; q.color = C.MINTG; q.alpha = 0.55; q.fade = 1.4; emitRaw(q);
+      for (let i = 0, n = N(12, K); i < n; i++) {   // crystal shards
+        q = P(0, SH.SHARD, x + frand(-0.3, 0.3), y + frand(-0.2, 0.3), z + frand(-0.3, 0.3)); radial(q, 2.2, 4.8, 2.4, 5.2); q.vx += dx; q.vz += dz;
+        q.grav = 11; q.bounce = 0.3; q.drag = 0.3; q.size = frand(0.26, 0.42); q.size1 = q.size * 0.8; q.life = frand(0.9, 1.3); q.spin = frand(-12, 12); q.fade = 4;
+        q.color = v[i % v.length]; emitRaw(q);
+      }
+      for (let i = 0, n = N(5, K); i < n; i++) {   // rounded boulder chips
+        q = P(0, i & 1 ? SH.DOT : SH.SQUARE, x + frand(-0.2, 0.2), y, z + frand(-0.2, 0.2)); radial(q, 1.2, 2.6, 2, 3.8); q.vx += dx * 0.6; q.vz += dz * 0.6;
+        q.grav = 12; q.bounce = 0.35; q.size = frand(0.2, 0.32); q.life = frand(1.0, 1.3); q.spin = frand(-8, 8); q.fade = 4; q.color = v[(i + 1) % v.length]; emitRaw(q);
+      }
+      for (let i = 0, n = N(5, K); i < n; i++) {   // cool mist
+        q = P(0, SH.SMOKE, x + frand(-0.25, 0.25), y + frand(-0.1, 0.2), z + frand(-0.25, 0.25)); radial(q, 0.3, 0.9, 0.7, 1.4);
+        q.grav = -0.2; q.drag = 1.2; q.wob = 0.4; q.size = frand(0.4, 0.5); q.size1 = q.size * 3; q.life = frand(1.2, 1.7); q.alpha = 0.8; q.fade = 2.2; q.pop = 0.15;
+        q.spin = frand(-0.8, 0.8); q.color = C.MIST; q.delay = i * 0.04; emitRaw(q);
+      }
+      twinkles(N(8, K), x, y + 0.2, z, 0.8, C.MINTW, 0.42);
+    },
   };
   const simO = { color: null, dir: null, pal: null };   // scratch opts: the simit break reuses the crumbs preset
   // Friendly aliases (other modules may guess a name): all fall back to a real preset instead of the generic sparkle.
@@ -1098,6 +1210,7 @@ const FX = (() => {
   B.magma = B.lava; B.eruption = B.erupt; B.volcano = B.erupt; B.vent = B.steam; B.splat = B.jelly;
   B.cream = B.milk; B.yogurt = B.milk; B.splash = B.milk; B.kefir = B.fizz; B.crumb = B.crumbs; B.biscuit = B.crumbs;
   B.gallop = B.hoof; B.hooves = B.hoof; B.note = B.notes; B.music = B.notes; B.clink = B.horseshoe; B.sesame = B.simit;
+  B.heart = B.hearts; B.love = B.hearts; B.charm = B.hearts;
   let warnedKind = null;
   function burst(kind, x, y, z, o) {
     if (!ready) init();
@@ -1396,6 +1509,156 @@ const FX = (() => {
     const f = (it.t - it.dur) / 0.2;
     if (f >= 1 || it.warm) { release(it); return; }
     u.uFlash.value = 1 - f; u.uA.value = 1 - f * f;
+  }
+
+  // ── Marker (Round 6): the friendly "come here!" spot (the fallen crown, the carrot, the hole the mole peeks from, a floating
+  // heart). It must never look like the danger circle (a pink disc that fills up): it is an OUTLINE — a round shiny golden hoop
+  // (lighter crest, white shine, a thin darker rim so it also reads on pale floors), chasing lights round its inner side, four
+  // little chevrons sliding inward from outside ("here!"), pulsing ×1.08 at 3 Hz, with sparkles rising off it and a solid
+  // star bobbing above it (both particles: the marker is one mesh). The inside stays empty floor.
+  // Premultiplied output: alpha covers what is under the hoop, the soft glow round it adds.
+  const MARK_FS = `uniform vec3 uCol, uEdge, uAcc; uniform float uR, uA, uT, uN; varying vec2 vP;
+    void main() {
+      float r = length(vP), a = atan(vP.y, vP.x), hw = 0.08 + 0.035 * uR, d = (r - uR) / hw;
+      // the hoop: a round tube, deep at its sides, bright at the crest, a white shine line, a darker rim round it
+      float tube = 1.0 - smoothstep(0.8, 1.0, abs(d));
+      float crest = sqrt(max(0.0, 1.0 - d * d));
+      float shine = exp(-(d + 0.35) * (d + 0.35) / 0.035) * (0.65 + 0.35 * sin(a * 3.0 - uT * 2.5));
+      float rim = (1.0 - smoothstep(1.35, 1.6, abs(d))) * (1.0 - tube);
+      vec3 deep = uEdge * 1.9;
+      vec3 tubeCol = mix(deep, uCol * 1.1, smoothstep(0.1, 0.85, crest)) + vec3(0.9) * shine;
+      // chasing light bulbs sitting on the hoop (every 4th one lit, running round)
+      float ci = floor(a / 6.2831853 * uN + 0.5), la = ci / uN * 6.2831853;
+      float ld = length(vP - uR * vec2(cos(la), sin(la))), br = hw * 0.5;
+      float lamp = 1.0 - smoothstep(br, br + 0.016, ld), lampRim = (1.0 - smoothstep(br + 0.016, br + 0.034, ld)) * (1.0 - lamp);
+      float chase = pow(0.5 + 0.5 * cos(ci * 1.5707963 - uT * 9.0), 3.0);
+      // four chevrons (right / up / left / down), sliding in toward the hoop and fading in / out: "here!"
+      float a4 = mod(a + 0.7853982, 1.5707963) - 0.7853982, cu = r * cos(a4), cv = r * sin(a4);
+      float k = fract(uT * 0.9), cc = uR + hw + 0.4 - 0.26 * k, fa = smoothstep(0.0, 0.15, k) * (1.0 - smoothstep(0.8, 1.0, k));
+      float dch = abs((cu - cc) - abs(cv) * 0.9) * 0.74, arm = 1.0 - smoothstep(0.2, 0.25, abs(cv));
+      float chev = (1.0 - smoothstep(0.045, 0.06, dch)) * arm * fa, chevRim = (1.0 - smoothstep(0.06, 0.082, dch)) * arm * fa;
+      // soft glow round the hoop (additive; kept low so a pale floor is not washed out)
+      float go = max(abs(r - uR) - hw, 0.0);
+      vec3 add = uCol * 0.22 * exp(-go * go / 0.025) * (0.85 + 0.15 * sin(uT * 18.85));
+      vec3 P = vec3(0.0); float A = 0.0, s;
+      s = rim * 0.88; P = P * (1.0 - s) + uEdge * s; A = A * (1.0 - s) + s;
+      s = tube * 0.98; P = P * (1.0 - s) + tubeCol * s; A = A * (1.0 - s) + s;
+      s = lampRim * 0.8; P = P * (1.0 - s) + uEdge * s; A = A * (1.0 - s) + s;
+      s = lamp; P = P * (1.0 - s) + uAcc * (0.75 + 0.9 * chase) * s; A = A * (1.0 - s) + s;
+      s = chevRim * 0.88; P = P * (1.0 - s) + uEdge * s; A = A * (1.0 - s) + s;
+      s = chev; P = P * (1.0 - s) + (uCol * 1.12 + vec3(0.12)) * s; A = A * (1.0 - s) + s;
+      gl_FragColor = vec4((P + add) * uA, A * uA);
+      ${CHUNK_OUT}
+    }`;
+  addPool('marker', () => {
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uSize: { value: 1 }, uR: { value: 1 }, uA: { value: 1 }, uT: { value: 0 }, uN: { value: 16 },
+        uCol: { value: new THREE.Color() }, uEdge: { value: new THREE.Color() }, uAcc: { value: new THREE.Color() } },
+      vertexShader: QUAD_VS, fragmentShader: MARK_FS, transparent: true, depthWrite: false,
+      blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
+    });
+    const it = { obj: fxMesh(QUAD, mat, 11), mat, on: false, gen: 0, t: 0, r: 1, dur: 0, acc: 0, star: true, sy: 1.6,
+      cG: [0, 0, 0], cS: [0, 0, 0], cA: [0, 0, 0] };
+    it.kill = () => { it.dying = 1; };
+    return it;
+  });
+  // marker(x, z, r = 0.9, dur = 0 (until remove), color = '#ffd23f' (gold; pink '#ff6fb5' for the dragon's hearts), o) →
+  // {obj, move(x, z), remove()}. o: {accent (the lights; default cream on gold, gold on other colours), star: false (no star),
+  // starY (default 1.6)}. remove() fades it out in 0.3 s; a stale handle never touches a reused marker.
+  function marker(x, z, r = 0.9, dur = 0, color = '#ffd23f', o = EMPTY) {
+    if (!ready) init();
+    const it = acquire('marker', 8), u = it.mat.uniforms, g = it.gen;
+    r = Math.max(0.3, +r || 0.9); o = o || EMPTY;
+    const base = hueNorm(lin(color || '#ffd23f'));
+    _c.setRGB(base[0], base[1], base[2]); _c.getHSL(_hsl);
+    const goldish = _hsl.h > 0.07 && _hsl.h < 0.2, acc = lin(o.accent || (goldish ? '#fff4c8' : '#ffd23f'));
+    u.uCol.value.setRGB(base[0] * 1.05, base[1] * 1.05, base[2] * 1.05);
+    u.uEdge.value.setRGB(base[0] * base[0] * 0.38, base[1] * base[1] * 0.38, base[2] * base[2] * 0.38);   // deeper, more saturated rim
+    u.uAcc.value.setRGB(acc[0], acc[1], acc[2]);
+    u.uR.value = r; u.uSize.value = r + 1.0; u.uA.value = 0; u.uT.value = 0;
+    u.uN.value = 4 * Math.max(2, Math.round(r * TAU / 0.36 / 4));
+    for (let i = 0; i < 3; i++) { it.cG[i] = base[i] * 2.4; it.cS[i] = base[i] * 0.98; it.cA[i] = acc[i] * 2.2; }
+    it.r = r; it.dur = Math.max(0, +dur || 0); it.acc = 0; it.star = o.star !== false; it.sy = o.starY ?? 1.6;
+    it.obj.position.set(+x || 0, 0.05, +z || 0); it.obj.scale.setScalar(0.55);
+    return {
+      obj: it.obj,
+      move(nx, nz) { if (it.gen === g && it.on) it.obj.position.set(+nx || 0, 0.05, +nz || 0); },
+      remove() { if (it.gen === g && it.on && !it.dying) it.kill(); },
+    };
+  }
+  function stepMarker(it, dt) {
+    it.t += dt;
+    const u = it.mat.uniforms;
+    let s = 0.55 + 0.45 * backOut(Math.min(1, it.t / 0.3)), a = Math.min(1, it.t / 0.15);
+    if (it.dur > 0 && it.t >= it.dur && !it.dying) it.dying = 1;
+    if (it.dying) { it.dying -= dt / 0.3; if (it.dying <= 0) { release(it); return; } a *= it.dying; s *= 1 + 0.25 * (1 - it.dying); }
+    const pulse = 1 + 0.04 * (1 - Math.cos(it.t * TAU * 3));
+    it.obj.scale.setScalar(s * pulse);
+    u.uA.value = a; u.uT.value = it.t;
+    const x = it.obj.position.x, z = it.obj.position.z, R = it.r * s * pulse;
+    bx = x; by = 0; bz = z; bk = 1;
+    let q;
+    if (!it.dying) {
+      it.acc += dt;
+      while (it.acc >= 0.08) {   // 2 sparkles every 0.08 s rising off the hoop: one additive twinkle, one solid little star (pale floors)
+        it.acc -= 0.08;
+        let ang = Math.random() * TAU, rr = R * frand(0.94, 1.04);
+        q = P(1, SH.SPARK, x + Math.cos(ang) * rr, 0.12, z + Math.sin(ang) * rr); q.vx = Math.cos(ang) * 0.12; q.vz = Math.sin(ang) * 0.12; q.vy = frand(0.8, 1.4);
+        q.drag = 0.6; q.size = frand(0.22, 0.32); q.size1 = 0.04; q.life = frand(0.7, 1.0); q.pop = 0.08; q.flick = frand(12, 20); q.rot = frand(-0.3, 0.3);
+        q.color = Math.random() < 0.5 ? it.cG : it.cA; emitRaw(q);
+        ang = Math.random() * TAU; rr = R * frand(0.94, 1.04);
+        q = P(0, SH.STAR, x + Math.cos(ang) * rr, 0.14, z + Math.sin(ang) * rr); q.vy = frand(0.7, 1.2); q.drag = 0.5; q.wob = 0.4;
+        q.size = frand(0.11, 0.15); q.size1 = 0.04; q.life = frand(0.7, 1.0); q.pop = 0.1; q.fade = 2; q.spin = frand(-4, 4); q.color = it.cS; emitRaw(q);
+      }
+    }
+    if (it.star && dt > 1e-6) {   // the bobbing star: re-emitted every frame for one frame (life 1.5 dt), so it follows move() exactly
+      const life = dt * 1.5 + 1e-4, yy = it.sy + 0.1 * Math.sin(it.t * 5.2), sz = 0.46 * (1 + 0.06 * Math.sin(it.t * TAU * 3));
+      q = P(1, SH.GLOW, x, yy, z); q.size = 0.9; q.size1 = 0.9; q.life = life; q.fade = 60; q.alpha = 0.16 * a; q.color = C.GOLD; emitRaw(q);
+      q = P(0, SH.STAR, x, yy, z); q.size = sz; q.size1 = sz; q.life = life; q.fade = 60; q.rot = 0.2 * Math.sin(it.t * 2.6); q.alpha = a; q.color = C.MSTAR; emitRaw(q);
+    }
+  }
+
+  // ── Dizzy stars (Round 6): 5 solid yellow stars circling above a stunned boss's head, each with a soft glow, now and then a
+  // twinkle. Particles only (re-emitted every frame for one frame): no mesh, no draw call of its own.
+  // dizzy(x, y, z, r = 0.55 (orbit radius), dur = 0 (until remove)) → {move(x, y, z), remove()}.
+  addPool('dizzy', () => {
+    const it = { obj: new THREE.Object3D(), on: false, gen: 0, t: 0, x: 0, y: 0, z: 0, r: 0.55, dur: 0, acc: 0 };
+    it.kill = () => { it.dying = 1; };
+    return it;
+  });
+  function dizzy(x, y, z, r = 0.55, dur = 0) {
+    if (!ready) init();
+    const it = acquire('dizzy', 8), g = it.gen;
+    it.x = +x || 0; it.y = +y || 0; it.z = +z || 0; it.r = Math.max(0.2, +r || 0.55); it.dur = Math.max(0, +dur || 0); it.acc = 0;
+    return {
+      obj: it.obj,
+      move(nx, ny, nz) { if (it.gen === g && it.on) { it.x = +nx || 0; it.y = +ny || 0; it.z = +nz || 0; } },
+      remove() { if (it.gen === g && it.on && !it.dying) it.kill(); },
+    };
+  }
+  function stepDizzy(it, dt) {
+    it.t += dt;
+    let a = Math.min(1, it.t / 0.2), R = it.r * (0.5 + 0.5 * easeOut(Math.min(1, it.t / 0.3)));
+    if (it.dur > 0 && it.t >= it.dur && !it.dying) it.dying = 1;
+    if (it.dying) { it.dying -= dt / 0.3; if (it.dying <= 0) { release(it); return; } a *= it.dying; R *= 1 + 0.6 * (1 - it.dying); }
+    if (dt <= 1e-6) return;
+    const life = dt * 1.5 + 1e-4, base = it.t * 3.4, sz = 0.2 + 0.16 * it.r;
+    bx = it.x; by = it.y; bz = it.z; bk = 1;
+    let q;
+    for (let i = 0; i < 5; i++) {
+      const ang = base + i * TAU / 5, c = Math.cos(ang), s = Math.sin(ang);
+      const px = it.x + c * R, pz = it.z + s * R, py = it.y + 0.2 * R * Math.sin(ang + 1.1) + 0.03 * Math.sin(it.t * 7 + i * 1.3);
+      const k = 1 + 0.08 * Math.sin(it.t * 9 + i * 2.1);
+      q = P(0, SH.STAR, px, py, pz); q.size = sz * k; q.size1 = q.size; q.life = life; q.fade = 60; q.rot = it.t * 2.5 + i; q.alpha = a; q.color = i & 1 ? C.DZ1 : C.DZ0; emitRaw(q);
+      q = P(1, SH.GLOW, px, py, pz); q.size = sz * 2.3; q.size1 = q.size; q.life = life; q.fade = 60; q.alpha = 0.22 * a; q.color = C.GOLD; emitRaw(q);
+    }
+    it.acc += dt;
+    if (it.acc > 0.12 && !it.dying) {   // a twinkle left behind on the orbit
+      it.acc = 0;
+      const ang = base + ((Math.random() * 5) | 0) * TAU / 5 - 0.3;
+      twinkles(1, it.x + Math.cos(ang) * R, it.y, it.z + Math.sin(ang) * R, 0.08, null, 0.28);
+    }
   }
 
   // ── Beam: soft vertical light column (loot, level-up) ──
@@ -1756,6 +2019,13 @@ const FX = (() => {
     // sparkle trail (it lands with FX 'horseshoe': a ring of sparkles). Both keep a soft dark blob on the floor (shadow 1).
     simit: { core: 'simit', col: '#d0842f', haloCol: '#ffe4b8', halo: 1.15, hk: 0.3, r: 0.37, shadow: 1 },
     horseshoe: { core: 'horseshoe', col: '#e8eef8', haloCol: '#f2f0ff', halo: 1.15, hk: 0.3, r: 0.38, shadow: 1 },
+    // Round 6 (boss bonus games): the dragon's friendship heart — a puffy glossy pink heart that keeps facing the camera,
+    // swaying and beating "ba-dum" (fresnel rim + a baked glint: 2 draw calls with its halo; no floor blob — GAME puts a
+    // marker under it) — and the Kefir Devi's big soap bubble: radius 1 (GAME scales the group), an iridescent swirling film,
+    // little bubbles drifting up inside it (drawn by the same shader: 1 draw call) and the pink-ringed floor blob (shadow 3).
+    // Neither pops by itself: GAME bursts 'hearts' / 'sparkle' / 'bigPop' where it wants them.
+    heart: { core: 'heart', col: '#ff3d8e', halo: 1.35, hk: 0.85, r: 0.36 },
+    bigbubble: { core: 'soap', col: '#d6ecff', halo: 0, r: 1, shadow: 3, shadowK: 2.2 },
   };
   // Last colour GAME asked for per kind: FX.trail(kind, x, y, z) has no colour, so the trail matches the projectile.
   const lastCol = {};
@@ -2014,6 +2284,88 @@ const FX = (() => {
       uFilmA: { value: new THREE.Color(FIZZ_FILM_A) }, uFilmB: { value: new THREE.Color(FIZZ_FILM_B) } },
       vertexShader: FIZZ_VS, fragmentShader: FIZZ_FS, transparent: true, depthWrite: false });
   }
+  // Puffy heart (unit: ~2 wide, facing +z): a sphere whose outline is pushed out to the classic heart curve (polar radius table
+  // round the heart's middle), flattened to a chubby cushion that is thicker in the lobes than at the tip. Smooth normals.
+  let HEART_GEO = null;
+  function heartGeo() {
+    const NB = 256, tab = new Float32Array(NB), cxh = 0, cyh = 0.56;   // the atlas glyph's heart (sdHeart: tip at 0, lobes ~1.1 up)
+    for (let b = 0; b < NB; b++) {   // outline radius per angle round (cxh, cyh): bisection on the distance field (star-shaped from there)
+      const th = ((b + 0.5) / NB) * TAU, dx = Math.cos(th), dy = Math.sin(th);
+      let lo = 0, hi = 1.5;
+      for (let k = 0; k < 32; k++) { const m = (lo + hi) / 2; if (sdHeart(cxh + dx * m, cyh + dy * m) < 0) lo = m; else hi = m; }
+      tab[b] = lo;
+    }
+    const sc = 1 / 0.604;   // half width (0.25 + √2/4) → 1
+    let rmax = 0, ravg = 0; for (let b = 0; b < NB; b++) { tab[b] *= sc; rmax = Math.max(rmax, tab[b]); ravg += tab[b] / NB; }
+    const Rof = th => { const f = ((th / TAU + 1) % 1) * NB - 0.5, i = Math.floor(f), w = f - i; return tab[(i + NB) % NB] * (1 - w) + tab[(i + 1) % NB] * w; };
+    const g = new THREE.SphereGeometry(1, 48, 32), p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i), z = p.getZ(i), R = Rof(Math.atan2(y, x)), w = x * x + y * y;   // w → 0 at the front middle
+      p.setXYZ(i, x * R, y * R, z * 0.46 * (0.5 + 0.5 * (ravg + (R - ravg) * w) / rmax));
+    }
+    weldN(g); g.computeBoundingBox();
+    const bb = g.boundingBox; g.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, 0);
+    g.computeBoundingSphere();
+    return keep(g);
+  }
+  // Glossy candy heart: pink standard material, soft pink emissive (never dull in a dark cave), a white-pink fresnel rim and a
+  // crisp baked glint on the upper-left lobe (view-space half vector: no extra mesh).
+  function heartMat(col) {
+    const c = new THREE.Color(col), m = stdMat({ color: c, emissive: c.clone().multiplyScalar(0.5), emissiveIntensity: 0.4, roughness: 0.25, metalness: 0, envMapIntensity: 0.6 });
+    rimify(m, 0xffd4ec, 0.8, 2.2);
+    return patchMat(m, { key: 'glint',
+      fOut: 'outgoingLight += vec3(1.35) * smoothstep(0.972, 0.99, max(dot(normal, normalize(vec3(-0.45, 0.7, 0.55) + normalize(vViewPosition))), 0.0));' });
+  }
+  // Big soap bubble (Round 6, radius 1 in object space): mostly clear (you see the floor through it) with swirling thin-film
+  // rainbow colours that thicken into a strong iridescent band at the edge, a lilac cartoon outline (reads on the pale kefir
+  // floor), a round window glint and a crescent reflection; 5 little bubbles drift up inside it (ray-sphere hits in object
+  // space: parallax without extra meshes), each with its own rainbow rim and glint. Normal blending, glints bloom.
+  const SOAP_FS = `uniform float uT; uniform vec3 uTint, uLine; varying vec3 vN, vV, vO, vC;
+    vec3 hue(float h) { return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+    void main() {
+      vec3 n = normalize(vN), v = normalize(vV);
+      float nd = clamp(dot(n, v), 0.0, 1.0), rho = sqrt(1.0 - nd * nd);
+      vec3 rd = normalize(vO - vC);
+      vec3 mc = vec3(0.0); float ma = 0.0, best = 1e3;
+      for (int i = 0; i < 5; i++) {
+        float fi = float(i), k = fract(uT * 0.11 + fi * 0.23);
+        float rs = (0.1 + 0.04 * mod(fi * 2.0, 3.0)) * sin(3.1415927 * k);
+        vec3 c = vec3(0.42 * sin(fi * 2.4 + uT * 0.5), mix(-0.5, 0.5, k), 0.38 * cos(fi * 1.7 + uT * 0.4));
+        vec3 oc = vC - c; float b = dot(oc, rd), h = b * b - dot(oc, oc) + rs * rs;
+        if (h > 0.0) {
+          float t = -b - sqrt(h);
+          if (t > 0.0 && t < best) {
+            best = t;
+            vec3 ns = (oc + rd * t) / rs; float rim = 1.0 - abs(dot(ns, rd));
+            mc = mix(vec3(1.0), hue(fract(rim * 0.8 + fi * 0.2 + uT * 0.1)), 0.55) * (0.55 + 0.6 * rim); ma = 0.1 + 0.8 * rim * rim * rim;
+            float gl = smoothstep(0.9, 0.97, max(dot(ns, normalize(vec3(-0.5, 0.7, 0.5) - rd)), 0.0));
+            mc = mix(mc, vec3(1.3), gl); ma = max(ma, gl);
+          }
+        }
+      }
+      float sw = sin(vO.x * 3.1 + uT * 0.9) + sin(vO.y * 4.3 - uT * 0.7 + vO.z * 2.0) + sin(vO.z * 3.7 + vO.x * 1.3 + uT * 1.1);
+      vec3 film = mix(vec3(1.0), hue(fract(rho * 0.85 + sw * 0.1 + vO.y * 0.25 - uT * 0.06)), 0.72);
+      film = mix(film, uTint, 0.2);
+      float band = smoothstep(0.5, 0.9, rho);
+      float fa = 0.07 + 0.1 * smoothstep(0.3, 1.0, 0.5 + 0.5 * sin(sw * 1.7)) + 0.72 * band;
+      vec3 fc = film * (0.72 + 0.32 * band);
+      float a = fa + ma * (1.0 - fa);
+      vec3 col = (fc * fa + mc * ma * (1.0 - fa)) / max(a, 1e-3);
+      float line = smoothstep(0.9, 0.955, rho);
+      col = mix(col, uLine, line); a = max(a, line * 0.95);
+      vec3 L = normalize(vec3(-0.45, 0.7, 0.55));
+      float s1 = smoothstep(0.955, 0.975, max(dot(n, normalize(L + v)), 0.0));
+      float cres = smoothstep(0.64, 0.72, rho) * (1.0 - smoothstep(0.8, 0.86, rho)) * smoothstep(0.25, 0.6, n.x - n.y);
+      col = mix(col, vec3(1.5), s1); a = max(a, s1);
+      col = mix(col, vec3(1.15), cres * 0.8); a = max(a, cres * 0.75);
+      gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+      ${CHUNK_OUT}
+    }`;
+  function soapMat(col) {
+    const t = hueNorm(lin(col), 0.95);
+    return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uTint: { value: new THREE.Color(t[0], t[1], t[2]) }, uLine: { value: new THREE.Color('#a070e0') } },
+      vertexShader: FIZZ_VS, fragmentShader: SOAP_FS, transparent: true, depthWrite: false });
+  }
   const projMats = new Map(), projs = [];
   let STAR_GEO = null, SHARD_GEO = null, CRESCENT_GEO = null;
   function starGeo() {
@@ -2052,6 +2404,10 @@ const FX = (() => {
       core = new THREE.Mesh(ROCK_GEO, m); core.scale.setScalar(D.r); core.castShadow = false;
     } else if (D.core === 'fizz') {
       core = new THREE.Mesh(G.sphere(24), projMat('fizz|' + col, () => fizzMat(col))); core.scale.setScalar(D.r); core.renderOrder = 24;
+    } else if (D.core === 'heart') {
+      core = new THREE.Mesh(HEART_GEO, projMat('heart|' + col, () => heartMat(col))); core.scale.setScalar(D.r);
+    } else if (D.core === 'soap') {
+      core = new THREE.Mesh(G.sphere(40), projMat('soap|' + col, () => soapMat(col))); core.scale.setScalar(D.r); core.renderOrder = 24;
     } else if (D.core === 'simit') {   // glossy molasses glaze: a little shine and a warm rim so it reads on the honey cobbles
       core = new THREE.Mesh(SIMIT_GEO, projMat('simit', () => rimify(vcMat({ roughness: 0.36, envMapIntensity: 0.75 }), 0xffe2b0, 0.35, 2.4)));
       core.scale.setScalar(D.r);
@@ -2119,24 +2475,31 @@ const FX = (() => {
     }
     g.add(core);
     const hc = color && D.haloFromCol ? color : D.haloCol || col;
-    const hm = D.haloA   // normal-blended aura (reads on bright floors) vs the usual additive glow
+    const hm = !(D.halo > 0) ? null : D.haloA   // normal-blended aura (reads on bright floors) vs the usual additive glow
       ? projMat('haloN|' + hc + '|' + D.haloA, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc), opacity: D.haloA, depthWrite: false, transparent: true }))
       : projMat('halo|' + hc + '|' + D.hk, () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(hc).multiplyScalar(D.hk), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
-    const halo = new THREE.Sprite(hm); halo.scale.setScalar(D.halo); g.add(halo);
-    let halo2 = null, shadow = null;
+    let halo = null, halo2 = null, shadow = null;
+    if (D.halo > 0) { halo = new THREE.Sprite(hm); halo.scale.setScalar(D.halo); g.add(halo); }
     if (D.halo2) {
       const hm2 = projMat('halo|' + D.halo2 + '|2', () => new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(D.halo2).multiplyScalar(1.8), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
       halo2 = new THREE.Sprite(hm2); halo2.scale.setScalar(D.halo * 0.6); g.add(halo2);
     }
     if (D.shadow) {   // ground marker: kept on the floor under the projectile by stepProjs (starts at the usual flight height)
       shadow = new THREE.Mesh(SHADOW_GEO, D.shadow === 2 ? SHADOW_GLOW : D.shadow === 3 ? SHADOW_FIZZ : SHADOW_DARK);
-      shadow.scale.setScalar(D.r * (D.shadow === 2 ? 5.5 : D.shadow === 3 ? 3.8 : 3.4)); shadow.position.y = 0.035 - 0.85; shadow.renderOrder = 9; g.add(shadow);
+      shadow.scale.setScalar(D.r * (D.shadowK || (D.shadow === 2 ? 5.5 : D.shadow === 3 ? 3.8 : 3.4))); shadow.position.y = 0.035 - 0.85; shadow.renderOrder = 9; g.add(shadow);
     }
     g.userData.fxp = { kind, core, halo, halo2, hs: D.halo, cs: core.scale.x, t: Math.random() * 10, seen: false, age: 0, star: D.core === 'star', shard: D.core === 'shard',
       bub: D.core === 'bubble', pop: D.pop || 0, popKind: D.popKind || 'bubblePop', popCol: color || null, lp: D.pop ? new THREE.Vector3() : null,
-      look: D.core, glint, shadow, ss: shadow ? shadow.scale.x : 0, glow: D.shadow === 2 };
+      look: D.core, glint, shadow, ss: shadow ? shadow.scale.x : 0, glow: D.shadow === 2, reg: true };
+    g.addEventListener('added', projAdded);
     projs.push(g);
     return g;
+  }
+  // GAME may keep a projectile in its own pool (the big bubble, the hearts): taken out of the scene it leaves the registry,
+  // and when it is added again it comes back (animated, floor blob placed) instead of standing still.
+  function projAdded(e) {
+    const g = e.target, u = g.userData.fxp;
+    if (u && !u.reg) { u.reg = true; u.seen = false; u.age = 0; projs.push(g); }
   }
   function inScene(o) { while (o.parent) o = o.parent; return o === scene; }
   function stepProjs(dt) {
@@ -2146,13 +2509,13 @@ const FX = (() => {
         u.age += dt;
         if (u.seen || u.age > 3) {
           if (u.seen && u.pop) burst(u.popKind, u.lp.x, u.lp.y, u.lp.z, { scale: u.pop, color: u.popCol });   // bubbles always pop
-          projs[i] = projs[projs.length - 1]; projs.pop();
+          u.reg = false; projs[i] = projs[projs.length - 1]; projs.pop();
         }
         continue;
       }
       u.seen = true; u.t += dt;
       if (u.lp) g.getWorldPosition(u.lp);
-      u.halo.scale.setScalar(u.hs * (1 + Math.sin(u.t * 9) * 0.08 + Math.sin(u.t * 23) * 0.04));
+      if (u.halo) u.halo.scale.setScalar(u.hs * (1 + Math.sin(u.t * 9) * 0.08 + Math.sin(u.t * 23) * 0.04));
       if (u.halo2) u.halo2.scale.setScalar(u.hs * 0.6 * (1 + Math.sin(u.t * 13 + 1) * 0.1));
       if (u.star) {   // face the camera and spin like a thrown star
         g.getWorldQuaternion(_q).invert();
@@ -2185,6 +2548,16 @@ const FX = (() => {
         g.getWorldQuaternion(_q).invert();
         _q2.setFromEuler(_eu.set(0.24 * Math.sin(u.t * 4.1), 0.6 * Math.sin(u.t * 2.9), 0));
         u.core.quaternion.copy(_q).multiply(camera.quaternion).multiply(_q2).multiply(_q3.setFromAxisAngle(ZAX, -u.t * 8));
+      } else if (u.look === 'heart') {   // faces the camera, sways and tilts a little, beats "ba-dum" once a second, bobs
+        g.getWorldQuaternion(_q).invert();
+        _q2.setFromEuler(_eu.set(0.1 * Math.sin(u.t * 2.3), 0.38 * Math.sin(u.t * 1.9), 0.12 * Math.sin(u.t * 1.6)));
+        u.core.quaternion.copy(_q).multiply(camera.quaternion).multiply(_q2);
+        const ph = (u.t / 1.1) % 1, d1 = (ph - 0.1) / 0.055, d2 = (ph - 0.3) / 0.055, beat = 1 + 0.1 * Math.exp(-d1 * d1) + 0.06 * Math.exp(-d2 * d2);
+        u.core.scale.setScalar(u.cs * beat); u.core.position.y = Math.sin(u.t * 2.6) * 0.04;
+        if (u.halo) u.halo.scale.setScalar(u.hs * (0.94 + 0.5 * (beat - 1)));
+      } else if (u.look === 'soap') {   // big soft wobble of the film, slow
+        const w = Math.sin(u.t * 4.1) * 0.045, w2 = Math.sin(u.t * 3.3 + 1.3) * 0.035;
+        u.core.scale.set(u.cs * (1 + w), u.cs * (1 - w + w2), u.cs * (1 + w2));
       } else if (u.look === 'rock') { u.core.rotation.x += dt * 7; u.core.rotation.z = Math.sin(u.t * 3) * 0.35; }   // tumbling clod
       else if (u.look === 'lava') { u.core.rotation.y += dt * 1.4; u.core.scale.setScalar(u.cs * (1 + Math.sin(u.t * 11) * 0.04)); }
       else if (u.look === 'ember') {   // flickering flame
@@ -2282,6 +2655,27 @@ const FX = (() => {
         }
         break;
       }
+      case 'heart':   // little pink hearts drifting up behind it, and pink twinkles
+        if (Math.random() < 0.35) {
+          q = P(0, SH.HEART, x + frand(-0.18, 0.18), y + frand(-0.15, 0.1), z + frand(-0.18, 0.18)); q.vx = frand(-0.2, 0.2); q.vy = frand(0.25, 0.6); q.vz = frand(-0.2, 0.2);
+          q.wob = 0.6; q.grav = -0.2; q.drag = 1; q.size = frand(0.13, 0.2); q.size1 = q.size * 0.6; q.life = frand(0.6, 0.9); q.pop = 0.1; q.fade = 2.5; q.rot = frand(-0.35, 0.35);
+          q.color = C.HEARTS[(Math.random() * 4) | 0]; emitRaw(q);
+        }
+        if (Math.random() < 0.3) {
+          q = P(1, SH.SPARK, x + frand(-0.25, 0.25), y + frand(-0.2, 0.2), z + frand(-0.25, 0.25)); q.vy = frand(0.1, 0.4);
+          q.size = frand(0.14, 0.22); q.size1 = 0.02; q.life = frand(0.35, 0.55); q.flick = 18; q.rot = 0; q.color = C.PINKG; emitRaw(q);
+        }
+        break;
+      case 'bigbubble':   // pastel glitter round the big bubble, now and then a baby bubble floating off
+        if (Math.random() < 0.5) {
+          q = P(1, SH.SPARK, x + frand(-0.7, 0.7), y + frand(-0.6, 0.6), z + frand(-0.7, 0.7)); q.vy = frand(0.1, 0.4);
+          q.size = frand(0.16, 0.26); q.size1 = 0.02; q.life = frand(0.4, 0.6); q.flick = 18; q.rot = 0; q.color = C.PASTELG[(Math.random() * C.PASTELG.length) | 0]; emitRaw(q);
+        }
+        if (Math.random() < 0.12) {
+          q = P(0, SH.RING, x + frand(-0.5, 0.5), y + frand(-0.4, 0.3), z + frand(-0.5, 0.5)); q.vy = frand(0.3, 0.6); q.grav = -0.6; q.wob = 0.5; q.soft = 1;
+          q.size = frand(0.12, 0.2); q.size1 = q.size * 1.2; q.life = frand(0.7, 1.0); q.fade = 5; q.pop = 0.12; q.color = C.KEFR[(Math.random() * 5) | 0]; emitRaw(q);
+        }
+        break;
       case 'star': burst('star', x, y, z); break;
       case 'spore':
         q = P(0, SH.DOT, x, y, z); q.vx = frand(-0.2, 0.2); q.vy = frand(0.1, 0.4); q.vz = frand(-0.2, 0.2); q.size = frand(0.1, 0.16); q.size1 = 0.03; q.life = 0.5; q.color = C.SPORE; emitRaw(q);
@@ -2574,7 +2968,7 @@ const FX = (() => {
     RESIZE_HOOKS.push(updScale);
     SN = makeSys(1000, false); SA = makeSys(2000, true);
     QUAD = quadGeo(); SLASH_GEO = slashGeo(); BEAM_GEO = beamGeo(); STAR_GEO = starGeo();
-    ICE_GEO = iceGeo(); ROCK_GEO = rockGeo(); EMBER_GEO = emberGeo(); SIMIT_GEO = simitGeo(); SHOE_GEO = shoeGeo();
+    ICE_GEO = iceGeo(); ROCK_GEO = rockGeo(); EMBER_GEO = emberGeo(); SIMIT_GEO = simitGeo(); SHOE_GEO = shoeGeo(); HEART_GEO = heartGeo();
     SHADOW_GEO = keep(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
     SHADOW_DARK = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: 0x2a1824, transparent: true, opacity: 0.4, depthWrite: false }));
     SHADOW_GLOW = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: new THREE.Color('#ff7020').multiplyScalar(0.5), transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -2582,7 +2976,7 @@ const FX = (() => {
     ICE_MAT = keep(rimify(vcMat({ roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.42, flatShading: true, emissive: 0x1a78c0, emissiveIntensity: 0.4, envMapIntensity: 1.8, depthWrite: false }), 0xbff0ff, 0.6, 2.2));
     initText();
     // pre-create a few pooled meshes and compile their shaders now (no hitch on first use)
-    const pre = { slash: 3, ring: 4, tele: 3, lane: 1, beam: 2, bolt: 2, shield: 1 };
+    const pre = { slash: 3, ring: 4, tele: 3, lane: 1, beam: 2, bolt: 2, shield: 1, marker: 1 };
     const made = [];
     for (const k in pre) for (let i = 0; i < pre[k]; i++) { const it = pools[k].make(); pools[k].items.push(it); made.push(it.obj); }
     for (const o of made) o.visible = true;
@@ -2605,7 +2999,8 @@ const FX = (() => {
     laneSet(it, CAM.target.x, CAM.target.z + 1, CAM.target.x, CAM.target.z - 1, 1.5, 0.3, null);
     it.warm = true;
   }
-  const STEP = { slash: stepSlash, ring: stepRing, tele: stepTele, lane: stepLane, beam: stepBeam, bolt: stepBolt, shield: stepShield, ice: stepIce };
+  const STEP = { slash: stepSlash, ring: stepRing, tele: stepTele, lane: stepLane, beam: stepBeam, bolt: stepBolt, shield: stepShield, ice: stepIce,
+    marker: stepMarker, dizzy: stepDizzy };
   function update(dt) {
     if (!ready) return;
     dt = Math.min(Math.max(dt || 0, 0), 0.1);
@@ -2625,6 +3020,7 @@ const FX = (() => {
     SA.n = 0; SN.n = 0; SA.geo.setDrawRange(0, 0); SN.geo.setDrawRange(0, 0);
     for (const k in pools) for (const it of pools[k].items) if (it.on) release(it);
     for (const t of TXT) { t.on = false; t.el.style.visibility = 'hidden'; }
+    for (const g of projs) g.userData.fxp.reg = false;
     projs.length = 0;
     shk = 0; shakeOffset.set(0, 0, 0);
     if (flOn) { flOn = false; POST.tintAmt = 0; if (flashDiv) flashDiv.style.opacity = '0'; }
@@ -2637,7 +3033,7 @@ const FX = (() => {
   }
 
   return {
-    init, update, clear, warm, stats, burst, emit, slash, ring, telegraph, telegraphCone, telegraphLine, beam, lightning, shield, iceBlock,
+    init, update, clear, warm, stats, burst, emit, slash, ring, telegraph, telegraphCone, telegraphLine, marker, dizzy, beam, lightning, shield, iceBlock,
     projectile, trail, floatText, shake, flash, lightFlash, shakeOffset, SHAPES: SH,
     get atlas() { return atlas; },
     get textTop() { return txtTop; }, set textTop(v) { txtTop = v; },

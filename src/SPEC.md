@@ -8,7 +8,61 @@ hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, n
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
 bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a120fps render cap on every device, including phones and tablets (actual rate follows browser/display capability).
 
-## Round 5 — Feza's request: SURLU ŞEHİR, a walled town in front of the dragon's castle (latest; read first, overrides older text)
+## Round 6 — boss polish: one optional "bonus" idea per boss + 14 new item looks (latest; read first, overrides older text)
+Plan: test/r6_PLAN.md (approved). Rules kept: nothing scary, cute; danger telegraphs ≥ 2 s; 3 skills per class; 60 FPS tablet
+budget (props pooled, pre-built in warmZone); every 07 call into 05/03 guarded with a plain Kit stand-in.
+**Framework (07).** `BONUS` table (next to SOV) + `BOSS_KIT[type].bonus`: kraljole 'tac', kefirdev 'balon', kostebekusta 'avla',
+lavkaplumbaga 'serintas', sovalye 'havuc', ejderha 'kalp'. State `b.encounter.bonus = {kind, state:'wait'|'on'|'stun'|'done', t,
+have, need, stage, …}` (null after startEncounter / clearEncounter). `bonusStep` runs in encounterStep after sancakStep; a bonus
+starts only below its hp mark, from idle, with no raid move and no summon waiting. While it holds (on + hold) or the boss is
+stunned the TBC clock waits; afterwards `q.timer ≥ BONUS.timerAfter` (4 s). Ignoring it costs nothing. `bonusStun(b, phase, D)`
+(the banners' dizzy uses it too: stops a raid move, drops the telegraph, in-flight mortars → sparkles) then the stun phase,
+× `BONUS.hcStun` 0.8 in Hardcore; a stunned boss never hurts Feza. Bonus things are `L.breakObjs` entries `{bonus: kind}`
+(tap walks there, swing / skill / shot hit them, no loot); touching the crown / carrot / hearts takes them. `clearBonus` on
+nap / calm / zone change / cheer (cheer = sparkly poof); a nap or calm re-arms it unless `b.bonusWon`. Pause freezes it.
+Spots for the crown, carrot and hearts are tried IN VIEW first (`inView`: ≤ 3.5 m toward the camera (+z) of Feza, ≤ 11 m away).
+APIs: event `'bonus'` {on, kind, type, have, need, state}; `GAME.bonusSpot()` → {x, z} | null (where Feza should go: crown,
+bubble, target hole, nearest rock, carrot on the floor, nearest heart); `__T.bonus()` read-only snapshot; `b.st.aggro`,
+`b.st.crownOff`; the turtle's roll ends in its own phase 'rollend' (1.3–1.8 s).
+| boss | idea | at hp | what the kid does → stun |
+|---|---|---|---|
+| Kral Jöle | Taç Kovalamaca | 55 % | a big crown hop (2 s circle); the crown flies 5–7 m away (gold hoop) and the king waddles to it ('shy'). Feza first (touch ≤ 1.1 m or hit) → crown flies home, 'blush' 3.5 s; king first → 'crownon', no stun |
+| Kefir Devi | Dev Köpük Balonu | 75 % | new move 'blow' (2.4 s): one giant bubble (grows .35 → 1 m at the mouth, floats after Feza 1.5 m/s, 9 s). **Due** `first` 0.8 s after the hp mark, then every `gap` 10–14 s (any distance; closer than b.r + 3.2 m it scoots back ≤ 2.2 m while inhaling); otherwise pick weight .25 from b.r + 3 m, cd 10 s. 2 hits (HC 3) pop it → a heart pickup + 'hiccup' 3 s; touching Feza (not in its first 1 s of flight) pops it on him (b.dmg × .45) |
+| Usta Köstebek | Saklambaç | 50 % | digs in, 4 holes on a 4.5 m ring; the mound runs to one (gold hoop 1.2 s), 'peek' 1.6 s (HC 1.3) — a hit = bonk ("Tak!"). 3 bonks → 'dizzy' 4 s; 6 peeks without → it pops up under a 2 s red circle |
+| Lav Kaplumbağası | Serin Taşlar | 70 % | 3 cool rocks (L.solids r .75) on a 5 m ring; roll lanes stop at a rock, 'hide' × 1.6 while they stand. A roll ending at a rock → crack, 'flip' 4.5 s (≤ 3 flips) |
+| Huysuz Şövalye | Havuç | 40 % | a golden carrot on the rim (gold hoop), when the banners are done — or while all still stand (then ≥ 6 m, else 4 m, from each; never during their dizzy). Feza takes it (touch / hit) → holds it over his head; the horse trots to him ('seek', no attacks) → 'munch' 5 s. Once per fight |
+| Huysuz Ejderha | Dostluk Kalpleri | 80 / 55 / 30 % | a 'sigh' blows 3 hearts onto a 5–7 m ring (pink hoops, 14 s, HC 10). All 3 → a big heart to the dragon (5 % maxHp) + 'charmed' 4 s |
+**05:** new phases shy / crownon / blush (king), blow / hiccup (kefir), peek / bonk / dizzy (mole, own sink), rollend / flip
+(turtle), seek / munch (knight + horse), sigh / charmed (dragon); expressions via `s.eyeK` / `s.eyeW` / `s.browY` + mouth bone;
+pre-aggro idle loops (`!st.aggro`), a double take on the first roar, per-boss hurt reactions. `m.marker('crown')` (king),
+`m.marker('mouth')` (horse). Props (one mesh each, `{root, anim(dt, o), dispose()}`, warmed): `EMODEL.jellyCrown` {spin, glow, bob},
+`EMODEL.havuc` {glow, spin, bob}, `EMODEL.serinTas` {pop, glow, crack}, `EMODEL.hole` {open, shake}.
+**03:** `FX.marker(x, z, r = .9, dur = 0, color = '#ffd23f', o)` → {move, remove}: a pulsing OUTLINE "come here" hoop + rising
+sparkles + a bobbing star (never like the filling danger disc); `FX.dizzy(x, y, z, r = .55, dur = 0)` → {move, remove}: 5 stars
+round a head (particles only); projectiles 'heart' and 'bigbubble' (GAME scales it); bursts 'bonk', 'hearts' (= 'heart',
+'love', 'charm'), 'bigPop', 'crack'.
+**02:** sfx bonk, hiccup, munch, sigh; 12 lines (Turkish, no abbreviation-like words): kraljole_tac, kraljole_saskin,
+kefirdev_balon, kefirdev_hik, usta_saklambac "Usta Köstebek saklambaç oynuyor! Parlayan deliğe koş, başı görününce dokun!",
+usta_yakaladin, kaplumbaga_tas, kaplumbaga_devrildi, sovalye_havuc, sovalye_atdoydu, ejderha_kalp, ejderha_sevgi (sesler.js).
+**09:** bonus pips right of the boss name (gold stars; pink hearts for the dragon) following the 'bonus' events; a gold minimap
+dot on bonusSpot; the boss camera also keeps bonusSpot on screen when that costs ≤ `BONUS_CAM.zoom` 1.12 × the plain framing's
+zoom-out (dwell 1 s, retry .25 s: never jumpy); badges on the 12 new subtitle lines.
+**04 items:** 14 new ordinary looks (64 in total: 36 weapons, 15 hats, 13 capes) — sabers pamukseker (lvl 1), kalp (2), uzay (5),
+kuyruklu (8); wands lolipop (1), kedipati (3), gezegen (7); hats kedikulak (1), dondurma (2), yunikorn (4), astronot (6); capes
+sekerpelerin (2), panda (3), galaksi (7). Saber shader variants SB_GRAD / SB_STRIPE / SB_STARS (≤ 3 extra programs). Boss rewards
+made distinct at 64 px: sovalyeikiz red / white-gold stripes, lavikiz yellow → orange ramp + own grip, guniskilic bigger sun.
+**Balance (DIFF, test/r6_game_kid.html &bonus=ignore|go; masher + potion, 3 classes, seeds 11–77, 21 runs per policy):**
+DIFF.boss per kraljole 106 (dmg 12 → 11) · kefirdev 135 · kostebekusta 114 · lavkaplumbaga 165 · sovalye 138; the dragon
+bossHp 11.5, bossHpPerDmg 232, the hybrid sized on 0.88 × its wand (bossHybridK). Fight averages ignore / go: 43 / 43 s,
+48 / 49, 53 / 54, 58 / 64, 67 / 64, 74 / 66 (targets 35–50, 40–55, 45–60, 50–70, 55–75, 60–85; the wizard runs ~1.3 × the
+warrior on the first four). Boss naps 8 in 252 fights (Round 5: 8 in 72). Hardcore (&hc&hcboss): 6 of 6 won.
+**Tests:** r6_game_bonus (&type, &play=go|ignore, &hc), r6_enemies_bonus (?mode=check), r6_fx_bonus (?view=unit),
+r6_items_look (?view=check), r6_audio_check (via test/r3_aud_cdp.py), r6_ui_bonus (+ ?view=real&type=), r6_game_kid
+(&bonus=ignore|go, &hc&hcboss); Round 5 regressions r5_game_boss (its banner taps now move the knight off the line first — a
+seeded fight could leave him standing in the way) / tbc / save, r5_ui_check, r5rev_mem, r5_level_budget still pass. In
+r6_game_bonus a wizard / hybrid who ignores the mole may still catch it: the wand's auto-shots hit the peeking head (allowed).
+
+## Round 5 — Feza's request: SURLU ŞEHİR, a walled town in front of the dragon's castle (read after Round 6; overrides older text)
 Feza asked for a 6th chapter: after the volcano Feza does NOT go straight to the castle. He enters the **town inside the dragon's
 city walls** (a feudal "castle town": inside the walls, below the main castle). A river flows through it, parts of the city walls
 are visible. The huysuz here are **PEOPLE**: the dragon tricked them and made them grumpy, so they do not want anyone to reach the
