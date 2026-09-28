@@ -41,11 +41,11 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
 
-Eşya görünüşleri toplam 47 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
+Eşya görünüşleri toplam 50 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
 
 ## Bölgeler
 
-Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. Savaşçıya sırayla Jöle Kralının Tacı, Kefir Köpüğü Pelerini, Köstebek Ustanın Feneri, Lav Kabuğu silahı ve Ejderha Kanadı silahı düşer. Her karakterin her canavardan alacağı özel ödül farklıdır (toplam 15). Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
+Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. Savaşçıya sırayla Jöle Kralının Tacı, Kefir Köpüğü Pelerini, Köstebek Ustanın Feneri, Lav Kabuğu silahı, Şövalyenin Tüylü Miğferi ve Ejderha Kanadı silahı düşer. Her karakterin her canavardan alacağı özel ödül farklıdır (toplam 18); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
 
 1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
    Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
@@ -56,11 +56,18 @@ Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihi
    baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri. Sonunda **Usta Köstebek**: matkap baretli dev köstebek.
 4. **Lav Yanardağı:** parlak lav gölleri, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
    Sonunda **Koca Lav Kaplumbağası**: kabuğu küçük bir yanardağ; lav topları fışkırtır (düşecekleri yer kırmızı daireyle görünür).
-5. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
+5. **Surlu Şehir (Feza'nın isteği):** ejderhanın kalesinin önündeki, surlarla çevrili şehir. Arnavut kaldırımlı sokaklar, içinden akan
+   nehir ve taş köprüler, renkli ahşap evler, pazar tezgâhları, çeşme, bayraklar; surlar ve kuleler, uzakta ejderhanın kalesi.
+   Buradaki huysuzlar insanlar: ejderha onları kandırmış, kimse kaleye gitmesin istiyorlar. Ponpon uçlu mızraklı nöbetçiler,
+   simit fırlatan simitçiler, tozu savurarak gelen süpürgeciler ve davuluyla "güm" diye vuran kocaman tellal. Neşelenince hepsi
+   yeniden güler yüzlü şehirliler olur. Sonunda turnuva meydanında **Huysuz Şövalye** ve kocaman atı: yolunu gösterip dörtnala
+   koşar, atı şaha kalkıp yere basar, mızrağını savurur, at nalı fırlatır ve nöbetçi çağırır.
+6. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
    kaybolur, neşe kristali köye döner. İstenirse macera en baştan yeniden başlar.
 
 Boss savaşlarında küçük sürprizler de var: Kral Jöle küçük parçalara ayrılır, Kefir Devi köpük dansı yaptırır,
-Usta Köstebek sıralı toprak dalgaları gönderir, Lav Kaplumbağası yeşil geçit bırakan bir lav dalgası çıkarır.
+Usta Köstebek sıralı toprak dalgaları gönderir, Lav Kaplumbağası yeşil geçit bırakan bir lav dalgası çıkarır,
+Huysuz Şövalyenin meydanında üç turnuva sancağı çıkar: üçü de devrilince şövalyenin başı döner ve bir süre hiçbir şey yapamaz.
 Son ejderhanın benekli yumurtaları savaş boyunca çoğalır; yaklaşıp dokununca minik ejderhalar çıkar.
 Aynı anda en fazla 7 yumurta ve 4 yavru bulunur. Savaş bitince veya Feza dinlenince bu sürprizler temizlenir.
 
@@ -72,6 +79,7 @@ Her boss ayrıca bir TBC esintili hareket kullanır; tehlikeli alanlar 2 saniye 
 | Köpüklü Kefir Devi | The Lurker Below — Spout | Yavaşça dönen, köpüklerle süslü kefir jeti. |
 | Usta Köstebek | Gruul — Shatter | Üç kristal belirir; yakında kalırsan parçalanırken hasar verir. Tek oyuncuya uyarlanmıştır. |
 | Koca Lav Kaplumbağası | Kael’thas — Flamestrike | Feza'nın bulunduğu yerde işaretlenen çember parlar ve kısa süre sıcak kalır. |
+| Huysuz Şövalye | Attumen the Huntsman — Berserker Charge | Meydanın kenarına gidip işaretli iki hat boyunca (bir artı gibi) dörtnala koşar. |
 | Huysuz Ejderha | Illidan — Eye Blast | İki göz ışını işaretli hattı tarar ve kısa süreli mavi bir iz bırakır. |
 
 Yeni hareketler diğer özel saldırılarla sırayla kullanılır; yumurtalar savaş boyunca çoğalmaya devam eder.
@@ -82,7 +90,7 @@ Yeni hareketler diğer özel saldırılarla sırayla kullanılır; yumurtalar sa
 Oyun başladıktan sonra **Mola → Hardcore başlat** ile mevcut karakterin macerası baştan başlar. Yanlışlıkla açılmaması için
 onay düğmesine basılı tutulur. Normal yeni oyun ve uygulamanın yeniden açılışı Hardcore'u kendiliğinden etkinleştirmez.
 
-- Yalnızca **2. ve 4. bölümlerin girişinde otomatik kayıt** alınır; elle kayıt kapalıdır.
+- Yalnızca **2., 4. ve 6. bölümlerin girişinde otomatik kayıt** alınır; elle kayıt kapalıdır.
 - Yenilince son Hardcore kaydına dönülür. Henüz kayıt yoksa aynı karakterle ilk bölümden başlanır.
 - Hardcore kayıtları normal kayıttan ayrıdır. Sonraki oturumda önce oyuna girip **Mola → Hardcore’a dön** seçilebilir. Oyun ekranındaki kırmızı **Hardcore** işareti ve Mola menüsündeki mod kartı hangi modda olduğunu gösterir; kart son otomatik kayıt bölümünü de söyler.
 - Yaratıklar daha dayanıklı, daha hızlı ve daha sık saldırır. Bossların özel saldırıları çok daha sert vurur;

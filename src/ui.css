@@ -236,6 +236,7 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-dimg.b-kostebekusta { background: radial-gradient(circle at 50% 36%, #fffaf0, #ffe3b0 55%, #f5b86a); }
 .u-dimg.b-lavkaplumbaga { background: radial-gradient(circle at 50% 36%, #fff8f0, #ffd6b0 55%, #ff9f6a); }
 .u-dimg.b-kefirdev { background: radial-gradient(circle at 50% 36%, #eaf7ff, #c4e8ff 42%, #5494dc); }   /* (a deeper blue rim: the white bottle stands out at 46–59 px) */
+.u-dimg.b-sovalye { background: radial-gradient(circle at 50% 36%, #fffbea, #ffe39a 44%, #3d64d8); }   /* Huysuz Şövalye: gold centre, royal-blue rim */
 /* per-boss bar colours (09_ui.js sets data-b from the 'boss' event's type); the dragon keeps the pink → violet default */
 .u-boss[data-b="kraljole"] { --bf1: #8ff5e4; --bf2: #27c6d6; --bf3: #4a84ff; --bn1: #e8fffd; --bn2: #7fe8f0; --bno: #0a3a5a; --bi1: #c9a6ff; --bi2: #6a3cc8; }
 .u-boss[data-b="kostebekusta"] { --bf1: #ffe066; --bf2: #ffab3c; --bf3: #f0703a; --bn1: #fff6d8; --bn2: #ffc860; --bno: #4a2204; --bi1: #ffe0a0; --bi2: #c07a2a; }
@@ -251,6 +252,15 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
     radial-gradient(circle at 50% 14%, rgba(236, 248, 255, 0.85) 0 calc(var(--k) * 1.1px), rgba(255, 255, 255, 0) calc(var(--k) * 1.6px)) calc(var(--k) * 5px) 0 / calc(var(--k) * 17px) 16.667%;
   animation: u-fizz 2.6s linear infinite; }
 @keyframes u-fizz { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+/* Huysuz Şövalye: royal blue with a golden shine, and the red-and-white spiral stripes of his jousting lance moving slowly
+   along the fill (the same counter-scaled layer as the kefir bubbles, so the stripes keep their slant at any health) */
+.u-boss[data-b="sovalye"] { --bf1: #ffd23f; --bf2: #6d8dff; --bf3: #3a4fd6; --bn1: #fffbe6; --bn2: #ffd35a; --bno: #14286a; --bi1: #fff0b0; --bi2: #3452c4; }
+.u-boss.on[data-b="sovalye"] .u-bossfizz { display: block; }
+.u-boss[data-b="sovalye"] .u-bossfizz i { height: 100%; right: auto; width: calc(100% + var(--k) * 38px);
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0) 0 calc(var(--k) * 9px), rgba(255, 255, 255, 0.34) calc(var(--k) * 9px) calc(var(--k) * 15px),
+    rgba(255, 90, 110, 0.3) calc(var(--k) * 15px) calc(var(--k) * 18px), rgba(255, 255, 255, 0) calc(var(--k) * 18px) calc(var(--k) * 34px));
+  animation: u-lance 3.2s linear infinite; }
+@keyframes u-lance { from { transform: translateX(calc(var(--k) * -37.52px)); } to { transform: translateX(0); } }   /* 34 px / sin 115°: one stripe period */
 .u-boss[data-b] .u-bossico { background: radial-gradient(circle at 50% 35%, var(--bi1, #d9a6ff), var(--bi2, #7a36c8)) padding-box, var(--gold) border-box; }
 .u-subico.drg { box-shadow: 0 0 0 calc(var(--k) * 2px) #ffd23f, 0 0 calc(var(--k) * 10px) rgba(255, 120, 200, 0.6); }
 .u-chip .u-dimg { display: inline-block; width: 1.5em; height: 1.5em; margin: -0.2em 0.1em -0.2em -0.35em; vertical-align: middle;
@@ -277,6 +287,8 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   font-size: calc(var(--k) * 28px); background: radial-gradient(circle at 50% 35%, #fff6d0, #ffc94a 60%, #e39512); box-shadow: 0 0 0 calc(var(--k) * 2px) #7a4205; }
 /* Kefir Vadisi lines (🥛 🥣 🍯 🫧 🧀): a milky sky-blue disc, so the white glass of kefir reads */
 .u-subico.milk { background: radial-gradient(circle at 50% 35%, #ffffff, #c4e8ff 58%, #6fb2ea); box-shadow: 0 0 0 calc(var(--k) * 2px) #23518a; }
+/* Surlu Şehir lines (🏰 🛡️ 🥯 🧹 🥁): a sunny sky-blue disc with a gold ring, so the brown simit and broom read */
+.u-subico.town { background: radial-gradient(circle at 50% 35%, #ffffff, #bfe2ff 55%, #5d95e8); box-shadow: 0 0 0 calc(var(--k) * 2px) #ffd23f, 0 0 0 calc(var(--k) * 3.5px) #1c2f78; }
 .u-subtxt { font-weight: 800; font-size: calc(var(--k) * 22px); line-height: 1.28; color: #fff; text-shadow: 0 2px 0 rgba(10, 0, 30, 0.5); }
 
 /* centre banners */
@@ -326,6 +338,30 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   filter: drop-shadow(0 calc(var(--k) * 2px) 0 rgba(40, 10, 60, 0.6)); }
 .u-banner.t-dairy .u-zpips { margin-top: calc(var(--k) * 26px); }   /* (below the drips) */
 .u-zdrip { position: absolute; left: 4%; top: 100%; width: 92%; height: calc(var(--k) * 30px); margin-top: -1px; fill: #fff0d8; overflow: visible; }
+/* Surlu Şehir zone card: a piece of the sandstone city wall (two rows of bricks, battlements on top) with royal-blue letters
+   and festive bunting hanging from its lower edge; one soft shadow for all of it */
+.u-banner.t-town .u-zrib { clip-path: none; margin-top: calc(var(--k) * 24px); padding: calc(var(--k) * 10px) calc(var(--k) * 44px * var(--zs, 1)) calc(var(--k) * 12px);
+  border-top: 0; border-bottom: calc(var(--k) * 4px) solid #b8803e; border-radius: calc(var(--k) * 4px); box-shadow: none;
+  background:
+    linear-gradient(90deg, rgba(150, 96, 40, 0.34) 0 calc(var(--k) * 2px), transparent calc(var(--k) * 2px)) 0 0 / calc(var(--k) * 58px) 50% repeat-x,
+    linear-gradient(90deg, rgba(150, 96, 40, 0.34) 0 calc(var(--k) * 2px), transparent calc(var(--k) * 2px)) calc(var(--k) * 29px) 100% / calc(var(--k) * 58px) 50% repeat-x,
+    linear-gradient(180deg, transparent calc(50% - 1px), rgba(150, 96, 40, 0.34) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(180deg, #fde8b8, #f3cb86 55%, #e2ab66);
+  filter: drop-shadow(0 calc(var(--k) * 4px) 0 rgba(110, 60, 20, 0.45)) drop-shadow(0 calc(var(--k) * 9px) calc(var(--k) * 12px) rgba(30, 10, 50, 0.35)); }
+.u-banner.t-town .u-btitle .u-ol { --t1: #dff0ff; --t2: #3d6ee4; --ol: #14286a; }
+.u-banner.t-town .u-zsm { padding: calc(var(--k) * 3px) calc(var(--k) * 16px); border-radius: 99px;
+  background: linear-gradient(180deg, rgba(46, 78, 170, 0.82), rgba(24, 44, 116, 0.82)); box-shadow: 0 calc(var(--k) * 3px) calc(var(--k) * 8px) rgba(20, 20, 60, 0.3); }
+.u-banner.t-town .u-zpips { margin-top: calc(var(--k) * 32px); }   /* (below the bunting) */
+.u-zwall { position: absolute; left: 0; bottom: 100%; width: 100%; height: calc(var(--k) * 20px); margin-bottom: -1px; fill: #fde8b8; overflow: visible; }
+.u-zflags { position: absolute; left: 3%; right: 3%; top: 100%; display: flex; justify-content: space-between; margin-top: calc(var(--k) * 2px); pointer-events: none; }
+.u-zflags i { width: calc(var(--k) * 20px); height: calc(var(--k) * 22px); clip-path: polygon(0 0, 100% 0, 50% 100%); background: #ff5f7a;
+  transform-origin: 50% 0; animation: u-flag 1.6s ease-in-out infinite alternate; animation-play-state: paused; }
+.u-banner.on .u-zflags i, .u-banner.out .u-zflags i { animation-play-state: running; }   /* (they flutter only while the card shows) */
+.u-zflags i:nth-child(5n + 2) { background: #ffd23f; animation-delay: -0.4s; }
+.u-zflags i:nth-child(5n + 3) { background: #5ab4ff; animation-delay: -0.8s; }
+.u-zflags i:nth-child(5n + 4) { background: #6fdc6a; animation-delay: -1.2s; }
+.u-zflags i:nth-child(5n + 5) { background: #b07aff; animation-delay: -0.6s; }
+@keyframes u-flag { from { transform: rotate(-7deg); } to { transform: rotate(7deg); } }
 
 /* toast */
 .u-toast { position: absolute; left: 50%; top: calc(var(--padT) + var(--k) * 6px); transform: translate(-50%, -20px); opacity: 0;

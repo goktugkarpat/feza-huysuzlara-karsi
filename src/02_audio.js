@@ -69,6 +69,7 @@ const AUD = (() => {
       saw: wave(c, [1, 0.5, 0.3, 0.2, 0.13, 0.09, 0.06, 0.04, 0.025, 0.015]),
       brass: wave(c, [1, 0.8, 0.55, 0.38, 0.25, 0.16, 0.1, 0.06, 0.035, 0.02]),
       flute: wave(c, [1, 0.16, 0.05, 0.015]),
+      rec: wave(c, [1, 0.1, 0.18, 0.035, 0.05, 0.012, 0.012]),   // recorder: pure, a touch of odd "woodiness"
     };
     return m;
   }
@@ -518,6 +519,85 @@ const AUD = (() => {
       one(t + 0.55, 0.022, 620, 0.8);   // echo from the far hills: quieter and duller
       return 1.45;
     },
+    // ── Round 5: Surlu Şehir, the castle town. Wooden, jingly and brassy-toy; round and friendly, never martial or clangy.
+    neigh(m, o, t, p) {   // a cute pony whinny: a bright wobbly "hiii-hi-hi-hi" tumbling down, then a soft lip-flutter "brrr"
+      const c = m.c, os = c.createOscillator(), g = gainNode(c, 0), lp = c.createBiquadFilter(), d = 0.74, end = t + d + 0.05;
+      os.setPeriodicWave(m.waves.brass);
+      curve(os.frequency, t, [[0, 480 * p], [0.06, 860 * p], [0.18, 800 * p], [0.42, 640 * p], [0.66, 480 * p], [0.74, 430 * p]]);
+      const l = c.createOscillator(), lg = gainNode(c, 0), ag = gainNode(c, 0), am = gainNode(c, 0.62);   // one wobble for pitch and loudness
+      curve(l.frequency, t, [[0, 10], [d, 14]]);
+      lg.gain.setValueAtTime(20, t); lg.gain.linearRampToValueAtTime(150, t + 0.45);   // the "hi-hi-hi" widens as it tumbles
+      ag.gain.setValueAtTime(0.06, t); ag.gain.linearRampToValueAtTime(0.38, t + 0.4);
+      l.connect(lg); lg.connect(os.detune); l.connect(ag); ag.connect(am.gain);
+      lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.8;
+      const fm = c.createBiquadFilter(); fm.type = 'peaking'; fm.frequency.value = 1500 * p; fm.Q.value = 1.4; fm.gain.value = 6;   // nasal "ii"
+      os.connect(fm); fm.connect(lp); lp.connect(am); am.connect(g);
+      env(g.gain, t, 0.03, 0.34, d, 1, 0.2); g.connect(o);
+      os.start(t); l.start(t); os.stop(end); l.stop(end);
+      N(m, o, t, 0.3, 0.03, { f: 1800 * p, q: 1, a: 0.04 });   // a little breath in the voice
+      N(m, o, t + 0.76, 0.24, 0.2, { type: 'lowpass', f: 650, a: 0.02, am: [23, 0.9] });   // "brrr": the lips flutter
+      T(m, o, t + 0.76, 150 * p, 0.24, 0.1, { type: 'triangle', a: 0.02, vib: [23, 60, 0.01] });
+      return 1.05;
+    },
+    gallop(m, o, t, p) {   // one hoof beat on the cobbles, "clip-clop": two hollow coconut "tok"s (the 2nd lower) + a soft thud.
+      for (let i = 0; i < 2; i++) {   // GAME calls it once per stride (~0.25–0.35 s apart); SVAR keeps a run of them lively
+        const tt = t + i * 0.085 + (i ? rnd(-0.008, 0.008) : 0), q = p * (i ? 0.82 : 1) * rnd(0.97, 1.03);
+        T(m, o, tt, 920 * q, 0.05, 0.26, { f1: 700 * q, a: 0.0008 });   // hollow shell body
+        N(m, o, tt, 0.035, 0.18, { f: 1500 * q, q: 5, a: 0.0006 });   // the woody "k"
+        T(m, o, tt, 210 * q, 0.07, 0.16, { f1: 120 * q, a: 0.001 });   // the hoof landing (soft, high enough for tablet speakers)
+      }
+      return 0.18;
+    },
+    drum(m, o, t, p) {   // the tellal's big davul: a round, soft felt-mallet "DÜM" that settles in pitch, then the thin stick's "tek-tek"
+      T(m, o, t, 150 * p, 0.6, 0.55, { fs: [[0, 150 * p], [0.06, 100 * p], [0.6, 88 * p]], a: 0.003 });   // the big head
+      T(m, o, t, 230 * p, 0.3, 0.26, { fs: [[0, 240 * p], [0.05, 200 * p]], a: 0.003 });   // body partial the tablet speakers can play
+      T(m, o, t, 330 * p, 0.12, 0.07, { f1: 280 * p, type: 'triangle', a: 0.002 });
+      N(m, o, t, 0.08, 0.22, { type: 'lowpass', f: 900, a: 0.002 });   // felt on skin
+      N(m, o, t, 0.45, 0.08, { f: 190 * p, q: 1.6, a: 0.01 });   // the shell's soft hum
+      for (let i = 0; i < 2; i++) {
+        const tt = t + 0.3 + i * 0.13;
+        T(m, o, tt, 760 * p, 0.05, 0.08, { f1: 640 * p, a: 0.0008 }); N(m, o, tt, 0.04, 0.12 - i * 0.03, { f: 2600, q: 1.4, a: 0.0008 });
+      }
+      return 0.65;
+    },
+    broom(m, o, t, p) {   // a straw broom sweeping: two quick bristly "shff-shff" strokes, scratchy but soft (bandpassed, never hissy)
+      [[0, 0.16, 0.26], [0.17, 0.24, 0.3]].forEach(([dt, d, v], i) => {
+        N(m, o, t + dt, d, v, { fs: [[0, 700 * p], [d * 0.45, 1900 * p], [d, 1000 * p]], q: 1.2, a: d * 0.4, am: [47 + i * 9, 0.7] });   // bristles
+        N(m, o, t + dt, d * 0.8, v * 0.35, { type: 'lowpass', f: 700, a: d * 0.35 });   // the body of the stroke
+        for (let k = 0; k < 3; k++) N(m, o, t + dt + rnd(0.02, d * 0.8), 0.012, rnd(0.05, 0.09), { f: rnd(1400, 2600) * p, q: 3, a: 0.001 });   // straw ticks
+      });
+      return 0.45;
+    },
+    horn(m, o, t, p) {   // the knight's tiny toy trumpet: a cheeky, nasal "ta-ta-ta-taaa!" (a toy, never a bugle call) + a twinkle
+      [[0, 523, 0.075], [0.1, 523, 0.075], [0.2, 659, 0.09], [0.31, 784, 0.42]].forEach(([dt, f, d], i) => {
+        const ff = f * p, last = i === 3;
+        T(m, o, t + dt, ff, d, 0.15, { wave: 'brass', fs: [[0, ff * 0.97], [0.02, ff]], hold: 1, a: 0.012, rel: last ? 0.14 : 0.025,
+          lp: [[0, ff * 1.5], [0.03, ff * 4], [d, ff * 2.6]], q: 1.4, vib: last ? [6.5, 22, 0.12] : null });
+        T(m, o, t + dt, ff, d, 0.035, { wave: 'sq', det: 9, hold: 1, a: 0.012, rel: last ? 0.14 : 0.025, lp: ff * 3 });   // kazoo buzz
+        N(m, o, t + dt, 0.03, 0.035, { f: 1400, q: 1, a: 0.002 });   // tongue "t"
+      });
+      B(m, o, t + 0.36, 2093 * p, 0.4, 0.03, 4, 0.8); B(m, o, t + 0.43, 2637 * p, 0.4, 0.024, 4, 0.8);
+      return 0.85;
+    },
+    bell(m, o, t, p) {   // a friendly town bell: one warm "dinnng", a round hum under a gently beating ring (major-third tuning: happy, not solemn)
+      const f = 587 * p;
+      for (const [r, d, v, det] of [[0.5, 1.7, 0.1, 0], [1, 1.3, 0.13, 0], [1.25, 0.9, 0.045, 0], [1.5, 0.75, 0.05, 0], [2, 1.1, 0.08, 0], [2, 1.1, 0.045, 3], [3.01, 0.45, 0.03, 0]])
+        T(m, o, t, f * r, d, v, { det, a: 0.002 });
+      B(m, o, t, f * 2, 0.4, 0.07, 3.5, 1.4);   // the clapper's strike
+      N(m, o, t, 0.025, 0.06, { type: 'lowpass', f: 2200, a: 0.001 });
+      return 1.75;
+    },
+    clank(m, o, t, p) {   // soft armour "tink-clank": two little plate clinks (short, mellow inharmonic rings) over a padded thunk
+      [[0, 1, 0.16], [0.07, 0.8, 0.13]].forEach(([dt, q, v]) => {
+        const f = 1250 * p * q * rnd(0.98, 1.02);
+        T(m, o, t + dt, f, 0.16, v, { a: 0.0008 });
+        T(m, o, t + dt, f * 2.41, 0.09, v * 0.45, { a: 0.0008 });
+        T(m, o, t + dt, f * 3.93, 0.05, v * 0.18, { a: 0.0008 });
+        N(m, o, t + dt, 0.02, v * 0.5, { f: 3000 * q, q: 2, a: 0.0005 });
+      });
+      T(m, o, t, 240 * p, 0.08, 0.2, { f1: 140 * p, a: 0.002 });
+      return 0.26;
+    },
     // extras
     nope(m, o, t, p) { T(m, o, t, 330 * p, 0.1, 0.14, { type: 'triangle', hold: 1, rel: 0.03 }); T(m, o, t + 0.12, 262 * p, 0.14, 0.14, { type: 'triangle', hold: 1, rel: 0.05 }); return 0.3; },
     open(m, o, t, p) { T(m, o, t, 620 * p, 0.09, 0.13, { f1: 930 * p }); B(m, o, t + 0.05, 1397 * p, 0.3, 0.05, 4, 0.7); return 0.35; },
@@ -535,16 +615,19 @@ const AUD = (() => {
     saberOn: 0.92, saberOff: 0.56, dig: 2.87, emerge: 1.13, bubble: 1.33, bubblePop: 1.83,
     lava: 0.68, erupt: 0.58, drill: 0.5, roll: 1.43, bounce: 0.61, chirp: 2.14, splat: 0.91, rumble: 1.36,
     fizz: 2.55, cork: 1.04, slurp: 3.1, squish: 1.19, moo: 0.64,
+    neigh: 0.49, gallop: 1.09, drum: 0.7, broom: 2.75, horn: 0.99, bell: 0.77, clank: 1.04,
   };
   // Random pitch spread (semitones, default 0.45), min retrigger gap (s) and "droppable when busy".
   const SVAR = { levelup: 0.05, unlock: 0.05, checkpoint: 0.05, chest: 0.1, dropLegend: 0.05, dropRare: 0.15, portal: 0.1, click: 0.15, coin: 0.05, pop: 0.08,
-    saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3, cork: 0.6, slurp: 0.2, moo: 1.2 };
+    saberOn: 0.1, saberOff: 0.1, drill: 0.2, rumble: 0.25, erupt: 0.3, cork: 0.6, slurp: 0.2, moo: 1.2,
+    neigh: 0.3, gallop: 0.3, drum: 0.2, horn: 0.05, bell: 0.1 };   // horn / bell: a tune and a tuned bell stay in tune
   const SGAP = { step: 0.07, hit: 0.035, hitSoft: 0.035, coin: 0.035, pop: 0.05, swing: 0.06, bat: 0.12, spit: 0.05, drop: 0.05, zap: 0.04, boom: 0.05, heart: 0.05,
     saberOn: 0.2, saberOff: 0.2, dig: 0.14, emerge: 0.08, bubble: 0.08, bubblePop: 0.04,
     lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7,
-    fizz: 0.12, cork: 0.12, slurp: 0.5, squish: 0.06, moo: 7 };   // moo: a rare ambient, never twice within 7 s however often it is asked for
+    fizz: 0.12, cork: 0.12, slurp: 0.5, squish: 0.06, moo: 7,   // moo: a rare ambient, never twice within 7 s however often it is asked for
+    neigh: 0.7, gallop: 0.12, drum: 0.2, broom: 0.12, horn: 0.6, bell: 0.5, clank: 0.07 };   // gallop: one per hoof beat, strides ≥ 0.15 s apart all play
   const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1,
-    fizz: 1, squish: 1, moo: 1 };
+    fizz: 1, squish: 1, moo: 1, broom: 1, clank: 1 };
   const STREAK = [0, 2, 4, 7, 9, 12, 14, 16];   // coins picked up / enemies cheered up in a row climb a pentatonic scale
 
   function playRecipe(m, name, o, t) {
@@ -633,6 +716,25 @@ const AUD = (() => {
       if (d < 0.32) { one(t, v); return; }
       const step = 0.078, n = Math.min(8, Math.floor(d / step));
       for (let i = 0; i < n; i++) one(t + i * step, v * (i ? 0.5 - i * 0.025 : 1));
+    },
+    // ── Round 5: Surlu Şehir's market-day players ──
+    // recorder: a pure, breathy pipe with a soft "tu" chiff at the start of each note and only a hint of late vibrato
+    recorder(m, out, t, f, d, v) {
+      d = Math.max(d, 0.06);
+      T(m, out, t, f, d, v, { wave: 'rec', fs: [[0, f * 0.985], [0.022, f]], hold: 1, a: 0.016, rel: 0.05, vib: [5.5, 7, 0.28] });
+      N(m, out, t, 0.035, v * 0.18, { f: Math.min(f * 3, 7000), q: 3, a: 0.003 });   // chiff
+      if (d > 0.3) N(m, out, t, d, v * 0.02, { f: f * 2, q: 7, hold: 1, a: 0.06, rel: 0.05 });   // breath under a long note
+    },
+    // lute (ud): warm gut strings in a pair a hair apart (the 2nd plucked a moment later), round and woody, darker than the saz;
+    // long notes get the quick tremolo picking (the light Anatolian touch)
+    lute(m, out, t, f, d, v) {
+      const one = (tt, vv) => {
+        T(m, out, tt, f, 0.6, vv * 0.62, { wave: 'saw', det: -3, lp: [[0, f * 6], [0.035, f * 2.4], [0.6, f * 1.2]], q: 0.7, a: 0.0015 });
+        T(m, out, tt + 0.006, f, 0.5, vv * 0.4, { wave: 'sq', det: 5, lp: [[0, f * 4], [0.05, f * 1.6]], q: 0.7, a: 0.002 });
+      };
+      if (d < 0.34) { one(t, v); return; }
+      const step = 0.076, n = Math.min(8, Math.floor(d / step));
+      for (let i = 0; i < n; i++) one(t + i * step, v * (i ? 0.52 - i * 0.025 : 1));
     },
   };
   const DRUM = {
@@ -730,6 +832,28 @@ const AUD = (() => {
         if (bar % 8 === 3 && Math.random() < 0.7) voice(ch, 84, 4).forEach((mm, i) => p.note('xylo', t + p.beat * (3 + i / 4), mm, 0.2, 0.016));   // xylophone run
         if (bar % 16 === 11 && Math.random() < 0.6) [96, 100].forEach((mm, i) => B(p.M, p.out, t + p.beat * (2.5 + i * 0.5), mtof(mm), 0.7, 0.012, 3.5, 0.9));   // fence bells
         if (bar % 16 === 13 && Math.random() < 0.5) [84, 81].forEach((mm, i) => { p.note('ocarina', t + p.beat * (2 + i * 0.75), mm, p.beat * 0.55, 0.011); p.note('ocarina', t + p.beat * (3.5 + i * 0.75), mm, p.beat * 0.5, 0.0035); });   // cuckoo + echo
+      },
+    },
+    sehir: {   // market day in the castle town: a recorder tune with little folk turns over a lute's broken chords, a bouncy
+               // root-fifth bass, hand drum and tambourine in a lilting dance swing (the drum's "DÜM ..ta DÜM" skips like a pony);
+               // the bridge goes to the lute with tremolo on the long notes (the light Anatolian touch); now and then a pipe
+               // flourish, a triplet drum roll and, at the top of the tune, the town bell's "ding-dong"
+      bpm: 132, key: 9, scale: MAJ, vol: 1.0, swing: 0.26, drumsIn: 4,
+      prog: form(C(45, 'M'), C(50, 'M'), C(47, 'm7'), C(52, 's4'), C(52, 'D7'), [C(50, 'M'), C(45, 'M'), C(42, 'm7'), C(52, 's4')]),
+      pad: { vol: 0.014, lo: 57, n: 2, cut: 1100 },
+      bass: { inst: 'pbass', pat: ['r.5.r.5.', 'r.5.r.3o'], vol: 0.085 },
+      arp: { inst: 'lute', step: 8, pat: ['01213121', '01213123'], lo: 57, vol: 0.022 },
+      lead: { inst: 'recorder', alt: 'lute', lo: 69, hi: 86, vol: 0.055, cells: 'mid', plan: [1, 1, 2, 1], orn: 0.25 },
+      kit: { dum: ['x.....x.x.......', 0.09], tek: ['....x.......x...', 0.032], ka: ['..........o...o.', 0.02], tamb: ['o.x.o.x.o.x.o.x.', 0.007] },
+      fill(p, t) {   // "te-ka-te te-ka-te" triplets (straight 16ths would fight the swing) + a tambourine shake into the next phrase
+        for (let i = 0; i < 6; i++) p.drum(i % 3 === 1 ? 'ka' : 'tek', t + p.beat * (2 + i / 3), 0.016 + i * 0.004);
+        p.drum('tamb', t + p.beat * 3.67, 0.011);
+      },
+      extra(p, t, bar, ch) {
+        if (bar % 8 === 3 && Math.random() < 0.6) voice(ch, 81, 3).forEach((mm, i) => p.note('recorder', t + p.beat * (3 + i / 3), mm, 0.12, 0.014));   // pipe flourish
+        if (bar % 16 === 0 && bar > 0) [[0, 76], [2, 69]].forEach(([b, mm]) => {   // the town bell: "ding-dong" (the sfx recipe, quietly)
+          const g = gainNode(p.M.c, 0.085); g.connect(p.out); SFX.bell(p.M, g, t + p.beat * b, mtof(mm) / 587);
+        });
       },
     },
     kale: {   // heroic, bouncy march: brass tune, oom-pah, snare
@@ -1216,7 +1340,7 @@ AUD.LINES = /*SESLER*/{
   "buyu2": "Buz Çiçeği açıldı! Mavi düğmeyle huysuzları biraz dondur, sihirli kalkanın seni korusun!",
   "buyu3": "Yıldız Bahçesi hazır! Pembe düğmeye bas, yıldızlar bir çember olup huysuzları neşelendirsin!",
   "giris2": "Işın kılıcınla huysuzlara dokun, yeniden neşelensinler! Gitmek istediğin yere parmağını bas.",
-  "yolculuk": "Kristali geri almaya gidiyoruz: önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ ve en sonunda ejderhanın kalesi!",
+  "yolculuk": "Kristali geri almaya gidiyoruz: önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ, surlu şehir ve en sonunda ejderhanın kalesi!",
   "baykus": "Hu hu! Ben Bilge Baykuş. Toprak yolu takip et, ormana varırsın! Canın azalırsa kırmızı iksiri iç!",
   "orman": "Huysuz Orman! Jöleler ve mantarlar çok huysuzlanmış.",
   "kefir": "Kefir Vadisi! Ejderhanın büyüsü buraya da ulaşmış: yoğurtlar ekşimiş, kaymaklar kesilmiş. Hadi onları neşelendirelim!",
@@ -1229,6 +1353,11 @@ AUD.LINES = /*SESLER*/{
   "yanardag": "Lav Yanardağı! Lavlar çok sıcak, yoldan ayrılma! Ejderhanın kalesi çok yakında!",
   "ilk_kaplumbaga": "Bak bak! Minik lav kaplumbağaları!",
   "ilk_ateskusu": "Ateş kuşları uçuyor, kıvılcımlara dikkat!",
+  "sehir": "Surlu Şehir! Ejderha buradaki insanları kandırmış, hepsi huysuzlanmış. Kaleye kimse gitmesin istiyorlar. Hadi onları neşelendirelim!",
+  "ilk_nobetci": "Nöbetçiler yolu kapatıyor! Kimse geçmesin istiyorlar.",
+  "ilk_simitci": "Bak bak! Simitçi simit fırlatıyor!",
+  "ilk_supurgeci": "Süpürgeciler tozu savurarak geliyor, dikkat et!",
+  "ilk_tellal": "Tellal kocaman davulunu çalıyor. Davul sesi gelince geri çekil!",
   "kale": "Ejderhanın Kalesi! Neşe kristali burada bir yerde.",
   "yetenek_yildiz": "Yeni yetenek: Yıldız Atışı! Yıldızlı düğmeye bas, uzaktaki huysuzlara yıldız fırlat!",
   "yetenek_kasirga": "Yeni yetenek: Kasırga! Parlayan yeni düğmeye bas, fırıl fırıl dön!",
@@ -1256,7 +1385,10 @@ AUD.LINES = /*SESLER*/{
   "usta_giris": "Usta Köstebek geldi! Topraktan çıkınca hemen vur!",
   "usta_bitti": "Usta Köstebek kocaman gülümsüyor! Kapı yanardağa açıldı!",
   "kaplumbaga_giris": "Koca Lav Kaplumbağası! Yerde parlayan dairelerden uzak dur!",
-  "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Sihirli kapı kaleye açıldı!",
+  "kaplumbaga_bitti": "Koca kaplumbağa çok sevindi! Sihirli kapı surlu şehre açıldı!",
+  "sovalye_giris": "İşte Huysuz Şövalye ve kocaman atı! Koşmadan önce yolunu gösteriyor, kenara kaç!",
+  "sovalye_sancak": "Sancaklara vur! Hepsi düşünce şövalyenin başı dönecek!",
+  "sovalye_bitti": "Huysuz Şövalye kocaman gülümsüyor! Artık kimse kaleye giden yolu kapatmıyor.",
   "ejderha_giris": "İşte Huysuz Ejderha! Hadi Feza, onu da neşelendir!",
   "ejderha_yarim": "Ejderha yoruluyor! Devam et, çok az kaldı!",
   "ejderha_yumurta": "Ejderha yeni yumurtalar bıraktı! Dokununca içinden minik ejderhalar çıkıyor.",

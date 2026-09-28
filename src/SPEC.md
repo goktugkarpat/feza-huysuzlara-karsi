@@ -8,12 +8,135 @@ hops, and vanishes in sparkles/hearts, dropping gold/loot. No blood, no death, n
 Graphics must be clearly **better than a typical low-poly kids' game**: textured PBR surfaces with normal maps, rim light,
 bloom on glowing things, detailed characters with smooth geometry and expressive faces — with a120fps render cap on every device, including phones and tablets (actual rate follows browser/display capability).
 
+## Round 5 — Feza's request: SURLU ŞEHİR, a walled town in front of the dragon's castle (latest; read first, overrides older text)
+Feza asked for a 6th chapter: after the volcano Feza does NOT go straight to the castle. He enters the **town inside the dragon's
+city walls** (a feudal "castle town": inside the walls, below the main castle). A river flows through it, parts of the city walls
+are visible. The huysuz here are **PEOPLE**: the dragon tricked them and made them grumpy, so they do not want anyone to reach the
+castle and block the way. They are NOT evil and nothing about them is scary: chibi, cute, mischievous-sulky ("hıh!") faces
+(puffed cheeks, pout, arched — never slanted — brows, no frowns, no teeth-baring), toy-like soft "weapons" (cork/pompom tips,
+bread, brooms, drums). Cheered up they are overjoyed friendly townsfolk again (^‿^, blush, hearts) and vanish in sparkles as usual.
+The zone boss is a **very grumpy big knight riding a big horse**, with his own moves and his own treasures (one per hero class).
+Keep everything from earlier rounds (3 classes, their skills, DIFF/DROP philosophy, manual save only, Hardcore, TBC moves, 120/60 FPS policy).
+
+**Zone order (index = save zone; saves since sv 4 also carry zid):** 0 orman (kraljole) · 1 kefir (kefirdev) · 2 magara (kostebekusta) ·
+3 yanardag (lavkaplumbaga) · **4 sehir 'Surlu Şehir' (boss sovalye)** · 5 kale (ejderha, `final: true`).
+```
+ZONES[4] = { id:'sehir', ad:'Surlu Şehir', theme:'town', line:'sehir', music:'sehir', size:100, rooms:8, side:3,
+  enemies:{ nobetci:4, simitci:3, supurgeci:3, tellal:1 }, elites:['nobetci','simitci'],
+  hpMult:2.55, dmgMult:1.8, xpMult:2.3, gold:2.8, ilvl:7, boss:'sovalye' }
+ZONES[5] (kale) = as before but ilvl 8, hpMult 3.0, dmgMult 2.0, xpMult 2.7, gold 3.2   (GAME re-balances DIFF for 6 zones; see GAME)
+```
+`tellal` joins LEVEL's BIG list (at most one per pack). The castle is unchanged otherwise (asker, atescik, hayalet, golem).
+
+**Look (06, theme 'town')** — bright, warm, cheerful golden afternoon (soft peach/lavender sky and fog, warm sun, nothing dark or grim):
+- Walkable floor: cobblestone streets (TEX 'townStone'); plazas / market square / the boss arena use patterned plaza pavers
+  (TEX 'plaza'); the main route (path) reads as a slightly wider, lighter main street.
+- Non-walkable ground next to the floor: a **river / canals of clear blue water** (reuse the animated liquid floor idea of milk/lava:
+  soft ripples, sun glints, a few floating lily pads or ducks as decor), small grass/flower gardens, house blocks.
+- **Bridges** (arched stone, some wooden) wherever the route crosses water (as dairy's biscuit bridges / volcano's stone bridges).
+- Boundary / decor: rows of colourful half-timbered houses (TEX plaster + roof; coloured shutters, flower boxes, chimneys, shop
+  signs: a simit bakery, a drum shop…), market stalls with striped awnings (fruit, bread/simit, flowers), a fountain, wells, carts,
+  hay bales, benches, potted trees, lantern posts (LIGHTS.torches), bunting flags strung between houses, banners with the town crest
+  (a smiling golden sun). **City walls (surlar)**: sandstone rampart segments with crenellations and round towers with conical roofs
+  and flags (TEX 'rampart'), visible along the north and the sides (tall there; LOW/none on the camera (south) side — camera rule),
+  and far to the north, beyond the walls, the **dragon's castle silhouette** on a rocky hill (decor only, fog-tinted, cheap).
+- Boss arena **"Turnuva Meydanı"** (round plaza, radius ≥ ARENA_R): pennant poles, striped tournament tents, low wooden stands on the
+  south side; the exit portal L.exit at its north edge is the **castle gate** ("Kale Kapısı": the magic portal inside a stone gate
+  arch), built inactive as for zones 0–3. A checkpoint right before the arena. No NPC.
+- Breakables: barrel, crate, vase (+ VASE_COL.town). Minimap palette for 'town' (streets, water, walls). Portal tint for 'town'.
+- Draw calls: instanced / chunked like the other themes (houses, stalls, walls, flags are instanced).
+
+**Creatures (05: EDEF + EMODEL; base stats at zone-1 scale like the others; GAME multiplies by zone):**
+| type | ad / eliteAd | kind | look + attack (st fields) |
+|---|---|---|---|
+| nobetci | Huysuz Nöbetçi / Kocaman Nöbetçi | melee | chibi town guard (~1.35 m): padded tunic in town colours (sky blue + sunny yellow halves), round kettle helmet with a feather, round wooden shield with the smiling-sun crest, a long wooden spear with a big soft red pompom tip. windup = pulls the spear back; attack = a poke-lunge. hp 58, dmg 10, speed 2.6, r 0.55, height 1.35, atkRange 1.5, atkCd 1.9, windup 0.7, xp 22, gold 6, line 'ilk_nobetci' |
+| simitci | Huysuz Simitçi / Kocaman Simitçi | ranged | round street vendor with a big wooden tray of simits on his head, white apron, curly moustache, rosy cheeks. windup = lifts a simit off the tray; attack = throws it (shot {kind:'simit', speed 5, r 0.34}); muzzle = throwing hand. hp 40, dmg 8, speed 2.0, r 0.55, height 1.3, atkRange 7, range 7, atkCd 2.5, windup 0.7, xp 18, gold 5, line 'ilk_simitci' |
+| supurgeci | Huysuz Süpürgeci / Kocaman Süpürgeci | glide | quick street sweeper (~1.2 m) with a big straw broom and a patched cap; like kaymak's glide: windup = crouches with the broom ready, attack = whooshes along a lane sweeping (share of the lane, then 1 = recover), trail 'dust'. hp 34, dmg 8, speed 3.6, r 0.5, height 1.2, atkRange 2.4, atkCd 2.0, windup 0.65, xp 17, gold 4, line 'ilk_supurgeci' |
+| tellal | Huysuz Tellal | slam | the town crier (~1.95 m, r 0.85): big round belly, pointy hat with a bell, a big decorated davul drum on his belly, two mallets. windup = raises both mallets high (leans back); attack = BOOM on the drum at st.attack 0 → GAME's ground ring (slamR 2.2) + music-note burst. hp 130, dmg 14, speed 1.5, atkRange 2.4, atkCd 2.8, windup 1.0, xp 45, gold 12, line 'ilk_tellal' |
+Faces: grumpy = the sulky "hıh!" pout above (eyes half-lidded or side-glancing, cheeks puffed); happy = ^ ^ eyes, big smile, blush, hearts.
+Skin tones varied and friendly; clothes bright. ≤ 3 draw calls per creature, one skinned mesh, LOD entries.
+
+**Boss `sovalye` 'Huysuz Şövalye'** (EDEF kind 'boss', lines {giris:'sovalye_giris', bitti:'sovalye_bitti'}, ~3.4 m total, r 1.7):
+a chibi knight in shiny silver armour with gold trim, a tall rainbow plume, visor UP showing a very grumpy-cute face (big pout,
+puffed cheeks, bushy arched brows, a curly moustache), a tabard with the smiling-sun crest, a round shield, a long jousting lance
+with a big soft padded ball tip; riding a big chunky friendly **horse** (big eyes with lashes, braided mane with ribbons, a checkered
+caparison in blue/yellow, a chanfron with a star, fluffy hooves). EDEF: hp 1400, dmg 15, speed 2.0, r 1.7, height 3.4, xp 500, gold 130,
+atkRange 3.2, atkCd 1.6, windup 0.8, aggro 14, summon {type:'nobetci', n:2, at:[0.66, 0.33]}, slamR 3.6, chargeSpeed 9,
+phases ['idle','move','charge','rear','sweep','toss','summon','roar','dizzy'] (+ dying). st.phase + st.phaseT (0..1) + st.move (0..1 trot)
++ st.hurt + st.dying, exactly like the other bosses. **Model timing contract (05 animates by phaseT, 07 uses the same beats):**
+- `charge`: 0–0.3 wind-up (horse paws the ground, knight lowers the lance: GAME shows the lane telegraph from the start of the phase),
+  0.3–0.9 gallop (GAME moves the boss along the lane; hit on contact, at most once), 0.9–1 skid to a stop.
+- `rear`: 0–0.5 the horse rears up on its hind legs (wind-up; GAME shows the ring telegraph), lands at 0.5 (GAME: stomp ring slamR), 0.5–1 settle.
+- `sweep`: 0–0.4 lance drawn back (GAME shows a cone telegraph), 0.4–0.6 wide lance sweep (hit at 0.5), 0.6–1 recover.
+- `toss`: the knight throws 3 silver horseshoes at phaseT 0.35 / 0.5 / 0.65 (GAME: lobbed 'horseshoe' mortars onto telegraph circles).
+- `summon`: raises the lance and blows a little horn at 0.5 (GAME summons nobetci). `roar`: a grumpy "hımf!" + the horse's neigh.
+- `dizzy` (arena surprise, loops by st.t): the knight wobbles with little stars circling his helmet, the horse sways cross-eyed-cute.
+- `dying` (st.dying 0..1, dieDur ≈ 3.2 s): 0–0.35 overjoyed, he takes off his helmet and waves, the horse prances; 0.35–0.7 happy hops;
+  0.7–1 twirl + shrink into sparkles. m.muzzle() = the knight's throwing hand; optional m.marker('lance') = lance tip.
+- `EMODEL.sancak()` → {root, anim(dt, st:{fall: 0..1, glow: 0..1}), dispose()}: a cute tournament banner on a pole (~2.4 m) with the
+  smiling-sun crest; fall 0→1 = it tips over and lies flat (happy sparkle), glow = a soft golden shimmer while it stands;
+  side −1/+1 (optional; GAME: toward the arena's middle) = it falls to that side, across the screen (tipped north it looked still standing from the gameplay camera), a little dimmer once down.
+
+**GAME (07) — the knight's fight** (target for a button-masher ≈ 55–75 s; DIFF.boss.sovalye ≈ {per: 230, lo: 30, hi: 68, dmg: 28}, tune):
+- Moves by distance, via pickPhase: far → charge / toss; mid → charge / sweep / toss; close → rear / sweep. `charge`: a straight lane
+  toward where Feza stands at the start (telegraphLine, width ≈ 2 × r), speed chargeSpeed, stops at the arena rim, dust/hoof trail,
+  one bump (kb) at most. `toss`: 3 horseshoe mortars, the first on Feza's spot, the others around (telegraph circles, like lava balls).
+  `summon` at 66 % / 33 %: 2 nobetci ('sovalye_asker' line NOT needed: the generic summon beat). Naps tire the boss as for the others.
+- **TBC move** (RAID_NEW.sovalye = 'berserkercharge', inspired by **Attumen the Huntsman — Berserker Charge**, Karazhan): he rides to the
+  arena rim, then gallops two telegraphed passes (a cross: the second lane is shown while the first runs), each lane warned 2 s,
+  fixed paths that do not chase Feza after the warning, at most 2 modest hits in total. Same scheduling rules as the other TBC moves.
+- **Arena surprise `sancak`**: at 60 % hp three tournament banners (EMODEL.sancak) pop up at spots around the arena rim, with the line
+  'sovalye_sancak'. They behave like breakables (tap to walk there and hit; swings, skills and hitBreakables knock them over; no loot).
+  When all three are down the knight is **dizzy** for 4 s (phase 'dizzy': he does nothing, takes normal damage). Optional for the kid:
+  ignoring them costs nothing. Cleared on calm, nap, defeat or zone change like every encounter; pause freezes it.
+- Defeat: the usual mid-boss flow (overjoyed + big cheer, its fixed class treasure + coins, 'sovalye_bitti', the portal wakes + 'kapi').
+- Other GAME needs: ZORDER gets 'sehir' at index 4 and every per-zone DIFF array gets 6 entries (zoneHp, zoneDmg, power.dmg…),
+  keeping the old zones' values; SAVE_V 5; a save WITHOUT zid (older layouts) keeps mapping its numeric zone through the Round-4 order
+  ['orman','kefir','magara','yanardag','kale'] (so an old castle save stays the castle, now index 5); saves with zid follow by id.
+  Hardcore auto-checkpoints at the entry of the 2nd, 4th and 6th chapters (zones 1, 3 and 5 — the parent added the 6th, so a castle nap no longer sends Feza back two chapters). ELITE_AD / FIRST_LINE for the 4 new
+  types, SHOT_KIND/SHOT_COL/SHOT_END for 'simit' (end: 'crumbs' + a soft 'pop') and 'horseshoe' (mortar kind), glide trail 'dust'
+  for supurgeci, tellal = HEAVY slam with a 'notes' burst and the 'drum' sfx; BOSS_KIT.sovalye {lines, add:'nobetci', at [0.66, 0.33],
+  n [2, 2], roar pitch, col '#ffd23f', roarSfx 'neigh'}; BOSS_AI.sovalye; warmZone pre-builds the new models/shots/banners.
+  After the knight the castle's own flow is unchanged (the dragon is still the finale).
+
+**Boss treasures (04 ITEMS)** — class-locked rarity-3 identities (now 6 bosses × 3 classes = 18), bossReward('sovalye', heroClass, ilvl):
+warrior → hat `sovalyemigfer` 'Şövalyenin Tüylü Miğferi' (shiny silver knight helmet, visor up, tall rainbow plume);
+wizard → cape `sovalyesihir` 'Şövalyenin Arma Pelerini' (royal blue with a golden smiling-sun crest, checkered gold trim, tiny stars);
+hybrid → weapon (sword) `sovalyeikiz` 'Şövalyenin Turnuva Kılıcı' (a lightsaber with a red/white spiral jousting hilt, a golden
+crossguard, warm golden blade). Models + thumbnails like the other boss items; excluded from random pools; 50 item appearances total.
+
+**Voice (02 AUD.LINES; simple Turkish; no "Aa"/"Oo", nothing that looks like an abbreviation; recorded with gen_voice.py):**
+new — sehir "Surlu Şehir! Ejderha buradaki insanları kandırmış, hepsi huysuzlanmış. Kaleye kimse gitmesin istiyorlar. Hadi onları neşelendirelim!"
+· ilk_nobetci "Nöbetçiler yolu kapatıyor! Kimse geçmesin istiyorlar." · ilk_simitci "Bak bak! Simitçi simit fırlatıyor!"
+· ilk_supurgeci "Süpürgeciler tozu savurarak geliyor, dikkat et!" · ilk_tellal "Tellal kocaman davulunu çalıyor. Davul sesi gelince geri çekil!"
+· sovalye_giris "İşte Huysuz Şövalye ve kocaman atı! Koşmadan önce yolunu gösteriyor, kenara kaç!"
+· sovalye_sancak "Sancaklara vur! Hepsi düşünce şövalyenin başı dönecek!"
+· sovalye_bitti "Huysuz Şövalye kocaman gülümsüyor! Artık kimse kaleye giden yolu kapatmıyor."
+changed — kaplumbaga_bitti "Koca kaplumbağa çok sevindi! Sihirli kapı surlu şehre açıldı!" · yolculuk "Kristali geri almaya gidiyoruz:
+önce Huysuz Orman, sonra Kefir Vadisi, mağara, yanardağ, surlu şehir ve en sonunda ejderhanın kalesi!"
+Music 'sehir': a festive medieval market town (plucked lute/ukulele-like, recorder/flute melody, tambourine and a soft hand drum,
+bright major, bouncy; a light Anatolian folk colour is welcome; never martial or dark). New sfx (soft, cartoony): neigh (a cute
+whinny), gallop (clip-clop), drum (a round soft davul boom), broom (swish), horn (a tiny toy-trumpet fanfare), bell (a town-bell ding), clank (soft armour clink).
+
+**FX (03):** projectile kinds 'simit' (a golden-brown sesame ring, spinning; it ends in 'crumbs') and 'horseshoe' (a shiny silver
+horseshoe with a sparkle trail, used as a lobbed mortar like 'lavaball'); bursts 'hoof' (a dust puff with small golden sparkles,
+for gallop steps, rear landing and charge stops) and 'notes' (little musical notes rising: the drum's boom and the knight's horn;
+add a note glyph to the particle atlas if there is none).
+**TEX (01):** THEME 'town' = townStone (warm honey/sand cobblestones, smaller than 'cobble', a few moss lines), plaza (fan/circle
+patterned pavers in cream and terracotta), rampart (big sandstone wall blocks, warm beige, bevelled, NEUTRAL-ish so LEVEL can tint);
+lazily made under the fade like the other themes; plaster/roof/wood/cobble are reused for houses.
+**UI (09 + ui.css):** 6 zones everywhere (zone cards 1–6, anything that assumed 5), BOSS_UI.sovalye {ad 'Huysuz Şövalye', lines
+['sovalye_'], disc/halo royal blue + gold} + a friendly flat SVG fallback (knight on a horse), BOSS_ORDER with 'sovalye' before
+'ejderha', BOSS_FIT for the tall horse + knight, `.u-dimg.b-sovalye` / `.u-boss[data-b="sovalye"]`, MAP_BG.town, `.u-banner.t-town`,
+subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci 🧹, ilk_tellal 🥁 (boss lines use its portrait).
+**Docs:** README (6 chapters, the knight row in the TBC table, the warrior's treasure list), this section; sw.js CACHE bump.
+
 ## Opt-in Hardcore (latest)
 - `GAME.hardcore` is runtime-only. Only `newGame({hardcore:true,plus:false,heroClass})` or explicit
   `continueHardcore()` enables it. Normal new game, replay and `continueGame()` reset it to false.
 - Pause-menu Hardcore uses the existing hold-to-confirm restart gate. A permanent HUD badge and pause-mode card show active mode and last Hardcore checkpoint; confirmations disclose replacing any previous Hardcore save. It starts the same class fresh.
   A separate in-game `Hardcore’a dön` action appears when `hasHardcoreSave()` is true; title Continue stays normal.
-- Manual `save()` returns false in Hardcore. Only zone1/3 entry (2nd/4th chapters) writes
+- Manual `save()` returns false in Hardcore. Only zone1/3/5 entry (2nd/4th/6th chapters; the 6th since Round 5) writes
   `fezaKotulereKarsi.hardcore.v1`; normal `fezaKotulereKarsi.v3` is untouched. `hardcoreCheckpoint` informs UI.
   Death restores the last checkpoint's progression and a fresh zone, or resets the same class to forest before checkpoint1.
   Restoration does not rewrite the checkpoint. Starting a fresh Hardcore clears its previous checkpoint.
@@ -34,9 +157,9 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   `P.equip.weapon`; both are saved separately, marked worn in the bag and upgraded independently. `P.meleeDmg` and `P.magicDmg`
   use the corresponding weapon; hybrid `P.dmg` is the maximum for stable enemy scaling, never a sum of both weapons.
 - `ITEMS.starter(heroClass)`, `roll(ilvl,bias,rnd,heroClass)`, `allowed(item,heroClass)`, `isWand(item)` govern drops/equipment.
-  `bossReward(type,heroClass,ilvl)` returns one exclusive rarity3 identity for each of five bosses × three classes (15 rewards);
+  `bossReward(type,heroClass,ilvl)` returns one exclusive rarity3 identity for each of six bosses × three classes (18 rewards; Round 5 added the knight);
   power scales with zone/NG+, never randomly. Boss items are class-locked and excluded from random pools.
-- 47 item appearances:28 weapons,10 hats,9 capes. Ten added ordinary looks: Buz Kristali/Güneş/Dalga swords, Mercan/Bulut/Çiçek
+- 50 item appearances: 29 weapons, 11 hats, 10 capes (Round 5 added the knight's three). Ten added ordinary looks: Buz Kristali/Güneş/Dalga swords, Mercan/Bulut/Çiçek
   wands, Bulut Beresi/Orman Gezgini Başlığı, Deniz Dalgası/Güneş capes. `FEZA.setEquip` accepts offhand; `H.wandTip` tracks it.
 - Manual saves during boss endings include pending treasures, including the kefir gift and final dragon reward. Invalid hand indices
   recover an existing matching weapon before creating a starter, preserving the one-piece-per-look inventory rule.

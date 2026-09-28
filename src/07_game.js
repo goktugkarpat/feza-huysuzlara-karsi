@@ -53,7 +53,23 @@
    waits while Feza naps; no swings/skills while it hands him the glass (a Kasırga kept him whirling through the drink);
    the geyser's foam zone stays on the ground for the whole spray and its foam is a creamy fountain. The crystal waits for
    'ejderha_bitti'. Walking: routeTo walks to the best reachable spot near a finger on a bush / the milk; a drag that
-   bounces in a wall corner re-routes (DRAGWIN); a ranged creature behind a wall comes round instead of backing off. */
+   bounces in a wall corner re-routes (DRAGWIN); a ranged creature behind a wall comes round instead of backing off.
+   Round 5 (Feza: SURLU ŞEHİR, the walled town before the dragon's castle = zone 4, the castle is now 5): DIFF arrays have
+   six entries in ZORDER (orman, kefir, magara, yanardag, sehir, kale). Saves are sv 5; a save with a zid follows its id, one
+   without keeps mapping its number through the Round 4 order (ZORDER4: an old castle save stays the castle). The town's
+   grumpy people: nobetci (a spear poke, melee), simitci (throws simits: shot 'simit', ends in crumbs + a soft pop),
+   supurgeci (glides along a lane like the kaymak, the broom whooshes and stirs up dust: DUSTY), tellal (HEAVY: the drum BOOM
+   is a ground ring with music notes, 'drum'; the bell on his hat dings as he winds up). Boss sovalye (sovalyeStep, SOV;
+   beats = 05's model timing contract): charge (a lane toward Feza's spot, 0–0.3 paws while the lane fills, 0.3–0.9 gallops
+   to the arena rim bumping him at most once, 0.9–1 skids), rear (a ring fills 0–0.5, the stomp lands at 0.5), sweep (a wide
+   lance cone fills 0–0.5, hit at 0.5), toss (3 silver horseshoe mortars at 0.35 / 0.5 / 0.65 onto circles, the first on
+   Feza's spot), summons 2 nobetci at 66 % / 33 % with a little horn, neighs instead of roaring. Its TBC move is
+   'berserkercharge' (Attumen: two telegraphed gallops across the arena forming a cross, BERSERK), and its arena surprise
+   'sancak': at 60 % hp three tournament banners (EMODEL.sancak; they live in L.breakObjs with .banner while they stand, no
+   loot) — all three knocked over → it is dizzy for SOV.dizzy s. He gallops all over his arena, so "Feza ran off" is
+   counted from the arena's middle (kit.roam), and 'kapi' waits for his happy line (it never mentions the door). The town
+   dings a far bell now and then (the kefir valley's moo). Balance: DIFF (test/r5_game_kid.html; mechanics, saves and
+   every boss's surprises in test/r5_game_boss.html, r5_game_save.html, r5_game_tbc.html). */
 const GAME = (() => {
   'use strict';
 
@@ -67,21 +83,28 @@ const GAME = (() => {
   };
   // ── Difficulty: the one place to tune how hard the game is (parent, 2nd round: "the creatures go happy at once,
   //    only the dragon was strong — make the whole game a bit harder") ──
-  // Arrays "per zone" are in ZONES order: orman, kefir (Round 4), magara, yanardag (Round 3), kale — looked up by zone id (see zslot).
+  // Arrays "per zone" are in ZONES order: orman, kefir (Round 4), magara, yanardag (Round 3), sehir (Round 5), kale — looked
+  // up by zone id (see zslot).
   const DIFF = {
     hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
     // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1; Round 4: the kefir
     // valley is gentle, and Feza now reaches the cave ~2 levels stronger, so the later zones went up to feel as before)
     // (Round 4, test/r4_game_kid.html, seeds 11/23/37 × masher/hold/tap bots vs the 4-zone build: the kefir valley with
     //  0–1 potions and no naps, the cave/volcano/castle back to about the potions and low-hp moments they had before)
-    zoneHp: [1.15, 1.1, 1.3, 1.08, 1.05],
-    hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85, peynir: 0.8 },   // the big slow golem, the slow bubble snail, the shell turtle and the cheese wedge are tanky enough already
+    // Round 5: the town sits between the volcano and the castle (ZONES hpMult 2.55; the castle's went 2.8 → 3.0 and Feza
+    // arrives there ~2 levels and an item level stronger: see power.dmg). test/r5_game_kid.html (the 6-zone game, 35 kid-bot
+    // runs of all 3 classes): a town guard takes ~9 hits, as a castle toy soldier does.
+    zoneHp: [1.15, 1.1, 1.3, 1.08, 1.08, 1.05],
+    hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85, peynir: 0.8, tellal: 0.75 },   // the big slow golem, the slow bubble snail, the shell turtle, the cheese wedge and the drummer are tanky enough already
     eliteHp: 3.4,       // elites: hp × this (on top of hp; was 3)
     eliteDmg: 1.5,      // elites: damage × this (their hp went up: their punch stays)
     // A strong sword must not turn the creatures happy in one or two hits (lots of treasure, or the next adventure round):
     // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
-    power: { dmg: [20, 28, 36, 44, 54], k: 0.8 },
-    bossHp: 8.8,        // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger)
+    // (Round 5: the town 50; the castle 54 → 58, Feza now comes through the town first)
+    power: { dmg: [20, 28, 36, 44, 50, 58], k: 0.8 },
+    bossHp: 10,         // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger;
+                        //    Round 5: → 10, after the town he meets it at lvl 15 with dmg 73–77: capped at 14 080 hp the kid bots
+                        //    needed 53–70 s, at 16 000 58–86 s)
     bossHpPerDmg: 220, bossHpMin: 0.58,  // …sized to Feza's sword when the fight starts: 220 × P.dmg, at least 58 % of the max (2nd round: 175;
                                          //    Round 3: Feza reaches the castle a zone stronger, the fight stays ~1 minute, 60–90 s)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
@@ -95,6 +118,12 @@ const GAME = (() => {
       kefirdev:      { per: 130, lo: 18, hi: 40, dmg: 16 },   // Round 4: Köpüklü Kefir Devi, ~35–50 s for a button-masher
       kostebekusta:  { per: 124, lo: 21, hi: 48, dmg: 26 },   // (Round 4: met ~2 levels stronger: 23 → 26)
       lavkaplumbaga: { per: 205, lo: 26, hi: 60, dmg: 26 },   // (25 → 26)
+      // Round 5: Huysuz Şövalye, ~55–75 s for a button-masher. Feza meets him at lvl 12–14 with the volcano's treasure (dmg
+      // 67–73 in every kid-bot run). SPEC's first guess per 230 (15 640 hp) took the bots 86–121 s (he gallops off across the
+      // arena, rides his Berserker Charge and calls four sturdy guards); per 125 (8 625 hp): masher 52–76 s (avg 58), hold /
+      // tap 71–82 s, 0.35 naps per fight and never two (test/r5_game_kid.html, 22 runs, 3 classes, no potions) → 130
+      // (8 970 hp; 9 more runs: masher 51–76 s, avg 64, tap / hold 73–75 s, 0.1 naps).
+      sovalye:       { per: 130, lo: 30, hi: 76, dmg: 28 },
     },
     bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in a boss fight tires the boss: damage ×0.75 (down to ×0.55), −8 % hp
     dmg: 1.8,           // enemy damage (was 1.5)
@@ -104,7 +133,11 @@ const GAME = (() => {
     // bites softly; the cave / volcano / castle are met ~2 / 1.5 / 1 levels stronger, so they hit a little harder.
     // Round 4 QA (21 kid-bot runs): the forest napped 1.67× without potions (target 0–1) → 1.35 (0.56–0.67 naps); the castle
     // only 0.67× (target 1–2) → 1.33 (1.33 naps).
-    zoneDmg: [1.35, 1.15, 1.4, 1.2, 1.33],
+    // Round 5 (ZONES dmgMult: the town 1.8, the castle's 1.9 → 2.0): Feza reaches the castle at lvl 15 wearing the knight's
+    // treasure (the warrior's helmet +200 hp, the wizard's cape 41 % armour): at 1.33 it napped the kid bots 0.3× (target
+    // 1–2) → 1.7 (1.2× over the 3 classes: warrior 0.6–1, wizard 2, hybrid 1–2; the finger-holding bot naps a wizard /
+    // hybrid 2–5× there, as often as in the cave). The town at 1.22 napped them more than the castle → 1.12 (0.8×).
+    zoneDmg: [1.35, 1.15, 1.4, 1.2, 1.12, 1.7],
     atkCd: 0.75,        // enemy attack cooldown (was 0.85; wind-ups unchanged, always ≥ T.windMin)
     xp: 1.1,            // xp per enemy (level pace stays about the same although fights are longer)
     heart: 0.1,         // a heart heals this fraction of max hp (was 0.12)
@@ -130,34 +163,45 @@ const GAME = (() => {
   let hardcore = false, hardcoreSnapshot = null;   // opt-in every new adventure; normal saves never select it
 
   // save layout version (sv): 3 = Round 3's zone order (orman, magara, yanardag, kale); 4 = Round 4's (orman, kefir, magara,
-  // yanardag, kale) — from sv 4 on the save also names its zone (zid), so a later reorder cannot move a save.
-  const SAVE_V = 4;
+  // yanardag, kale) — from sv 4 on the save also names its zone (zid), so a later reorder cannot move a save; 5 = Round 5's
+  // (… yanardag, sehir, kale = ZORDER).
+  const SAVE_V = 5;
   const WORDS = ['Pof!', 'Bam!', 'Vuuş!', 'Pat!', 'Güm!', 'Tak!', 'Hop!'];
   // Lightsaber blade colours (fallback when ITEMS.bladeColor is missing; gokkusagi cycles through the rainbow).
   const BLADE_COL = { tahta: '#c8f4ff', demir: '#3f9dff', kristal: '#3dff66', ates: '#ff3344', yildiz: '#b455ff' };
   const SHOT_KIND = { mantar: 'spore', salyangoz: 'bubble', hayalet: 'ghost', atescik: 'fire', ejderha: 'dragonfire', ateskusu: 'ember',
-    kraljole: 'jelly', kostebekusta: 'rock', lavkaplumbaga: 'lavaball', kopuk: 'fizz', kefirdev: 'fizz' };
+    kraljole: 'jelly', kostebekusta: 'rock', lavkaplumbaga: 'lavaball', kopuk: 'fizz', kefirdev: 'fizz', simitci: 'simit', sovalye: 'horseshoe' };
   const SHOT_COL = { spore: '#b9f07a', bubble: '#bfe6ff', ghost: '#bfe3ff', fire: '#ff9a3c', dragonfire: '#e46bff',   // dragonfire = the dragon's pink bubbles
     ember: '#ffae3c', jelly: '#5cc8ff', rock: '#b58f68', lavaball: '#ff7a1c',   // jelly: the sky-blue Kral Jöle spits sky-blue blobs
-    fizz: '#aee6ff' };   // kefir fizz bubbles: pale sky blue, so they read on the creamy yogurt floor
+    fizz: '#aee6ff',     // kefir fizz bubbles: pale sky blue, so they read on the creamy yogurt floor
+    simit: '#e0a04a', horseshoe: '#e8eefc' };   // Round 5: a golden-brown sesame simit, the knight's shiny silver horseshoes
   // How an enemy shot ends when it hits or fades (burst kind, sfx): soap bubbles pop on their own (bubblePop).
   // (jelly: FX's glossy jelly splat in the blob's colour — 'slime' is the snail's trail lying on the floor)
-  const SHOT_END = { jelly: ['jelly', 'splat'], rock: ['dirt', 'hitSoft'], ember: ['embers', null], lavaball: ['lava', 'splat'] };
+  // (Round 5: a simit breaks into sesame crumbs with a soft pop; a horseshoe mortar lands with a dust puff and a clink)
+  const SHOT_END = { jelly: ['jelly', 'splat'], rock: ['dirt', 'hitSoft'], ember: ['embers', null], lavaball: ['lava', 'splat'],
+    simit: ['crumbs', 'pop'], horseshoe: ['hoof', 'clank'] };
   const ELITE_AD = { kostebek: 'Kocaman Köstebek', salyangoz: 'Kocaman Salyangoz', kaplumbaga: 'Kocaman Kaplumbağa', ateskusu: 'Kocaman Ateş Kuşu',
-    yogurt: 'Kocaman Yoğurt', kaymak: 'Kocaman Kaymak' };
+    yogurt: 'Kocaman Yoğurt', kaymak: 'Kocaman Kaymak', nobetci: 'Kocaman Nöbetçi', simitci: 'Kocaman Simitçi', supurgeci: 'Kocaman Süpürgeci' };
   // said once per game, the first time that type notices Feza (the flags go into the save)
   const FIRST_LINE = { kostebek: 'ilk_kostebek', salyangoz: 'ilk_salyangoz', kaplumbaga: 'ilk_kaplumbaga', ateskusu: 'ilk_ateskusu',
-    yogurt: 'ilk_yogurt', kaymak: 'ilk_kaymak', kopuk: 'ilk_kopuk' };
+    yogurt: 'ilk_yogurt', kaymak: 'ilk_kaymak', kopuk: 'ilk_kopuk',
+    nobetci: 'ilk_nobetci', simitci: 'ilk_simitci', supurgeci: 'ilk_supurgeci', tellal: 'ilk_tellal' };
   // s of quiet after a first-sight line ENDS before the next one (three new kinds in one kefir room: the next one waits a
   // moment; Round 4 QA: counted from the request, they still played back-to-back behind the zone's name in AUD's queue)
   const FIRST_GAP = 5;
   const RAR_COL = ['#f4f4f4', '#5aa8ff', '#ffd23f', '#ff8a1c'];
   const VARIANTS = { jole: ['green', 'pink', 'blue', 'purple'] };
-  const ZORDER = ['orman', 'kefir', 'magara', 'yanardag', 'kale'];   // the order of DIFF's per-zone arrays (Round 4: the kefir valley is 1)
-  const ROLLERS = { kaplumbaga: 1, kaymak: 1 };              // melee by rolling / gliding along a lane (EDEF kind 'roll' / 'glide' / 'slide' too)
+  // the order of DIFF's per-zone arrays (Round 4: the kefir valley is 1; Round 5: the walled town is 4, the castle 5)
+  const ZORDER = ['orman', 'kefir', 'magara', 'yanardag', 'sehir', 'kale'];
+  const ZORDER4 = ['orman', 'kefir', 'magara', 'yanardag', 'kale'];   // Round 4's order: what a zone number means in an sv < 5 save
+  // Hardcore's automatic checkpoints: entering the 2nd, 4th and 6th chapters (Round 5: the parent added the castle)
+  const HC_CP = ['kefir', 'yanardag', 'kale'];
+  const hcZone = i => HC_CP.includes(ZORDER[zslot(i)]);
+  const ROLLERS = { kaplumbaga: 1, kaymak: 1, supurgeci: 1 }; // melee by rolling / gliding along a lane (EDEF kind 'roll' / 'glide' / 'slide' too)
   const HOPPERS = { yogurt: 1 };                             // melee by hopping at Feza and bumping him (EDEF kind 'hop' too)
-  const HEAVY = { peynir: 1 };                               // slow heavy melee: a ground-circle slam like the golem's (EDEF kind 'slam' too)
+  const HEAVY = { peynir: 1, tellal: 1 };                    // slow heavy melee: a ground-circle slam like the golem's (EDEF kind 'slam' too)
   const CREAMY = { kaymak: '#ffdf9e' };                      // leave a short creamy trail while they move (honey cream: reads on the white yogurt)
+  const DUSTY = { supurgeci: '#ecdcb4' };                    // (Round 5) the street sweeper's broom stirs up little straw-dust puffs instead
   // Per-type lane-attack numbers (EDEF roll:{…} overrides): the turtle rolls, the clotted-cream swirl glides.
   const GLIDE = { start: 2.5, speed: 8.5, len: 3.6, w: 1.1, rec: 0.75 };
   // Boss behaviour data (tuning numbers are in DIFF.boss). lines: voice keys (EDEF[type].lines overrides); add: the little
@@ -169,6 +213,10 @@ const GAME = (() => {
     lavkaplumbaga: { lines: { giris: 'kaplumbaga_giris', bitti: 'kaplumbaga_bitti' }, add: 'kaplumbaga', at: [0.5], n: [2], roar: 0.95, col: '#ff9a3c' },
     // Round 4: gift = it hands Feza a glass of kefir when it cheers up (see GIFT); roarSfx: its happy "fizz!" instead of a roar
     kefirdev:      { lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' }, add: 'kopuk', at: [0.66, 0.33], n: [2, 3], roar: 1.1, col: '#bfe9ff', gift: true, roarSfx: 'fizz' },
+    // Round 5: the knight's horse neighs (+ an armour clink and a grumpy "Hımf!"); horn: he blows a little horn as the guards
+    // come; roam: he gallops all over his arena (see bossStep)
+    sovalye:       { lines: { giris: 'sovalye_giris', bitti: 'sovalye_bitti' }, add: 'nobetci', at: [0.66, 0.33], n: [2, 2], roar: 1.05, col: '#ffd23f', roarSfx: 'neigh',
+      summonAt: 0.5, horn: true, word: 'Hımf!', roam: true },
     ejderha:       { lines: { giris: 'ejderha_giris', bitti: 'ejderha_bitti', yarim: 'ejderha_yarim', add: 'ejderha_yumurta' }, add: 'yarasa', at: [0.66, 0.33], n: [3, 4], roar: 1, col: '#ffb0f0' },
   };
   // Fallback enemy stats (EDEF overrides every field it defines).
@@ -199,6 +247,14 @@ const GAME = (() => {
       shot: { kind: 'fizz', speed: 3.8, r: 0.36 } },
     peynir: { ad: 'Peynir Dilimi', hp: 80, dmg: 11, speed: 1.5, r: 0.8, height: 1.15, xp: 30, gold: 8, kind: 'slam', atkRange: 1.7, atkCd: 2.6, windup: 0.95, slamR: 1.9, aggro: 9 },
     kefirdev: { ad: 'Köpüklü Kefir Devi', hp: 1000, dmg: 13, speed: 1.7, r: 1.5, height: 3.0, xp: 200, gold: 50, kind: 'boss', atkRange: 3, atkCd: 1.5, windup: 0.8, aggro: 12 },
+    // Round 5 (Surlu Şehir's grumpy townsfolk + the knight; used until / where 05_enemies has no number)
+    nobetci: { ad: 'Huysuz Nöbetçi', hp: 58, dmg: 10, speed: 2.6, r: 0.55, height: 1.35, xp: 22, gold: 6, kind: 'melee', atkRange: 1.5, atkCd: 1.9, windup: 0.7, aggro: 9 },
+    simitci: { ad: 'Huysuz Simitçi', hp: 40, dmg: 8, speed: 2.0, r: 0.55, height: 1.3, xp: 18, gold: 5, kind: 'ranged', atkRange: 7, atkCd: 2.5, windup: 0.7, aggro: 9,
+      shot: { kind: 'simit', speed: 5, r: 0.34 } },
+    supurgeci: { ad: 'Huysuz Süpürgeci', hp: 34, dmg: 8, speed: 3.6, r: 0.5, height: 1.2, xp: 17, gold: 4, kind: 'glide', atkRange: 2.4, atkCd: 2.0, windup: 0.65, aggro: 9.5, trail: 'dust' },
+    tellal: { ad: 'Huysuz Tellal', hp: 130, dmg: 14, speed: 1.5, r: 0.85, height: 1.95, xp: 45, gold: 12, kind: 'slam', atkRange: 2.4, atkCd: 2.8, windup: 1.0, slamR: 2.2, aggro: 9 },
+    sovalye: { ad: 'Huysuz Şövalye', hp: 1400, dmg: 15, speed: 2.0, r: 1.7, height: 3.4, xp: 500, gold: 130, kind: 'boss', atkRange: 3.2, atkCd: 1.6, windup: 0.8, aggro: 14,
+      slamR: 3.6, chargeSpeed: 9 },
   };
 
   // ── Other modules are optional (tests, half-wired builds): every call is guarded ──
@@ -461,6 +517,7 @@ const GAME = (() => {
     return (R.bottle = g);
   }
   const dairyZone = () => { const Z = zdef(); return Z.theme === 'dairy' || Z.id === 'kefir'; };
+  const townZone = () => { const Z = zdef(); return Z.theme === 'town' || Z.id === 'sehir'; };
 
   // Enemy health bars: ONE instanced billboard mesh, SDF pill drawn in the shader (gold frame for elites).
   const BAR_MAX = 48;
@@ -660,7 +717,7 @@ const GAME = (() => {
     GAME.state = title ? 'title' : 'play';
     emit('zone', { index: i, name: zdef(i).ad, title });
     if (!title) enterZoneStory(i);
-    if (hardcore && !title && !o.hardcoreRestore && (i === 1 || i === 3)) saveHardcoreCheckpoint();
+    if (hardcore && !title && !o.hardcoreRestore && hcZone(i)) saveHardcoreCheckpoint();
     return L;
   }
   // Pre-compile AND draw once everything this zone will show later (enemy types + elites + boss, pickups, name tag,
@@ -698,6 +755,7 @@ const GAME = (() => {
       } catch (err) { warnOnce('warm finale', err); }
       if (WARM_E._crystal && WARM_E._crystal.root) tmp.add(WARM_E._crystal.root);
     }
+    if (bt === 'sovalye') { try { for (const s of sancakPool()) if (!s.used) tmp.add(s.m.root); } catch (err) { warnOnce('warm sancak', err); } }   // (Round 5) the tournament banners
     const temp = [];   // FX handles to release after the draw
     try {
       const hm = new THREE.Mesh(heartGeo(), R.heartMat); hm.castShadow = true; tmp.add(hm);
@@ -1127,7 +1185,7 @@ const GAME = (() => {
     else if (ROLLERS[e.type] || e.kind === 'roll' || e.kind === 'glide' || e.kind === 'slide') rollStep(e, dt, d, ux, uz);
     else meleeStep(e, dt, d, ux, uz);
     if (SLIMY[e.type] && st.move > 0.05 && d < 30) slimeTrail(e, dt);
-    else if (CREAMY[e.type] && st.move > 0.05 && d < 30 && e.state !== 'roll') creamTrail(e, dt, 0.16);
+    else if ((CREAMY[e.type] || DUSTY[e.type]) && st.move > 0.05 && d < 30 && e.state !== 'roll') creamTrail(e, dt, 0.16);
     place(e); anim(e, dt);
     if (e.elite && d < 24 && e.bur < 0.5) {   // golden motes drifting up around elites
       e.sparkT -= dt;
@@ -1169,6 +1227,7 @@ const GAME = (() => {
       e.slamR = (e.def.slamR || 2.2) * (e.elite ? 1.25 : 1);
       e.sx = e.x + Math.sin(e.face) * e.r * 0.9; e.sz = e.z + Math.cos(e.face) * e.r * 0.9;
       e.tele = fx('telegraph', e.sx, e.sz, e.slamR, e.wind, '#ff4a3a');
+      if (e.type === 'tellal') sfx('bell', { x: e.x, z: e.z, vol: 0.55, pitch: frand(1.0, 1.15) });   // (the bell on his hat dings as he raises the mallets)
     } else if (e.kind === 'ranged') {
       e.wind = Math.max(0.6, e.windup);
     } else {
@@ -1177,6 +1236,14 @@ const GAME = (() => {
   }
   function strike(e) {
     STATS.strike++;
+    if (e.kind === 'slam' && e.type === 'tellal') {   // (Round 5) BOOM on the big davul: a golden ring and music notes, no rocks
+      fx('ring', e.sx, e.sz, { r0: 0.4, r1: e.slamR + 0.6, dur: 0.45, color: '#ffd23f', width: 0.5, k: 1.1, edge: 0.3 });
+      burst('notes', e.x, e.height * 0.6, e.z, { count: 12 }); burst('dust', e.sx, 0.1, e.sz, { count: 14, scale: 1.2, color: '#efdcb2' });
+      shake(0.26 * clamp(1.4 - e.dist / 14, 0.2, 1));
+      sfx('drum', { x: e.x, z: e.z });
+      if (Math.hypot(P.pos.x - e.sx, P.pos.z - e.sz) < e.slamR + T.heroR * 0.5) hurtPlayer(e.dmg, e.sx, e.sz, 1.2);
+      return;
+    }
     if (e.kind === 'slam') {
       const cheese = e.type === 'peynir';   // the cheese wedge thumps down: a creamy ring, biscuit/cheese crumbs, no rocks
       fx('ring', e.sx, e.sz, { r0: 0.4, r1: e.slamR + 0.6, dur: 0.45, color: cheese ? '#fff0b8' : '#ffd9a0', width: 0.5 });
@@ -1323,7 +1390,11 @@ const GAME = (() => {
       if (e.stT < e.wind * 0.3) { e.face = dampAngle(e.face, Math.atan2(e.rdx, e.rdz), 10, dt); }
       if (e.stT >= e.wind) {
         e.state = 'roll'; e.stT = 0; e.tele = null; e.rollHit = false; e.rollD = 0; STATS.strike++;
-        if (gl) {   // the cream swirl leans in and whooshes off along the lane
+        if (gl && DUSTY[e.type]) {   // (Round 5) the street sweeper swishes off along the lane behind his broom
+          sfx('broom', { x: e.x, z: e.z, vol: 0.8, pitch: e.elite ? 0.9 : frand(1.0, 1.15) });
+          sfx('whoosh', { x: e.x, z: e.z, vol: 0.45, pitch: frand(1.2, 1.4) });
+          burst('dust', e.x, 0.08, e.z, { count: 8, color: DUSTY[e.type], dir: { x: -e.rdx, z: -e.rdz } });
+        } else if (gl) {   // the cream swirl leans in and whooshes off along the lane
           sfx('whoosh', { x: e.x, z: e.z, vol: 0.7, pitch: e.elite ? 1.0 : frand(1.25, 1.45) });
           sfx('squish', { x: e.x, z: e.z, vol: 0.5, pitch: frand(1.1, 1.3) });
           burst('milk', e.x, 0.1, e.z, { count: 6, scale: 0.7, dir: { x: -e.rdx, z: -e.rdz } });
@@ -1386,11 +1457,16 @@ const GAME = (() => {
     sfx('whoosh', { x: e.x, z: e.z, vol: 0.4, pitch: gl ? 1.0 : 0.7 });
   }
   // Kesik Kaymak: a short glossy streak of cream lies behind it (FX's slime drops tinted cream, ~2 s) + a creamy drip now and then.
+  // (Round 5: the street sweeper leaves little straw-dust puffs instead: DUSTY / EDEF trail 'dust')
   function creamTrail(e, dt, every) {
     e.trailT -= dt;
     if (e.trailT > 0 || e.dist > 30) return;
     e.trailT = every;
     const fx0 = Math.sin(e.face), fz0 = Math.cos(e.face), bx = e.x - fx0 * e.r * 0.7, bz = e.z - fz0 * e.r * 0.7;
+    if (DUSTY[e.type] || e.def.trail === 'dust') {
+      burst('dust', bx, 0.04, bz, { count: every < 0.1 ? 3 : 2, color: DUSTY[e.type] || '#ecdcb4', dir: { x: -fx0, z: -fz0 }, scale: e.elite ? 1.3 : 0.9 });
+      return;
+    }
     burst('slime', bx, 0.03, bz, { color: CREAMY[e.type] || '#ffdf9e', dir: { x: fx0, z: fz0 }, scale: e.elite ? 1.4 : 1 });
     if (Math.random() < (every < 0.1 ? 0.25 : 0.12)) burst(typeof e.def.trail === 'string' ? e.def.trail : 'milk', bx, 0.12, bz, { count: 3, scale: 0.5 });   // (EDEF trail: a creamy drip)
   }
@@ -1499,6 +1575,7 @@ const GAME = (() => {
     if (kind === 'bubble') { sfx('bubble', { x: e.x, z: e.z, vol: 0.8 }); burst('sparkle', m.x, m.y, m.z, { color: '#d8f4ff', count: 5 }); }
     else if (kind === 'fizz') { sfx('fizz', { x: e.x, z: e.z, vol: 0.7, pitch: frand(1.0, 1.25) }); sfx('bubble', { x: e.x, z: e.z, vol: 0.45, pitch: 1.3 }); burst('fizz', m.x, m.y, m.z, { count: 6, scale: 0.7 }); }
     else if (kind === 'ember') { sfx('chirp', { x: e.x, z: e.z, vol: 0.7, pitch: frand(0.95, 1.2) }); burst('embers', m.x, m.y, m.z, { count: 5 }); }
+    else if (kind === 'simit') { sfx('whoosh', { x: e.x, z: e.z, vol: 0.6, pitch: frand(1.3, 1.5) }); burst('crumbs', m.x, m.y, m.z, { count: 4 }); }   // (a few sesame crumbs off the tray)
     else sfx(kind === 'fire' ? 'fireball' : 'spit', { x: e.x, z: e.z, vol: 0.7 });
   }
 
@@ -1669,8 +1746,14 @@ const GAME = (() => {
       else { bossHome(b, dt); st.phase = st.move > 0.05 ? 'move' : 'idle'; st.phaseT = 0; return; }
     }
     // Feza gone (napping, or ran far off out of the room): the boss calms down and waits (its hp stays as it is)
-    if (!canTarget || d > 34 || (!b.final && d > 22 && !inBossArena(b))) { bossCalm(b); return; }
-    if (encounterStep(b, dt)) { st.phase = 'idle'; st.phaseT = 0; st.move = 0; return; }
+    // (kit.roam: the knight gallops to the far rim — "far off" is counted from the arena's middle, not from him)
+    const rm = b.kit.roam && bossRoom(), away = rm ? Math.hypot(P.pos.x - rm.x, P.pos.z - rm.z) : d;
+    if (!canTarget || away > 34 || (!b.final && away > 22 && !inBossArena(b))) { bossCalm(b); return; }
+    if (encounterStep(b, dt)) {   // (a raid move that rides around poses the model itself: the knight's Berserker Charge)
+      const mv = b.encounter && b.encounter.move;
+      if (!(mv && mv.anim)) { st.phase = 'idle'; st.phaseT = 0; st.move = 0; }
+      return;
+    }
     b.stT += dt;
     (BOSS_AI[b.type] || dragonStep)(b, dt, d, ux, uz);
     st.phase = b.ph === 'idle' && st.move > 0.05 ? 'move' : b.ph;
@@ -1703,7 +1786,7 @@ const GAME = (() => {
   }
   function startEncounter(b) {
     if (b.encounter) return;
-    b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true };
+    b.encounter = { eggs: [], eggT: ENCOUNTER.eggEvery, serial: 0, timer: 6, move: null, splits: 0, nextNew: true, sancak: null };
     if (b.type === 'ejderha') { layEggs(b, 3); ftext(b.x, 1.7, b.z, 'Yumurtalara dikkat!', 'word'); }
   }
   // cheer: the boss itself just cheered up — its playmates stay so bossDown can cheer them up with everyone else
@@ -1712,6 +1795,7 @@ const GAME = (() => {
     const q = b && b.encounter;
     if (q) {
       for (const egg of q.eggs) { removeObj(egg.pool.root); egg.pool.used = false; }
+      clearBanners(q, cheer);
       clearRaidMove(q); b.encounter = null;
     }
     if (cheer) return;
@@ -1758,7 +1842,7 @@ const GAME = (() => {
     if (!start) m.marks.push(fx('telegraph', x, z, r, delay, color));
   }
   // These short encounters borrow readable shapes from raid fights, with generous warnings and no unavoidable damage.
-  const RAID_NEW = { kraljole: 'jellyspin', kefirdev: 'spout', kostebekusta: 'shatter', lavkaplumbaga: 'flamestrike', ejderha: 'eyeblast' };
+  const RAID_NEW = { kraljole: 'jellyspin', kefirdev: 'spout', kostebekusta: 'shatter', lavkaplumbaga: 'flamestrike', sovalye: 'berserkercharge', ejderha: 'eyeblast' };
   function raidMesh(m, shape, color) {
     if (!R.raidShapes) R.raidShapes = { ball: new THREE.SphereGeometry(1, 12, 8), crystal: new THREE.ConeGeometry(1, 1, 6),
       rod: new THREE.CylinderGeometry(1, 1, 1, 10), ring: new THREE.TorusGeometry(1, 0.055, 6, 40), strip: new THREE.BoxGeometry(1, 1, 1) };
@@ -1820,9 +1904,79 @@ const GAME = (() => {
       m.beams = [raidMesh(m, 'rod', '#91f5ec'), raidMesh(m, 'rod', '#b8e7ff')]; m.trail = raidMesh(m, 'strip', '#9abaf6');
       m.trailDots = []; for (let i = 0; i < 7; i++) m.trailDots.push(raidMesh(m, 'crystal', i % 2 ? '#b0ddff' : '#91b8ff'));
       ftext(b.x, b.height + 0.4, b.z, 'Işıklı izden uzaklaş!', 'word');
+    } else if (m.kind === 'berserkercharge') {
+      // (Round 5) Attumen's Berserker Charge for one small hero: two gallops across the arena that cross in its middle — the
+      // first lane runs through Feza's spot, the second (turned BERSERK.angle) starts near where the first ends and shows
+      // while the first runs. Both are fixed when they appear and fill for ≥ m.warn s; each pass bumps him at most once.
+      const rr = b.r * 0.85, c0 = rm ? { x: rm.x, z: rm.z } : { x: b.homeX, z: b.homeZ };
+      const c = circleFree(c0.x, c0.z, rr) ? c0 : { x: b.homeX, z: b.homeZ };
+      const a1 = Math.hypot(P.pos.x - c.x, P.pos.z - c.z) > 1 ? Math.atan2(P.pos.x - c.x, P.pos.z - c.z) : b.face;
+      const chord = a => { const dx = Math.sin(a), dz = Math.cos(a), l1 = laneLen(c.x, c.z, dx, dz, 30, rr, rm), l2 = laneLen(c.x, c.z, -dx, -dz, 30, rr, rm);
+        return [{ x: c.x + dx * l1, z: c.z + dz * l1 }, { x: c.x - dx * l2, z: c.z - dz * l2 }]; };
+      const e1 = chord(a1), n1 = dist2(b.x, b.z, e1[0].x, e1[0].z) <= dist2(b.x, b.z, e1[1].x, e1[1].z) ? 0 : 1;
+      const p1 = { x0: e1[n1].x, z0: e1[n1].z, x1: e1[1 - n1].x, z1: e1[1 - n1].z };
+      let p2 = null, bd = 1e9;
+      for (const sg of [1, -1]) {
+        const e2 = chord(a1 + sg * BERSERK.angle);
+        for (let k = 0; k < 2; k++) { const d2 = dist2(p1.x1, p1.z1, e2[k].x, e2[k].z); if (d2 < bd) { bd = d2; p2 = { x0: e2[k].x, z0: e2[k].z, x1: e2[1 - k].x, z1: e2[1 - k].z }; } }
+      }
+      const len = p => Math.hypot(p.x1 - p.x0, p.z1 - p.z0), run = b.def.chargeSpeed || BERSERK.run;
+      const g1 = Math.max(m.warn, Math.hypot(p1.x0 - b.x, p1.z0 - b.z) / BERSERK.trot + BERSERK.turn), r1 = len(p1) / run, ride = g1 + r1 + BERSERK.skid;
+      const g2 = Math.max(g1 + m.warn, ride + Math.hypot(p2.x0 - p1.x1, p2.z0 - p1.z1) / BERSERK.trot + BERSERK.turn), r2 = len(p2) / run;
+      m.passes = [p1, p2]; m.plan = { g1, r1, ride, g2, r2 }; m.hitPass = [false, false]; m.lane2 = false; m.anim = true;
+      m.dur = g2 + r2 + BERSERK.skid + 0.3;
+      m.x0 = p1.x0; m.z0 = p1.z0; m.x1 = p1.x1; m.z1 = p1.z1; m.radius = b.r;
+      m.marks.push(berserkLane(b, p1, g1));
+      ftext(b.x, b.height + 0.4, b.z, 'Kenara kaç!', 'word');
+      sfx('neigh', { x: b.x, z: b.z, vol: 0.9 });
     }
   }
+  const BERSERK = { trot: 8, run: 9, turn: 0.75, skid: 0.4, angle: 1.05, k: 0.45 };   // m/s, m/s, s pawing before a pass, s, rad between the lanes, dmg share
+  function berserkLane(b, p, dur) {   // the lane shows where the horse's front will stop, as the charge's does
+    const l = Math.hypot(p.x1 - p.x0, p.z1 - p.z0) || 1, e = b.r * 0.5;
+    return telegraphLine(p.x0, p.z0, p.x1 + (p.x1 - p.x0) / l * e, p.z1 + (p.z1 - p.z0) / l * e, b.r * 2, Math.max(0.05, dur), '#ff9a4a');
+  }
+  function berserkStep(b, m, dt) {   // it poses the model itself (m.anim: 'move' trotting, 'charge' pawing / galloping / skidding)
+    const t = m.t, pl = m.plan, st = b.st, ps = m.passes;
+    if (!m.lane2 && t >= pl.g1) { m.lane2 = true; m.marks.push(berserkLane(b, ps[1], pl.g2 - t)); }
+    const end0 = pl.g1 + pl.r1, end1 = pl.g2 + pl.r2;
+    const pass = t >= pl.g1 && t < end0 ? 0 : t >= pl.g2 && t < end1 ? 1 : -1;
+    if (pass >= 0) {   // a gallop along the fixed lane
+      const p = ps[pass], k = (t - (pass ? pl.g2 : pl.g1)) / (pass ? pl.r2 : pl.r1);
+      b.x = lerp(p.x0, p.x1, k); b.z = lerp(p.z0, p.z1, k); b.face = Math.atan2(p.x1 - p.x0, p.z1 - p.z0);
+      st.phase = 'charge'; st.phaseT = SOV.paw + (SOV.run - SOV.paw) * k; st.move = 1;
+      if (!m.galloping) { m.galloping = true; sfx('neigh', { x: b.x, z: b.z, pitch: 1.1 }); shake(0.1); }
+      gallopFx(b, dt);
+      const gx = P.pos.x - b.x, gz = P.pos.z - b.z;
+      if (!m.hitPass[pass] && m.hits < 2 && !P.dead && Math.hypot(gx, gz) < b.r + T.heroR + 0.2) {   // one modest bump per pass, out of the lane
+        m.hitPass[pass] = true; m.hits++; m.lastHit = m.t;
+        const sx = Math.sin(b.face), sz = Math.cos(b.face), side = gx * -sz + gz * sx >= 0 ? 1 : -1;
+        hurtPlayer(b.dmg * BERSERK.k * (hardcore ? HC.special : 1), P.pos.x + sz * side, P.pos.z - sx * side, 1.4);
+        sfx('bounce', { x: b.x, z: b.z, pitch: 0.8 });
+      }
+      return;
+    }
+    const go = t < pl.g1 ? ps[0] : t >= pl.ride && t < pl.g2 ? ps[1] : null;
+    if (go) {   // trotting to where the next lane starts, then pawing there facing along it
+      const gStart = go === ps[0] ? pl.g1 : pl.g2, dx = go.x0 - b.x, dz = go.z0 - b.z, dd = Math.hypot(dx, dz);
+      m.galloping = false;
+      if (dd > 0.05) {
+        const s = Math.min(dd, BERSERK.trot * dt); b.x += dx / dd * s; b.z += dz / dd * s;
+        b.face = dampAngle(b.face, Math.atan2(dx, dz), 8, dt); st.phase = 'move'; st.phaseT = 0; st.move = 1;
+      } else {
+        b.face = dampAngle(b.face, Math.atan2(go.x1 - go.x0, go.z1 - go.z0), 8, dt);
+        const w = clamp(1 - (gStart - t) / BERSERK.turn, 0, 1);
+        st.phase = w > 0 ? 'charge' : 'idle'; st.phaseT = SOV.paw * w; st.move = 0;
+        if (w > 0 && (b.pawT = (b.pawT || 0) - dt) <= 0) { b.pawT = 0.32; hoofFx(b, -0.6, 5); }
+      }
+      return;
+    }
+    const e = t < pl.ride ? end0 : end1;   // skidding to a stop after a pass
+    if (m.galloping) { m.galloping = false; hoofFx(b, -0.8, 12, 1.3); sfx('gallop', { x: b.x, z: b.z, pitch: 0.7 }); }
+    st.phase = 'charge'; st.phaseT = SOV.run + (1 - SOV.run) * clamp((t - e) / BERSERK.skid, 0, 1); st.move = 0;
+  }
   function newRaidStep(b, m, dt) {
+    if (m.kind === 'berserkercharge') { berserkStep(b, m, dt); return; }
     if (m.kind === 'shatter') {
       for (const o of m.crystals) { o.rotation.y += dt * 1.4; o.visible = m.t < m.warn; }
       return;
@@ -1933,19 +2087,128 @@ const GAME = (() => {
         if (dist2(P.pos.x, P.pos.z, e.x, e.z) < sq(ENCOUNTER.touch)) hatchEgg(b, q, i);
       }
     }
+    if (b.type === 'sovalye') sancakStep(b, q, dt);   // (Round 5: the tournament banners; all down = it is dizzy, even mid-move)
     if (q.move) { raidMoveStep(b, dt); return true; }
     q.timer -= dt;
     if (b.ph !== 'idle') return false;
     if (q.timer <= 0 && q.nextNew) { q.nextNew = false; startRaidMove(b, RAID_NEW[b.type]); return true; }
-    if (b.type === 'kraljole') {
-      if (q.splits < 2 && b.hp / b.maxHp < [0.72, 0.38][q.splits]) { q.nextNew = true; startRaidMove(b, 'split'); return true; }
+    const old = { kefirdev: 'dance', kostebekusta: 'burrow', lavkaplumbaga: 'wave' }[b.type];
+    if (b.type === 'kraljole' || (!old && b.type !== 'ejderha')) {   // (the knight too: no older timed move, its banners come by hp)
+      if (b.type === 'kraljole' && q.splits < 2 && b.hp / b.maxHp < [0.72, 0.38][q.splits]) { q.nextNew = true; startRaidMove(b, 'split'); return true; }
       if (q.timer <= 0) { q.nextNew = true; q.timer = 3; }
     } else if (q.timer <= 0) {
       q.nextNew = true;
       if (b.type === 'ejderha') { layEggs(b, 1); q.timer = 8; return false; }
-      startRaidMove(b, { kefirdev: 'dance', kostebekusta: 'burrow', lavkaplumbaga: 'wave' }[b.type]); return true;
+      startRaidMove(b, old); return true;
     }
     return false;
+  }
+  // ── Round 5: the knight's arena surprise 'sancak'. At SOV.banners hp three tournament banners (EMODEL.sancak, pooled) pop
+  // up around the arena rim with 'sovalye_sancak'. While they stand they are in L.breakObjs (.banner): a tap walks Feza there
+  // to hit one; swings, skills and his shots knock them over through hitBreakables / breakObj (no loot). All three down → the
+  // knight is dizzy for SOV.dizzy s, whatever he was doing; when he shakes it off they vanish in sparkles. Once per encounter
+  // (a nap or a retreat clears them with everything else; back in the fight below 60 % they come again). ──
+  function sancakFallback() {   // a plain pole with a royal-blue pennant and a golden sun (05's cute banner replaces it)
+    const k = new Kit();
+    k.add(G.cyl(1, 1, 12), '#d9c7a6', [0, 0.06, 0], 0, [0.3, 0.12, 0.3]);
+    k.add(G.cyl(1, 1, 10), '#c98f52', [0, 1.2, 0], 0, [0.055, 2.4, 0.055]);
+    k.add(G.cyl(1, 1, 8), '#c98f52', [0, 2.2, 0], [0, 0, Math.PI / 2], [0.035, 0.95, 0.035]);
+    k.add(G.sphere(12), '#ffd23f', [0, 2.46, 0], 0, 0.11);
+    k.add(G.box(), '#3f6fe0', [0, 1.7, 0], 0, [0.9, 0.95, 0.04]);
+    for (const zz of [-0.03, 0.03]) k.add(G.cyl(1, 1, 16), '#ffd23f', [0, 1.74, zz], [Math.PI / 2, 0, 0], [0.24, 0.015, 0.24]);
+    const mat = vcMat({ roughness: 0.55, emissive: '#3a2a00', emissiveIntensity: 0.2 }), mesh = new THREE.Mesh(k.build(), mat);
+    mesh.castShadow = true;
+    const root = new THREE.Group(), tip = new THREE.Group(); tip.add(mesh); root.add(tip); root.name = 'sancak';
+    return { root, fallback: true, anim(dt, st) { tip.rotation.z = -1.5 * smooth01((st && st.fall) || 0); mat.emissiveIntensity = 0.2 + 0.5 * ((st && st.glow) || 0); }, dispose() { mesh.geometry.dispose(); mat.dispose(); } };
+  }
+  function sancakPool() {
+    if (R.sancak) return R.sancak;
+    R.sancak = [];
+    for (let i = 0; i < 3; i++) {
+      let m = null;
+      if (typeof EMODEL !== 'undefined' && EMODEL && EMODEL.sancak) { try { m = EMODEL.sancak(); } catch (err) { warnOnce('EMODEL.sancak', err); } }
+      if (!m || !m.root) m = sancakFallback();
+      R.sancak.push({ m, used: false });
+    }
+    return R.sancak;
+  }
+  function plantBanners(b, q) {
+    const rm = bossRoom(), S = q.sancak = { state: 'up', list: [] };
+    if (!rm) { S.state = 'done'; return; }
+    const rx = rm.r ? rm.r - 2.2 : (rm.hw || 10) * 0.78, rz = rm.r ? rm.r - 2.2 : (rm.hh || 10) * 0.78, pool = sancakPool();
+    // on the far half of the rim from the camera (a 2.4 m pole on the south side would stand in front of Feza: camera rule),
+    // west, north and east — not right in front of the (still shut) gate
+    const po = L && L.portalObj, pa = po ? Math.atan2(po.x - rm.x, po.z - rm.z) : Math.PI;
+    const base = [Math.PI - 1.25, Math.PI, Math.PI + 1.25].map(a => { const d = angDiff(pa, a); return Math.abs(d) < 0.45 ? pa + (d < 0 ? -0.5 : 0.5) : a; });
+    for (let i = 0; i < 3; i++) {
+      let spot = null;
+      for (let j = 0; j < 14 && !spot; j++) {   // (a tent or a pole in the way: a little to the side, then a little further in)
+        const a = base[i] + (j % 2 ? 1 : -1) * Math.ceil(j / 2) * 0.16, f = 1 - Math.floor(j / 6) * 0.12;
+        const x = rm.x + Math.sin(a) * rx * f, z = rm.z + Math.cos(a) * rz * f;
+        if (isFloor(x, z) && circleFree(x, z, 0.6) && inRoom(rm, x, z, 0.9) && dist2(x, z, b.x, b.z) > sq(b.r + 1.4) && dist2(x, z, P.pos.x, P.pos.z) > 4) spot = { x, z };
+      }
+      if (!spot) continue;
+      const p = pool[i]; p.used = true;
+      // side: it falls across the screen toward the arena's middle (east / west spots), the north one either way
+      const side = spot.x > rm.x + 1 ? -1 : spot.x < rm.x - 1 ? 1 : (Math.random() < 0.5 ? -1 : 1);
+      const s = { x: spot.x, z: spot.z, r: 0.5, kind: 'sancak', banner: true, broken: false, fall: 0, t: -i * 0.18, ph: frand(0, TAU), side, pool: p, break() {} };
+      p.m.root.position.set(spot.x, 0, spot.z); p.m.root.rotation.set(0, frand(-0.25, 0.25), 0); p.m.root.visible = false; scene.add(p.m.root);
+      S.list.push(s);
+      if (L) (L.breakObjs || (L.breakObjs = [])).push(s);
+    }
+    if (!S.list.length) { S.state = 'done'; return; }
+    const k = b.kit.lines.sancak || 'sovalye_sancak';
+    if (!b.sancakSaid && hasLine(k)) { b.sancakSaid = true; say(k, 2); }   // (once: after a nap they come back without the line)
+    ftext(rm.x, 2.2, rm.z, 'Sancaklara vur!', 'word');
+  }
+  function knockBanner(s) {   // (breakObj) a swing, a skill or a shot knocks it over: it tips down with a happy sparkle
+    if (s.broken) return;
+    s.broken = true;
+    sfx('pop', { x: s.x, z: s.z, pitch: 1.25 }); sfx('clank', { x: s.x, z: s.z, vol: 0.4, pitch: 1.4 });
+    burst('sparkle', s.x, 1.6, s.z, { color: '#ffe27a', count: 14 }); burst('confetti', s.x, 2.0, s.z, { count: 12 });
+    if (wordOK()) ftext(s.x, 2.4, s.z, 'Pat!', 'word');
+  }
+  function sancakStep(b, q, dt) {
+    if (!q.sancak) { if (b.hp / b.maxHp > SOV.banners) return; plantBanners(b, q); }
+    const S = q.sancak;
+    if (S.state === 'done') return;
+    let down = 0;
+    S.list.forEach((s, i) => {
+      const t0 = s.t; s.t += dt;
+      if (t0 <= 0 && s.t > 0) { sfx('bell', { x: s.x, z: s.z, pitch: 1 + 0.12 * i }); burst('sparkle', s.x, 1.6, s.z, { color: '#ffe27a', count: 12 }); }
+      // pops up: 05's banner springs out of the ground by itself (st.pop); the plain stand-in grows with a little overshoot
+      const r = s.pool.m.root, pop = clamp(s.t / 0.35, 0, 1), x = Math.min(1, Math.max(0, s.t) / 0.3) - 1;
+      r.visible = s.t >= 0;
+      if (s.pool.m.fallback) r.scale.setScalar(Math.max(0.01, 1 + 2.2 * x * x * x + 1.2 * x * x));
+      if (s.broken) {
+        down++;
+        if (s.fall < 1 && (s.fall = Math.min(1, s.fall + dt / SOV.fallT)) >= 1) { burst('dust', s.x, 0.1, s.z, { count: 10, color: '#efdcb2' }); burst('sparkle', s.x, 0.4, s.z, { color: '#ffe27a', count: 10 }); }
+      }
+      try { s.pool.m.anim(dt, { fall: s.fall, glow: s.broken ? 0 : 0.55 + 0.45 * Math.sin(s.t * 3 + s.ph), pop, side: s.side }); } catch (err) { warnOnce('sancak.anim', err); }
+    });
+    if (S.state === 'up' && down === S.list.length) {   // all three down: the knight's head spins (a raid move or an attack stops)
+      S.state = 'dizzy';
+      if (q.move) clearRaidMove(q);
+      remove(b.tele); b.tele = null; b.y = 0;
+      bossPhase(b, 'dizzy', SOV.dizzy);
+      ftext(b.x, b.height + 0.5, b.z, 'Başı döndü!', 'word');
+      sfx('neigh', { x: b.x, z: b.z, pitch: 1.35, vol: 0.8 }); sfx('bounce', { x: b.x, z: b.z, pitch: 0.7 });
+      burst('star', b.x, b.height + 0.3, b.z, { count: 8, color: '#fff3a0' });
+    } else if (S.state === 'dizzy' && b.ph !== 'dizzy') { S.state = 'done'; clearBanners(q, true); }   // he shook it off
+  }
+  function clearBanners(q, poof) {   // pooled models back, out of L.breakObjs (broken: a tap walking to one gives up)
+    const S = q && q.sancak;
+    if (!S || !S.list.length) return;
+    for (const s of S.list) {
+      s.broken = true;
+      if (poof) burst('sparkle', s.x, 1, s.z, { color: '#ffe27a', count: 14 });
+      const r = s.pool.m.root; removeObj(r); r.scale.setScalar(1); r.visible = true;
+      try { s.pool.m.anim(0, { fall: 0, glow: 0, pop: 1 }); } catch (err) { warnOnce('sancak.anim', err); }
+      s.pool.used = false;
+      const i = L && L.breakObjs ? L.breakObjs.indexOf(s) : -1;
+      if (i >= 0) L.breakObjs.splice(i, 1);
+    }
+    S.list.length = 0;
   }
 
   // ── Shared boss moves ──
@@ -1973,17 +2236,23 @@ const GAME = (() => {
     const s = b.kit.roarSfx || 'roar';
     sfx(s, { x: b.x, z: b.z, pitch, vol });
     if (s === 'fizz') { sfx('cork', { x: b.x, z: b.z, vol: 0.7 * vol, pitch: 1.1 }); const m = muzzle(b); burst('fizz', m.x, m.y + 0.2, m.z, { count: 18, scale: 1.5 }); }
+    else if (s === 'neigh') { sfx('clank', { x: b.x, z: b.z, vol: 0.5 * vol, pitch: 1.1 }); hoofFx(b, -0.5, 10, 1.2); }   // (Round 5) the knight's horse whinnies and paws
   }
   function bossRoar(b, D) {   // the intro roar (a cute growl + a soft ring)
     if (b.did === 0 && b.stT > 0.35) {
       b.did = 1; bossCall(b, b.kit.roar || 1, 1); shake(0.25);
       fx('ring', b.x, b.z, { r0: 1, r1: 7, dur: 0.6, color: b.kit.col || '#ffb0f0', width: 0.5 });
+      if (b.kit.word) ftext(b.x, b.height + 0.5, b.z, b.kit.word, 'word');   // (the knight's grumpy "Hımf!")
     }
     if (b.stT >= D) bossEnd(b, 0.5, 0.9);
   }
   function bossSummon(b, D) {   // "come, little ones!": a happy roar, then they pop up around it
     if (b.did === 0 && b.stT > 0.25) { b.did = 1; bossCall(b, (b.kit.roar || 1) * 1.12, 0.8); fx('ring', b.x, b.z, { r0: 1, r1: 5, dur: 0.5, color: b.kit.col, width: 0.4 }); }
-    if (b.did === 1 && b.stT > (b.kit.summonAt || 0.47) * D) { b.did = 2; summonAdds(b, b.kit.add, b.summon || 3); nextWave(b); }
+    if (b.did === 1 && b.stT > (b.kit.summonAt || 0.47) * D) {
+      b.did = 2;
+      if (b.kit.horn) { const m = muzzle(b); sfx('horn', { x: b.x, z: b.z }); burst('notes', m.x, m.y + 0.3, m.z, { count: 12 }); }   // (the knight's little toy trumpet)
+      summonAdds(b, b.kit.add, b.summon || 3); nextWave(b);
+    }
     if (b.stT >= D) bossEnd(b, 0.7, 1.1);
   }
   function bossShot(b, kind, spread, speed, dmgK, r, life = 5) {   // one slow straight shot at Feza (the saber can swat it)
@@ -2017,6 +2286,7 @@ const GAME = (() => {
       else if (e.kind === 'burrow') burst('dirt', x, 0.05, z, { count: 10, color: DIRT });
       else if (type === 'kaplumbaga') burst('lava', x, 0.1, z, {});
       else if (type === 'kopuk') burst('fizz', x, 1, z, { count: 14, scale: 1.3 });
+      else if (type === 'nobetci') { burst('hoof', x, 0.05, z, { count: 8 }); burst('sparkle', x, 1, z, { color: '#ffe27a', count: 10 }); }   // (the guards march in at the horn)
       else burst('shadowPuff', x, 0.8, z, {});
     }
     sfx(type === 'yarasa' ? 'bat' : type === 'kostebek' ? 'dig' : type === 'jole' ? 'bounce' : type === 'kopuk' ? 'fizz' : 'pop', { x: b.x, z: b.z });
@@ -2426,6 +2696,142 @@ const GAME = (() => {
       burst('milk', b.x + Math.sin(a) * r, 0.1, b.z + Math.cos(a) * r, { count: 4, scale: 0.8, color: '#fff4e4' });
     }
   }
+  // ── Huysuz Şövalye (Round 5): a very grumpy chibi knight on a big friendly horse. By distance (pickPhase): far → charge /
+  // toss, mid → charge / sweep / toss, close → rear / sweep. Beats = 05's model timing contract (st.phaseT): charge = paws the
+  // ground 0–SOV.paw while the lane toward Feza's spot fills, gallops along it to the arena rim until SOV.run (bumps Feza at
+  // most once, out of the lane to his side), skids to a stop; rear = rears up while the ring fills, the stomp lands at
+  // rearAt; sweep = the lance is drawn back while a wide cone fills (he steps in a little first), the sweep hits at sweepAt;
+  // toss = three silver horseshoes at tossAt, lobbed like the lava balls (the first onto Feza's spot); summon = a little horn
+  // at 0.5 and 2 guards; roar = the horse neighs; dizzy = the arena surprise (the banners, see sancakStep). EDEF.sovalye's
+  // slamR / chargeSpeed override these. m.muzzle() = the knight's throwing hand. ──
+  // (warnings no shorter than the other bosses' like moves: the lane fills 1.08 s (the turtle's roll 1.0), the ring 1.15 s
+  // (its stomp 1.12), the cone 1.1 s (the mole's drill 0.98), the horseshoes fly as long as the lava balls)
+  const SOV = { chargeD: 3.6, paw: 0.3, run: 0.9, minLane: 6, maxLane: 22, rearD: 2.3, rearAt: 0.5, R: 3.6, sweepD: 2.2, sweepAt: 0.5,
+    cone: 1.9, reach: 3.0, step: 1.6, tossD: 2.2, tossAt: [0.35, 0.5, 0.65], fly: [1.25, 1.6], shoeR: 1.35, shoeH: 3.6,
+    banners: 0.6, fallT: 0.6, dizzy: 4 };
+  function hoofFx(b, back, n, sc) {   // a dust puff with little golden sparkles at the hooves (back > 0: behind the horse, < 0: in front)
+    const fx0 = Math.sin(b.face), fz0 = Math.cos(b.face), k = b.r * 0.6 * back, s = back < 0 ? 0.6 : -0.6;
+    burst('hoof', b.x - fx0 * k + frand(-0.3, 0.3), 0.05, b.z - fz0 * k + frand(-0.3, 0.3), { count: n, scale: sc || 1, dir: { x: fx0 * s, z: fz0 * s } });
+  }
+  function gallopFx(b, dt) {   // hoof dust behind it + a clip-clop
+    b.trailT -= dt;
+    if (b.trailT <= 0) { b.trailT = 0.08; hoofFx(b, 1, 3); }
+    b.galS = (b.galS || 0) - dt;
+    if (b.galS <= 0) { b.galS = 0.28; sfx('gallop', { x: b.x, z: b.z, vol: 0.75 }); }
+  }
+  function startCharge(b, ux, uz, d) {   // false: no room for a real charge (the rim right behind Feza, a tent in the way)
+    const len = laneLen(b.x, b.z, ux, uz, SOV.maxLane, b.r * 0.85, bossRoom());
+    if (len < Math.max(SOV.minLane, Math.min(d, 9))) return false;
+    // a steady gallop at chargeSpeed at most, over the model's gallop beats; the lane always fills for ≥ 1.08 s first
+    const D = Math.max(SOV.chargeD, len / ((SOV.run - SOV.paw) * (b.def.chargeSpeed || 9)));
+    bossPhase(b, 'charge', D);
+    b.face = Math.atan2(ux, uz); b.rdx = ux; b.rdz = uz; b.rollLen = len; b.rollD = 0; b.rollHit = false; b.pawT = 0;
+    const e = len + b.r * 0.5;   // (the lane shows where the horse's front will stop)
+    b.tele = telegraphLine(b.x, b.z, b.x + ux * e, b.z + uz * e, b.r * 2, D * SOV.paw, '#ff6a3a');
+    sfx('neigh', { x: b.x, z: b.z, vol: 0.8 });
+    return true;
+  }
+  function sovalyeStep(b, dt, d, ux, uz) {
+    const faceP = Math.atan2(ux, uz), st = b.st, SR = b.def.slamR || SOV.R;
+    st.air = 0;
+    switch (b.ph) {
+      case 'roar': bossRoar(b, 1.6); break;
+      case 'summon': bossSummon(b, 1.5); break;
+      case 'idle':
+        if (bossIdle(b, dt, d, ux, uz, 6)) {
+          if (b.summon) { bossPhase(b, 'summon', 1.5); break; }
+          const close = d < b.r + 3.2;
+          let ph = pickPhase(b, close ? [['rear', 0.5], ['sweep', 0.5]]
+            : d < 9 ? [['charge', 0.4], ['toss', 0.3], ['sweep', d < b.r + 4.6 ? 0.3 : 0]] : [['charge', 0.55], ['toss', 0.45]]);
+          if (ph === 'charge' && !startCharge(b, ux, uz, d)) b.last = ph = close ? 'rear' : 'toss';
+          if (ph === 'rear') {
+            bossPhase(b, 'rear', SOV.rearD);
+            b.tele = fx('telegraph', b.x, b.z, SR, SOV.rearD * SOV.rearAt, '#ff4a3a');
+            sfx('neigh', { x: b.x, z: b.z, pitch: 1.2, vol: 0.9 });
+          } else if (ph === 'sweep') {   // he steps in a little, so the cone reaches Feza; the cone shows where he will stand
+            bossPhase(b, 'sweep', SOV.sweepD); b.face = faceP;
+            const go = clamp(d - (b.r + 2.2), 0, SOV.step), t = bossSpot(b, b.x + ux * go, b.z + uz * go, SOV.step);
+            b.sx0 = b.x; b.sz0 = b.z; b.sx = t.x; b.sz = t.z;
+            b.tele = fx('telegraphCone', t.x, t.z, b.face, SOV.cone, b.r + SOV.reach, SOV.sweepD * SOV.sweepAt, '#ff5a44');
+            sfx('clank', { x: b.x, z: b.z, vol: 0.6 });
+          } else if (ph === 'toss') bossPhase(b, 'toss', SOV.tossD);
+        }
+        break;
+      case 'charge': {
+        const k = b.stT / b.phD;
+        if (k < SOV.paw) {   // pawing the ground, the lance comes down: the lane fills
+          b.face = dampAngle(b.face, Math.atan2(b.rdx, b.rdz), 8, dt);
+          b.pawT -= dt;
+          if (b.pawT <= 0) { b.pawT = 0.32; hoofFx(b, -0.6, 5); sfx('gallop', { x: b.x, z: b.z, vol: 0.4, pitch: 0.8 }); }
+        } else if (k < SOV.run) {   // the gallop: along the lane at a steady pace (moveE: a wall or a tent in the way stops it)
+          if (b.did === 0) { b.did = 1; sfx('neigh', { x: b.x, z: b.z, pitch: 1.1 }); shake(0.12); }
+          const want = b.rollLen * (k - SOV.paw) / (SOV.run - SOV.paw), step = want - b.rollD, ox = b.x, oz = b.z;
+          if (step > 0) moveE(b, b.rdx * step, b.rdz * step);
+          const moved = Math.hypot(b.x - ox, b.z - oz);
+          b.rollD += moved; b.face = Math.atan2(b.rdx, b.rdz); st.move = 1;
+          gallopFx(b, dt);
+          const gx = P.pos.x - b.x, gz = P.pos.z - b.z;
+          if (!b.rollHit && !P.dead && Math.hypot(gx, gz) < b.r + T.heroR + 0.2) {   // one bump, out of the lane to his side
+            b.rollHit = true; STATS.strikeHit++;
+            const side = gx * -b.rdz + gz * b.rdx >= 0 ? 1 : -1;
+            hurtPlayer(b.dmg, P.pos.x + b.rdz * side, P.pos.z - b.rdx * side, 1.6);
+            sfx('bounce', { x: b.x, z: b.z, pitch: 0.8 }); sfx('clank', { x: b.x, z: b.z, vol: 0.6 });
+          }
+          if (step > 0.04 && moved < step * 0.3) b.stT = Math.max(b.stT, b.phD * SOV.run);   // blocked: skid now
+        } else if (b.did < 2) {   // skids to a stop in a cloud of hoof dust
+          b.did = 2; hoofFx(b, -0.8, 14, 1.4); sfx('gallop', { x: b.x, z: b.z, pitch: 0.7 }); shake(0.15);
+        }
+        if (b.stT >= b.phD) bossEnd(b, 1.0, 1.5);
+        break;
+      }
+      case 'rear':
+        if (b.did === 0 && b.stT >= b.phD * SOV.rearAt) {   // the front hooves come down: a stomp ring
+          b.did = 1; b.tele = null;
+          hoofFx(b, -0.6, 18, 1.8); burst('dust', b.x, 0.1, b.z, { count: 26, scale: 1.8, color: '#efdcb2' });
+          sfx('slam', { x: b.x, z: b.z, vol: 0.8 }); sfx('gallop', { x: b.x, z: b.z, pitch: 0.7 }); sfx('clank', { x: b.x, z: b.z, vol: 0.5 });
+          bossRing(b, b.x, b.z, SR, 1, 2.0, '#ffe08a', { k: 1.1, edge: 0.3 });
+        }
+        if (b.stT >= b.phD) bossEnd(b, 1.0, 1.4);
+        break;
+      case 'sweep': {
+        const k = b.stT / b.phD;
+        if (k < 0.35 && b.sx !== undefined) { const e = smooth01(k / 0.35); b.x = lerp(b.sx0, b.sx, e); b.z = lerp(b.sz0, b.sz, e); st.move = e < 0.98 ? 0.5 : 0; }
+        if (b.did === 0 && k >= SOV.sweepAt) {   // the wide lance sweep (a soft padded ball: one bonk)
+          b.did = 1; b.tele = null;
+          fx('slash', b.x, 1.3, b.z, b.face, 1, '#fff1c2', b.r + SOV.reach, SOV.cone + 0.2);
+          sfx('whoosh', { x: b.x, z: b.z, pitch: 0.75 });
+          const gx = P.pos.x - b.x, gz = P.pos.z - b.z;
+          if (!P.dead && Math.hypot(gx, gz) < b.r + SOV.reach + T.heroR * 0.5 && Math.abs(angDiff(b.face, Math.atan2(gx, gz))) < SOV.cone * 0.5 + 0.08) hurtPlayer(b.dmg, b.x, b.z, 1.5);
+        }
+        if (b.stT >= b.phD) bossEnd(b, 0.9, 1.3);
+        break;
+      }
+      case 'toss': {   // three silver horseshoes lobbed onto circles: the first where Feza stands, the others around him
+        const t0 = SOV.tossAt[0] * b.phD;
+        if (b.stT < t0) { b.face = dampAngle(b.face, faceP, 5, dt); chargeFxAt(muzzle(b), '#fff3c4', b.stT / t0); }
+        if (b.did < 3 && b.stT >= SOV.tossAt[b.did] * b.phD) {
+          const m = muzzle(b), rm = bossRoom(), mx = m.x, my = m.y, mz = m.z;
+          for (let i = 0; i < 8; i++) {
+            let tx = P.pos.x, tz = P.pos.z;
+            if (b.did > 0 || i > 0) { const a = frand(0, TAU), r = frand(1.8, 4.2); tx += Math.sin(a) * r; tz += Math.cos(a) * r; }
+            if (!isFloor(tx, tz) || (rm && !inRoom(rm, tx, tz, 0.6))) continue;
+            spawnMortar({ x0: mx, y0: my, z0: mz, x1: tx, z1: tz, dur: frand(SOV.fly[0], SOV.fly[1]), h: SOV.shoeH, r: SOV.shoeR, dmg: b.dmg * 0.6, kind: 'horseshoe' });
+            break;
+          }
+          sfx('whoosh', { x: b.x, z: b.z, pitch: 1.25, vol: 0.7 }); sfx('clank', { x: b.x, z: b.z, vol: 0.4, pitch: 1.3 });
+          b.did++;
+        }
+        if (b.stT >= b.phD) bossEnd(b, 1.0, 1.5);
+        break;
+      }
+      case 'dizzy':   // all three banners are down: stars around his helmet, the horse sways — he does nothing (whack him!)
+        st.move = 0;
+        if (Math.random() < dt * 3) burst('star', b.x + frand(-0.4, 0.4), b.height + 0.25, b.z + frand(-0.4, 0.4), { count: 2, color: '#fff3a0' });
+        if (b.stT >= b.phD) bossEnd(b, 0.5, 0.9);
+        break;
+      default: bossPhase(b, 'idle', 1); b.wait = 0.5;
+    }
+  }
   // Lobbed shots (lava balls): an arc from the muzzle onto a telegraph circle; they hurt only where they land.
   function spawnMortar(o) {
     let obj = fx('projectile', o.kind, SHOT_COL[o.kind]);
@@ -2447,8 +2853,14 @@ const GAME = (() => {
       if (k < 1) continue;
       remove(m.tele);
       burst((SHOT_END[m.kind] && SHOT_END[m.kind][0]) || 'lava', m.x1, 0.15, m.z1, { scale: 1.2 });
-      fx('ring', m.x1, m.z1, { r0: 0.3, r1: m.r + 0.4, dur: 0.4, color: '#ff7a1a', width: 0.4, k: 1.25, edge: 0.18 });   // lava orange (a white rim washed it to peach)
-      sfx('splat', { x: m.x1, z: m.z1, pitch: frand(0.7, 0.9) }); sfx('lava', { x: m.x1, z: m.z1, vol: 0.5 });
+      if (m.kind === 'horseshoe') {   // (Round 5) a silver horseshoe lands with a clink, a dust puff and a twinkle: a warm gold ring
+        burst('sparkle', m.x1, 0.35, m.z1, { color: '#f4f8ff', count: 8 });
+        fx('ring', m.x1, m.z1, { r0: 0.3, r1: m.r + 0.4, dur: 0.4, color: '#ffc94a', width: 0.4, k: 1.1, edge: 0.2 });
+        sfx('clank', { x: m.x1, z: m.z1, pitch: frand(0.95, 1.15) }); sfx('bounce', { x: m.x1, z: m.z1, vol: 0.4, pitch: 1.3 });
+      } else {
+        fx('ring', m.x1, m.z1, { r0: 0.3, r1: m.r + 0.4, dur: 0.4, color: '#ff7a1a', width: 0.4, k: 1.25, edge: 0.18 });   // lava orange (a white rim washed it to peach)
+        sfx('splat', { x: m.x1, z: m.z1, pitch: frand(0.7, 0.9) }); sfx('lava', { x: m.x1, z: m.z1, vol: 0.5 });
+      }
       shake(0.06);
       if (!P.dead && Math.hypot(P.pos.x - m.x1, P.pos.z - m.z1) < m.r + T.heroR * 0.5) hurtPlayer(m.dmg, m.x1, m.z1, 0.8);
       killProjectileObj(m); mortars.splice(i, 1);
@@ -2573,7 +2985,7 @@ const GAME = (() => {
       default: bossPhase(b, 'idle', 1); b.wait = 0.5;   // (a phase of another boss type: start over)
     }
   }
-  const BOSS_AI = { kraljole: kraljoleStep, kefirdev: kefirdevStep, kostebekusta: kostebekustaStep, lavkaplumbaga: lavkaplumbagaStep, ejderha: dragonStep };
+  const BOSS_AI = { kraljole: kraljoleStep, kefirdev: kefirdevStep, kostebekusta: kostebekustaStep, lavkaplumbaga: lavkaplumbagaStep, sovalye: sovalyeStep, ejderha: dragonStep };
 
   // ── Damage ──
   function damage(e, amount, o = {}) {
@@ -3313,6 +3725,7 @@ const GAME = (() => {
   }
   function breakObj(b) {
     if (b.broken) return;
+    if (b.banner) { knockBanner(b); return; }   // (Round 5: the knight's tournament banners: no loot)
     try { b.break(); } catch (err) { warnOnce('break', err); }
     b.broken = true;
     sfx('break', { x: b.x, z: b.z, pitch: frand(0.9, 1.15) });
@@ -3504,8 +3917,10 @@ const GAME = (() => {
     return null;
   }
   // Boss treasures have a fixed identity; ordinary monsters and chests still roll random loot.
-  function bossItem(e) {
-    return typeof ITEMS !== 'undefined' && ITEMS.bossReward ? ITEMS.bossReward(e.type, P.heroClass, zdef().ilvl + P.ng * 3) : rollItem(2, DROP.tries * 3);
+  function bossItem(e) {   // (an ITEMS without this boss's treasure yet: a shiny random one, as before the class treasures)
+    let it = null;
+    if (typeof ITEMS !== 'undefined' && ITEMS.bossReward) { try { it = ITEMS.bossReward(e.type, P.heroClass, zdef().ilvl + P.ng * 3); } catch (err) { warnOnce('ITEMS.bossReward', err); } }
+    return it || rollItem(2, DROP.tries * 3);
   }
   function dropLoot(e) {
     if (e.arenaChild) return;   // optional arena playmates never become an endless treasure farm
@@ -4078,7 +4493,9 @@ const GAME = (() => {
     // dropped if it cannot start soon (it used to play 10–13 s later, often inside the next zone)
     const bk = boss && boss.kit && boss.kit.lines && boss.kit.lines.bitti, bt = bk && hasLine(bk) ? String(AUD.LINES[bk]) : '';
     // (the kefir giant: its 'kefirdev_yol' line is just starting and already says where the road goes)
-    if (hasLine('kapi') && !/kap[ıi]/i.test(bt) && !(boss && boss.gift)) say('kapi', 2, { wait: 6 });
+    // (Round 5: the knight's happy line does not mention the door, and it is still playing: 'kapi' waits for its end —
+    // a kid bot never heard it with 6 s; entering the portal still stops it)
+    if (hasLine('kapi') && !/kap[ıi]/i.test(bt) && !(boss && boss.gift)) say('kapi', 2, { wait: Math.max(6, storyEnd - gt + 3) });
     emit('portalOpen', { x: po.x, z: po.z });
   }
   function spawnCrystal() {
@@ -4160,7 +4577,8 @@ const GAME = (() => {
       if (d < lim && d < bd) { bd = d; best = objFromRef(type, ref, reach); }
     };
     if (L.chestObjs) for (const c of L.chestObjs) if (!c.opened) test('chest', c, 0.5, 80, c.big ? 1.75 : 1.4);
-    if (L.breakObjs) for (const b of L.breakObjs) if (!b.broken) test('break', b, 0.5, 60, 2.2 + (b.r || 0.4));   // a swing reaches ≈ 2.5 m + r
+    // a swing reaches ≈ 2.5 m + r (a tall tournament banner: tapped on its flag)
+    if (L.breakObjs) for (const b of L.breakObjs) if (!b.broken) test('break', b, b.banner ? 1.5 : 0.5, b.banner ? 85 : 60, 2.2 + (b.r || 0.4));
     if (L.cpObjs) for (const c of L.cpObjs) test('cp', c, 1.0, 75, 1.8);
     if (L.npcObj) test('npc', L.npcObj, 1.0, 85, 2.6);
     if (L.portalObj && L.portalObj.active !== false) test('portal', L.portalObj, 1.2, 90, 1.2);
@@ -4265,7 +4683,8 @@ const GAME = (() => {
       return cleanSave(s);
     } catch (err) { return null; }
   }
-  // Hardcore has its own checkpoint slot. Only entering Kefir Valley / the Volcano writes it; returning after a
+  // Hardcore has its own checkpoint slot. Only entering Kefir Valley / the Volcano / the castle (2nd, 4th, 6th chapters;
+  // HC_CP, by zone id so a later reorder cannot move them) writes it; returning after a
   // defeat restores the exact progression without turning a partially cleared room into a new checkpoint.
   function readHardcoreSave() {
     if (hardcore && !hardcoreSnapshot) return null;   // a new attempt cannot inherit an old browser checkpoint
@@ -4273,11 +4692,11 @@ const GAME = (() => {
       const raw = JSON.parse(hardcoreSnapshot || localStorage.getItem(HARDCORE_KEY) || 'null');
       if (!raw || raw.hardcore !== true || !['warrior', 'wizard', 'hybrid'].includes(raw.heroClass)) return null;
       const s = cleanSave(raw);
-      return s && (s.zone === 1 || s.zone === 3) && !(s.flags && s.flags.bossDone >= 0) ? s : null;
+      return s && hcZone(s.zone) && !(s.flags && s.flags.bossDone >= 0) ? s : null;
     } catch (err) { return null; }
   }
   function saveHardcoreCheckpoint() {
-    if (!hardcore || (P.zone !== 1 && P.zone !== 3)) return false;
+    if (!hardcore || !hcZone(P.zone)) return false;
     const s = snapshot(); s.hardcore = true; s.flags.bossDone = -1;
     hardcoreSnapshot = JSON.stringify(s);   // a private/full browser can still recover this running adventure
     try { localStorage.setItem(HARDCORE_KEY, hardcoreSnapshot); } catch (err) { warnOnce('hardcore checkpoint', err); }
@@ -4356,15 +4775,16 @@ const GAME = (() => {
   }
   // A save's zone index in today's ZONES. From sv 4 on the save names its zone (zid). Older ones by index: Round 3 put the
   // volcano before the castle (no sv / sv < 3: zone ≥ 2 → +1), Round 4 the kefir valley after the forest (sv < 4: zone ≥ 1 →
-  // +1; an older save gets both steps, in that order). That gives an index in the Round 4 order (ZORDER), mapped by id onto
-  // the ZONES this build really has. noId: ignore zid (a flag that names an index of its own).
+  // +1; an older save gets both steps, in that order). That gives an index in the Round 4 order (ZORDER4) — Round 5's town
+  // came after them: an sv < 5 number keeps meaning that order (its castle 4 stays the castle, now 5); an sv 5 number is in
+  // ZORDER —, mapped by id onto the ZONES this build really has. noId: ignore zid (a flag that names an index of its own).
   function saveZone(s, zn, ZL, noId) {
     if (!noId && typeof s.zid === 'string' && ZL) { const k = ZL.findIndex(z => z && z.id === s.zid); if (k >= 0) return k; }
-    const sv = typeof s.sv === 'number' ? s.sv : 0;
+    const sv = typeof s.sv === 'number' ? s.sv : 0, order = sv >= 5 ? ZORDER : ZORDER4;
     if (sv < 3 && zn >= 2) zn += 1;
     if (sv < 4 && zn >= 1) zn += 1;
     if (ZL) {
-      const k = ZL.findIndex(z => z && z.id === ZORDER[zn]);
+      const k = ZL.findIndex(z => z && z.id === order[zn]);
       if (k >= 0) zn = k;
       zn = Math.min(zn, ZL.length - 1);
     }
@@ -4432,7 +4852,7 @@ const GAME = (() => {
       const w = say(intro, 3) || lineLen('giris1') + 0.3 + lineLen(intro);   // (AUD.say: s until giris2 has ended)
       // (Round 4 QA: the first skill's line could be dropped from AUD's full queue at the start — it waits for the intro)
       skillAt = Math.max(skillAt, gt + w + 0.6);
-      // (Round 4) the whole journey, once per game: forest, kefir valley, cave, volcano, the dragon's castle — at the first
+      // (Round 4) the whole journey, once per game: forest, kefir valley, cave, volcano, (Round 5) the walled town, the dragon's castle — at the first
       // calm moment after giris2 (the owl first if Feza stands at it): see yolculukStep
       yolWant = !F.yolculuk && hasLine('yolculuk');
     }
@@ -4611,10 +5031,16 @@ const GAME = (() => {
       if (st === 'play' && (mooT -= dt) <= 0) {   // (the kefir valley's ambience: 'moo', rare, never in a fight)
         // Round 4 QA: one busy moment used to throw away a whole 45–90 s cycle (0 moos in 240 s of play): a moment that is
         // not calm (a fight nearby, the boss, a story, the narrator talking) retries in a few s; after a moo 25–45 s
-        if (!dairyZone()) mooT = frand(25, 45);
+        // (Round 5: the walled town's far bell tower dings instead, a deeper 'bell')
+        const town = townZone();
+        if (!dairyZone() && !town) mooT = frand(25, 45);
         else if (P.dead || finale || gt < storyUntil || (boss && (boss.dead ? boss.gift && !boss.gift.bye : boss.aggro)) || speaking()
           || enemies.some(e => e.aggro && (e.boss || e.dist < 12))) mooT = frand(3, 6);
-        else { mooT = frand(25, 45); const a = frand(0, TAU); sfx('moo', { x: P.pos.x + Math.sin(a) * 11, z: P.pos.z + Math.cos(a) * 11, vol: 0.8, pitch: frand(0.95, 1.08) }); }
+        else {
+          mooT = frand(25, 45); const a = frand(0, TAU), x = P.pos.x + Math.sin(a) * 11, z = P.pos.z + Math.cos(a) * 11;
+          if (town) { sfx('bell', { x, z, vol: 0.5, pitch: 0.62 }); later(0.9, () => sfx('bell', { x, z, vol: 0.4, pitch: 0.62 })); }
+          else sfx('moo', { x, z, vol: 0.8, pitch: frand(0.95, 1.08) });
+        }
       }
       tokT -= dt; if (tokT <= 0) { tokT = 0.2; assignTokens(); }
       flowT -= dt;
@@ -4724,7 +5150,10 @@ const GAME = (() => {
       window.__T.tp(boss.x, boss.z + boss.r + 8);
       return boss;
     },
-    encounter() { const q = boss && boss.encounter; return q ? { type: boss.type, eggs: q.eggs.map(e => ({ x: e.x, z: e.z })), whelps: enemies.filter(e => e.whelp && !e.dead).length, move: q.move ? { kind: q.move.kind, t: q.move.t, dur: q.move.dur, warn: q.move.warn, hits: q.move.hits, x: q.move.x, z: q.move.z, x0: q.move.x0, z0: q.move.z0, x1: q.move.x1, z1: q.move.z1, radius: q.move.radius, angle: q.move.angle, sweep: q.move.sweep, range: q.move.range, gap: q.move.gap, dots: q.move.dots.map(d => ({ x: d.x, z: d.z, at: d.at, hit: d.hit })) } : null } : null; },
+    encounter() { const q = boss && boss.encounter; return q ? { type: boss.type, eggs: q.eggs.map(e => ({ x: e.x, z: e.z })), whelps: enemies.filter(e => e.whelp && !e.dead).length, move: q.move ? { kind: q.move.kind, t: q.move.t, dur: q.move.dur, warn: q.move.warn, hits: q.move.hits, x: q.move.x, z: q.move.z, x0: q.move.x0, z0: q.move.z0, x1: q.move.x1, z1: q.move.z1, radius: q.move.radius, angle: q.move.angle, sweep: q.move.sweep, range: q.move.range, gap: q.move.gap, dots: q.move.dots.map(d => ({ x: d.x, z: d.z, at: d.at, hit: d.hit })),
+      passes: q.move.passes ? q.move.passes.map(p => Object.assign({}, p)) : undefined, plan: q.move.plan ? Object.assign({}, q.move.plan) : undefined } : null,
+      // (Round 5) the knight's banners: where they stand and which are down; sancak = 'up' | 'dizzy' | 'done' (null: not yet)
+      banners: q.sancak ? q.sancak.list.map(s => ({ x: s.x, z: s.z, down: s.broken })) : null, sancak: q.sancak ? q.sancak.state : null, dizzy: boss.ph === 'dizzy' } : null; },
     bossCfg(type) { return Object.assign({}, bossCfg(type || (boss && boss.type) || 'ejderha')); },   // {per, lo, hi, dmg}
     bossHit(frac = 0.1) { if (boss && !boss.dead) damage(boss, Math.max(1, Math.round(boss.maxHp * frac)), { silent: true, force: true }); return boss ? boss.hp : null; },
     // extras for tests

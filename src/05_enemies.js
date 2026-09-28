@@ -11,7 +11,14 @@
    4. tur (Feza'nın isteği): Kefir Vadisi — ekşi yoğurt (kapağı şapka gibi), kesik kaymak (bal şapkalı rulo), kefir köpüğü
    (uçan baloncuk kümesi), peynir dilimi (kırmızı mum çizmeli), muhallebi jölesi ve boss Köpüklü Kefir Devi (cam şişe, içinde
    kefir ve yükselen kabarcıklar, taç gibi gazoz kapağı; yenilince Feza'ya pipetli bir bardak kefir uzatır). Buradaki huysuz
-   yüz = komik ekşi yüz (bir göz kısık, dil dışarıda); mutlu olunca krema bembeyaz olur. */
+   yüz = komik ekşi yüz (bir göz kısık, dil dışarıda); mutlu olunca krema bembeyaz olur.
+   5. tur (Feza'nın isteği): Surlu Şehir — buradaki huysuzlar insan (ejderha onları kandırmış): nöbetçi (ponponlu tahta mızrak,
+   güneşli kalkan), simitçi (başında simit tablası; simiti zıplatıp yakalar, fırlatır), süpürgeci (saman süpürgeyle kayarak
+   süpürür), tellal (kocaman davul: tokmaklar havaya, sonra DÜM!). Huysuz yüz = "hıh!" diye surat asma (yana bakan gözler,
+   şişkin yanaklar, büzük dudak, kalkık kaşlar); mutlu yüz yine ^ ^. Şövalyenin turnuva sancağı: EMODEL.sancak() (devrilir,
+   yerde güneşi gülümser). Boss Huysuz Şövalye: kocaman, sevimli bir atın üstünde minik ve çok huysuz bir şövalye (gökkuşağı
+   sorguçlu miğfer, kıvrık bıyık, ponpon toplu mızrak, dama desenli at örtüsü, kirpikli kocaman at gözleri). Dörtnala koşar,
+   şahlanır, mızrağını savurur, at nalı fırlatır, borusunu çalar; yenilince miğferini çıkarıp sallar. */
 
 // Base stats (zone 1 scale; GAME multiplies by zone and its DIFF table). hover = flying height of the model origin.
 // Feza's request: no spiders any more (orumcek removed); the cave has moles (kostebek) and snails (salyangoz).
@@ -62,6 +69,26 @@ const EDEF = {
     shot: { kind: 'fizz', speed: 4, r: 0.45 }, lines: { giris: 'kefirdev_giris', bitti: 'kefirdev_bitti' },
     phases: ['idle', 'move', 'shake', 'geyser', 'bubbles', 'slam', 'summon', 'roar'], summon: { type: 'kopuk', n: 3, at: [0.66, 0.33] }, slamR: 3.0,
     cone: { angle: 0.9, len: 6 }, fizzAt: [0.4, 0.5, 0.6, 0.7, 0.8], sprayAt: [0.14, 0.84], slamAt: 0.8, give: { from: 0.05, to: 0.45 }, dieDur: 6.5 },
+  // ── Round 5: Surlu Şehir (zone 4 'sehir', theme 'town'). The huysuz are PEOPLE here (the dragon tricked them): the sulky "hıh!"
+  // face while grumpy. nobetci melee (wind-up = draws the spear back level, attack = the poke-lunge), simitci ranged (the wind-up
+  // takes a simit off his tray and swings it forward: it leaves his hand, the muzzle, at st.windup 1), supurgeci 'glide' like
+  // kaymak (st.attack = the share of the lane, then 1 = recover; trail = GAME's puff while he whooshes), tellal 'slam' (mallets
+  // up = wind-up, BOOM on the drum at st.attack 0 = GAME's ring). ──
+  nobetci: { ad: 'Huysuz Nöbetçi', eliteAd: 'Kocaman Nöbetçi', hp: 58, dmg: 10, speed: 2.6, r: 0.55, height: 1.35, xp: 22, gold: 6, kind: 'melee', atkRange: 1.5, atkCd: 1.9, windup: 0.7, fly: false, aggro: 9, line: 'ilk_nobetci' },
+  simitci: { ad: 'Huysuz Simitçi', eliteAd: 'Kocaman Simitçi', hp: 40, dmg: 8, speed: 2.0, r: 0.55, height: 1.3, xp: 18, gold: 5, kind: 'ranged', atkRange: 7, range: 7, atkCd: 2.5, windup: 0.7, fly: false, aggro: 9, shot: { kind: 'simit', speed: 5, r: 0.34 }, line: 'ilk_simitci' },
+  supurgeci: { ad: 'Huysuz Süpürgeci', eliteAd: 'Kocaman Süpürgeci', hp: 34, dmg: 8, speed: 3.6, r: 0.5, height: 1.2, xp: 17, gold: 4, kind: 'glide', atkRange: 2.4, atkCd: 2.0, windup: 0.65, fly: false, aggro: 9.5, trail: 'dust', line: 'ilk_supurgeci' },
+  tellal: { ad: 'Huysuz Tellal', eliteAd: 'Kocaman Tellal', hp: 130, dmg: 14, speed: 1.5, r: 0.85, height: 1.95, xp: 45, gold: 12, kind: 'slam', atkRange: 2.4, atkCd: 2.8, windup: 1.0, slamR: 2.2, fly: false, aggro: 9, line: 'ilk_tellal' },
+  // Huysuz Şövalye — model timing (phaseT; GAME uses the same beats): charge: paws + lowers the lance 0–0.3 (chargeAt[0]), gallops
+  // 0.3–0.9, skids to a stop 0.9–1 · rear: up on the hind legs 0–0.5, lands at rearAt 0.5 (the stomp ring slamR), settles ·
+  // sweep: lance drawn back to his right 0–0.4, swept from his right across the front to his left 0.4–0.6 (sweepAt 0.5 = straight
+  // ahead; cone = the lance's reach: angle (full, rad) and len beyond r) · toss: horseshoes leave his left hand at tossAt ·
+  // summon: the little horn at hornAt (m.marker('horn') = its bell, for the notes) · roar: "hımf!" + the horse's neigh · dizzy
+  // (the banners' surprise): loops on its own clock. m.muzzle() = the left (throwing) hand, m.marker('lance') = the lance's ball.
+  // Defeat (dieDur s): takes off his helmet and waves it while the horse prances (st.dying 0–0.35), happy hops (0.35–0.7), twirl.
+  sovalye: { ad: 'Huysuz Şövalye', hp: 1400, dmg: 15, speed: 2.0, r: 1.7, height: 3.4, xp: 500, gold: 130, kind: 'boss', atkRange: 3.2, atkCd: 1.6, windup: 0.8, fly: false, aggro: 14,
+    shot: { kind: 'horseshoe', speed: 5, r: 0.45 }, lines: { giris: 'sovalye_giris', bitti: 'sovalye_bitti' },
+    phases: ['idle', 'move', 'charge', 'rear', 'sweep', 'toss', 'summon', 'roar', 'dizzy'], summon: { type: 'nobetci', n: 2, at: [0.66, 0.33] }, slamR: 3.6, chargeSpeed: 9,
+    chargeAt: [0.3, 0.9], rearAt: 0.5, sweepAt: 0.5, sweep: [0.4, 0.6], cone: { angle: 2.4, len: 1.6 }, tossAt: [0.35, 0.5, 0.65], hornAt: 0.5, dieDur: 3.2 },
 };
 
 const EMODEL = (function (G0) {
@@ -71,9 +98,10 @@ const EMODEL = (function (G0) {
   // ── Level of detail: builders ask for segment counts; they are scaled by LODK (set per character type while it is
   // built) so a character stays about 5-8k triangles (dragon about 20k). The shared core cache G0 keeps every variant. ──
   // (the little volcano creatures come in packs inside the sun's shadow box, skinned twice: a leaner LOD keeps the volcano's
-  // shadow pass in line with the other zones)
+  // shadow pass in line with the other zones; the town's people carry many small props, so theirs are lean too: 6.8-7.9k)
   const LOD = { ejderha: 0.72, baby: 0.7, owl: 1, kraljole: 0.85, kostebekusta: 0.8, lavkaplumbaga: 0.8, kaplumbaga: 0.45, ateskusu: 0.5,
-    yogurt: 0.55, kaymak: 0.55, kopuk: 0.5, peynir: 0.65, kefirdev: 0.8 };
+    yogurt: 0.55, kaymak: 0.55, kopuk: 0.5, peynir: 0.65, kefirdev: 0.8,
+    nobetci: 0.5, simitci: 0.55, supurgeci: 0.55, tellal: 0.5, sancak: 0.6, sovalye: 0.66 };
   let LODK = 1;
   const sN = (n, min) => Math.max(min, Math.round(n * LODK));
   const G = {
@@ -389,7 +417,9 @@ const EMODEL = (function (G0) {
       const gG = this.geo(1), gH = moods.has(1) || moods.has(2) ? this.geo(2) : gG;
       const sphere = gG.boundingSphere.clone(); sphere.radius *= 1.3;
       const box = gG.boundingBox.clone();
-      return Object.assign({ g: [gG, gH], bones: this.bones, markers: this.markers, sphere, box, verts: gG.attributes.position.count }, extra);
+      // (pout: the face is the lidded sulky "hıh!" face — m.anim then keeps its eyes open in the wind-up, see there;
+      // ownHurt: the model flinches by itself when hit, m.anim leaves its root alone — the knight's placed hooves)
+      return Object.assign({ g: [gG, gH], bones: this.bones, markers: this.markers, sphere, box, verts: gG.attributes.position.count, pout: !!this.pout, ownHurt: !!this.ownHurt }, extra);
     }
   }
 
@@ -481,10 +511,51 @@ const EMODEL = (function (G0) {
     r.fx(0, 0.4).add(G.sphere(8, 6), o.tongueD || '#e8487e', [tx + sq * mw * 0.01, -mw * 0.28, mw * 0.31], [0.55, 0, 0.18 * sq], [mw * 0.028, mw * 0.18, mw * 0.03]);
     r.fx(0, 0);
   }
+  // ── Round 5: the townsfolk's sulky "hıh!" face (o.pout): big eyes glancing to the side under heavy LEVEL upper lids (sulky and
+  // bored, never slanted), round puffed-out cheeks with a rosy blush, a small pursed pout pushed to one side. Never a frown. ──
+  // Eye cap covering the top share `lid` of a unit eyeball (the upper lid; open at the bottom).
+  function lidGeo(lid) {
+    const w = sN(24, 12), h = sN(10, 5), th = Math.acos(clamp(1 - 2 * lid, -0.95, 0.95));
+    return gx('lid' + lid.toFixed(2) + '@' + w, () => new THREE.SphereGeometry(1, w, h, 0, TAU, 0, th));
+  }
+  // Sulky eye in the eye frame (z = out of the head): the googly eye with its iris looking aside (o.glance −1 … 1, + = the model's
+  // left), the skin-coloured lid over its top share o.lid (just down to the iris: the whole iris stays round) and a thin soft
+  // dark-brown lash line along the lid's edge, which droops a little toward the outer corner (o.lidDroop: bored-pouty; lower at
+  // the nose would be cross). From the gameplay camera above, a heavier lid and a thick near-black lash merged with the brows
+  // into one heavy bar over half-covered eyes: a scowl.
+  const LASH = '#5a2e1e';
+  function sulkEye(r, s, o) {
+    const er = o.er, g = o.glance ?? 0.7, lx = er * 0.3 * g + s * er * 0.04, ly = -er * 0.1, lid = o.lid ?? 0.24;
+    r.fx(0, 1).add(G.sphere(24, 16), o.white || '#fbfbff', [0, 0, 0], null, [er, er * 1.1, er * 0.62]);
+    r.add(G.sphere(20, 14), o.iris || '#4a2c1a', [lx, ly, er * 0.38 - Math.abs(lx) * 0.1], null, [er * 0.64, er * 0.7, er * 0.3]);
+    r.add(G.sphere(16, 12), '#120a18', [lx * 1.08, ly * 1.08, er * 0.48 - Math.abs(lx) * 0.1], null, [er * 0.4, er * 0.45, er * 0.23]);
+    r.fx(1, 0).add(G.sphere(10, 8), hdr('#ffffff', 1.7), [lx - er * 0.18, ly + er * 0.16, er * 0.62], null, er * 0.17);
+    r.add(G.sphere(8, 6), hdr('#ffffff', 1.4), [lx + er * 0.16, ly - er * 0.2, er * 0.58], null, er * 0.08);
+    const k = 1.08, c = 1 - 2 * lid, sn = Math.sqrt(1 - c * c);
+    r.push([0, 0, 0], [0, 0, -s * (o.lidDroop ?? 0.12)]);
+    r.fx(o.skinFx ?? 0, 0.2).add(lidGeo(lid), o.lidCol || o.skin, [0, 0, 0], null, [er * k, er * 1.1 * k, er * 0.62 * k * 1.06]);
+    r.fx(0, 0.3).add(G.torus(PI, 0.1, 16), o.lashCol || LASH, [0, er * 1.1 * k * c, er * 0.03], [PI / 2, 0, 0], [er * k * sn * 1.03, er * 0.66 * k * sn * 1.06, er * 0.7]);
+    r.pop().fx(0, 0);
+  }
+  // A round puffed-out cheek (frame on the head surface, z = out) with a rosy blush on its front.
+  function puffCheek(r, er, o) {
+    r.fx(o.skinFx ?? 0, 0.2).add(G.sphere(18, 12), o.cheekCol || o.skin, [0, 0, -er * 0.12], null, [er * 0.86, er * 0.72, er * 0.62]);
+    r.push([0, er * 0.04, er * 0.48]); blush(r, er, o, 0.86); r.pop();
+  }
+  // Pursed "hıh!" lips pushed out and to one side (o.poutX, in mouth widths): two soft rosy lobes and a little dark crease.
+  function poutMouth(r, mw, o) {
+    const x = (o.poutX ?? -0.14) * mw, lc = col(o.lipCol || '#e8687e'), ll = mixc(lc, '#ffffff', 0.14);
+    r.fx(0, 0.75).add(G.sphere(16, 12), lc, [x, mw * 0.1, mw * 0.08], [0, 0, 0.12], [mw * 0.36, mw * 0.19, mw * 0.22]);
+    r.add(G.sphere(16, 12), ll, [x + mw * 0.015, -mw * 0.1, mw * 0.1], [0, 0, -0.06], [mw * 0.32, mw * 0.19, mw * 0.23]);
+    r.fx(0, 0.3).add(G.sphere(10, 6), o.mouthCol || '#6a1f3c', [x, mw * 0.005, mw * 0.27], [0, 0, 0.04], [mw * 0.24, mw * 0.035, mw * 0.06]);
+    r.fx(0, 0);
+  }
   const heartGeo = () => extrude('heart', heartShape, 0.06, 0.035, 14);
   // Full face on a roughly spherical head (centre c, radius R): mischievous (mood 1) + overjoyed (mood 2) parts,
   // plus 'eyes' (blink / giggle squint), 'brow' and 'joy' (hearts) bones.
-  // o: bone, tilt, ex, ey, er, iris, skin, browCol, browY, browW, browRaise, browSide, mouthY, mouthW, mc/mR/mTilt (mouth
+  // o: bone, tilt, ex, ey, er, iris, skin, browCol, browY, browW, browRaise, browSide, browTilt (+ = inner ends up; the pout
+  //    face lifts them a little so the sulk never reads as a frown), browLift (pout: the brows sit this much (× er) higher, clear
+  //    of the lids — seen from above, brows on the lid merge into one heavy scowling bar), mouthY, mouthW, mc/mR/mTilt (mouth
   //    sphere), mouthBone, smirk, noTongue, buck, noMouth (the builder adds its own, e.g. a beak), blushX/blushY, heartX/heartY/heartS…
   function face(r, c, R, o) {
     const er = o.er, ex = o.ex, ey = o.ey, tilt = o.tilt ?? 0.25, eu = new THREE.Euler(-tilt, 0, 0), C = new THREE.Vector3(...c);
@@ -501,31 +572,40 @@ const EMODEL = (function (G0) {
         const [p, q] = onSphere(s * (ex + er * (o.blushX ?? 0.3)), ey - er * (o.blushY ?? 1.05), R, -er * 0.02); r.push(p, q); blush(r, er, o, k); r.pop();
       }
     };
-    // ── mischievous (o.sour: the dairy creatures' funny sour 😜 face, squinting on side sq) ──
+    // ── mischievous (o.sour: the dairy creatures' funny sour 😜 face, squinting on side sq; o.pout: the townsfolk's sulky "hıh!") ──
     r.mood = 1;
-    const sq = o.sour ? (o.sourSide ?? -1) : 0, big = sq ? Object.assign({}, o, { er: er * (o.openK ?? 1.1) }) : o;
+    const sq = o.sour ? (o.sourSide ?? -1) : 0, big = sq ? Object.assign({}, o, { er: er * (o.openK ?? 1.1) }) : o, pout = !!o.pout && !sq;
     r.on('eyes').push(c, [-tilt, 0, 0]);
     for (const s of [-1, 1]) {
       const [p, q] = onSphere(s * ex, ey, R, inset); r.push(p, q);
-      if (s === sq) squintEye(r, s, o, inset); else eyeOpen(r, s, big, !sq);
+      if (pout) sulkEye(r, s, o); else if (s === sq) squintEye(r, s, o, inset); else eyeOpen(r, s, big, !sq);
       r.pop();
     }
     r.pop();
     if (!o.noBrow) {   // arched playful brows, one raised a little higher (never slanted down toward the nose)
       r.on('brow').push(c, [-tilt, 0, 0]);
-      const bA = PI * 0.56, side = sq ? -sq : (o.browSide ?? 1);
+      const bA = PI * 0.56, side = sq ? -sq : (o.browSide ?? 1), bY = (o.browY ?? 1.42) + (pout ? o.browLift ?? 0.3 : 0);
       for (const s of [-1, 1]) {
         const up = s === side ? er * (o.browRaise ?? (sq ? 0.46 : 0.3)) : sq ? -er * 0.08 : 0;
-        const [p, q] = onSphere(s * (ex + er * 0.05), ey + er * (o.browY ?? 1.42) + up, R, -er * 0.02);
+        const [p, q] = onSphere(s * (ex + er * 0.05), ey + er * bY + up, R, -er * 0.02);
         r.push(p, q).fx(o.browGlow ? 1 : 0, 0.25).add(G.torus(bA, o.browT ?? 0.36, 14), o.browGlow ? hdr(o.browGlow, 2) : (o.browCol || DARK),
-          [0, -er * 0.34 * (o.browW ?? 1), 0], [0, 0, (PI - bA) / 2], [er * 0.68 * (o.browW ?? 1), er * (up > 0 ? 0.56 : 0.46) * (o.browH ?? 1), er * 0.42]).pop();
+          [0, -er * 0.34 * (o.browW ?? 1), 0], [0, 0, (PI - bA) / 2 - s * (o.browTilt ?? (pout ? 0.22 : 0))], [er * 0.68 * (o.browW ?? 1), er * (up > 0 ? 0.56 : pout ? 0.54 : 0.46) * (o.browH ?? 1), er * 0.42]).pop();
       }
       r.pop();
     }
-    if (!o.noBlush) { r.on(o.bone).push(c, [-tilt, 0, 0]); blushAt(0.8); r.pop(); }
+    if (pout) {   // puffed cheeks (they carry the blush), each on its own bone 'cheekL' / 'cheekR' (they puff up in the "hıh!")
+      r.pout = true;
+      r.push(c, [-tilt, 0, 0]);
+      for (const s of [-1, 1]) {
+        const [p, q] = onSphere(s * (ex + er * (o.cheekX ?? 0.28)), ey - er * (o.cheekY ?? 1.2), R, er * 0.05); r.push(p, q);
+        r.bone(s > 0 ? 'cheekL' : 'cheekR', o.bone, new THREE.Vector3(0, 0, -er * 0.12).applyMatrix4(r.k.top()).toArray());
+        puffCheek(r, er, o); r.pop();
+      }
+      r.pop();
+    } else if (!o.noBlush) { r.on(o.bone).push(c, [-tilt, 0, 0]); blushAt(0.8); r.pop(); }
     if (!o.noMouth) {
       r.on(mBone).push(mc, [-mt, 0, 0]);
-      { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); if (sq) sourMouth(r, mw * (o.sourK ?? 1.3), o, sq); else smirk(r, mw, o); r.pop(); }
+      { const [p, q] = onSphere(0, my, mR, o.mInset ?? 0); r.push(p, q); if (sq) sourMouth(r, mw * (o.sourK ?? 1.3), o, sq); else if (pout) poutMouth(r, mw, o); else smirk(r, mw, o); r.pop(); }
       r.pop();
     }
     // ── overjoyed ──
@@ -3516,6 +3596,1492 @@ const EMODEL = (function (G0) {
     }
   }
 
+  // ════════════════ Round 5: Surlu Şehir (town) — nobetci, simitci, supurgeci, tellal + the tournament banner (sancak) ════════════════
+  // Feza's request: the huysuz here are PEOPLE the dragon tricked into grumpiness. Chibi townsfolk (big heads, ~40 % of the
+  // height), friendly skin tones, bright clothes, toy-soft "weapons" (a pompom spear, simits, a straw broom, a drum). 'grumpy' =
+  // the sulky "hıh!" face (face() o.pout), 'happy' = the usual ^ ^ face. Shared rig: root → hips → body → head and two-bone arms
+  // (armX → foreX, the mitten on foreX), hips → legL / legR; props ride on those bones. The helpers below (townHead, townArm,
+  // townLeg, mitten, sunCrest, fluffGeo, stacheGeo, starFlat, townWalk, townCheer, upright = a held prop kept upright,
+  // aimAt = a bone turned toward a world point) are meant for the knight as well.
+  const TOWN = { blue: '#4aa8ff', blueD: '#2a74d8', yellow: '#ffd23f', yellowD: '#f2a614', red: '#ff4d5e', redL: '#ff9aa8',
+    wood: '#c88c4c', woodD: '#8e5a2c', woodL: '#e4b474', gold: '#ffc94a', white: '#fffaf2', steel: '#dfe7f2', lip: '#e8687e' };
+  // Soft yarn pompom (spear tip, mallet heads, the knight's plume …): a sphere tufted by noise.
+  function fluffGeo(d = 28) {
+    const w = sN(d, 10), h = sN(Math.round(d * 0.7), 7);
+    return gx('fluff@' + w, () => {
+      const g = new THREE.SphereGeometry(1, w, h), p = g.attributes.position, v = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); v.multiplyScalar(0.86 + 0.26 * vnoise(v.x * 4.5 + 3, v.y * 4.5, v.z * 4.5 - 2)); p.setXYZ(i, v.x, v.y, v.z); }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
+  // Curly moustache, one side (sd +1 = the model's left): a tapered tube from under the nose out and up into a little curl, in
+  // a frame lying on the face (z = out, 1 = half its width before scale).
+  function stacheGeo(sd) {
+    const n = sN(40, 18), rs = sN(8, 5);
+    return gx('stache' + sd + '@' + n, () => {
+      const pts = [];
+      for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        if (t < 0.6) { const u = t / 0.6; pts.push(new THREE.Vector3(sd * (0.04 + 0.66 * u), -0.1 * Math.sin(PI * u * 0.9), 0.05 * Math.sin(PI * u))); }
+        else { const u = (t - 0.6) / 0.4, a = -PI / 2 + u * PI * 1.35, rr = 0.2 * (1 - 0.45 * u); pts.push(new THREE.Vector3(sd * (0.7 + rr * Math.cos(a)), 0.12 + rr * Math.sin(a) - 0.02, 0.02)); }
+      }
+      const curve = new THREE.CatmullRomCurve3(pts), g = new THREE.TubeGeometry(curve, n, 0.17, rs, false);
+      const p = g.attributes.position, uv = g.attributes.uv, c = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {
+        const u = uv.getX(i), k = 0.75 + 0.5 * Math.sin(PI * Math.min(1, u / 0.7)) - 0.55 * smooth01((u - 0.55) / 0.45);
+        curve.getPointAt(Math.min(1, u), c);
+        p.setXYZ(i, c.x + (p.getX(i) - c.x) * k, c.y + (p.getY(i) - c.y) * k * 0.85, c.z + (p.getZ(i) - c.z) * k * 0.7);
+      }
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  // A small flat five-point star (hat and banner decorations; the soldier's bevelled star5Geo costs three times as much).
+  function starFlat() {
+    return extrude('star5f', () => { const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU, rr = i & 1 ? 0.21 : 0.5; s[i ? 'lineTo' : 'moveTo'](Math.sin(a) * rr, Math.cos(a) * rr); } return s; }, 0.08, 0, 4, 0.3);
+  }
+  // A simit (sesame ring): toasted golden-brown with sesame flecks on its top; lies flat (axis y), outer radius ≈ 1.36.
+  function simitGeo() { const rs = sN(10, 6), ts = sN(26, 12); return gx('simit@' + rs + '_' + ts, () => new THREE.TorusGeometry(1, 0.36, rs, ts).rotateX(PI / 2)); }
+  function simitCol(cy, s) {   // (cy: the ring's centre height, s: its scale)
+    const out = new THREE.Color(), a = col('#a8581c'), b = col('#d88a36'), c = col('#eaa452'), ses = col('#fbe2a8');
+    return (x, y, z) => {
+      const t = (y - cy) / (s * 0.36);
+      out.copy(a).lerp(b, smooth01((t + 0.9) / 0.9)).lerp(c, smooth01(t / 0.8) * 0.6);
+      if (t > -0.2 && hash3(Math.floor(x * 140), Math.floor(y * 140), Math.floor(z * 140)) > 0.62) out.lerp(ses, 0.75);
+      return out;
+    };
+  }
+  // A round mitten with a little thumb (sd: side; the thumb toward the front-inside).
+  function mitten(r, p, rad, skin, sd = 1) {
+    r.add(G.sphere(16, 12), skin, p, null, [rad, rad * 0.94, rad]);
+    r.add(G.sphere(10, 8), skin, [p[0] - sd * rad * 0.62, p[1] + rad * 0.2, p[2] + rad * 0.55], null, rad * 0.44);
+  }
+  // Two-bone chibi arm (sd +1 = left): A = [shoulder, elbow, hand] model-space points; the sleeve (fabric) to the elbow on armX,
+  // the forearm (o.fore: sleeve colour or bare skin) and the mitten on foreX. o: r (radius), fore, cuff, hand (mitten radius), tex.
+  function townArm(r, sd, A, sleeve, skin, o = {}) {
+    const n = sd > 0 ? 'L' : 'R', [sh, el, hd] = A, ar = o.r ?? 0.05, fc = o.fore || sleeve;
+    r.bone('arm' + n, 'body', sh); r.bone('fore' + n, 'arm' + n, el);
+    r.on('arm' + n).fx(0, 0, o.tex ?? 1).add(G.sphere(14, 10), sleeve, sh, null, ar * 1.2).seg(sh, el, ar * 1.1, sleeve, ar, 12);
+    r.on('fore' + n).add(G.sphere(12, 10), fc, el, null, ar * 1.02).seg(el, hd, ar, fc, ar * 0.9, 12);
+    if (o.cuff) {
+      const d = new THREE.Vector3(...hd).sub(new THREE.Vector3(...el)), L = d.length(); d.normalize();
+      const at = o.cuffAt ?? 0.7, cp = [el[0] + d.x * L * at, el[1] + d.y * L * at, el[2] + d.z * L * at];
+      r.fx(0, 0.1, o.tex ?? 1).add(G.torus(TAU, 0.42, 16), o.cuff, cp, qz(d.x, d.y, d.z), ar * 1.05);
+    }
+    r.fx(0, 0.12, 0); mitten(r, hd, o.hand ?? ar * 1.25, skin, sd);
+    r.fx(0, 0);
+  }
+  // Short chibi leg (sd +1 = left) on legX: hose/trousers from the hip down, a rounded shoe (o.toe: a curled-up toe).
+  function townLeg(r, sd, hip, foot, legC, shoeC, o = {}) {
+    const lr = o.r ?? 0.055, sl = o.shoe ?? [lr * 1.3, lr * 1.0, lr * 2.1];
+    r.on(sd > 0 ? 'legL' : 'legR').fx(0, 0, o.tex ?? 1).uv(1, 2).seg(hip, foot, lr, legC, lr * 0.92, 12).uv(null);
+    r.fx(0, o.gloss ?? 0.45, 0).add(G.sphere(16, 12), shoeC, [foot[0], sl[1], foot[2] + sl[2] * 0.35], null, sl);
+    if (o.toe) {   // a little curled-up slipper toe
+      r.add(G.torus(PI * 1.1, 0.34, 12), shoeC, [foot[0], sl[1] * 1.55, foot[2] + sl[2] * 1.15], [0, PI / 2, PI * 0.1], [sl[1] * 0.9, sl[1] * 0.9, sl[0] * 0.8]);
+      r.add(G.sphere(8, 6), o.toe, [foot[0], sl[1] * 2.35, foot[2] + sl[2] * 1.0], null, sl[1] * 0.42);
+    }
+    r.fx(0, 0);
+  }
+  // Big round chibi head on the 'head' bone: skin sphere, small round ears, a button nose, then the face (pout by default).
+  function townHead(r, c, R, o) {
+    const skin = col(o.skin), tilt = o.tilt ?? 0.3;
+    r.on('head').fx(0, 0.12).add(G.sphere(40, 30), vgrad(c[1] - R, c[1] + R, [[0, mixc(skin, '#b8603a', 0.22)], [0.4, skin], [1, mixc(skin, '#fff4ea', 0.12)]]), c, null, [R * 1.04, R, R * 0.98]);
+    for (const s of [-1, 1]) {
+      r.add(G.sphere(16, 12), skin, [c[0] + s * R * 0.98, c[1] - R * 0.1, c[2] - R * 0.06], [0, s * 0.35, 0], [R * 0.17, R * 0.24, R * 0.13]);
+      r.add(G.sphere(12, 8), mixc(skin, '#ff7a7a', 0.3), [c[0] + s * R * 1.03, c[1] - R * 0.1, c[2] - R * 0.02], [0, s * 0.35, 0], [R * 0.09, R * 0.14, R * 0.06]);
+    }
+    r.push(c, [-tilt, 0, 0]);
+    { const [p, q] = onSphere(0, (o.ey ?? 0) - o.er * (o.noseY ?? 0.95), R, R * 0.02); r.fx(0, 0.4).add(G.sphere(16, 12), mixc(skin, '#ff8a70', 0.2), p, q, [R * 0.12, R * 0.1, R * 0.11].map(v => v * (o.noseK ?? 1))); }
+    r.pop().fx(0, 0);
+    face(r, c, R, Object.assign({ bone: 'head', pout: true, tilt, skin: o.skin, lipCol: TOWN.lip, blushCol: '#ff7f9c' }, o));
+  }
+  // The town crest: a smiling golden sun (a disc, twelve soft rounded rays, dot eyes, a smile, rosy cheeks) facing local +z,
+  // radius ≈ 1 before scale. o.happy: ^ ^ eyes; o.moods: dot eyes on the mood-1 geometry, ^ ^ on mood 2 (the banner: happy once
+  // it lies on the ground). o.gl: gloss of the gold (1 = painted, 2 = polished metal); o.wob: wobble weight (a fluttering cloth).
+  function sunCrest(r, p, q, s, o = {}) {
+    const gc = o.col || '#ffc42e', rc = o.ray || '#ffab1c', gl = o.gl ?? 1, wb = o.wob ?? 0;
+    r.push(p, q, s).fx(0, gl, 0, wb);
+    r.add(G.cyl(1, 1, 28), vgrad(-0.6, 0.6, [[0, '#ffb420'], [1, gc]]), [0, 0, 0.02], [PI / 2, 0, 0], [0.6, 0.1, 0.6]);
+    for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + PI / 12; r.add(G.sphere(10, 6), i & 1 ? gc : rc, [Math.sin(a) * 0.8, Math.cos(a) * 0.8, 0], [0, 0, -a], [0.12, 0.24, 0.05]); }
+    r.fx(0, 0.3, 0, wb);
+    const eyes = hap => {
+      if (hap) for (const sd of [-1, 1]) r.add(G.torus(PI * 0.8, 0.3, 12), '#8a4a10', [sd * 0.21, 0.08, 0.08], [0, 0, PI * 0.1], [0.12, 0.11, 0.06]);
+      else for (const sd of [-1, 1]) r.add(G.sphere(10, 8), '#8a4a10', [sd * 0.21, 0.1, 0.08], null, [0.065, 0.085, 0.03]);
+    };
+    if (o.moods) { r.mood = 1; eyes(false); r.mood = 2; eyes(true); r.mood = 0; } else eyes(o.happy);
+    r.add(G.torus(PI * 0.62, 0.22, 14), '#8a4a10', [0, -0.02, 0.08], [0, 0, -PI / 2 - PI * 0.31], [0.26, 0.22, 0.06]);
+    r.fx(0.3, 0, 0, wb);
+    for (const sd of [-1, 1]) r.add(G.sphere(10, 6), '#ff8a7a', [sd * 0.36, -0.1, 0.07], null, [0.09, 0.06, 0.02]);
+    r.pop().fx(0, 0);
+  }
+  // Shared walk / idle: legs swing, hips bob, arms swing, the head sways; while grumpy and idle, now and then the sulky "hıh!"
+  // head toss (chin up, face turned away for a moment). k: rate, stride, bob, arm (swing amounts). Returns [phase, walk amount].
+  function townWalk(m, dt, st, s, k = {}) {
+    const B = m.B;
+    if (s.mv > 0.03) s.walk += dt * ((k.rate ?? 7) + 4 * s.mv);
+    const ph = s.walk, w = Math.min(1, s.mv * 1.4), br = Math.sin(s.t * 2.2 + s.ph), sw = Math.sin(ph), sd = k.stride ?? 0.6;
+    B.legL.rotation.x = sw * sd * w; B.legR.rotation.x = -sw * sd * w;
+    B.legL.position.y += Math.max(0, sw) * 0.02 * w; B.legR.position.y += Math.max(0, -sw) * 0.02 * w;
+    B.hips.position.y += Math.abs(Math.cos(ph)) * (k.bob ?? 0.035) * w + br * 0.004;
+    B.hips.rotation.z = sw * 0.04 * w;
+    B.body.rotation.y = sw * 0.09 * w; B.body.rotation.x = 0.07 * w; B.body.scale.y = 1 + br * 0.012;
+    const aw = k.arm ?? 0.5;
+    B.armL.rotation.x = -sw * aw * w; B.armR.rotation.x = sw * aw * w;
+    B.armL.rotation.z = 0.06 + br * 0.02; B.armR.rotation.z = -0.06 - br * 0.02;
+    B.foreL.rotation.x = -0.15 - 0.2 * w; B.foreR.rotation.x = -0.15 - 0.2 * w;
+    B.head.rotation.z = Math.sin(s.t * 1.2 + s.ph) * 0.04; B.head.rotation.y = -B.body.rotation.y * 0.7;
+    B.head.rotation.x = -Math.cos(ph * 2) * 0.03 * w;
+    let puff = 0;
+    if (s.mood !== 'happy' && st.windup < 0 && st.attack < 0 && !(st.dying >= 0)) {
+      s.hih = (s.hih ?? frand(1.5, 5)) - dt;
+      if (s.hih < 0) {
+        const u = -s.hih / 1.1;
+        if (u >= 1) s.hih = frand(4, 8);
+        else { const e = smooth01(u / 0.2) * (1 - smooth01((u - 0.7) / 0.3)); B.head.rotation.x -= 0.22 * e; B.head.rotation.y += (k.hihSide ?? 1) * 0.42 * e; B.head.rotation.z -= (k.hihSide ?? 1) * 0.06 * e; B.body.rotation.x -= 0.05 * e; puff = 0.14 * e; }
+      }
+    }
+    // the wind-up is a "hıh!" too (the eyes stay open, m.anim): chin up (seen from above the face turns up to the camera, never a
+    // glare from under the brows), cheeks puffed up, a little puffed-up wobble of the head at its peak
+    if (s.mood !== 'happy' && st.windup >= 0) {
+      const e = smooth01(st.windup * 1.6);
+      B.head.rotation.x -= 0.16 * e; B.head.rotation.z += Math.sin(s.t * 17) * 0.025 * smooth01((st.windup - 0.4) / 0.3);
+      puff = 0.2 * e;
+    }
+    if (B.cheekL) { B.cheekL.scale.set(1 + puff, 1 + puff * 0.85, 1 + puff); B.cheekR.scale.copy(B.cheekL.scale); }
+    return [ph, w];
+  }
+  // Overjoyed goodbye (st.dying ≥ 0): both arms up waving (the generic happy hops, twirl and shrink do the rest). Returns true.
+  function townCheer(m, st, s) {
+    if (!(st.dying >= 0)) return false;
+    const B = m.B, wv = Math.sin(s.t * 13);
+    B.armL.rotation.set(-0.3, 0, 2.45 + 0.3 * wv); B.armR.rotation.set(-0.3, 0, -2.45 + 0.3 * wv);
+    B.foreL.rotation.set(0, 0, 0.35 + 0.25 * wv); B.foreR.rotation.set(0, 0, -0.35 + 0.25 * wv);
+    B.head.rotation.set(-0.14, 0, Math.sin(s.t * 7) * 0.08);
+    B.legL.rotation.x = B.legR.rotation.x = 0;
+    return true;
+  }
+  // A held prop kept upright in the body's frame whatever the arm does (b = the prop's bone, chain = arm → forearm).
+  const _uq = new THREE.Quaternion();
+  function upright(b, ...chain) { _uq.identity(); for (const c of chain) _uq.multiply(c.quaternion); b.quaternion.copy(_uq.invert()); return b; }
+  // Turn bone b (rest direction d0 = [x, y, z] from its origin, model space) toward the world point tw, blended by k (world
+  // matrices must be current, e.g. right after m.marker()): the crier's mallets land on the drum head whatever his body does.
+  const _ap = new THREE.Vector3(), _ad = new THREE.Vector3(), _av = new THREE.Vector3(), _hw = new THREE.Vector3();   // (_hw: marker lookups)
+  function aimAt(b, d0, tw, k) {
+    b.getWorldPosition(_ap); b.parent.getWorldQuaternion(_uq);
+    _ad.copy(tw).sub(_ap).applyQuaternion(_uq.invert()).normalize();
+    b.quaternion.slerp(_uq.setFromUnitVectors(_av.fromArray(d0).normalize(), _ad), k);
+  }
+
+  // ── Huysuz Nöbetçi (~1.35 m): a chibi town guard in a padded mi-parti tunic (sky blue + sunny yellow halves; sleeves and hose
+  // the other way round), a round kettle helmet pushed back with a red feather, a round wooden shield with the smiling-sun crest
+  // on the left arm and a long wooden spear with a big soft red pompom. Melee: wind-up = draws the spear back level, weight on
+  // the back foot, shield up; attack = a poke-lunge (the arm shoots forward, the spear stays level). ──
+  const NOB_TUNIC = [[0, 0.26], [0.2, 0.26], [0.245, 0.29], [0.258, 0.37], [0.25, 0.49], [0.236, 0.59], [0.205, 0.67], [0.13, 0.725], [0, 0.735]];
+  const KETTLE = [[0.235, -0.01], [0.3, -0.032], [0.35, -0.058], [0.366, -0.05], [0.358, -0.034], [0.31, -0.008], [0.27, 0.012], [0.262, 0.05], [0.25, 0.1], [0.22, 0.15], [0.16, 0.19], [0.08, 0.212], [0, 0.218]];
+  const NOB_HAND = [-0.3, 0.4, 0.08];
+  function buildNobetci(r, o) {
+    const E = o.elite;
+    let blue = col(TOWN.blue), blueD = col(TOWN.blueD), yel = col(TOWN.yellow), yelD = col(TOWN.yellowD);
+    if (E) { blue = rich(blue, 1.25, 0.84); blueD = rich(blueD, 1.25, 0.84); yel = rich(yel, 1.2, 0.95); yelD = rich(yelD, 1.2, 0.9); }
+    const skin = '#f7c9a2', hair = '#7a4422', boot = '#8a5230', HC = [0, 0.975, 0.01], HR = 0.262;
+    r.bone('hips', 'root', [0, 0.36, 0]); r.bone('body', 'hips', [0, 0.42, 0]); r.bone('head', 'body', [0, 0.74, 0]);
+    r.bone('legL', 'hips', [0.09, 0.36, 0]); r.bone('legR', 'hips', [-0.09, 0.36, 0]);
+    townLeg(r, 1, [0.09, 0.36, 0], [0.095, 0.1, 0.01], yel, boot);
+    townLeg(r, -1, [-0.09, 0.36, 0], [-0.095, 0.1, 0.01], blue, boot);
+    // padded tunic: the left half blue, the right half yellow, soft quilting bands and a little darker seam down the middle
+    const tc = (() => { const out = new THREE.Color(); return (x, y, z) => {
+      const L = x > 0, q = Math.pow(Math.abs(Math.sin((y - 0.26) * PI / 0.078)), 6);
+      out.copy(L ? blue : yel).lerp(L ? blueD : yelD, 0.28 * q + 0.35 * smooth01((0.34 - y) / 0.08));
+      return out.lerp(L ? blueD : yelD, 0.5 * smooth01((0.012 - Math.abs(x)) / 0.012) * smooth01(z / 0.1));
+    }; })();
+    r.on('body').fx(0, 0, 1).uv(3, 1).add(lathe('nobTunic', NOB_TUNIC, 36), tc);
+    r.uv(null).fx(0, 0.35).add(G.torus(TAU, 0.09, 32), '#7a4a26', [0, 0.42, 0], [PI / 2, 0, 0], [0.258, 0.258, 0.34]);
+    r.fx(0, 2).add(G.rbox(2), GOLD, [0, 0.42, 0.272], null, [0.06, 0.05, 0.02]);
+    r.fx(0, 0.2, 1).add(G.torus(TAU, 0.4, 24), TOWN.white, [0, 0.715, 0], [PI / 2, 0, 0], [0.13, 0.13, 0.09]);
+    // arms: the left sleeve yellow, the right one blue (the other way round from the tunic)
+    townArm(r, 1, [[0.22, 0.64, 0], [0.275, 0.5, 0.03], [0.29, 0.4, 0.08]], yel, skin, { cuff: yelD });
+    townArm(r, -1, [[-0.22, 0.64, 0], [-0.275, 0.5, 0.03], NOB_HAND], blue, skin, { cuff: blueD });
+    // the shield on the left forearm, turned out to the front-left so its crest faces the camera
+    r.bone('shield', 'foreL', [0.29, 0.43, 0.08]);
+    {
+      const n = new THREE.Vector3(0.72, 0.16, 0.68).normalize(), C = [0.36, 0.45, 0.13], Rs = 0.2, q = qy(n.x, n.y, n.z), qf = qz(n.x, n.y, n.z);
+      const u = new THREE.Vector3().crossVectors(_Y, n).normalize(), wa = col(TOWN.wood), wb = col(TOWN.woodL), out = new THREE.Color();
+      r.on('shield').fx(0, 0.3).add(G.cyl(1, 1, 30), (x, y, z) => out.copy(wa).lerp(wb, (Math.floor(((x - C[0]) * u.x + (z - C[2]) * u.z) / 0.066 + 10) & 1) * 0.5), C, q, [Rs, 0.035, Rs]);
+      r.fx(0, 2).add(G.torus(TAU, 0.14, 32), E ? GOLD : '#d9dfe8', C, qf, [Rs * 1.02, Rs * 1.02, 0.3]);
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, v = new THREE.Vector3(Math.cos(a), Math.sin(a), 0).applyQuaternion(qf); r.add(G.sphere(8, 6), GOLD, [C[0] + v.x * Rs * 0.84 + n.x * 0.02, C[1] + v.y * Rs * 0.84 + n.y * 0.02, C[2] + v.z * Rs * 0.84 + n.z * 0.02], null, 0.013); }
+      sunCrest(r, [C[0] + n.x * 0.02, C[1] + n.y * 0.02, C[2] + n.z * 0.02], qf, Rs * 0.62);
+    }
+    // the spear in the right hand: a wooden shaft with blue + yellow wraps, a golden ferrule and a big soft red pompom with ribbons
+    r.bone('spear', 'foreR', NOB_HAND);
+    {
+      const [hx, hy, hz] = NOB_HAND, top = hy + 0.92, wc = (() => { const out = new THREE.Color(), a = col(TOWN.wood), b = col(TOWN.woodD); return (x, y, z) => out.copy(a).lerp(b, 0.25 + 0.25 * Math.sin(y * 70 + x * 30)); })();
+      r.on('spear').fx(0, 0.25).seg([hx, hy - 0.3, hz], [hx, top, hz], 0.021, wc, 0.021, 10);
+      r.add(G.sphere(8, 6), TOWN.woodD, [hx, hy - 0.3, hz], null, 0.024);
+      for (const [y, c] of [[hy + 0.1, TOWN.yellow], [hy - 0.08, TOWN.blue], [top - 0.1, TOWN.yellow]]) r.add(G.cyl(1, 1, 12), c, [hx, y, hz], null, [0.026, 0.03, 0.026]);
+      r.fx(0, 2).add(G.cyl(0.8, 1, 12), GOLD, [hx, top + 0.01, hz], null, [0.03, 0.05, 0.03]);
+      r.fx(0, 0).add(fluffGeo(), vgrad(top, top + 0.22, [[0, '#b41a2c'], [0.6, '#d82a3e'], [1, '#e8485a']]), [hx, top + 0.11, hz], null, 0.105);
+      for (const sd of [-1, 1]) r.fx(0, 0.4, 1).add(G.sphere(10, 6), sd > 0 ? TOWN.yellow : TOWN.blue, [hx + sd * 0.035, top - 0.07, hz + 0.02], [0.15, 0, sd * 0.35], [0.02, 0.08, 0.008]);
+      r.fx(0, 0);
+      r.mark('muzzle', [hx, top + 0.1, hz]);
+    }
+    // head: hair peeking out under the helmet (bangs + nape), the kettle helmet pushed back, a red feather on its left
+    townHead(r, HC, HR, { skin, ex: 0.1, ey: 0.02, er: 0.088, iris: '#5a3420', browCol: hair, browY: 1.3, browSide: 1, browRaise: 0.2,
+      mouthY: -0.125, mouthW: 0.1, glance: 0.75, poutX: 0.16, heartY: 0.95, heartX: 1.15 });
+    r.on('head').fx(0, 0.2);
+    for (const [a, y, s] of [[-0.6, 1.165, 0.06], [-0.2, 1.185, 0.062], [0.2, 1.185, 0.06], [0.6, 1.165, 0.058], [1.6, 1.04, 0.075], [-1.6, 1.04, 0.075], [2.4, 0.99, 0.085], [-2.4, 0.99, 0.085], [PI, 0.98, 0.095]]) {
+      r.add(G.sphere(14, 10), hair, [Math.sin(a) * HR * 0.86, y, HC[2] + Math.cos(a) * HR * 0.82], [0, a, 0.3], [s * 1.1, s * 0.7, s * 0.8]);
+    }
+    const helm = E ? GOLD : TOWN.steel;
+    r.push([0, 1.14, -0.05], [-0.44, 0, 0]);
+    r.fx(0, 2).add(lathe('kettle', KETTLE, 30, 3), helm);
+    r.add(G.torus(TAU, 0.2, 32), E ? '#ffe08a' : GOLD, [0, 0.03, 0], [PI / 2, 0, 0], [0.266, 0.266, 0.09]);
+    r.add(G.sphere(12, 8), GOLD, [0, 0.225, 0], null, [0.035, 0.025, 0.035]);
+    // feather: a soft red plume (a leaf shape in two pieces, curving up and back) with a white quill, out of a golden holder
+    {
+      const fl = lathe('flame', FLAME_P, 16, 2), f0 = [0.19, 0.12, -0.07], d0 = new THREE.Vector3(0.3, 1, -0.35).normalize(), d1 = new THREE.Vector3(0.2, 0.5, -1).normalize();
+      const f1 = [f0[0] + d0.x * 0.2, f0[1] + d0.y * 0.2, f0[2] + d0.z * 0.2], fz = [0.5, 0.35, 1];
+      r.fx(0, 0.1, 1).add(fl, vgrad(0.1, 0.34, [[0, '#d82438'], [1, TOWN.red]]), f0, qb([d0.x, d0.y, d0.z], fz), [0.13, 0.26, 0.035]);
+      r.add(fl, vgrad(0.28, 0.44, [[0, TOWN.red], [1, TOWN.redL]]), [f1[0] - d1.x * 0.03, f1[1] - d1.y * 0.03, f1[2] - d1.z * 0.03], qb([d1.x, d1.y, d1.z], fz), [0.11, 0.22, 0.03]);
+      r.fx(0, 0.3).seg(f0, f1, 0.008, '#fff4f0', 0.006, 5).seg(f1, [f1[0] + d1.x * 0.16, f1[1] + d1.y * 0.16, f1[2] + d1.z * 0.16], 0.006, '#fff4f0', 0.003, 5);
+      r.fx(0, 2).add(G.cyl(1, 1, 10), GOLD, f0, qy(d0.x, d0.y, d0.z), [0.024, 0.06, 0.024]);
+    }
+    if (E) crown(r.fx(0, 0), [0, 0.21, 0.02], 0.62, '#4aa8ff');
+    r.pop().fx(0, 0);
+    return { height: 1.35, glowC: col('#ffb13a'), tex: texOf('fabric'), hide: [], mat: { rough: 0.55, ns: 0.8, sss: col('#ffd8c0').multiplyScalar(0.03) } };
+  }
+  function animNobetci(m, dt, st, s) {
+    const B = m.B;
+    if (townCheer(m, st, s)) { upright(B.spear, B.armR, B.foreR).rotateZ(-0.25 + Math.sin(s.t * 13) * 0.18); return; }   // waves the spear like a flag
+    const [, w] = townWalk(m, dt, st, s, { rate: 6.5, stride: 0.55, arm: 0.3, hihSide: 1 });
+    // rest: the spear upright at the side (a little forward and out), the shield arm bent in front
+    let aR = -0.12 + B.armR.rotation.x * 0.4, fR = -0.2, sp = 0.2, lean = 0, lunge = 0, twist = 0, aL = -0.25 + B.armL.rotation.x * 0.5, fL = -0.55;
+    B.armR.rotation.z = -0.1; B.spear.rotation.z = -0.05;
+    if (st.windup >= 0) {   // draws the spear back level beside the hip, leans back onto the back foot, shield up in front
+      const u = smooth01(st.windup * 1.35);
+      aR = lerp(aR, 0.5, u); fR = lerp(fR, -0.95, u); lean = -0.16 * u; twist = -0.32 * u; aL = lerp(aL, -0.9, u); fL = lerp(fL, -0.5, u);
+      B.hips.position.x += Math.sin(s.t * 50) * 0.008 * st.windup; B.hips.position.z -= 0.05 * u;
+      B.legL.rotation.x = -0.3 * u; B.legR.rotation.x = 0.25 * u;
+    }
+    if (st.attack >= 0) {   // the poke: the arm shoots forward straight, the whole guard lunges after it, then settles back
+      const a = st.attack, hit = smooth01(a / 0.2), back = smooth01((a - 0.5) / 0.5), f = hit * (1 - back);
+      aR = lerp(lerp(0.5, -1.45, hit), -0.12, back); fR = lerp(lerp(-0.95, -0.1, hit), -0.2, back);
+      lean = lerp(-0.16, 0.3, hit) * (1 - back); lunge = 0.16 * f; twist = lerp(-0.32, 0.22, hit) * (1 - back); aL = lerp(-0.9, -0.3, hit); fL = -0.5;
+      B.legL.rotation.x = -0.5 * f; B.legR.rotation.x = 0.45 * f;
+    }
+    B.armR.rotation.x = aR; B.foreR.rotation.x = fR; B.armL.rotation.x = aL; B.foreL.rotation.x = fL; B.armL.rotation.z = 0.12;
+    // the spear stays upright at rest and level while it is drawn back / poking (its world angle = arm + forearm + own)
+    const lvl = st.windup >= 0 ? smooth01(st.windup * 1.6) : st.attack >= 0 ? 1 - smooth01((st.attack - 0.55) / 0.45) : 0;
+    B.spear.rotation.x = lerp(sp - aR - fR, PI / 2 - aR - fR - lean, lvl);
+    B.body.rotation.x += lean; B.body.rotation.y += twist; B.head.rotation.y -= twist * 0.8; B.head.rotation.x -= lean * 0.6;
+    B.hips.position.z += lunge; B.hips.position.y -= 0.03 * Math.abs(lean) - 0.02 * w * 0;
+  }
+
+  // ── Huysuz Simitçi (~1.3 m with his tray): a round street vendor — a big wooden tray of simits on his head (on a little cloth
+  // ring), white apron over a red shirt with rolled sleeves, a curly moustache, rosy cheeks, the left hand on his hip (sulky!).
+  // Ranged: wind-up = the right hand goes up beside his head, a little bounce tosses the top simit off the tray and he catches
+  // it (his arms are far too short to reach the tray), winds it back over the shoulder and swings it forward (the release
+  // point, the muzzle, is his right hand at st.windup 1); attack = the follow-through while a new simit pops onto the tray. ──
+  const SIM_BODY = [[0, 0.22], [0.2, 0.22], [0.27, 0.26], [0.312, 0.34], [0.325, 0.44], [0.31, 0.54], [0.265, 0.62], [0.18, 0.68], [0, 0.7]];
+  const SIM_HAND = [-0.32, 0.36, 0.1], SIM_TRAY = [0, 1.155, -0.02];
+  function buildSimitci(r, o) {
+    const E = o.elite;
+    let shirt = col('#f45a50'), shirtD = col('#c83a3a');
+    if (E) { shirt = rich(shirt, 1.2, 0.86); shirtD = rich(shirtD, 1.2, 0.85); }
+    const skin = '#e9ad84', stache = '#4a2a18', pants = '#3f56a8', shoe = '#5a3420', HC = [0, 0.905, 0.02], HR = 0.25;
+    r.bone('hips', 'root', [0, 0.3, 0]); r.bone('body', 'hips', [0, 0.34, 0]); r.bone('head', 'body', [0, 0.69, 0]);
+    r.bone('legL', 'hips', [0.11, 0.3, 0]); r.bone('legR', 'hips', [-0.11, 0.3, 0]);
+    townLeg(r, 1, [0.11, 0.3, 0], [0.115, 0.09, 0.0], pants, shoe, { r: 0.065 });
+    townLeg(r, -1, [-0.11, 0.3, 0], [-0.115, 0.09, 0.0], pants, shoe, { r: 0.065 });
+    // round belly in a red shirt; the white apron over its front (bib, pocket with a stitched simit) tied at the back
+    r.on('body').fx(0, 0, 1).uv(3, 1).add(lathe('simBody', SIM_BODY, 36), vgrad(0.22, 0.7, [[0, shirtD], [0.3, shirt], [1, shirt]]));
+    const apron = gx('simApron@' + sN(28, 14), () => {
+      const v = new THREE.SplineCurve([[0.29, 0.25], [0.328, 0.34], [0.34, 0.44], [0.324, 0.54], [0.28, 0.62]].map(p => new THREE.Vector2(p[0], p[1]))).getPoints(16);
+      return seamNormals(new THREE.LatheGeometry(v, sN(28, 14), -1.15, 2.3));
+    });
+    r.fx(0, 0, 1).uv(2, 1).add(apron, vgrad(0.25, 0.62, [[0, '#f2ece2'], [0.4, TOWN.white], [1, '#ffffff']]));
+    r.uv(null);
+    for (const sd of [-1, 1]) r.seg([sd * 0.2, 0.61, 0.21], [sd * 0.13, 0.69, 0.03], 0.018, TOWN.white, 0.018, 6);
+    r.add(G.torus(TAU, 0.2, 32), TOWN.white, [0, 0.33, 0], [PI / 2, 0, 0], [0.305, 0.305, 0.08]);
+    r.fx(0, 0.1).add(G.rbox(2), '#f0e8dc', [0.02, 0.4, 0.335], [-0.05, 0, 0], [0.15, 0.1, 0.02]);
+    r.fx(0, 0.4).add(simitGeo(), simitCol(0.405, 0.03), [0.02, 0.405, 0.35], [PI / 2 - 0.05, 0, 0], 0.03);
+    r.fx(0, 0.2, 1).add(G.torus(TAU, 0.35, 24), '#ffd23f', [0, 0.685, 0.01], [PI / 2 - 0.1, 0, 0], [0.12, 0.12, 0.1]);   // yellow neckerchief
+    r.fx(0, 0);
+    // arms: rolled-up sleeves (white cuffs), the left fist on the hip, the right one free to throw
+    townArm(r, 1, [[0.25, 0.58, 0], [0.4, 0.46, -0.05], [0.34, 0.37, 0.06]], shirt, skin, { r: 0.055, fore: skin, cuff: TOWN.white, cuffAt: 0.02, hand: 0.066 });
+    townArm(r, -1, [[-0.25, 0.58, 0], [-0.31, 0.46, 0.03], SIM_HAND], shirt, skin, { r: 0.055, fore: skin, cuff: TOWN.white, cuffAt: 0.02, hand: 0.066 });
+    // the simit in the throwing hand (shown during the wind-up), the muzzle at the hand
+    r.bone('simit', 'foreR', SIM_HAND);
+    r.on('simit').fx(0, 0.4).add(simitGeo(), simitCol(SIM_HAND[1] + 0.06, 0.07), [SIM_HAND[0], SIM_HAND[1] + 0.06, SIM_HAND[2] + 0.03], [PI / 2, 0, 0.3], 0.07).fx(0, 0);
+    r.mark('muzzle', SIM_HAND);
+    // head: curly moustache, rosy cheeks, short dark hair round the back under the tray
+    townHead(r, HC, HR, { skin, ex: 0.098, ey: 0.03, er: 0.086, iris: '#4a2a18', browCol: stache, browY: 1.34, browSide: -1, browRaise: 0.22, browT: 0.42,
+      mouthY: -0.155, mouthW: 0.095, glance: -0.75, poutX: -0.1, noseK: 1.35, blushCol: '#ff6a86', heartY: 1.05, heartX: 1.2, cheekY: 1.1 });
+    r.on('head');
+    r.push(HC, [-0.3, 0, 0]);
+    for (const sd of [-1, 1]) { const [p, q] = onSphere(sd * 0.012, -0.088, HR, -0.014); r.push(p, q).fx(0, 0.25).add(stacheGeo(sd), stache, [0, 0, 0], null, [0.125, 0.13, 0.12]).pop(); }
+    r.pop();
+    r.fx(0, 0.15);
+    for (const [a, y, s] of [[1.5, 0.95, 0.075], [-1.5, 0.95, 0.075], [2.2, 0.96, 0.09], [-2.2, 0.96, 0.09], [PI, 0.95, 0.1], [2.7, 1.04, 0.09], [-2.7, 1.04, 0.09]]) {
+      r.add(G.sphere(14, 10), stache, [Math.sin(a) * HR * 0.9, y, HC[2] + Math.cos(a) * HR * 0.86], [0, a, 0.3], [s * 1.1, s * 0.75, s * 0.8]);
+    }
+    // the tray on a little cloth ring, tilted a little toward the throwing hand: wood with a raised rim, simits stacked on it
+    r.bone('tray', 'head', SIM_TRAY);
+    r.on('tray').push(SIM_TRAY, [0.04, 0, 0.12]);
+    r.fx(0, 0.1, 1).add(G.torus(TAU, 0.45, 24), (x, y, z) => ((Math.floor(Math.atan2(x, z) / TAU * 16 + 16) & 1) ? col('#ff6a6a') : col('#ffffff')), [0, -0.005, 0], [PI / 2, 0, 0], [0.09, 0.09, 0.08]);
+    const wt = col('#b4743a'), wtD = col('#80501f'), out = new THREE.Color();
+    r.fx(0, 0.25, 0).add(G.cyl(1, 1, 36), (x, y, z) => out.copy(wtD).lerp(wt, 0.55 + 0.45 * Math.sin(Math.hypot(x, z - SIM_TRAY[2]) * 120)), [0, 0.035, 0], null, [0.3, 0.024, 0.3]);
+    r.fx(0, E ? 2 : 0.35).add(G.torus(TAU, 0.2, 40), E ? GOLD : '#9a6030', [0, 0.05, 0], [PI / 2, 0, 0], [0.3, 0.3, 0.12]);
+    r.fx(0, 0.4);
+    const SIMS = [[0, 0.17, 0], [1.25, 0.17, 0], [2.5, 0.17, 0], [3.75, 0.17, 0], [5.0, 0.17, 0], [0.6, 0.085, 1], [2.7, 0.085, 1], [4.8, 0.085, 1]];
+    for (const [a, rr, layer] of SIMS) {
+      const s2 = 0.072, y = 0.07 + layer * 0.045, x = Math.sin(a) * rr, z = Math.cos(a) * rr;
+      r.add(simitGeo(), simitCol(SIM_TRAY[1] + y, s2), [x, y, z], [0.08 * Math.cos(a * 3), a, 0.08 * Math.sin(a * 2)], s2);
+    }
+    // the top simit rides its own bone: it is the one he tosses and catches
+    r.bone('simTop', 'tray', new THREE.Vector3(0, 0.16, 0).applyEuler(new THREE.Euler(0.04, 0, 0.12)).add(new THREE.Vector3(...SIM_TRAY)).toArray());
+    r.add(simitGeo(), simitCol(SIM_TRAY[1] + 0.16, 0.07), [0, 0.16, 0], [0.12, 0.5, 0], 0.07);
+    if (E) crown(r.on('tray').fx(0, 0), [0, 0.19, 0], 0.5, '#ff5a50');
+    r.pop().fx(0, 0);
+    return { height: 1.3, glowC: col('#ffb13a'), tex: texOf('fabric'), hide: ['simit'], mat: { rough: 0.55, ns: 0.8, sss: col('#ffd8c0').multiplyScalar(0.03) } };
+  }
+  function animSimitci(m, dt, st, s) {
+    const B = m.B;
+    B.simit.scale.setScalar(0.0001);
+    if (townCheer(m, st, s)) { B.tray.rotation.z = Math.sin(s.t * 9) * 0.08; return; }
+    const [, w] = townWalk(m, dt, st, s, { rate: 6, stride: 0.45, arm: 0.3, bob: 0.045, hihSide: -1 });
+    const br = Math.sin(s.t * 2.2 + s.ph);
+    B.body.scale.set(1 + 0.01 * br, 1 + 0.012 * br, 1 + 0.01 * br);
+    // left fist on the hip (sulky), the tray balanced (it lags a little behind the head)
+    B.armL.rotation.set(0, 0, 0); B.foreL.rotation.set(0, 0, 0);
+    B.tray.rotation.z = -B.head.rotation.z * 0.6 + Math.sin(s.walk) * 0.03 * w; B.tray.rotation.x = Math.sin(s.walk * 2) * 0.02 * w;
+    let top = 1;
+    if (st.windup >= 0) {   // 0–0.22 hand up beside the head, palm up · 0.16–0.32 bounce: the top simit hops off · 0.45 caught ·
+      // 0.47–0.75 wound back over the shoulder · 0.75–1 swung forward (it leaves the hand at 1)
+      const u = st.windup, g = smooth01(u / 0.22), c = smooth01((u - 0.47) / 0.28), t = smooth01((u - 0.75) / 0.25), hop = bump(u - 0.14, 0.18);
+      const catchK = bump(u - 0.44, 0.12);
+      B.armR.rotation.set(lerp(lerp(lerp(B.armR.rotation.x, 0.1, g), -0.75, c), -1.75, t), 0, lerp(lerp(lerp(-0.06, -2.6, g), -2.2, c), -0.3, t));
+      B.foreR.rotation.set(lerp(0.3 * catchK, 0, c), 0, lerp(lerp(lerp(0, -0.55, g), -1.25, c), 0, t));
+      B.armR.position.y += 0.05 * g * (1 - t);   // (a little shrug: the palm as high as it goes, beside his head)
+      B.body.rotation.y += -0.42 * c * (1 - t) + 0.3 * t; B.body.rotation.x += -0.1 * c * (1 - t) + 0.14 * t;
+      B.head.rotation.y -= B.body.rotation.y * 0.7; B.head.rotation.x += 0.1 * c * (1 - t) - 0.14 * hop - 0.16 * t;
+      B.hips.position.y += 0.04 * hop - 0.02 * catchK;
+      B.tray.rotation.x -= 0.08 * hop; B.tray.rotation.z += 0.1 * hop;
+      if (u >= 0.2 && u < 0.45) {   // the flight from the tray into the hand (this frame's pose: the hand in the tray's frame)
+        const f = (u - 0.2) / 0.25;
+        m.marker('muzzle', _hw); B.tray.worldToLocal(_hw);
+        B.simTop.position.lerpVectors(B.simTop.userData.p0, _hw, smooth01(f)).y += Math.sin(PI * Math.min(1, f * 1.15)) * 0.22;
+        B.simTop.rotation.set(f * TAU * 1.25, 0, f * 1.6);
+      }
+      if (u >= 0.45) { top = 0; B.simit.scale.setScalar(1 + 0.25 * catchK); }
+      B.hips.position.x += Math.sin(s.t * 48) * 0.006 * c * (1 - t);
+    }
+    if (st.attack >= 0) {   // follow-through: the empty hand swings on down across the front, then back to the side
+      const a = st.attack, d = smooth01(a / 0.3), back = smooth01((a - 0.4) / 0.6);
+      B.armR.rotation.set(lerp(lerp(-1.75, -0.8, d), 0, back), 0, lerp(-0.3, 0.15, d) * (1 - back)); B.foreR.rotation.set(lerp(-0.1, -0.35, d) * (1 - back), 0, 0);
+      B.body.rotation.y += lerp(0.3, 0.4, d) * (1 - back); B.body.rotation.x += 0.16 * (1 - back); B.head.rotation.y -= B.body.rotation.y * 0.7; B.head.rotation.x -= 0.18 * (1 - back);
+      top = smooth01((a - 0.45) / 0.4);   // a new simit pops onto the tray
+      top *= 1 + 0.3 * Math.sin(PI * top);
+    }
+    B.simTop.scale.setScalar(Math.max(0.0001, top));
+  }
+
+  // ── Huysuz Süpürgeci (~1.2 m): a quick street sweeper in green overalls (a yellow knee patch) over a sunny orange shirt, a blue
+  // flat cap with a red patch, a big straw broom held in both hands (it rides the body: sweeping = twisting from the waist).
+  // Glide (like kaymak): wind-up = crouches low, broom drawn back to the right; attack = whooshes along the lane, sweeping fast
+  // (st.attack = the share of the lane), then st.attack 1 = straightens up and wipes his brow ("phew"). ──
+  const SUP_BODY = [[0, 0.24], [0.17, 0.24], [0.2, 0.28], [0.205, 0.38], [0.2, 0.48], [0.19, 0.56], [0.16, 0.62], [0.1, 0.655], [0, 0.66]];
+  const BROOM_P = [[0, 0], [0.045, 0.004], [0.06, 0.03], [0.075, 0.1], [0.1, 0.2], [0.13, 0.3], [0.155, 0.4], [0.17, 0.46], [0.1, 0.475], [0, 0.48]];
+  // the straw bundle of the broom: a flared lathe whose end is cut ragged (twig ends of uneven length)
+  function broomGeo() {
+    const sg = sN(30, 16);
+    return gx('broom@' + sg, () => {
+      const v = new THREE.SplineCurve(BROOM_P.map(p => new THREE.Vector2(p[0], p[1]))).getPoints(BROOM_P.length * 3);
+      v.forEach(q => { q.x = Math.max(0, q.x); });
+      const g = new THREE.LatheGeometry(v, sg), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(x, z), k = smooth01((y - 0.36) / 0.1);
+        p.setY(i, y + k * 0.07 * (hash3(Math.floor((a + PI) / TAU * sg + 0.5) % sg, 7, 1) - 0.35));
+      }
+      g.computeVertexNormals();
+      return seamNormals(g);
+    });
+  }
+  const SUP_TOP = [-0.22, 0.62, -0.04], SUP_BIND = [0.2, 0.29, 0.34];
+  function buildSupurgeci(r, o) {
+    const E = o.elite;
+    let ov = col('#39c26c'), ovD = col('#23945a'), shirt = col('#ff9a3a');
+    if (E) { ov = rich(ov, 1.2, 0.85); ovD = rich(ovD, 1.2, 0.85); shirt = rich(shirt, 1.15, 0.92); }
+    const skin = '#b87a52', hair = '#2a1a14', shoe = '#6a3a22', cap = E ? '#2a58d8' : '#4a82ee', HC = [0, 0.885, 0.02], HR = 0.245;
+    r.bone('hips', 'root', [0, 0.33, 0]); r.bone('body', 'hips', [0, 0.37, 0]); r.bone('head', 'body', [0, 0.66, 0]);
+    r.bone('legL', 'hips', [0.085, 0.33, 0]); r.bone('legR', 'hips', [-0.085, 0.33, 0]);
+    townLeg(r, 1, [0.085, 0.33, 0], [0.09, 0.09, 0.01], ov, shoe, { r: 0.056 });
+    townLeg(r, -1, [-0.085, 0.33, 0], [-0.09, 0.09, 0.01], ov, shoe, { r: 0.056 });
+    r.on('legL').fx(0, 0.1, 1).add(G.rbox(2), '#ffd23f', [0.09, 0.2, 0.05], [0, 0.2, 0.15], [0.06, 0.06, 0.02]).fx(0, 0);   // knee patch
+    // orange shirt with green overalls: the trousers up to a waistband, the bib panel on the front, the straps over the
+    // shoulders, two big buttons
+    r.on('body').fx(0, 0, 1).uv(3, 1).add(lathe('supBody', SUP_BODY, 32), (() => { const out = new THREE.Color(); return (x, y) => y < 0.39 ? out.copy(ov).lerp(ovD, 0.25 * smooth01((0.32 - y) / 0.08)) : out.copy(shirt); })());
+    const bib = gx('supBib@' + sN(12, 6), () => {
+      const v = new THREE.SplineCurve([[0.213, 0.37], [0.213, 0.42], [0.208, 0.48], [0.2, 0.53], [0.191, 0.575]].map(p => new THREE.Vector2(p[0], p[1]))).getPoints(10);
+      return seamNormals(new THREE.LatheGeometry(v, sN(12, 6), -0.62, 1.24));
+    });
+    r.uv(2, 1).add(bib, ov).uv(null);
+    r.fx(0, 0.35).add(G.torus(TAU, 0.2, 28), ovD, [0, 0.39, 0], [PI / 2, 0, 0], [0.208, 0.208, 0.1]);   // waistband
+    r.fx(0, 0.1, 1);
+    for (const sd of [-1, 1]) r.seg([sd * 0.105, 0.565, 0.16], [sd * 0.12, 0.65, 0.0], 0.022, ovD, 0.022, 6).seg([sd * 0.12, 0.65, 0.0], [sd * 0.1, 0.42, -0.19], 0.022, ovD, 0.022, 6);
+    r.fx(0, 2);
+    for (const sd of [-1, 1]) r.add(G.sphere(10, 8), GOLD, [sd * 0.1, 0.545, 0.174], null, [0.022, 0.022, 0.012]);
+    r.fx(0, 0.2, 1).add(G.torus(TAU, 0.35, 24), '#ffe07a', [0, 0.645, 0.01], [PI / 2 - 0.1, 0, 0], [0.1, 0.1, 0.09]).fx(0, 0);   // yellow collar
+    // arms (orange sleeves to the wrists) reaching to the broom handle; the broom rides the body
+    const d = new THREE.Vector3(...SUP_BIND).sub(new THREE.Vector3(...SUP_TOP)).normalize(), at = t => [SUP_TOP[0] + d.x * t, SUP_TOP[1] + d.y * t, SUP_TOP[2] + d.z * t];
+    const hR = at(0.13), hL = at(0.43);
+    townArm(r, -1, [[-0.17, 0.57, 0], [-0.25, 0.47, 0.06], hR], shirt, skin, { r: 0.046, cuff: '#e87a1a' });
+    townArm(r, 1, [[0.17, 0.57, 0], [0.16, 0.44, 0.15], hL], shirt, skin, { r: 0.046, cuff: '#e87a1a' });
+    r.bone('broom', 'body', at(0.3));
+    {
+      const wc = (() => { const out = new THREE.Color(), a = col(TOWN.woodL), b = col(TOWN.wood); return (x, y, z) => out.copy(a).lerp(b, 0.3 + 0.3 * Math.sin(y * 80 + x * 40)); })();
+      const tip = at(-0.05);
+      r.on('broom').fx(0, 0.25).seg(tip, SUP_BIND, 0.019, wc, 0.019, 10).add(G.sphere(8, 6), TOWN.woodD, tip, null, 0.024);
+      // the straw head: a flared bundle (flattened into a fan), straw streaks, red twine bands
+      const q = qb([d.x, d.y, d.z], [0, 1, 0]);   // (the fan spreads sideways, flat toward the sky)
+      const sc = [1, 1, 0.5], straw = col(E ? '#ffd23f' : '#f2c454'), strawD = col('#c89430'), strawL = col('#ffe89a'), out = new THREE.Color(), B0 = new THREE.Vector3(...SUP_BIND);
+      r.push(SUP_BIND, q, sc).fx(0, 0.1).add(broomGeo(), (x, y, z) => {
+        const h = hash3(Math.floor(Math.atan2(x - B0.x, z - B0.z) * 5 + 20), Math.floor(Math.hypot(x - B0.x, y - B0.y, z - B0.z) * 12), 3), dd = Math.hypot(x - B0.x, y - B0.y, z - B0.z);
+        return out.copy(strawD).lerp(straw, 0.25 + 0.75 * h).lerp(strawL, smooth01((dd - 0.3) / 0.14) * 0.45);
+      });
+      for (let i = 0; i < 7; i++) {   // a few loose twigs poking out of the fan
+        const a = (i / 6 - 0.5) * 2.4, ln = 0.1 + 0.05 * hash3(i, 3, 3);
+        r.add(G.cone(5), i & 1 ? strawD : straw, [Math.sin(a) * 0.15, 0.45 + ln * 0.4, Math.cos(a) * 0.15], [0, 0, 0], [0.012, ln, 0.012]);
+      }
+      r.fx(0, 0.2).add(G.torus(TAU, 0.2, 20), '#e83a3a', [0, 0.04, 0], [PI / 2, 0, 0], [0.066, 0.066, 0.2]);
+      r.add(G.torus(TAU, 0.2, 20), '#e83a3a', [0, 0.1, 0], [PI / 2, 0, 0], [0.08, 0.08, 0.2]);
+      r.pop().fx(0, 0);
+    }
+    // head: black curls under the cap, the flat cap (pushed back a little, askew) with a red patch and a short visor
+    townHead(r, HC, HR, { skin, ex: 0.095, ey: 0.02, er: 0.084, iris: '#3a2214', browCol: hair, browY: 1.34, browSide: 1, browRaise: 0.24,
+      mouthY: -0.13, mouthW: 0.092, glance: 0.8, poutX: 0.14, lipCol: '#d85a72', blushCol: '#ff6a7e', heartY: 1.05, heartX: 1.15 });
+    r.on('head').fx(0, 0.15);   // black curls round the head under the cap
+    for (let i = 0; i < 11; i++) {
+      const a = 0.75 + i / 10 * (TAU - 1.5), y = 1.02 - 0.05 * Math.abs(Math.cos(a / 2)) + 0.02 * (i & 1), s2 = 0.05 + 0.012 * (i & 1);
+      r.add(fluffGeo(14), hair, [Math.sin(a) * HR * 0.93, y, HC[2] + Math.cos(a) * HR * 0.9], null, [s2, s2 * 0.9, s2]);
+    }
+    // the flat cap, pushed back and worn askew: its visor sticks out to his left front
+    r.push([0.02, 1.07, -0.02], [-0.28, 0.55, 0.1]);
+    const capD = mixc(cap, '#1a2a70', 0.28);
+    r.fx(0, 0.15, 1).add(G.sphere(28, 16), vgrad(0, 0.12, [[0, capD], [1, cap]]), [0, 0.025, 0.02], null, [0.265, 0.095, 0.29]);
+    r.add(G.torus(TAU, 0.2, 28), capD, [0, 0.012, 0], [PI / 2, 0, 0], [0.25, 0.25, 0.15]);
+    r.fx(0, 0.2, 1).add(G.sphere(20, 8), capD, [0, 0.0, 0.31], [0.4, 0, 0], [0.18, 0.026, 0.13]);   // visor
+    {   // the patch: a yellow square stitched on with red, lying on the cap's top
+      const [pp, pn] = onEll([0, 0.025, 0.02], [0.265, 0.095, 0.29], 0.55, -1.1), pq = qy(...pn);
+      r.fx(0, 0.1, 1).add(G.rbox(2), '#ffd23f', pp, pq, [0.1, 0.014, 0.09]);
+      r.fx(0, 0.3);
+      for (const [dx, dz] of [[-0.042, -0.037], [0.042, -0.037], [-0.042, 0.037], [0.042, 0.037], [0, -0.04], [0, 0.04]]) r.add(G.sphere(6, 4), '#e8303a', new THREE.Vector3(dx, 0.009, dz).applyQuaternion(pq).add(new THREE.Vector3(...pp)).toArray(), null, 0.009);
+    }
+    r.add(G.sphere(10, 8), '#ffd23f', [0, 0.142, 0.01], null, [0.03, 0.018, 0.03]);
+    if (E) crown(r.fx(0, 0), [0.07, 0.12, -0.04], 0.5, '#39c26c');
+    r.pop().fx(0, 0);
+    r.on('broom').mark('muzzle', SUP_BIND);
+    return { height: 1.2, glowC: col('#ffb13a'), tex: texOf('fabric'), hide: [], mat: { rough: 0.55, ns: 0.8, sss: col('#ffd8c0').multiplyScalar(0.03) } };
+  }
+  function animSupurgeci(m, dt, st, s) {
+    const B = m.B;
+    if (townCheer(m, st, s)) return;
+    const [ph, w] = townWalk(m, dt, st, s, { rate: 8, stride: 0.6, arm: 0, bob: 0.04, hihSide: 1 });
+    // hands stay on the broom; walking he sweeps along (a slow twist from the waist every other step), standing now and then
+    B.armL.rotation.set(0, 0, 0); B.armR.rotation.set(0, 0, 0); B.foreL.rotation.set(0, 0, 0); B.foreR.rotation.set(0, 0, 0);
+    s.sw = (s.sw || 0) + dt * (1.5 + 3.5 * s.mv);
+    let tw = Math.sin(s.sw) * (0.12 + 0.2 * w), lean = 0.08 * w, low = 0;
+    if (st.windup >= 0) {   // crouch, lean in, broom drawn back to the right, a little tremble at the end
+      const u = smooth01(st.windup * 1.4);
+      tw = lerp(tw, -0.6, u); lean = lerp(lean, 0.24, u); low = 0.07 * u;
+      B.legL.rotation.z = 0.22 * u; B.legR.rotation.z = -0.22 * u; B.legL.rotation.x = -0.2 * u; B.legR.rotation.x = 0.2 * u;
+      B.hips.position.x += Math.sin(s.t * 55) * 0.008 * st.windup;
+    }
+    if (st.attack >= 0 && st.attack < 1) {   // the whoosh: low and leaning, sweeping fast from side to side, gliding on a skating stride
+      const a = st.attack, k = smooth01(a / 0.1) * (1 - 0.5 * smooth01((a - 0.85) / 0.15));
+      tw = lerp(-0.6, Math.sin(s.t * 20) * 0.55, smooth01(a / 0.08)); lean = 0.3 * k; low = 0.08 * k;
+      B.legL.rotation.x = -0.45 * k; B.legR.rotation.x = 0.4 * k; B.legL.rotation.z = 0.08 * k; B.legR.rotation.z = -0.08 * k;
+      B.hips.position.y += Math.abs(Math.sin(s.t * 20)) * 0.012 * k;
+    } else if (st.attack >= 1) {   // phew: stands up, the broom still in one hand, the other wipes his brow
+      s.rec = (s.rec || 0) + dt;
+      const e = smooth01(s.rec / 0.2);
+      tw *= 0.3; lean = -0.08 * e;
+      B.armL.rotation.set(-2.2 * e, 0, 0.5 * e); B.foreL.rotation.set(-1.2 * e, 0, 0.9 * e);
+      B.head.rotation.z += Math.sin(s.t * 6) * 0.08 * e;
+    }
+    if (!(st.attack >= 1)) s.rec = 0;
+    // (the head stays up while he leans in: his face keeps looking ahead, visible under the cap from the camera above)
+    B.body.rotation.y += tw; B.head.rotation.y -= tw * 0.75; B.body.rotation.x += lean; B.head.rotation.x -= lean * (lean > 0 ? 1.15 : 0.7);
+    B.hips.position.y -= low; B.hips.rotation.x = 0;
+    B.broom.rotation.z = Math.sin(s.sw * 2) * 0.04 * (st.attack >= 0 ? 0 : 1);
+  }
+
+  // ── Huysuz Tellal (~1.95 m, the pack's big one): the town crier with a big round belly, a tall purple pointy hat with a golden
+  // bell on its floppy tip, a teal coat with a yellow sash, curled-toe slippers and a big decorated davul on his belly (its front
+  // head tilted up with the smiling-sun crest), a padded mallet in each hand. Slam: wind-up = both mallets raised high, leaning
+  // back (1 s); attack = BOOM at st.attack 0 (GAME's ring), the drum squashes, the bell jumps, then he settles. ──
+  const TEL_BODY = [[0, 0.44], [0.33, 0.44], [0.43, 0.5], [0.49, 0.64], [0.505, 0.8], [0.485, 0.96], [0.42, 1.1], [0.28, 1.19], [0, 1.21]];
+  const TEL_HAT = [[0.285, 0], [0.28, 0.04], [0.24, 0.1], [0.19, 0.17], [0.14, 0.23], [0.1, 0.27], [0, 0.29]];
+  const TEL_DRUM = [0, 0.8, 0.6], TEL_N = new THREE.Vector3(0, 0.36, 0.93).normalize(), TEL_HANDL = [0.54, 0.66, 0.16], TEL_HANDR = [-0.54, 0.66, 0.16];
+  const TEL_MAL = sd => [-sd * 0.04, 0.08, 0.42];   // a mallet from the hand to its head (see buildTellal)
+  function buildTellal(r, o) {
+    const E = o.elite;
+    let coat = col('#22b0a4'), coatD = col('#15857e'), hat = col('#8a52dc'), drum = col('#ec4438');
+    if (E) { coat = rich(coat, 1.2, 0.85); coatD = rich(coatD, 1.2, 0.85); hat = rich(hat, 1.2, 0.85); drum = rich(drum, 1.15, 0.9); }
+    const skin = '#dea47c', beard = '#6a4430', HC = [0, 1.47, 0.03], HR = 0.3;
+    r.bone('hips', 'root', [0, 0.5, 0]); r.bone('body', 'hips', [0, 0.56, 0]); r.bone('head', 'body', [0, 1.2, 0]);
+    r.bone('legL', 'hips', [0.18, 0.5, 0]); r.bone('legR', 'hips', [-0.18, 0.5, 0]);
+    for (const sd of [-1, 1]) {
+      townLeg(r, sd, [0.18 * sd, 0.5, 0], [0.19 * sd, 0.12, 0.02], '#ffd23f', '#d8443a', { r: 0.1, shoe: [0.12, 0.085, 0.19], tex: 1 });
+      r.fx(0, 0.1).add(fluffGeo(12), GOLD, [0.19 * sd, 0.13, 0.2], null, 0.04).fx(0, 0);   // a little golden pompom on each slipper
+    }
+    // coat over the big belly (gold buttons down the front, mostly behind the drum), a wide yellow sash
+    r.on('body').fx(0, 0, 1).uv(4, 1).add(lathe('telBody', TEL_BODY, 34, 4), vgrad(0.44, 1.21, [[0, coatD], [0.3, coat], [1, mixc(coat, '#ffffff', 0.08)]]));
+    r.uv(null).fx(0, 0.15, 1).add(G.torus(TAU, 0.1, 40), '#ffd23f', [0, 0.53, 0], [PI / 2, 0, 0], [0.45, 0.45, 0.45]);
+    r.fx(0, 2);
+    for (const y of [0.64, 0.74, 1.02, 1.1]) { const rr = profR('telBody', TEL_BODY)(y); r.add(G.sphere(10, 8), GOLD, [0, y, rr + 0.005], null, [0.03, 0.03, 0.015]); }
+    r.fx(0, 0.2, 1).add(G.torus(TAU, 0.4, 28), '#ffd23f', [0, 1.19, 0.01], [PI / 2 - 0.1, 0, 0], [0.19, 0.19, 0.12]).fx(0, 0);
+    // arms: teal sleeves with yellow cuffs; a padded mallet in each hand
+    townArm(r, 1, [[0.42, 1.08, 0], [0.56, 0.87, 0.04], TEL_HANDL], coat, skin, { r: 0.085, cuff: '#ffd23f', hand: 0.1 });
+    townArm(r, -1, [[-0.42, 1.08, 0], [-0.56, 0.87, 0.04], TEL_HANDR], coat, skin, { r: 0.085, cuff: '#ffd23f', hand: 0.1 });
+    const wc = (() => { const out = new THREE.Color(), a = col(TOWN.woodL), b = col(TOWN.wood); return (x, y, z) => out.copy(a).lerp(b, 0.3 + 0.3 * Math.sin(y * 60 + z * 30)); })();
+    for (const sd of [-1, 1]) {
+      const H = sd > 0 ? TEL_HANDL : TEL_HANDR, n = sd > 0 ? 'malletL' : 'malletR', end = TEL_MAL(sd).map((d, i) => H[i] + d);
+      r.bone(n, sd > 0 ? 'foreL' : 'foreR', H);
+      r.on(n).fx(0, 0.25).seg([H[0] + sd * 0.01, H[1] - 0.03, H[2] - 0.07], end, 0.022, wc, 0.02, 10);
+      r.fx(0, 0).add(fluffGeo(20), sd > 0 ? '#f4e2c4' : '#e2463c', end, null, sd > 0 ? 0.075 : 0.09);
+      r.fx(0, 0);
+      r.mark(n, end);
+    }
+    // the davul: a red shell with golden zigzags and a rope lacing between golden hoops, cream heads, the sun crest on the front
+    r.bone('drum', 'body', TEL_DRUM);
+    {
+      const n = TEL_N, q = qy(n.x, n.y, n.z), qf = qz(n.x, n.y, n.z), D = new THREE.Vector3(...TEL_DRUM), Rd = 0.3, Ld = 0.36;
+      const u = new THREE.Vector3(1, 0, 0), v = new THREE.Vector3().crossVectors(n, u), out = new THREE.Color(), gd = col(GOLD), dD = mixc(drum, '#8a1a2a', 0.35), tmp = new THREE.Vector3();
+      const shell = (x, y, z) => {
+        tmp.set(x, y, z).sub(D); const h = tmp.dot(n) / Ld, a = Math.atan2(tmp.dot(v), tmp.dot(u)), zz = Math.abs(h - 0.18 * Math.abs(((a / TAU * 12 % 1) + 1) % 1 - 0.5) * 2 + 0.09);
+        return out.copy(drum).lerp(dD, smooth01(-h / 0.5) * 0.4).lerp(gd, zz < 0.05 ? 1 : 0);
+      };
+      r.on('drum').fx(0, 0.5).add(G.cyl(1, 1, 36, true), shell, TEL_DRUM, q, [Rd, Ld, Rd]);
+      for (const sd of [-1, 1]) {
+        const c = [D.x + n.x * Ld * 0.5 * sd, D.y + n.y * Ld * 0.5 * sd, D.z + n.z * Ld * 0.5 * sd];
+        r.fx(0, 0.15).add(G.cyl(1, 1, 36), sd > 0 ? '#eed8b4' : '#e2c8a0', c, q, [Rd * 0.99, 0.012, Rd * 0.99]);
+        r.fx(0, 2).add(G.torus(TAU, 0.1, 40), GOLD, c, qf, [Rd * 1.02, Rd * 1.02, 0.35]);
+      }
+      r.fx(0, 0.3);   // rope lacing: a zigzag from hoop to hoop
+      for (let i = 0; i < 8; i++) {
+        const a0 = i / 8 * TAU, a1 = (i + 0.5) / 8 * TAU, e0 = [], e1 = [];
+        for (const [a, h, arr] of [[a0, 0.48, e0], [a1, -0.48, e1]]) { const p = D.clone().addScaledVector(n, h * Ld).addScaledVector(u, Math.cos(a) * Rd * 1.04).addScaledVector(v, Math.sin(a) * Rd * 1.04); arr.push(p.x, p.y, p.z); }
+        r.seg(e0, e1, 0.008, '#fff4d8', 0.008, 5);
+        const a2 = (i + 1) / 8 * TAU, p2 = D.clone().addScaledVector(n, 0.48 * Ld).addScaledVector(u, Math.cos(a2) * Rd * 1.04).addScaledVector(v, Math.sin(a2) * Rd * 1.04);
+        r.seg(e1, [p2.x, p2.y, p2.z], 0.008, '#fff4d8', 0.008, 5);
+      }
+      const F = D.clone().addScaledVector(n, Ld * 0.5 + 0.012);
+      sunCrest(r, [F.x, F.y, F.z], qf, 0.2);
+      r.on('body').fx(0, 0.25, 1);   // the strap: a flat red band from the drum's upper-left hoop over the left shoulder, down the back
+      const SP = [[0.2, 0.97, 0.47], [0.26, 1.09, 0.35], [0.3, 1.185, 0.1], [0.3, 1.18, -0.13], [0.26, 1.06, -0.37], [0.2, 0.9, -0.47]];
+      for (let i = 0; i < SP.length - 1; i++) {
+        const a = new THREE.Vector3(...SP[i]), b = new THREE.Vector3(...SP[i + 1]), d = b.clone().sub(a), mid = a.clone().add(b).multiplyScalar(0.5);
+        r.add(G.rbox(2), '#e8483c', mid.toArray(), qb(d.toArray(), [mid.x, mid.y - 0.7, mid.z]), [0.075, d.length() + 0.03, 0.022]);
+      }
+      r.fx(0, 0);
+    }
+    // head: bushy sideburns + brows, rosy cheeks, a round nose
+    townHead(r, HC, HR, { skin, ex: 0.115, ey: 0.03, er: 0.1, iris: '#3a2418', browCol: beard, browY: 1.32, browSide: 1, browRaise: 0.2, browT: 0.48, browW: 1.12,
+      mouthY: -0.15, mouthW: 0.11, glance: 0.7, poutX: 0.12, noseK: 1.5, blushCol: '#ff6a86', heartY: 0.95, heartX: 1.15, cheekY: 1.15 });
+    r.on('head').fx(0, 0.15);
+    for (const sd of [-1, 1]) {
+      r.add(fluffGeo(18), beard, [sd * 0.27, 1.4, 0.06], null, [0.07, 0.11, 0.08]);
+      r.add(fluffGeo(14), beard, [sd * 0.24, 1.33, 0.12], null, [0.06, 0.07, 0.06]);
+    }
+    for (const [a, y, s] of [[2.2, 1.5, 0.1], [-2.2, 1.5, 0.1], [PI, 1.48, 0.12]]) r.add(fluffGeo(16), beard, [Math.sin(a) * HR * 0.9, y, HC[2] + Math.cos(a) * HR * 0.84], null, [s, s * 0.8, s]);
+    // tall pointy hat (pushed back): a yellow roll brim, gold stars, the floppy tip with the bell on its own bones
+    r.bone('hat', 'head', [0, 1.66, -0.02]); r.bone('hatTip', 'hat', [0, 1.92, -0.06]); r.bone('bell', 'hatTip', [0, 2.06, -0.2]);
+    r.on('hat').push([0, 1.66, -0.02], [-0.22, 0, 0]);
+    r.fx(0, 0.15, 1).add(lathe('telHat', TEL_HAT, 36, 3), vgrad(0, 0.3, [[0, mixc(hat, '#3a1a70', 0.2)], [1, hat]]), [0, 0, 0], null, [1, 1, 1]);
+    r.add(G.torus(TAU, 0.3, 36), '#ffd23f', [0, 0.012, 0], [PI / 2, 0, 0], [0.29, 0.29, 0.16]);
+    r.fx(0, 1);
+    for (const [a, y] of [[0.3, 0.12], [-0.6, 0.18], [1.2, 0.08], [-1.5, 0.1]]) { const rr = profR('telHat', TEL_HAT)(y) + 0.004; r.add(starFlat(), GOLD, [Math.sin(a) * rr, y, Math.cos(a) * rr], [-0.3, a, 0], 0.075); }
+    if (E) crown(r.fx(0, 0), [0, 0.05, 0.02], 0.9, '#22b0a4');
+    r.pop();
+    r.on('hatTip').fx(0, 0.15, 1).add(G.cone(16), hat, [0, 1.99, -0.12], [-0.9, 0, 0], [0.1, 0.24, 0.1]);
+    r.add(G.sphere(12, 8), hat, [0, 1.935, -0.07], null, 0.1);
+    r.on('bell').fx(0, 2).add(G.sphere(14, 10), GOLD, [0, 2.03, -0.22], null, [0.05, 0.055, 0.05]);
+    r.add(G.torus(TAU, 0.25, 14), GOLD, [0, 1.995, -0.22], [PI / 2, 0, 0], [0.05, 0.05, 0.05]);
+    r.fx(0, 0.4).add(G.sphere(8, 6), '#8a5a10', [0, 1.99, -0.2], null, 0.018).fx(0, 0);
+    r.on('drum').mark('muzzle', [TEL_DRUM[0] + TEL_N.x * 0.2, TEL_DRUM[1] + TEL_N.y * 0.2, TEL_DRUM[2] + TEL_N.z * 0.2]);
+    {   // where the mallet heads land on the BOOM: on the drum head, a little above its middle, left and right of the crest's nose
+      const v = new THREE.Vector3(0, 1, 0).addScaledVector(TEL_N, -TEL_N.y).normalize();
+      for (const sd of [-1, 1]) r.mark(sd > 0 ? 'hitL' : 'hitR', new THREE.Vector3(...TEL_DRUM).addScaledVector(TEL_N, 0.18 + 0.07).addScaledVector(v, 0.1).add(new THREE.Vector3(sd * 0.12, 0, 0)).toArray());
+    }
+    return { height: 1.95, glowC: col('#ffb13a'), glowK: 0.8, tex: texOf('fabric'), hide: [], mat: { rough: 0.55, ns: 0.8, sss: col('#ffd8c0').multiplyScalar(0.03) } };
+  }
+  function animTellal(m, dt, st, s) {
+    const B = m.B;
+    if (townCheer(m, st, s)) { B.hatTip.rotation.x = Math.sin(s.t * 9) * 0.3; B.bell.rotation.x = Math.sin(s.t * 12) * 0.5; return; }
+    const [ph, w] = townWalk(m, dt, st, s, { rate: 4.5, stride: 0.4, arm: 0.25, bob: 0.05, hihSide: 1 });
+    const br = Math.sin(s.t * 1.8 + s.ph);
+    B.body.scale.set(1 + 0.012 * br, 1 + 0.015 * br, 1 + 0.012 * br);
+    B.hips.rotation.z = Math.sin(ph) * 0.07 * w; B.body.rotation.z = -Math.sin(ph) * 0.03 * w;
+    // mallets held up beside the drum; the floppy hat tip and its bell swing behind the head
+    let aL = -0.55, aR = -0.55, fL = -0.35, fR = -0.35, zL = -0.12, zR = 0.12, lean = 0, hatK = 0, boom = 0, mal = 0, aim = 0;
+    aL += B.armL.rotation.x * 0.3; aR += B.armR.rotation.x * 0.3;
+    if (st.windup >= 0) {   // both mallets raised high over his head (heads up, clear of the hat), leaning back, belly out, trembling
+      const u = smooth01(st.windup * 1.25);
+      aL = lerp(aL, -2.6, u); aR = lerp(aR, -2.6, u); fL = lerp(fL, -0.3, u); fR = lerp(fR, -0.3, u); zL = lerp(zL, 0.12, u); zR = lerp(zR, -0.12, u);
+      mal = 1.3 * u; lean = -0.2 * u; hatK = -0.35 * u;
+      B.hips.position.x += Math.sin(s.t * 42) * 0.012 * smooth01((st.windup - 0.6) / 0.4);
+      B.body.scale.z *= 1 + 0.05 * u;
+    }
+    if (st.attack >= 0) {   // BOOM right at the start: both mallets come down onto the drum head, the drum squashes, then he settles
+      const a = st.attack, hit = smooth01(a / 0.07), back = smooth01((a - 0.35) / 0.65);
+      boom = Math.exp(-a * 9) * Math.sin(Math.min(1, a / 0.07) * PI * 0.5 + a * 40);
+      aL = aR = lerp(lerp(-2.6, -1.5, hit), -0.55, back); fL = fR = lerp(lerp(-0.3, 0, hit), -0.35, back);
+      zL = lerp(lerp(0.12, -0.5, hit), -0.12, back); zR = -zL; mal = 1.3 * (1 - hit); aim = hit * (1 - back);
+      lean = lerp(-0.2, 0.14, hit) * (1 - back); hatK = 0.5 * Math.exp(-a * 5) * Math.sin(a * 22);
+      B.hips.position.y -= 0.06 * Math.exp(-a * 8) * hit;
+    }
+    B.armL.rotation.set(aL, 0, zL); B.armR.rotation.set(aR, 0, zR); B.foreL.rotation.set(fL, 0, 0); B.foreR.rotation.set(fR, 0, 0);
+    B.malletL.rotation.x = B.malletR.rotation.x = mal;
+    B.body.rotation.x += lean; B.head.rotation.x -= lean * 0.6;
+    B.drum.scale.set(1 + 0.08 * boom, 1 - 0.08 * boom, 1 + 0.08 * boom);
+    if (aim > 0.01) for (const sd of [1, -1]) aimAt(sd > 0 ? B.malletL : B.malletR, TEL_MAL(sd), m.marker(sd > 0 ? 'hitL' : 'hitR', _hw), aim);
+    s.hatV = damp(s.hatV || 0, -B.head.rotation.x * 0.8 + Math.sin(ph) * 0.12 * w, 5, dt);
+    B.hat.rotation.x = hatK * 0.3; B.hatTip.rotation.x = s.hatV + hatK + Math.sin(s.t * 1.7 + s.ph) * 0.06; B.hatTip.rotation.z = Math.sin(s.t * 1.3 + s.ph) * 0.08 + Math.sin(ph) * 0.1 * w;
+    B.bell.rotation.x = Math.sin(s.t * 3.1 + s.ph) * 0.2 + hatK * 1.5; B.bell.rotation.z = Math.sin(s.t * 2.3) * 0.15;
+  }
+
+  // ── Sancak (the knight's arena surprise, EMODEL.sancak()): a cute tournament banner (~2.4 m) — a blue + cream candy-striped
+  // pole on a little round stone foot, a golden ball on top with a red pennant, a golden crossbar and a royal-blue swallowtail
+  // cloth with gold trim, two gold tassels and the smiling-sun crest on both sides. Everything rides the 'tip' bone (pivot =
+  // the back edge of the foot): it tips over backwards, so lying down its front (the crest) faces the sky, and the sun smiles
+  // ^ ^ (mood 2) once it lands. While it tips it also turns a quarter on its foot ('root' about the pole, st.side), so it
+  // falls to the LEFT or RIGHT across the screen — tipped straight north it looked as tall as a standing one from the
+  // gameplay camera. 'cloth' sways (+ a soft shader flutter), 'pennant' flaps, 'tw0..2' are the golden glints. ──
+  const BAN = { w: 0.33, h: 0.92, notch: 0.22, top: 2.05, z: 0.055 };
+  const SAN_FOOT = [[0, 0], [0.2, 0], [0.212, 0.018], [0.206, 0.06], [0.18, 0.085], [0.13, 0.11], [0.07, 0.125], [0, 0.13]];
+  const banZ = (u, v) => 0.016 * Math.sin(u * PI * 1.4 + 0.5) * (0.4 + 0.6 * v);   // the cloth's soft ripple (u −1…1, v 0 top … 1)
+  // The cloth hanging from its crossbar (top edge at y = 0, local +z = front): a rippled swallowtail, front and back sheets
+  // (the back a hair behind, normals out), uv 0..1 over the width and height.
+  function bannerGeo() {
+    const nx = sN(10, 6), ny = sN(14, 8);
+    return gx('banner@' + nx + '_' + ny, () => {
+      const pos = [], uv = [], idx = [];
+      for (const side of [1, -1]) {
+        const o = pos.length / 3;
+        for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+          const u = i / nx * 2 - 1, v = j / ny;
+          pos.push(u * BAN.w, -v * (BAN.h - BAN.notch * (1 - Math.abs(u))), banZ(u, v) - (side < 0 ? 0.01 : 0)); uv.push(i / nx, 1 - v);
+        }
+        for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+          const a = o + j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1;
+          if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  // The ribbon wound round the banner pole (a flat band on a helix of radius 1 from y = 0 to 1, `turns` turns; scale it
+  // [pole radius, length, pole radius] — the band keeps its width because it is built for the final proportions).
+  function ribbonGeo(len, rad, turns) {
+    const ts = sN(Math.round(turns * 14), 30), rs = sN(6, 4);
+    return gx('ribbon' + len + '_' + turns + '@' + ts, () => {
+      const pts = [];
+      for (let i = 0; i <= turns * 16; i++) { const t = i / (turns * 16), a = t * turns * TAU; pts.push(new THREE.Vector3(Math.sin(a) * rad, t * len, Math.cos(a) * rad)); }
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), ts, rad * 0.5, rs, false), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {   // flatten the cord into a band lying on the pole
+        const x = p.getX(i), z = p.getZ(i), rr = Math.hypot(x, z) || 1, k = (rad + (rr - rad) * 0.3) / rr;
+        p.setXYZ(i, x * k / rad, p.getY(i) / len, z * k / rad);
+      }
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  function buildSancak(r) {
+    const blue = col('#2d5fe0'), blueL = col('#5a8cf4'), blueD = col('#2244b0'), cream = col('#fff2d8'), out = new THREE.Color();
+    const T = BAN.top, Z = BAN.z, CR = [0, T - 0.41, Z + banZ(0, 0.45) + 0.016];
+    r.bone('tip', 'root', [0, 0, -0.2]);
+    r.bone('cloth', 'tip', [0, T, Z]); r.bone('pennant', 'tip', [0.03, 2.16, 0]);
+    for (let i = 0; i < 3; i++) r.bone('tw' + i, 'tip', CR);
+    // foot: a little round sandstone plinth with a blue band and a golden collar round the pole; its underside (seen once it
+    // has fallen) is painted blue with four golden studs
+    const fg = vgrad(0, 0.13, [[0, '#d8c09a'], [0.5, '#efdcb8'], [1, '#f8ead0']]);
+    r.on('tip').fx(0, 0.15).add(lathe('sanFoot', SAN_FOOT, 24), (x, y, z) => y < 0.001 ? out.copy(blueD).lerp(blue, 0.3 * smooth01(Math.hypot(x, z) / 0.2)) : fg(x, y, z));
+    r.fx(0, 0.35).add(G.torus(TAU, 0.3, 24), blueD, [0, 0.03, 0], [PI / 2, 0, 0], [0.2, 0.2, 0.14]);
+    r.fx(0, 1);
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + PI / 4; r.add(G.sphere(8, 6), '#ffc436', [Math.sin(a) * 0.12, 0.004, Math.cos(a) * 0.12], null, [0.026, 0.012, 0.026]); }
+    r.fx(0, 1).add(G.cyl(0.85, 1, 14), '#ffc436', [0, 0.14, 0], null, [0.055, 0.05, 0.055]);
+    // the pole: cream with a blue ribbon wound round it, a golden collar and ball on top
+    r.fx(0, 0.4).add(G.cyl(1, 1, 12, true), cream, [0, 1.17, 0], null, [0.032, 2.06, 0.032]);
+    r.fx(0, 0.5).add(ribbonGeo(2.06, 0.032, 7.5), blue, [0, 0.14, 0], null, [0.034, 2.06, 0.034]);
+    r.fx(0, 1).add(G.cyl(1, 0.8, 14), '#ffc436', [0, 2.215, 0], null, [0.045, 0.04, 0.045]);
+    r.add(G.sphere(18, 14), vgrad(2.24, 2.37, [[0, '#f0a820'], [1, '#ffe07a']]), [0, 2.3, 0], null, 0.068);
+    // crossbar with ball ends, tied to the pole with a little golden ring
+    r.add(G.torus(TAU, 0.3, 16), '#ffc436', [0, T + 0.012, 0], [PI / 2, 0, 0], [0.045, 0.045, 0.05]);
+    r.seg([-BAN.w - 0.05, T + 0.012, Z - 0.012], [BAN.w + 0.05, T + 0.012, Z - 0.012], 0.016, '#ffc436', 0.016, 10);
+    for (const sd of [-1, 1]) r.add(G.sphere(12, 8), '#ffc436', [sd * (BAN.w + 0.07), T + 0.012, Z - 0.012], null, 0.028);
+    // the red pennant on top, flapping round the pole
+    r.on('pennant').fx(0, 0.2, 1, (x) => smooth01((x - 0.03) / 0.2)).add(extrude('pennant', () => {
+      const sh = new THREE.Shape(); sh.moveTo(0, 0.065); sh.quadraticCurveTo(0.12, 0.05, 0.24, 0.035); sh.lineTo(0.17, 0); sh.lineTo(0.24, -0.035); sh.quadraticCurveTo(0.12, -0.05, 0, -0.065); sh.lineTo(0, 0.065); return sh;
+    }, 0.01, 0.004, 6), vgrad(2.1, 2.22, [[0, '#e8303e'], [1, '#ff6070']]), [0.03, 2.16, 0]);
+    // the cloth: royal blue (lighter at the top), gold trim round its edges, a gold tassel at both tips, the crest both sides
+    const wob = (x, y) => 0.25 + 0.75 * smooth01((T - y) / BAN.h);
+    r.on('cloth').push([0, T, Z]).fx(0, 0.12, 1, wob).uv(2.4, 3.2);
+    r.add(bannerGeo(), (x, y) => out.copy(blueD).lerp(blue, smooth01((y - T + 0.95) / 0.45)).lerp(blueL, 0.35 * smooth01((y - T + 0.25) / 0.25)));
+    r.uv(null).fx(0, 1, 0, wob);
+    const bot = u => -(BAN.h - BAN.notch * (1 - Math.abs(u))), E = [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0]];
+    for (let i = 0; i < E.length - 1; i++) {
+      const [u0, v0] = E[i], [u1, v1] = E[i + 1];
+      r.seg([u0 * BAN.w, v0 ? bot(u0) : 0, banZ(u0, v0) - 0.005], [u1 * BAN.w, v1 ? bot(u1) : 0, banZ(u1, v1) - 0.005], 0.011, '#ffc436', 0.011, 8);
+    }
+    for (const sd of [-1, 1]) {
+      r.add(G.sphere(10, 8), '#ffc436', [sd * BAN.w, -BAN.h, banZ(sd, 1) - 0.005], null, 0.016);
+      r.fx(0, 0.2, 0, wob).add(fluffGeo(14), vgrad(T - BAN.h - 0.12, T - BAN.h, [[0, '#f2a614'], [1, '#ffd23f']]), [sd * BAN.w, -BAN.h - 0.055, banZ(sd, 1) - 0.005], null, [0.035, 0.05, 0.035]);
+      r.fx(0, 1, 0, wob).add(starFlat(), '#ffd23f', [sd * 0.235, -0.13, banZ(sd * 0.7, 0.14) + 0.006], [0, 0, sd * 0.2], 0.085);
+      r.add(starFlat(), '#ffd23f', [sd * 0.235, -0.13, banZ(sd * 0.7, 0.14) - 0.016], [0, PI, -sd * 0.2], 0.085);
+    }
+    r.pop();
+    sunCrest(r, CR, null, 0.2, { gl: 1, moods: true, wob });
+    sunCrest(r, [0, CR[1], Z + banZ(0, 0.45) - 0.026], qz(0, 0, -1), 0.2, { gl: 1, moods: true, wob });
+    // golden glints (shown while it glows; they burst out of the crest when it lands)
+    for (let i = 0; i < 3; i++) {
+      r.on('tw' + i).fx(1, 0).add(G.octa(), hdr('#ffd66a', 2.4), CR, null, [0.026, 0.06, 0.026]);
+      r.add(G.octa(), hdr('#ffd66a', 2.4), CR, [0, 0, PI / 2], [0.018, 0.04, 0.018]);
+    }
+    r.fx(0, 0);
+    return { height: 2.4, tex: texOf('fabric'), hide: ['tw0', 'tw1', 'tw2'] };
+  }
+
+  // ── Huysuz Şövalye (the town's boss, ~3.4 m with his plume): a very grumpy chibi knight in shiny silver armour with gold trim
+  // — a round helmet with its visor pushed up (the sulky "hıh!" face in the opening: bushy arched brows, a curly ginger
+  // moustache), a tall rainbow plume, a royal-blue tabard with the smiling-sun crest, a red round shield hanging at his left
+  // side, a red-and-white jousting lance with a big soft padded ball — on a big chunky friendly chestnut horse (big lashed
+  // eyes, a flaxen mane plaited along the crest with red and blue bows, a blue/yellow checkered caparison, a silver chanfron
+  // with a golden star, white socks and fluffy feathered hooves). Rig: root → horse (pivot = the hind hips: rearing, skids) →
+  // four two-bone legs, hNeck → hHead → hJaw / hEars / hEyes (pupils on their own bones: looking about, cross-eyed when
+  // dizzy), tail; horse → kHips (the saddle) → body → head (face bones) → helm (it comes off in the goodbye) → plume; two-bone
+  // arms, the lance on the right hand (pointed in the saddle's frame, see holdDir), the horseshoe and the little horn on the
+  // left. Phases and their beats: EDEF.sovalye. ──
+  const SV_BODY = [[0, -1.12], [0.32, -1.08], [0.5, -0.99], [0.6, -0.86], [0.65, -0.68], [0.66, -0.36], [0.66, 0.1], [0.64, 0.42], [0.59, 0.64], [0.49, 0.8], [0.34, 0.91], [0.16, 0.97], [0, 0.98]];   // the barrel: [radius, z]
+  const SV = { cy: 1.13, sx: 0.95, kz: -0.12 };   // barrel axis height, its width squash; the knight's seat (z)
+  const SV_LEGS = [['FL', 1, 0.56], ['FR', -1, 0.56], ['BL', 1, -0.7], ['BR', -1, -0.7]];
+  const SV_LEG = [0.48, 0.25], SV_FET = 0.17;   // hip → knee / hock, knee → fetlock; the fetlock's height over the sole (hips at 0.9)
+  const SV_LEGD = [Math.atan2(0.01, 0.48), Math.atan2(0.01, 0.25)];   // (the bind pose's knee and fetlock sit 1 cm forward each: their lean)
+  // the trot: stride speed at st.move 1 when GAME does not move him (test pages), the fastest stride, cadence (s.walk rad/s =
+  // rate + rateV × ground speed), share of the stride a hoof is on the ground, the bounce down into each step (the knees give
+  // in mid-stance), hoof lifts (front, hind)
+  const SV_TROT = { v: 2.0, vMax: 3.4, rate: 7.0, rateV: 2.8, duty: 0.5, dip: 0.035, liftF: 0.15, liftB: 0.11 };
+  const SV_N0 = [0, 1.38, 0.66], SV_N1 = [0, 1.92, 1.1];   // the horse's neck (base, top)
+  const SV_HH = [0, 2.2, 1.3], SV_HHR = 0.37, SV_MUZ = [0, 1.97, 1.66], SV_MUZA = [0.27, 0.18, 0.31];   // horse cranium, muzzle
+  const SV_KHC = [0, 2.68, -0.1], SV_KHR = 0.36, SV_KTILT = 0.3;   // the knight's head (centre, radius, face tilt)
+  const SV_HANDR = [-0.4, 1.93, 0.18], SV_HANDL = [0.54, 1.95, -0.06];   // the lance hand, the left hand (resting on the shield's rim)
+  const SV_LANCE = { butt: -0.42, grip: 0.1, vamp: 0.36, tip: 2.17, ball: 0.16 };   // along the lance, from the hand
+  const SV_REST = { psi: -0.55, phi: 1.12 };   // the lance at rest: out to his right, raised 64° (clear of his face)
+  // left-arm poses [x, y, z, forearm] (short chibi arms: the hand reaches about shoulder height): on the reins, holding the horn
+  // to his lips (with the horn's length), loose while dizzy, raised high waving his helmet
+  const SV_LREIN = [-1.0, -0.6, -0.5, -0.3], SV_LHORN = [-1.4, -0.9, -0.6, -1.2], SV_LDIZZY = [0.25, 0, 0.55, 0.35], SV_LWAVE = [0, -0.2, 1.7, 0.6];
+  const SV_CAP = { z0: -0.82, z1: 0.58, k: 1.05, hem: 0.46, S: 6, T: 14, dag: 0.075 };
+  // The caparison's drape: s 0..1 along the body (back → front), l = the length across from the left hem (0 … L): up the left
+  // side, over the barrel's top arc, down the right side; a hem of rounded tabs, one per square, flaring out a little.
+  function capDrape() {
+    const C = SV_CAP, R = SV_BODY[6][0] * C.k, ax = R * SV.sx, H = SV.cy - C.hem, A = PI * Math.sqrt((ax * ax + R * R) / 2), L = 2 * H + A, cw = L / C.T;
+    const P = (s, l, out) => {
+      if (l <= H || l >= L - H) {
+        const sd = l <= H ? 1 : -1, h = l <= H ? l : L - l, tab = C.dag * Math.pow(Math.abs(Math.sin(PI * s * C.S)), 0.7) * Math.max(0, 1 - h / cw);
+        out[0] = sd * ax * (1 + 0.1 * (1 - h / H)); out[1] = C.hem + h - tab;
+      } else { const b = (l - H) / A * PI; out[0] = ax * Math.cos(b); out[1] = SV.cy + R * Math.sin(b); }
+      out[2] = lerp(C.z0, C.z1, s);
+      return out;
+    };
+    return { P, L };
+  }
+  // One geometry per colour (par 0 / 1: the squares stay crisp), normals from the smooth drape so both shade as one cloth. The
+  // cloth runs straight along the body, so a square needs extra rows only across the top arc and extra columns only for a tab.
+  function capGeo(par) {
+    return gx('svCap' + par, () => {
+      const { P, L } = capDrape(), C = SV_CAP, H = SV.cy - C.hem, e = 1e-3, pos = [], nor = [], uv = [], idx = [], a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0];
+      for (let i = 0; i < C.S; i++) for (let j = 0; j < C.T; j++) {
+        if (((i + j) & 1) !== par) continue;
+        const o = pos.length / 3, hem = j === 0 || j === C.T - 1, NS = hem ? 3 : 1, NT = (j + 1) / C.T * L <= H || j / C.T * L >= L - H ? 1 : 2;
+        for (let v = 0; v <= NT; v++) for (let u = 0; u <= NS; u++) {
+          const s = (i + u / NS) / C.S, l = (j + v / NT) / C.T * L;
+          P(s, l, a); pos.push(a[0], a[1], a[2]); uv.push(s * 2.7, l * 2);
+          P(Math.min(1, s + e), l, b); P(Math.max(0, s - e), l, c); const sx = b[0] - c[0], sy = b[1] - c[1], sz = b[2] - c[2];
+          P(s, Math.min(L, l + e), b); P(s, Math.max(0, l - e), c); const tx = b[0] - c[0], ty = b[1] - c[1], tz = b[2] - c[2];
+          const nx = sy * tz - sz * ty, ny = sz * tx - sx * tz, nz = sx * ty - sy * tx;
+          const k = (nx * a[0] + ny * Math.max(0, a[1] - SV.cy) < 0 ? -1 : 1) / (Math.hypot(nx, ny, nz) || 1);
+          nor.push(nx * k, ny * k, nz * k);
+        }
+        for (let v = 0; v < NT; v++) for (let u = 0; u < NS; u++) { const q = o + v * (NS + 1) + u; idx.push(q, q + NS + 1, q + 1, q + 1, q + NS + 1, q + NS + 2); }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+      return g;
+    });
+  }
+  function barrelGeo() {
+    const sg = sN(40, 16);
+    return gx('svBarrel@' + sg, () => {
+      const v = new THREE.SplineCurve(SV_BODY.map(p => new THREE.Vector2(p[0], p[1]))).getPoints(SV_BODY.length * 2);
+      v.forEach(q => { q.x = Math.max(0, q.x); });
+      return seamNormals(new THREE.LatheGeometry(v, sg).rotateX(PI / 2));   // (the lathe's axis turned to +z: rump → chest)
+    });
+  }
+  // The horse's big friendly eye in its eye frame (z = out of the head, +x = the model's left): white, a big warm brown iris and
+  // pupil with two catchlights on the pupil bone `pup` (made here, pivoting at the eye's centre: it looks about, or crosses),
+  // a dark lid line along the top and three long lashes curling out at the outer corner (sd: side); happy: ^ with its lashes.
+  function horseEye(r, sd, er, pup) {
+    r.mood = 1;
+    r.on('hEyes').fx(0, 1).add(G.sphere(24, 16), '#fbfbff', [0, 0, 0], null, [er, er * 1.12, er * 0.62]);
+    r.bone(pup, 'hEyes', new THREE.Vector3().applyMatrix4(r.k.top()).toArray());
+    r.add(G.sphere(20, 14), '#7a4420', [0, -er * 0.04, er * 0.4], null, [er * 0.7, er * 0.78, er * 0.3]);
+    r.add(G.sphere(16, 12), '#1a0c10', [0, -er * 0.05, er * 0.5], null, [er * 0.42, er * 0.5, er * 0.23]);
+    r.fx(1, 0).add(G.sphere(10, 8), hdr('#ffffff', 1.7), [-sd * er * 0.22, er * 0.22, er * 0.64], null, er * 0.2);
+    r.add(G.sphere(8, 6), hdr('#ffffff', 1.4), [sd * er * 0.18, -er * 0.24, er * 0.6], null, er * 0.09);
+    r.on('hEyes').fx(0, 0.3).add(G.torus(PI, 0.13, 16), DARK, [0, 0, er * 0.04], null, [er * 1.03, er * 1.14, er * 0.86]);
+    const lash = (m2) => { for (let i = 0; i < 3; i++) {
+      const a = 0.45 + i * 0.36, bx = sd * er * Math.sin(a) * (m2 ? 0.95 : 1.02), by = m2 ? er * (-0.2 + 0.5 * Math.cos(a)) : er * 1.12 * Math.cos(a);
+      cone(r, [bx, by, er * 0.22], [sd * Math.sin(a) * 1.3, Math.cos(a) + 0.35, 0.35], er * (0.62 - i * 0.08), er * 0.085, DARK, 5);
+    } };
+    lash(false);
+    r.mood = 2; eyeClosed(r, { er: er * 1.05 }); lash(true);
+    r.mood = 0; r.fx(0, 0);
+  }
+  // Point bone b's rest axis a0 along the direction d given in the frame of its ancestor f (e.g. the saddle), whatever the
+  // bones in between do (the lance keeps the angle the animation asks for while the arm swings it).
+  const _hq = new THREE.Quaternion(), _hv = new THREE.Vector3(), _lv = new THREE.Vector3(), SV_Y = new THREE.Vector3(0, 1, 0);
+  function holdDir(b, a0, d, f) {
+    f.getWorldQuaternion(_uq); b.parent.getWorldQuaternion(_hq);
+    _hv.copy(d).applyQuaternion(_uq).applyQuaternion(_hq.invert()).normalize();
+    b.quaternion.setFromUnitVectors(a0, _hv);
+  }
+  // Turn bone b so its local +y points along the world direction y and its +z as near as it can to the world direction z.
+  const _hm = new THREE.Matrix4(), _hx = new THREE.Vector3(), _hy = new THREE.Vector3(), _hz = new THREE.Vector3();
+  function holdBasis(b, y, z) {
+    _hy.copy(y).normalize(); _hx.crossVectors(_hy, z).normalize(); _hz.crossVectors(_hx, _hy);
+    b.parent.getWorldQuaternion(_hq);
+    b.quaternion.setFromRotationMatrix(_hm.makeBasis(_hx, _hy, _hz)).premultiply(_hq.invert());
+  }
+  const svDir = (psi, phi, out) => out.set(Math.sin(psi) * Math.cos(phi), Math.sin(phi), Math.cos(psi) * Math.cos(phi));
+  // Keyframes: the value at t between times T (ascending) and values V, eased key to key.
+  function kf(t, T, V) {
+    if (t <= T[0]) return V[0];
+    for (let i = 1; i < T.length; i++) if (t < T[i]) return lerp(V[i - 1], V[i], smooth01((t - T[i - 1]) / (T[i] - T[i - 1])));
+    return V[V.length - 1];
+  }
+  // Part of a unit sphere with its own grid (w around, h rows over its polar span; the shared sphPart grid is for big bodies).
+  const svPart = (key, w, h, p0, pL, t0, tL) => { const ww = sN(w, 8), hh = sN(h, 3); return gx('svP' + key + '@' + ww + '_' + hh, () => new THREE.SphereGeometry(1, ww, hh, p0, pL, t0, tL)); };
+  // The same part seen from the inside (winding and normals flipped): the helmet's felt lining, so the lifted helmet in his
+  // waving hand reads as a bowl instead of a see-through wire of gold trims (one skinned mesh, one material: no DoubleSide).
+  const svIn = (key, w, h, p0, pL, t0, tL) => { const ww = sN(w, 8), hh = sN(h, 3); return gx('svI' + key + '@' + ww + '_' + hh, () => {
+    const g = new THREE.SphereGeometry(1, ww, hh, p0, pL, t0, tL), I = g.index.array, N = g.attributes.normal.array;
+    for (let i = 0; i < I.length; i += 3) { const t = I[i + 1]; I[i + 1] = I[i + 2]; I[i + 2] = t; }
+    for (let i = 0; i < N.length; i++) N[i] = -N[i];
+    return g; }); };
+  function buildSovalye(r) {
+    r.ownHurt = true;   // (animSovalye: the knight jolts back in the saddle, the horse tosses its head — the hooves stay put)
+    const coat = col('#d98a4c'), coatL = col('#f2b67e'), coatD = col('#a8602e'), muz = col('#f7d8bc'), muzD = col('#e8b89a'), sock = '#fff7ee';
+    const mane = col('#fff0c8'), maneD = col('#edcf90'), steel = '#e4ebf6', steelD = '#aab6cc', blue = col('#2d5fe0'), blueL = col('#5a8cf4');
+    const red = '#e8383e', strap = '#d63a3e', skin = '#f7c9a2', ginger = '#c0602a', gingerD = '#96401a', KZ = SV.kz;
+    const K = (x, y, z) => [x, y, z + KZ];
+    const N0 = new THREE.Vector3(...SV_N0), N1 = new THREE.Vector3(...SV_N1);
+    // ── bones ──
+    r.bone('horse', 'root', [0, 0.9, -0.7]);
+    for (const [n, sd, z] of SV_LEGS) { r.bone('leg' + n, 'horse', [0.32 * sd, 0.9, z]); r.bone('shin' + n, 'leg' + n, [0.32 * sd, 0.42, z + 0.01]); r.bone('hoof' + n, 'shin' + n, [0.32 * sd, SV_FET, z + 0.02]); }
+    r.bone('hNeck', 'horse', SV_N0); r.bone('hHead', 'hNeck', [0, 2.02, 1.16]); r.bone('hJaw', 'hHead', [0, 1.9, 1.4]);
+    r.bone('hEarL', 'hHead', [0.17, 2.46, 1.2]); r.bone('hEarR', 'hHead', [-0.17, 2.46, 1.2]);
+    r.bone('hEyes', 'hHead', [0, 2.23, 1.6]); r.bone('hTongue', 'hJaw', [0.11, 1.8, 1.8]);
+    r.bone('tail0', 'horse', [0, 1.58, -1.06]); r.bone('tail1', 'tail0', [0, 1.2, -1.36]);
+    r.bone('kHips', 'horse', K(0, 1.78, 0)); r.bone('body', 'kHips', K(0, 1.86, 0)); r.bone('head', 'body', K(0, 2.36, 0));
+    r.bone('kLegL', 'kHips', K(0.14, 1.84, 0)); r.bone('kLegR', 'kHips', K(-0.14, 1.84, 0));
+    r.bone('helm', 'head', SV_KHC); r.bone('stars', 'head', [0, 3.12, SV_KHC[2]]);
+    r.bone('armL', 'body', K(0.28, 2.23, 0)); r.bone('foreL', 'armL', K(0.46, 2.06, -0.03));
+    r.bone('armR', 'body', K(-0.28, 2.23, 0)); r.bone('foreR', 'armR', K(-0.42, 2.03, 0.06));
+    r.bone('lance', 'foreR', SV_HANDR); r.bone('shoe', 'foreL', SV_HANDL); r.bone('hornH', 'foreL', SV_HANDL); r.bone('hornB', 'kHips', K(0.3, 1.84, -0.1));
+
+    // ── the horse ──
+    r.on('horse').fx(0, 0.15).add(barrelGeo(), vgrad(0.47, 1.79, [[0, coatD], [0.4, coat], [1, coatL]]), [0, SV.cy, 0], null, [SV.sx, 1, 1]);
+    for (const [n, sd, z] of SV_LEGS) {   // chunky legs: coat to the knee, a white sock, a fluffy white feather over a little hoof
+      const x = 0.32 * sd, hind = z < 0;
+      r.on('leg' + n).fx(0, 0.15).seg([x, 1.0, z], [x, 0.42, z + 0.01], hind ? 0.22 : 0.19, coat, 0.155, 12).add(G.sphere(14, 10), coat, [x, 0.42, z + 0.01], null, 0.158);
+      r.on('shin' + n).seg([x, 0.42, z + 0.01], [x, 0.17, z + 0.02], 0.145, vgrad(0.2, 0.42, [[0, sock], [0.5, sock], [1, coat]]), 0.14, 12);
+      r.on('hoof' + n).fx(0, 0.05).add(fluffGeo(18), vgrad(0.05, 0.34, [[0, '#f2eae2'], [1, '#ffffff']]), [x, 0.18, z + 0.03], null, [0.23, 0.16, 0.24]);   // (the fetlock: the trot keeps the hoof flat)
+      r.fx(0, 0.4).add(G.cyl(0.92, 1, 14), '#6a4c3c', [x, 0.045, z + 0.05], null, [0.17, 0.09, 0.18]);
+      r.fx(0, 0);
+    }
+    // the checkered caparison (+ a golden tassel at each tab), the red saddle with golden edges
+    r.on('horse').fx(0, 0.1, 1).add(capGeo(0), '#3d7cf0').add(capGeo(1), '#ffd23f');
+    r.fx(0, 1);
+    { const { P, L } = capDrape(), q = [0, 0, 0];
+      for (let i = 0; i < SV_CAP.S; i++) for (const l of [0, L]) { P((i + 0.5) / SV_CAP.S, l, q); r.add(G.sphere(8, 6), GOLD, [q[0] * 1.01, q[1] - 0.02, q[2]], null, 0.034); } }
+    r.fx(0, 0.35).add(G.sphere(20, 10), red, K(0, 1.775, 0), null, [0.3, 0.07, 0.36]);
+    r.add(G.sphere(16, 10), red, K(0, 1.86, -0.33), [0.35, 0, 0], [0.25, 0.11, 0.07]).add(G.sphere(12, 8), red, K(0, 1.83, 0.33), null, [0.12, 0.08, 0.07]);
+    r.fx(0, 2).add(G.torus(TAU, 0.16, 32), GOLD, K(0, 1.775, 0), [PI / 2, 0, 0], [0.3, 0.36, 0.25]).add(G.sphere(10, 8), GOLD, K(0, 1.9, 0.34), null, 0.04);
+    // a red breast collar round the chest with golden studs and a golden star medallion
+    { const a = PI * 1.02, cz = 0.34, rz = 0.66;
+      r.fx(0, 0.3).add(G.torus(a, 0.06, 28), strap, [0, 1.02, cz], [PI / 2, 0, PI / 2 - a / 2], [0.645, rz, 0.6]);
+      r.fx(0, 2);
+      for (const sd of [-1, 1]) for (const f of [0.35, 0.65]) { const b = sd * f * a / 2; r.add(G.sphere(8, 6), GOLD, [Math.sin(b) * 0.66, 1.02, cz + Math.cos(b) * rz * 1.02], null, 0.024); }
+      r.add(G.cyl(1, 1, 20), GOLD, [0, 1.02, cz + rz + 0.012], [PI / 2, 0, 0], [0.085, 0.025, 0.085]);
+      r.fx(0, 1).add(starFlat(), '#fff2a8', [0, 1.02, cz + rz + 0.03], null, [0.1, 0.1, 0.25]);
+      r.fx(0, 0); }
+    // neck and head: a round forehead, a long soft pale muzzle with big nostrils, round cheeks
+    r.on('hNeck').fx(0, 0.15).seg([0, 1.34, 0.64], SV_N1, 0.33, coat, 0.26, 16);
+    r.add(G.sphere(20, 14), coat, [0, 1.4, 0.68], null, [0.32, 0.36, 0.34]);
+    r.on('hHead').add(G.sphere(28, 20), vgrad(1.85, 2.57, [[0, coat], [1, coatL]]), SV_HH, null, [SV_HHR, SV_HHR * 0.97, SV_HHR * 1.04]);
+    for (const sd of [-1, 1]) r.add(G.sphere(16, 10), coat, [sd * 0.22, 2.02, 1.38], null, [0.16, 0.15, 0.18]);
+    r.add(G.sphere(16, 12), mixc(coat, coatL, 0.3), [0, 2.16, 1.62], [0.75, 0, 0], [0.2, 0.2, 0.26]);   // the nose bridge (forehead → muzzle)
+    r.fx(0, 0.25).add(G.sphere(24, 16), vgrad(1.8, 2.15, [[0, muzD], [0.5, muz], [1, mixc(muz, coatL, 0.4)]]), SV_MUZ, null, SV_MUZA);
+    r.fx(0, 0.4);
+    for (const sd of [-1, 1]) { const [p, n] = onEll(SV_MUZ, SV_MUZA, 1.08, sd * 0.52); r.add(G.sphere(12, 8), '#b04a5a', p, qz(...n, sd * 0.6), [0.055, 0.03, 0.016]); }
+    r.fx(0, 0.5).add(G.sphere(12, 8), '#9a3a4e', [0, 1.86, 1.62], null, [0.19, 0.07, 0.24]);   // the mouth inside (seen while it neighs)
+    r.fx(0, 0.8); for (const sd of [-1, 1]) r.add(G.box(), '#ffffff', [sd * 0.045, 1.855, 1.81], null, [0.075, 0.07, 0.03]);
+    r.on('hJaw').fx(0, 0.25).add(G.sphere(18, 12), muz, [0, 1.83, 1.62], null, [0.21, 0.08, 0.25]).add(G.sphere(12, 8), muzD, [0, 1.79, 1.7], null, [0.12, 0.06, 0.13]);
+    r.on('hTongue').fx(0, 0.6).add(G.sphere(12, 8), '#ff6f9a', [0.11, 1.8, 1.82], [0.5, 0, -0.5], [0.065, 0.03, 0.085]);
+    r.on('hHead');
+    // friendly mouth: a gentle smile (grumpy mood too — the horse is never cross), a big open smile with buck teeth when happy
+    { const [p, n] = onEll(SV_MUZ, SV_MUZA, 2.0, 0), q = qz(...n);
+      r.mood = 1; r.fx(0, 0.3).add(G.torus(PI * 0.55, 0.22, 14), '#6a2a34', p, q.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -PI / 2 - PI * 0.275))), [0.1, 0.065, 0.03]);
+      r.mood = 2; r.push(p, q); smile(r, 0.17, { mouthIn: '#7a2440', buck: true, buckW: 0.2, buckH: 0.24 }); r.pop();
+      r.mood = 0; }
+    for (const sd of [-1, 1]) { r.push([sd * 0.27, 2.06, 1.5], qz(sd * 0.75, 0.1, 0.66)); blush(r, 0.12, { blushCol: '#ff8aa0' }); r.pop(); }
+    // ears (pink inside), the forelock plait with a red bow, the silver chanfron with its golden star
+    for (const sd of [-1, 1]) {
+      const q = qb([sd * 0.35, 1, 0.05], [sd * 0.2, 0, 1]);
+      r.on(sd > 0 ? 'hEarL' : 'hEarR').fx(0, 0.15).add(lathe('flame', FLAME_P, 12, 0), coat, [sd * 0.17, 2.42, 1.19], q, [0.24, 0.32, 0.16]);
+      r.add(lathe('flame', FLAME_P, 12, 0), '#ffc8c8', [sd * 0.176, 2.45, 1.222], q, [0.14, 0.24, 0.07]);
+    }
+    r.on('hHead').fx(0, 0.2);
+    for (const [y, z, k] of [[2.56, 1.24, 1], [2.49, 1.38, 0.9], [2.42, 1.5, 0.75]]) r.add(G.sphere(12, 8), k < 0.9 ? maneD : mane, [0, y, z], [0.5 * (k - 0.9), 0, 0.4 * (k - 0.85)], [0.08 * k, 0.075 * k, 0.075 * k]);
+    const bow = (p, q, c, s = 1) => {   // a ribbon bow (two loops, a knot, two tails) in frame q at p
+      r.push(p, q, s).fx(0, 0.3, 1);
+      for (const sd of [-1, 1]) { r.add(G.sphere(10, 8), c, [sd * 0.055, 0.012, 0], [0, 0, sd * 0.35], [0.055, 0.034, 0.022]); r.add(G.sphere(8, 6), c, [sd * 0.03, -0.045, 0], [0, 0, sd * 0.4], [0.014, 0.04, 0.012]); }
+      r.add(G.sphere(8, 6), c, [0, 0, 0.008], null, 0.024).pop().fx(0, 0);
+    };
+    bow([0, 2.62, 1.2], qz(0, 0.5, 0.86), '#ff4d5e', 1.1);
+    // (the chanfron: a narrow silver plate down the nose bridge, a golden star at its top between the eyes)
+    const cq = qb([0, 0.74, -0.67], [0, 0.67, 0.74]), cn = [0, 0.67, 0.74];
+    r.fx(0, 2).add(G.sphere(16, 10), steel, [0, 2.17, 1.83], cq, [0.07, 0.17, 0.028]);
+    r.add(G.torus(TAU, 0.14, 26), GOLD, [0, 2.17, 1.835], qz(...cn), [0.072, 0.172, 0.16]);
+    r.fx(0, 1).add(starFlat(), '#ffd23f', [0, 2.27, 1.775], qz(...cn), [0.13, 0.13, 0.28]);
+    // bridle: a red noseband, cheek straps, golden bit rings
+    r.fx(0, 0.3).add(G.torus(TAU, 0.1, 28), strap, [0, 1.99, 1.64], [0.1, 0, 0], [0.285, 0.2, 0.3]);
+    for (const sd of [-1, 1]) {
+      r.seg([sd * 0.27, 2.0, 1.58], [sd * 0.34, 2.36, 1.22], 0.022, strap, 0.022, 6);
+      r.fx(0, 2).add(G.torus(TAU, 0.25, 12), GOLD, [sd * 0.265, 1.89, 1.68], [0, PI / 2, 0], 0.035).fx(0, 0.3);
+    }
+    // big friendly eyes with lashes (a little higher and further forward than a real horse's: the camera looks down on it)
+    r.push(SV_HH, [-0.16, 0, 0]);
+    for (const sd of [-1, 1]) { const [p, q] = onSphere(sd * 0.22, 0.04, SV_HHR, 0.035); r.push(p, q); horseEye(r, sd, 0.118, sd > 0 ? 'hPupL' : 'hPupR'); r.pop(); }
+    r.pop();
+    // the flaxen mane plaited along the crest, a bow at two of the plaits
+    r.on('hNeck');
+    { const d = N1.clone().sub(N0).normalize(), up = new THREE.Vector3(0, d.z, -d.y);
+      for (let i = 0; i < 9; i++) {
+        const u = lerp(0.18, 1.16, i / 8), c = N0.clone().lerp(N1, u).addScaledVector(up, lerp(0.33, 0.26, Math.min(1, u)) + 0.035), dd = d.clone().add(new THREE.Vector3(i & 1 ? 0.55 : -0.55, 0, 0)).normalize();
+        r.fx(0, 0.25).add(G.sphere(12, 8), i & 1 ? maneD : mane, c.toArray(), qb(dd.toArray(), up.toArray()), [0.075, 0.105, 0.065]);
+        if (i === 2 || i === 6) bow(c.clone().addScaledVector(up, 0.075).toArray(), qb(d.toArray(), up.toArray()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-PI / 2, 0, 0))), i === 2 ? '#4aa8ff' : '#ff4d5e', 0.95);
+      }
+      r.fx(0, 0); }
+    // the tail: a red bow at the root, a long flaxen tail (a slim root and a big soft teardrop tuft, fluffy at its tip)
+    r.on('tail0'); bow([0, 1.62, -1.1], qz(0, 0.3, -1), '#ff4d5e', 1.15);
+    r.fx(0, 0.1).add(lathe('flame', FLAME_P, 12, 2), vgrad(1.2, 1.62, [[0, maneD], [1, mane]]), [0, 1.2, -1.34], qy(0, 0.8, 0.6), [0.34, 0.46, 0.3]);
+    r.on('tail1').add(lathe('flame', FLAME_P, 12, 2), vgrad(0.6, 1.25, [[0, maneD], [0.5, mane], [1, mane]]), [0, 0.64, -1.4], qy(0, 1, 0.08), [0.52, 0.66, 0.44]);
+    for (const [x, y, z, s2] of [[0.05, 0.7, -1.38, 0.09], [-0.06, 0.72, -1.43, 0.085], [0, 0.66, -1.42, 0.08]]) r.add(fluffGeo(12), mane, [x, y, z], null, s2);
+    r.fx(0, 0);
+
+    // ── the knight ──
+    // legs sticking out over the round horse: cuisses, gold-rimmed knee cops, greaves, rounded sabatons
+    for (const sd of [-1, 1]) {
+      const kn = K(0.5 * sd, 1.72, 0.16), an = K(0.76 * sd, 1.33, 0.2);
+      r.on(sd > 0 ? 'kLegL' : 'kLegR').fx(0, 2).seg(K(0.14 * sd, 1.84, 0), kn, 0.1, steel, 0.09, 12).add(G.sphere(14, 10), steel, kn, null, 0.1);
+      r.add(G.torus(TAU, 0.14, 18), GOLD, [kn[0] + sd * 0.02, kn[1] + 0.01, kn[2] + 0.07], qz(sd * 0.35, 0.3, 0.9), 0.07);
+      r.seg(kn, an, 0.085, steel, 0.075, 10).add(G.torus(TAU, 0.22, 14), GOLD, an, [0.1, 0, sd * 0.45], [0.08, 0.08, 0.06]);
+      r.add(G.sphere(14, 10), vgrad(1.18, 1.34, [[0, steelD], [1, steel]]), [an[0] + sd * 0.01, 1.27, an[2] + 0.09], [0.1, 0, 0], [0.09, 0.075, 0.16]);
+      r.fx(0, 0);
+    }
+    // torso: the breastplate, a royal-blue tabard (front and back) with the sun crest, a belt, the tabard skirt over the saddle
+    const KT = [[0, 1.78], [0.25, 1.78], [0.285, 1.85], [0.305, 1.95], [0.31, 2.06], [0.295, 2.16], [0.255, 2.25], [0.17, 2.32], [0.09, 2.36], [0, 2.37]];
+    r.on('body').push([0, 0, KZ]);
+    r.fx(0, 2).add(lathe('svChest', KT, 26, 2), vgrad(1.8, 2.36, [[0, steelD], [0.5, steel], [1, steel]]));
+    const tabP = KT.slice(1, 7).map(p => [p[0] + 0.016, p[1]]), tabC = vgrad(1.8, 2.25, [[0, mixc(blue, '#1a3a9a', 0.3)], [1, blueL]]);
+    const arc = (key, pts, a0, aL) => gx('svArc' + key + '@' + sN(18, 8), () => seamNormals(new THREE.LatheGeometry(new THREE.SplineCurve(pts.map(p => new THREE.Vector2(p[0], p[1]))).getPoints(pts.length * 2), sN(18, 8), a0, aL)));
+    r.fx(0, 0.1, 1).add(arc('tabF', tabP, -0.95, 1.9), tabC).add(arc('tabB', tabP, PI - 0.85, 1.7), tabC);
+    const skP = [[0.3, 1.66], [0.3, 1.72], [0.295, 1.8], [0.29, 1.87]];
+    r.add(arc('skF', skP.map(p => [p[0] + (1.87 - p[1]) * 0.5, p[1]]), -0.75, 1.5), tabC).add(arc('skB', skP.map(p => [p[0] + (1.87 - p[1]) * 0.35, p[1]]), PI - 0.8, 1.6), tabC);
+    r.fx(0, 2);
+    for (const [a0, aL, rr, y] of [[-0.75, 1.5, 0.4, 1.665], [PI - 0.8, 1.6, 0.355, 1.665]]) r.add(G.torus(aL, 0.07, 18), GOLD, [0, y, 0], [PI / 2, 0, PI / 2 - a0 - aL], rr);
+    r.fx(0, 0.35).add(G.torus(TAU, 0.12, 32), '#8a4a26', [0, 1.87, 0], [PI / 2, 0, 0], 0.3).fx(0, 2).add(G.rbox(2), GOLD, [0, 1.87, 0.31], null, [0.08, 0.06, 0.03]);
+    sunCrest(r, [0, 2.05, 0.332], qz(0, 0.12, 1), 0.13, { gl: 2 });
+    r.pop();
+    // pauldrons and gorget (gold rims)
+    r.fx(0, 2);
+    for (const sd of [-1, 1]) { r.add(G.sphere(16, 10), steel, K(0.28 * sd, 2.24, 0), [0, 0, -sd * 0.3], [0.15, 0.12, 0.16]); r.add(G.torus(TAU, 0.12, 20), GOLD, K(0.3 * sd, 2.17, 0), [PI / 2, 0, -sd * 0.3], [0.15, 0.16, 0.2]); }
+    r.add(G.cyl(0.9, 1, 16), steel, K(0, 2.35, 0), null, [0.14, 0.07, 0.14]).add(G.torus(TAU, 0.14, 20), GOLD, K(0, 2.32, 0), [PI / 2, 0, 0], 0.145);
+    // short armoured arms with round mittens: the right one holds the lance, the left one rests on the shield
+    for (const sd of [-1, 1]) {
+      const n = sd > 0 ? 'L' : 'R', sh = K(0.28 * sd, 2.23, 0), el = sd > 0 ? K(0.46, 2.06, -0.03) : K(-0.42, 2.03, 0.06), hd = sd > 0 ? SV_HANDL : SV_HANDR;
+      r.on('arm' + n).fx(0, 2).seg(sh, el, 0.08, steel, 0.075, 10);
+      r.on('fore' + n).add(G.sphere(12, 8), steel, el, null, 0.088).seg(el, hd, 0.075, steel, 0.068, 10);
+      const d = new THREE.Vector3(...hd).sub(new THREE.Vector3(...el)).normalize(), cf = [hd[0] - d.x * 0.07, hd[1] - d.y * 0.07, hd[2] - d.z * 0.07];
+      r.add(G.cyl(1.25, 1, 12, true), steel, cf, qy(d.x, d.y, d.z), [0.075, 0.06, 0.075]).add(G.torus(TAU, 0.16, 14), GOLD, cf, qz(d.x, d.y, d.z), 0.08);
+      mitten(r, hd, 0.09, steel, sd);
+      r.fx(0, 0);
+    }
+    // the red shield with its golden rim and the smiling sun, hanging at his left side over his knee (turned out to the
+    // front-left; his left hand rests on its rim and is free to throw)
+    r.on('kHips');
+    { const n = new THREE.Vector3(0.85, 0.15, 0.5).normalize(), C = K(0.64, 1.7, 0.1), Rs = 0.25;
+      r.fx(0, 0.35).add(G.cyl(1, 1, 26), vgrad(1.45, 1.95, [[0, '#c8242e'], [1, '#ff5a5a']]), C, qy(n.x, n.y, n.z), [Rs, 0.035, Rs]);
+      r.fx(0, 2).add(G.torus(TAU, 0.13, 32), GOLD, C, qz(n.x, n.y, n.z), [Rs * 1.02, Rs * 1.02, 0.3]);
+      sunCrest(r, [C[0] + n.x * 0.022, C[1] + n.y * 0.022, C[2] + n.z * 0.022], qz(n.x, n.y, n.z), Rs * 0.64, { gl: 2 });
+      r.fx(0, 0); }
+    // the lance (built upright from the hand; holdDir points it): a leather grip, a silver vamplate, a white shaft with a red
+    // spiral stripe, a big soft red padded ball with a white seam
+    r.on('lance');
+    { const [hx, hy, hz] = SV_HANDR, L = SV_LANCE, at = y => [hx, hy + y, hz];
+      r.fx(0, 0.3).seg(at(L.butt), at(L.grip), 0.036, '#8a3a2a', 0.04, 10).add(G.sphere(8, 6), GOLD, at(L.butt), null, 0.05);
+      r.fx(0, 2); cone(r, at(L.grip), [0, 1, 0], L.vamp - L.grip, 0.17, steel, 18);
+      r.add(G.torus(TAU, 0.1, 24), GOLD, at(L.grip), [PI / 2, 0, 0], 0.17);
+      r.fx(0, 0.35).seg(at(L.vamp - 0.05), at(L.tip - 0.12), 0.058, '#fff6ee', 0.03, 12);
+      r.add(lanceStripeGeo(), '#ff4455', at(L.vamp - 0.02));
+      r.fx(0, 2).add(G.cyl(1, 1.2, 12), GOLD, at(L.tip - L.ball - 0.02), null, [0.04, 0.05, 0.04]);
+      r.fx(0, 0.12).add(G.sphere(20, 14), vgrad(hy + L.tip - L.ball, hy + L.tip + L.ball, [[0, '#b81e34'], [1, '#e8404e']]), at(L.tip), null, L.ball);
+      r.fx(0, 0.3).add(G.torus(TAU, 0.08, 28), '#fff6ee', at(L.tip), [PI / 2, 0, 0], L.ball * 1.005);
+      r.fx(0, 0);
+      r.mark('lance', at(L.tip)); }
+    // the horseshoe in the left hand (shown while he tosses), the little golden horn (at his belt, in his hand to blow it)
+    r.on('shoe').fx(0, 2).add(G.torus(PI * 1.45, 0.27, 14), '#f2f7ff', [SV_HANDL[0] + 0.02, SV_HANDL[1] + 0.12, SV_HANDL[2] + 0.06], [0, 0.3, -PI / 2 + PI * 0.725 + PI], [0.135, 0.14, 0.1]);
+    r.fx(1, 0).add(G.octa(), hdr('#ffffff', 2.2), [SV_HANDL[0] + 0.1, SV_HANDL[1] + 0.24, SV_HANDL[2] + 0.1], null, [0.02, 0.05, 0.02]);
+    r.fx(0, 0).mark('muzzle', [SV_HANDL[0] + 0.02, SV_HANDL[1] + 0.06, SV_HANDL[2] + 0.06]);
+    const hornAt = (b, p, dir, len = 0.26) => {   // mouthpiece at p, the bell at the far end along dir
+      const d = new THREE.Vector3(...dir).normalize(), e = [p[0] + d.x * len, p[1] + d.y * len, p[2] + d.z * len];
+      r.on(b).fx(0, 2).seg(p, e, 0.018, GOLD, 0.03, 8);
+      cone(r, [p[0] + d.x * (len - 0.08), p[1] + d.y * (len - 0.08), p[2] + d.z * (len - 0.08)], dir, 0.12, 0.075, GOLD, 14);   // (the flared bell)
+      r.add(G.torus(TAU, 0.14, 16), '#ffe08a', e, qz(d.x, d.y, d.z), 0.07);
+      r.fx(0, 0.3).add(G.sphere(8, 6), red, [p[0] + d.x * len * 0.4, p[1] + d.y * len * 0.4, p[2] + d.z * len * 0.4], null, 0.028).fx(0, 0);
+      return e;
+    };
+    hornAt('hornB', K(0.3, 1.86, -0.1), [0.05, -0.2, -1]);
+    // in his hand: the mouthpiece up along +y from the grip (aimed at his lips while he blows it), the bell bent out along +z (it
+    // ends up facing forward and out, where the camera sees its golden mouth)
+    { const [hx, hy, hz] = SV_HANDL, e = [hx, hy - 0.05, hz + 0.16], d = new THREE.Vector3(0, -0.32, 1).normalize();
+      r.on('hornH').fx(0, 2).seg([hx, hy + 0.33, hz], [hx, hy - 0.02, hz], 0.017, GOLD, 0.024, 8).add(G.sphere(8, 6), GOLD, [hx, hy + 0.34, hz], null, 0.024);
+      r.seg([hx, hy - 0.02, hz], [hx, hy - 0.05, hz + 0.06], 0.026, GOLD, 0.03, 8);
+      cone(r, e, [-d.x, -d.y, -d.z], 0.11, 0.095, GOLD, 16);
+      r.add(G.torus(TAU, 0.14, 18), '#ffe08a', e, qz(d.x, d.y, d.z), 0.095);
+      r.fx(0.4, 0.5).add(G.cyl(1, 1, 16), '#b86a10', [e[0] - d.x * 0.01, e[1] - d.y * 0.01, e[2] - d.z * 0.01], qy(d.x, d.y, d.z), [0.08, 0.01, 0.08]);
+      r.fx(0, 0.3).add(G.sphere(8, 6), red, [hx, hy + 0.12, hz + 0.02], null, 0.028).fx(0, 0);
+      r.mark('horn', e); }
+    // head: skin, ears, a round rosy nose, the curly ginger moustache, ginger curls (seen when the helmet comes off)
+    const HC = SV_KHC, HR = SV_KHR;
+    r.on('head').fx(0, 0.12).add(G.sphere(30, 22), vgrad(HC[1] - HR, HC[1] + HR, [[0, mixc(skin, '#b8603a', 0.2)], [0.45, skin], [1, mixc(skin, '#fff4ea', 0.12)]]), HC, null, [HR * 1.03, HR, HR * 0.98]);
+    for (const sd of [-1, 1]) r.add(G.sphere(12, 8), skin, [sd * HR * 0.98, HC[1] - 0.03, HC[2] - 0.02], [0, sd * 0.35, 0], [HR * 0.16, HR * 0.23, HR * 0.12]);
+    r.fx(0, 0.15);
+    r.push(HC, [-SV_KTILT, 0, 0]).add(svPart('hair', 24, 8, 0, TAU, 0, 0.5 * PI), vgrad(HC[1] - 0.2, HC[1] + HR, [[0, gingerD], [1, ginger]]), [0, 0, -0.012], [-0.85, 0, 0], HR * 1.04).pop();
+    for (const [a, el, k] of [[0, 0.5, 1.15], [1.3, 0.62, 1.05], [-1.3, 0.62, 1.05], [2.4, 0.9, 1.1], [-2.4, 0.9, 1.1]]) {
+      const cy = Math.cos(el), sy = Math.sin(el), p = [HC[0] + Math.sin(a) * sy * HR * 0.8, HC[1] + cy * HR * 0.8 + 0.02, HC[2] + Math.cos(a) * sy * HR * 0.8 - 0.02];
+      r.add(fluffGeo(10), Math.abs(a) > 2 ? gingerD : ginger, p, null, HR * 0.19 * k);   // (all inside the helmet while it is on)
+    }
+    r.add(G.torus(PI * 1.3, 0.3, 12), ginger, [HC[0] + 0.02, HC[1] + HR * 1.02, HC[2] - 0.02], [PI / 2 - 0.3, 0, 0.4], 0.055);   // a cowlick on top
+    r.push(HC, [-SV_KTILT, 0, 0]);
+    { const [p, q] = onSphere(0, -0.01 - 0.1 * 0.95, HR, HR * 0.02); r.fx(0, 0.4).add(G.sphere(14, 10), mixc(skin, '#ff8a70', 0.25), p, q, [HR * 0.14, HR * 0.12, HR * 0.13]); }
+    for (const sd of [-1, 1]) { const [p, q] = onSphere(sd * 0.012, -0.125, HR, -0.012); r.push(p, q).fx(0, 0.25).add(stacheGeo(sd), ginger, [0, 0, 0], null, [0.18, 0.21, 0.19]).pop(); }
+    r.mark('mouth', new THREE.Vector3(...onSphere(0, -0.19, HR, -0.03)[0]).applyMatrix4(r.k.top()).toArray());
+    r.pop().fx(0, 0);
+    face(r, HC, HR, { bone: 'head', pout: true, tilt: SV_KTILT, skin, ex: 0.13, ey: -0.01, er: 0.1, iris: '#3a64b4', lipCol: TOWN.lip, blushCol: '#ff7f9c',
+      browCol: '#8e3a14', browY: 1.2, browT: 0.72, browW: 1.4, browH: 1.45, browSide: 1, browRaise: 0.26, mouthY: -0.19, mouthW: 0.11, glance: 0.75, poutX: 0.14,
+      cheekY: 1.25, heartX: 1.25, heartY: 0.95, heartS: 0.3, lid: 0.28, lidDroop: 0.08, browLift: 0.05 });   // (heavier lids + low bushy brows: "very grumpy"-cute, read fine from the boss camera)
+    // the helmet (bone 'helm'): a round shell open at the face, gold trim round the opening and the rim, the visor pushed up
+    // on top (a little golden knob to lift it), a gold holder for the plume
+    const Rh = HR * 1.1, t0 = 0.26 * PI, t1 = 0.7 * PI, al = 1.0, hq = new THREE.Quaternion();   // (t0: the brim, above his bushy brows)
+    r.on('helm').push(HC, [-SV_KTILT * 0.8, 0, 0]);
+    const hc = vgrad(HC[1] - Rh, HC[1] + Rh, [[0, steelD], [0.55, steel], [1, '#ffffff']]);
+    const felt = mixc(blue, '#1c2c78', 0.35);   // (the padded royal-blue lining inside the shell)
+    r.fx(0, 0.1).add(svIn('helmTop', 24, 6, 0, TAU, 0, t0), felt, [0, 0, 0], null, Rh * 0.96).add(svIn('helmBack', 20, 7, PI / 2 + al, TAU - 2 * al, t0, t1 - t0), felt, [0, 0, 0], null, Rh * 0.96);
+    r.fx(0, 2).add(svPart('helmTop', 30, 7, 0, TAU, 0, t0), hc, [0, 0, 0], null, Rh).add(svPart('helmBack', 26, 9, PI / 2 + al, TAU - 2 * al, t0, t1 - t0), hc, [0, 0, 0], null, Rh);
+    r.add(G.torus(2 * al, 0.06, 20), GOLD, [0, Rh * Math.cos(t0), 0], [PI / 2, 0, PI / 2 - al], Rh * Math.sin(t0) * 1.01);
+    r.add(G.torus(TAU - 2 * al, 0.05, 32), GOLD, [0, Rh * Math.cos(t1), 0], [PI / 2, 0, PI / 2 + al], Rh * Math.sin(t1) * 1.01);
+    for (const sd of [-1, 1]) {
+      const ph = sd * al;
+      hq.copy(qb([0, 1, 0], [-Math.cos(ph), 0, Math.sin(ph)])).multiply(new THREE.Quaternion().setFromAxisAngle(_Z, PI / 2 - t1));
+      r.add(G.torus(t1 - t0, 0.06, 14), GOLD, [0, 0, 0], hq, Rh * 1.01);
+      r.add(G.sphere(8, 6), GOLD, [Math.sin(ph) * Math.sin(t0 + 0.12) * Rh * 1.07, Math.cos(t0 + 0.12) * Rh * 1.07, Math.cos(ph) * Math.sin(t0 + 0.12) * Rh * 1.07], null, 0.03);
+    }
+    r.add(svPart('visor', 18, 5, PI / 2 - al - 0.12, 2 * al + 0.24, 0.06 * PI, 0.18 * PI), steel, [0, 0, 0], null, Rh * 1.07);
+    r.add(G.torus(2 * al + 0.24, 0.05, 20), GOLD, [0, Rh * 1.07 * Math.cos(0.24 * PI), 0], [PI / 2, 0, PI / 2 - al - 0.12], Rh * 1.07 * Math.sin(0.24 * PI));
+    r.add(G.sphere(10, 8), GOLD, [0, Rh * 1.1 * Math.cos(0.22 * PI), Rh * 1.1 * Math.sin(0.22 * PI)], null, [0.04, 0.03, 0.03]);
+    const hp0 = new THREE.Vector3(0, Rh * Math.cos(0.12 * PI), -Rh * Math.sin(0.12 * PI));
+    r.add(G.cyl(0.8, 1, 12), GOLD, hp0.toArray(), [-0.12 * PI, 0, 0], [0.045, 0.1, 0.045]);
+    const b0 = hp0.clone().add(new THREE.Vector3(0, 0.04, -0.01));
+    r.bone('plume', 'helm', b0.clone().applyMatrix4(r.k.top()).toArray());
+    // the tall rainbow plume: six feathers fanned out left to right (red on his right … purple on his left), their tips curling back
+    r.on('plume');
+    { const PC = ['#ff4d5e', '#ff9a3a', '#ffd23f', '#4cd070', '#4aa8ff', '#a070f0'];
+      for (let i = 0; i < 6; i++) {
+        const g = (i - 2.5) / 2.5 * 0.78, ln = 0.36 + 0.14 * (1 - Math.abs(i - 2.5) / 2.5), d = new THREE.Vector3(Math.sin(g) * 0.9, Math.cos(g), -0.28).normalize();
+        const d2 = d.clone().add(new THREE.Vector3(0, -0.2, -0.85)).normalize(), c = col(PC[i]), cL = mixc(c, '#ffffff', 0.3);
+        const m1 = b0.clone().addScaledVector(d, ln * 0.5), m2 = b0.clone().addScaledVector(d, ln * 0.93).addScaledVector(d2, 0.06);
+        r.fx(0, 0.25, 0).add(G.sphere(12, 8), c, m1.toArray(), qb(d.toArray(), [0, 0, 1]), [0.075, ln * 0.52, 0.03]);
+        r.add(G.sphere(10, 6), cL, m2.toArray(), qb(d2.toArray(), [0, 1, 0.3]), [0.055, 0.1, 0.024]);
+      }
+      r.fx(0, 0); }
+    r.pop();
+    // dizzy stars circling the helmet (shown only while dizzy)
+    r.on('stars').fx(0.75, 0.5);   // (lying nearly flat, tipped out a little: the camera above always sees them)
+    for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; r.add(starFlat(), hdr('#ffe14a', 1.25), [Math.sin(a) * 0.5, 3.1 + (i & 1) * 0.06, SV_KHC[2] + Math.cos(a) * 0.5], new THREE.Quaternion().setFromEuler(new THREE.Euler(-PI / 2 + 0.45, a, 0, 'YXZ')), 0.21); }
+    r.fx(0, 0);
+    return { height: 3.4, glowC: col('#ffc46a'), glowK: 0.5, tex: texOf('fabric'), dieHop: 0, hide: ['shoe', 'hornH', 'stars', 'hTongue'],
+      portrait: { cx: 0, cy: 2.54, cz: 0.5, rad: 1.03 },   // (the badge: his helmet and plume, the horse's face below)
+      mat: { rough: 0.5, ns: 0.8, sss: col('#ffd8c0').multiplyScalar(0.025), rimK: 0.26, rimP: 2.5 } };
+  }
+  // The lance's red spiral stripe: a flat band on a helix round the tapered shaft (from the hand's frame: y 0 = the vamplate).
+  function lanceStripeGeo() {
+    const ts = sN(90, 40), rs = sN(6, 4);
+    return gx('svStripe@' + ts, () => {
+      const L = SV_LANCE, len = L.tip - 0.14 - L.vamp, turns = 5.5, R = y => lerp(0.058, 0.03, y / (len + 0.06)) + 0.001, pts = [];
+      for (let i = 0; i <= 88; i++) { const t = i / 88, a = t * turns * TAU, y = t * len; pts.push(new THREE.Vector3(Math.sin(a) * R(y), y, Math.cos(a) * R(y))); }
+      const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), ts, 0.022, rs, false), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {   // flatten the cord into a band lying on the shaft
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rr = Math.hypot(x, z) || 1, R0 = R(y), k = (R0 + (rr - R0) * 0.25) / rr;
+        p.setXYZ(i, x * k, y, z * k);
+      }
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  // Two-bone leg IK in the horse's side plane: [leg, shin] x-rotations (out) that put leg z0's fetlock on the point tz, ty of the
+  // model's frame, with the horse bone lifted by hy and pitched by hp about the hind hips. The front knee bends forward (the
+  // hoof tucks back), the hind hock backward (the hoof swings forward), as the other poses fold them. A leg leaning out by
+  // its splay reaches that much less far in the side plane (k).
+  function svLegIK(z0, tz, ty, hy, hp, out, k = 1) {   // (k: the legs' share in the side plane — cos of their splay)
+    const L1 = SV_LEG[0] * k, L2 = SV_LEG[1] * k, dz0 = z0 + 0.7, hipY = 0.9 + hy - dz0 * Math.sin(hp), hipZ = -0.7 + dz0 * Math.cos(hp);
+    const dz = tz - hipZ, dy = ty - hipY, d = clamp(Math.hypot(dz, dy), 0.1, L1 + L2 - 1e-4), a = Math.atan2(dz, -dy);
+    const g = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1)), bend = PI - Math.acos(clamp((L1 * L1 + L2 * L2 - d * d) / (2 * L1 * L2), -1, 1));
+    const front = z0 > 0, [d1, d2] = SV_LEGD;
+    out[0] = d1 - (front ? a + g : a - g) - hp; out[1] = d2 - d1 + (front ? bend : -bend);
+    return out;
+  }
+  const _ik = [0, 0];
+  function animSovalye(m, dt, st, s) {
+    const B = m.B, ph = bph(st), t = bpt(st), br = Math.sin(s.t * 1.8 + s.ph);
+    const LG = s.lg || (s.lg = { FL: [0, 0, 0], FR: [0, 0, 0], BL: [0, 0, 0], BR: [0, 0, 0] });
+    for (const n in LG) LG[n][0] = LG[n][1] = LG[n][2] = 0;   // per leg: swing (− = the hoof forward), knee/hock fold, splay
+    // the horse: lift, pitch (− = nose up, about the hind hips), roll, yaw, landing squash; neck bend (+ = head down), head nod /
+    // turn / tilt, jaw, ears (+ = pricked forward), tail lift + swish, pupils look / cross, tongue, blink
+    let hy = 0, hp = 0, hr = 0, hw = 0, sq = 0, nk = 0, hx = 0, hyw = 0, hz = 0, jaw = 0, ear = 0, tl = 0, tsw = 0, look = 0, lookY = 0, cross = 0, tongue = 0, eyeK = 1;
+    // the knight: hips lift / lean (+ = forward) / roll, torso twist (+ = to his left) / side lean / puff, head nod / turn / tilt,
+    // the lance in the saddle's frame (psi yaw + = to his left, phi pitch + = up), arms (x swing − = forward, z out), plume lag
+    let ky = 0, kp = 0, tw = 0, ks = 0, puff = 0, nd = 0, tn = 0, tt = 0, psi = SV_REST.psi, phi = SV_REST.phi;
+    let rX = -0.05 + br * 0.02, rZ = 0, rF = 0, lX = br * 0.02, lY = 0, lZ = 0, lF = 0, shoe = 0, horn = 0, hornP = 0, stars = 0, helm = 0, plX = 0, plZ = 0;
+    const poseL = (P, k) => { lX = lerp(lX, P[0], k); lY = lerp(lY, P[1], k); lZ = lerp(lZ, P[2], k); lF = lerp(lF, P[3], k); };   // (left arm → a pose, by k)
+    // ── idle life: breathing, ears flicking, the horse looks about, a hoof stamp now and then, the tail swishes ──
+    hy += br * 0.008; tsw += Math.sin(s.t * 1.3 + s.ph) * 0.18 + Math.sin(s.t * 3.1) * 0.05;
+    s.lkT = (s.lkT ?? frand(1, 3)) - dt;
+    if (s.lkT < 0) { s.lkT = frand(1.5, 4); s.lkTo = fpick([0, 0, -0.3, 0.28, 0.16, -0.12]); }
+    s.lk = damp(s.lk || 0, ph === 'idle' || ph === 'move' ? s.lkTo || 0 : 0, 3, dt); hyw += s.lk * 0.55; look += s.lk * 0.5;   // (eyes front while it acts)
+    s.ekT = (s.ekT ?? frand(1, 4)) - dt;
+    if (s.ekT < 0) { const u = -s.ekT / 0.35; if (u >= 1) { s.ekT = frand(2, 5); s.ekS = fpick([-1, 1, 0]); } else ear -= Math.sin(u * PI) * 0.6; }
+    s.hbt = (s.hbt ?? frand(1, 3)) - dt;
+    if (s.hbt < 0) { const u = -s.hbt / 0.16; if (u >= 1) s.hbt = frand(1.8, 4.5); else eyeK = 1 - Math.sin(u * PI) * 0.92; }
+    const calm = ph === 'idle' && !(st.move > 0.05);
+    s.stT = (s.stT ?? frand(3, 6)) - dt;
+    if (s.stT < 0) { const u = -s.stT / 0.55; if (u >= 1 || !calm) s.stT = frand(4, 8); else { const k = Math.sin(u * PI); LG.FR[0] -= 0.35 * k; LG.FR[1] += 0.9 * k; hx += 0.06 * k; } }
+    // the knight's sulky "hıh!": chin up, face turned away for a moment
+    if (s.mood !== 'happy' && (ph === 'idle' || ph === 'move')) {
+      s.hih = (s.hih ?? frand(1.5, 4)) - dt;
+      if (s.hih < 0) { const u = -s.hih / 1.1; if (u >= 1) s.hih = frand(3.5, 7); else { const e = smooth01(u / 0.2) * (1 - smooth01((u - 0.7) / 0.3)); nd -= 0.22 * e; tn += 0.45 * e; tt -= 0.06 * e; } }
+    }
+    // ── trot: diagonal pairs (FL + BR, FR + BL) take turns on the ground, each hoof PLACED (svLegIK, just before 'apply'): a
+    // hoof on the ground is held at its spot in the world — it stays put while he speeds up, slows down or turns — flat (the
+    // fetlock bends), the leg straight at the stride's ends; the body bounces down into each step (lowest in mid-stance, the
+    // knees giving under the caparison) and up again as the pairs hand over. In the air the knee / hock folds, the hoof
+    // flicks up and reaches forward to its next spot (as far ahead as the stride at his speed), leaving and landing at the
+    // ground's speed under him. He bounces in the saddle a beat later.
+    // Any phase but the charge (the gallop), the rear and the goodbye, while GAME moves him; the whole sweep too (its step-in
+    // walks; standing, the placed hooves stay flat on the ground while he crouches into the swing). The stride follows his
+    // real speed: when he stops, the hooves left behind step back under him and the bounce fades out.
+    const rp = m.root.position, ry = m.root.rotation.y, rs = m.root.scale.x || 1, cy = Math.cos(ry), sy = Math.sin(ry);
+    if (s.rx !== undefined && dt > 0) {   // (a jump = a teleport: the held spots are gone)
+      const dd = Math.hypot(rp.x - s.rx, rp.z - s.rz);
+      if (dd < 1) { s.gv = damp(s.gv || 0, dd / dt, 12, dt); if (dd > 1e-4) s.gvOn = true; } else s.wx = s.pw = null;
+    }
+    if (s.ry !== undefined && s.wx) {   // GAME turns him: the planted hooves hold on up to a brisk turn, beyond that they skid round with him
+      const d = angDiff(s.ry, ry), ex0 = d - clamp(d, -2.5 * dt, 2.5 * dt);
+      if (ex0) {
+        const c = Math.cos(ex0), sn = Math.sin(ex0), ox = rp.x + sy * (s.vd || 0), oz = rp.z + cy * (s.vd || 0);
+        for (const Q of [s.wx, s.pw]) for (const n in Q) { const q = Q[n]; if (!q) continue; const dx = q[0] - ox, dz = q[1] - oz; q[0] = ox + dx * c + dz * sn; q[1] = oz - dx * sn + dz * c; }
+      }
+    }
+    s.rx = rp.x; s.rz = rp.z; s.ry = ry;
+    // (after GAME stops him the placed hooves stay on for a moment, so the ones left behind step back under him)
+    const walkOn = ph !== 'charge' && ph !== 'rear' && ph !== 'dying' && (ph === 'move' || st.move > 0.05);
+    s.tk = walkOn ? 0.5 : ph === 'idle' || ph === 'sweep' || ph === 'toss' ? (s.tk || 0) - dt : 0;
+    const trot = ph === 'sweep' || walkOn || s.tk > 0;
+    s.gk = damp(s.gk || 0, trot ? 1 : 0, trot ? 30 : 12, dt);   // (placed at once: a straight leg on its spot is the rest pose)
+    const TR = SV_TROT, gv = Math.min(TR.vMax, s.gvOn ? s.gv : s.mv * TR.v), om = TR.rate + TR.rateV * gv;
+    if (!s.gvOn) s.vd = (s.vd || 0) + gv * dt;   // (never moved by GAME: a test page — as if he walked ahead at st.move)
+    const ex = rp.x + sy * (s.vd || 0), ez = rp.z + cy * (s.vd || 0);   // (the model frame's origin in the world)
+    const A = gv * TR.duty * PI / om;   // (half the stance stroke at this speed)
+    let rate = om;
+    {   // speeding up, the planted pair falls behind its stride: its step ends sooner (it would run out of leg and drag)
+      const sg0 = ((s.walk / TAU) % 0.5 + 0.5) % 0.5 / TR.duty, left = (s.zs ?? 0) + A;
+      if (gv > 0.05 && sg0 < 1) rate = left > 0.01 ? clamp((1 - sg0) * TR.duty * TAU * gv / left, om, om * 2.5) : om * 2.5;
+    }
+    if (s.gk > 0.01) s.walk += dt * rate;
+    const gk = s.gk, wp = s.walk, wb = wp - PI / 2;   // (wb: 0 / π = a pair in mid-stance, the body at its lowest; ±π/2 = the hand-over)
+    // per leg: the fetlock's target in the model frame (z, sideways off the leg's line, lift over the ground), the stride share
+    // it was at, where it left the ground, the world spot a planted hoof is held at
+    const TZ = s.tz || (s.tz = { FL: 0.56, FR: 0.56, BL: -0.7, BR: -0.7 }), TX = s.tx || (s.tx = { FL: 0, FR: 0, BL: 0, BR: 0 });
+    const TY = s.ty || (s.ty = { FL: 0, FR: 0, BL: 0, BR: 0 }), GU = s.gu || (s.gu = {}), Z0 = s.zo || (s.zo = {}), X0 = s.xo || (s.xo = {});
+    const W = s.wx || (s.wx = {}), PW = s.pw || (s.pw = {});   // (PW: each target's world spot last frame)
+    if (gk > 0.002) {
+      const lift = Math.min(1, gv / 1.2), L = SV_LEG[0] + SV_LEG[1], ga = gk * lift;   // (ga: how much he trots)
+      let zs = 0, ns = 0;
+      for (const [n, sd, z0] of SV_LEGS) {
+        const u = ((wp / TAU + (n === 'FL' || n === 'BR' ? 0 : 0.5)) % 1 + 1) % 1, fr = z0 > 0, u0 = GU[n], x = 0.32 * sd;
+        GU[n] = u;
+        if (u < TR.duty) {   // on the ground: held where it was put (a leg reaches only so far — then it drags along)
+          let lx = x + TX[n], lz = TZ[n];
+          if (!(u0 < TR.duty) || !W[n]) W[n] = PW[n] ? PW[n].slice() : [ex + (lx * cy + lz * sy) * rs, ez + (lz * cy - lx * sy) * rs];   // (just put down)
+          const dx = (W[n][0] - ex) / rs, dz = (W[n][1] - ez) / rs;
+          lx = dx * cy - dz * sy; lz = dx * sy + dz * cy;
+          const cz = clamp(lz, z0 - 0.45, z0 + 0.45), cx = clamp(lx - x, -0.25, 0.25);
+          if (cz !== lz || cx !== lx - x) { lz = cz; lx = x + cx; W[n] = [ex + (lx * cy + lz * sy) * rs, ez + (lz * cy - lx * sy) * rs]; }
+          TZ[n] = lz; TX[n] = lx - x; TY[n] = 0; zs += lz - z0; ns++;
+        } else {   // in the air: from where it left the ground up and forward to z0 + A (a Hermite curve whose end slopes match
+          // the stroke, so it never scuffs forward near the ground), back onto its line, as high as the step is long; the
+          // front hoof curls back
+          if (u0 === undefined || u0 < TR.duty) { Z0[n] = TZ[n]; X0[n] = TX[n]; }
+          const w = (u - TR.duty) / (1 - TR.duty), w2 = w * w, w3 = w2 * w, up = Math.sin(PI * w), mt = -2 * A * (1 - TR.duty) / TR.duty, h0 = 2 * w3 - 3 * w2 + 1;
+          const z1 = z0 + A, hk = Math.max(lift, clamp((Math.hypot(z1 - Z0[n], X0[n]) + gv * (1 - TR.duty) * TAU / om) / 0.4, 0, 1));   // (hk: as high as its step over the ground is long)
+          TZ[n] = Z0[n] * h0 + z1 * (1 - h0) + mt * (2 * w3 - 3 * w2 + w) - (fr ? 0.06 : 0.02) * up * hk;
+          TX[n] = X0[n] * h0; TY[n] = (fr ? TR.liftF : TR.liftB) * up * hk;
+        }
+        const px = x + TX[n], pz = TZ[n];
+        PW[n] = [ex + (px * cy + pz * sy) * rs, ez + (pz * cy - px * sy) * rs];
+      }
+      const sg = ((wp / TAU) % 0.5 + 0.5) % 0.5 / TR.duty;   // the pair on the ground: its share of the stance, its stroke zs
+      zs = ns ? zs / ns : 0; s.zs = zs;
+      // (the body: as high as a straight leg reaches at the stride's ends — never higher, the planted hooves must reach the
+      // ground — minus the bounce; the head nods down and the knight is tossed up a beat after the body)
+      hy += (Math.sqrt(L * L - Math.max(A * A, zs * zs)) - L - TR.dip * lift * Math.sin(PI * Math.min(1, sg))) * gk; hr += Math.sin(wp) * 0.012 * ga;
+      nk += Math.cos(2 * wb - 0.5) * 0.05 * ga; hx -= Math.cos(2 * wb - 0.5) * 0.03 * ga; tl += 0.25 * ga; tsw += Math.sin(wp) * 0.15 * ga;
+      ky += Math.abs(Math.sin(wb - 0.45)) * 0.045 * ga; kp += 0.05 * ga; plX -= Math.abs(Math.sin(wb - 0.9)) * 0.12 * ga;
+      rX += Math.sin(2 * wb) * 0.05 * ga; phi -= Math.abs(Math.sin(wb - 0.7)) * 0.05 * ga;
+    } else {   // standing: the next trot starts from the rest spots, FL + BR planted, FR + BL just lifting
+      for (const [n, , z0] of SV_LEGS) { TZ[n] = z0; TX[n] = TY[n] = 0; GU[n] = undefined; W[n] = PW[n] = null; }
+      s.zs = 0; s.walk = 0;
+    }
+    switch (ph) {
+      case 'charge': {   // 0–0.3 paws the ground + lowers the lance · 0.3–0.9 gallop · 0.9–1 skids to a stop
+        const wind = 1 - smooth01((t - 0.27) / 0.05), gal = smooth01((t - 0.27) / 0.05) * (1 - smooth01((t - 0.88) / 0.04));
+        const skid = smooth01((t - 0.87) / 0.04), low = smooth01((t - 0.04) / 0.2) * (1 - smooth01((t - 0.9) / 0.1));
+        if (wind > 0.001) {   // two scrapes with the right front hoof, head low, ears back, tail swishing
+          const u = clamp((t - 0.02) / 0.26, 0, 1), c = (u * 2) % 1, on = u > 0 && u < 1 ? 1 : 0;
+          const sw = c < 0.45 ? lerp(0, -0.6, smooth01(c / 0.45)) : c < 0.75 ? lerp(-0.6, 0.38, smooth01((c - 0.45) / 0.3)) : lerp(0.38, 0, smooth01((c - 0.75) / 0.25));
+          LG.FR[0] += sw * on * wind; LG.FR[1] += (c < 0.5 ? 1.2 * Math.sin(PI * c / 0.5) : 0) * on * wind;
+          nk += 0.28 * wind * smooth01(t / 0.08); hx += 0.12 * wind; ear -= 0.5 * wind; tsw += Math.sin(s.t * 9) * 0.3 * wind; hp += 0.03 * wind;
+          kp += 0.18 * low * wind; nd += 0.1 * low * wind;
+        }
+        if (gal > 0.001) {   // a bounding gallop: the front legs reach together, the hind legs push together; mane and tail stream
+          s.gal = (s.gal || 0) + dt * 15 * gal;
+          const q = s.gal;
+          for (const [n, o, sg] of [['FL', 0, 1], ['FR', 0.35, 1], ['BL', PI + 0.2, -1], ['BR', PI + 0.55, -1]]) {
+            const qq = q + o, up = Math.max(0, Math.cos(qq));
+            LG[n][0] -= 0.72 * Math.sin(qq) * gal; LG[n][1] += sg * 1.35 * up * up * gal;
+          }
+          hp += (-0.1 * Math.sin(q + 0.5)) * gal; hy += Math.max(0, Math.sin(q + 1.2)) * 0.16 * gal;
+          nk += (0.32 + 0.1 * Math.sin(q)) * gal; hx -= 0.2 * gal; ear -= 0.7 * gal; tl += 1.0 * gal; tsw += Math.sin(q * 0.5) * 0.2 * gal;
+          kp += (0.3 + 0.05 * Math.sin(q)) * gal; ky += Math.abs(Math.sin(q + 0.6)) * 0.07 * gal; nd += 0.08 * gal; plX -= 0.7 * gal;
+        }
+        if (skid > 0.001) {   // sits back on its haunches, front legs braced, the knight lurches forward then back
+          const k = skid * (1 - smooth01((t - 0.96) / 0.04) * 0.6), j = bump(t - 0.89, 0.1);
+          LG.BL[0] -= 0.75 * k; LG.BR[0] -= 0.7 * k; LG.BL[1] -= 0.55 * k; LG.BR[1] -= 0.5 * k;
+          LG.FL[0] -= 0.45 * k; LG.FR[0] -= 0.4 * k;
+          hp -= 0.16 * k; hy -= 0.12 * k; nk -= 0.3 * k; hx -= 0.1 * k; ear += 0.4 * k; tl += 0.3 * k;
+          kp += 0.35 * j - 0.1 * k; plX += 0.6 * j;
+        }
+        psi = lerp(psi, -0.08, low); phi = lerp(phi, -0.04 + 0.03 * Math.sin(s.t * 20) * gal, low);
+        rX += 0.3 * low; rF -= 0.15 * low;   // the lance couched under his arm
+        poseL(SV_LREIN, low);   // the left hand forward, as if on the reins
+        break;
+      }
+      case 'rear': {   // 0–0.5 up on the hind legs (pawing the air, neighing), lands at 0.5 (the stomp), 0.5–1 settles
+        const up = t < 0.42 ? smooth01((t - 0.06) / 0.22) : 1 - Math.pow(clamp((t - 0.42) / 0.08, 0, 1), 2), A = 0.72 * up;
+        const land = bump(t - 0.5, 0.16), crouch = bump(t, 0.14), set = bump(t - 0.55, 0.45);
+        hp -= A; hy -= 0.06 * crouch; sq = land; s.rearA = A; s.rearV = 0;
+        for (const [n, o] of [['FL', 0], ['FR', 1.7]]) { LG[n][0] -= (0.95 + 0.4 * Math.sin(s.t * 13 + o)) * up; LG[n][1] += (1.35 + 0.3 * Math.sin(s.t * 13 + o + 1)) * up; LG[n][2] += (n === 'FL' ? 0.1 : -0.1) * land; }
+        for (const n of ['BL', 'BR']) { LG[n][0] += A * 0.92; LG[n][1] -= 0.2 * up; }
+        nk -= 0.3 * up; hx -= 0.25 * up; jaw += 0.42 * bump(t - 0.1, 0.36); ear += 0.4 * up - 0.3 * land; tl -= 0.2 * up; tsw += Math.sin(s.t * 7) * 0.3 * up;
+        hz += Math.sin(s.t * 14) * 0.1 * set * (1 - smooth01((t - 0.9) / 0.1));   // a happy little head shake after landing
+        kp += A * 0.62; ky -= 0.06 * land; nd -= 0.1 * up + 0.08 * land; plX += 0.5 * up - 0.4 * land;
+        rX -= 2.1 * up; rF -= 0.25 * up; psi = lerp(psi, 0.05, up); phi = lerp(phi, 1.45, up);   // the lance held high
+        poseL(SV_LREIN, up);
+        break;
+      }
+      case 'sweep': {   // 0–0.4 the lance drawn back to his right · 0.4–0.6 swept wide across the front (straight ahead at 0.5) while
+        // the horse ducks its head under it · 0.6–1 back to rest
+        const back = smooth01(t / 0.34), e = smooth01((t - 0.4) / 0.2), rec = smooth01((t - 0.64) / 0.34), on = 1 - rec;
+        let ps = lerp(SV_REST.psi, -1.9, back);
+        if (t >= 0.4) ps = e < 0.5 ? lerp(-1.9, 0, e * 2) : lerp(0, 1.15, e * 2 - 1);
+        psi = lerp(ps, SV_REST.psi, rec);
+        phi = lerp(lerp(SV_REST.phi, -0.24, smooth01(t / 0.2)) + 0.62 * smooth01(ps / 1.15), SV_REST.phi, rec);
+        tw = lerp(ps * 0.42, 0, rec); rZ -= 0.85 * on * smooth01(t / 0.2); rX += (0.35 * back - 0.9 * e) * on; rF += 0.3 * on * smooth01(t / 0.2);
+        kp += 0.08 * on; ks -= 0.06 * back * on; nd += 0.08 * on; tn -= tw * 0.6;
+        const duck = bump(t - 0.43, 0.3);
+        nk += 0.12 * on * smooth01(t / 0.3) + 0.62 * duck; hx += 0.3 * duck; eyeK = Math.min(eyeK, 1 - 0.6 * duck); ear -= 0.8 * duck; hyw -= 0.2 * duck;
+        for (const [n, sd] of [['FL', 1], ['FR', -1], ['BL', 1], ['BR', -1]]) LG[n][2] += sd * 0.1 * on * smooth01(t / 0.3);
+        hw += (0.1 * back - 0.2 * e) * on; hy -= 0.04 * on;
+        break;
+      }
+      case 'toss': {   // three horseshoes flung sidearm with the left hand (swung out and back at shoulder height, then forward: they
+        // leave it at 0.35 / 0.5 / 0.65); a new one pops into the hand as it swings back; the horse watches them fly
+        const T = [0, 0.1, 0.27, 0.35, 0.43, 0.5, 0.58, 0.65, 0.74, 0.92];
+        const on = smooth01(t / 0.1) * (1 - smooth01((t - 0.76) / 0.16));
+        lY = lerp(lY, kf(t, T, [0, 0.3, 0.7, -0.65, 0.7, -0.65, 0.7, -0.65, -0.4, 0]), on); lZ = lerp(lZ, kf(t, T, [0, 1.1, 1.35, 1.2, 1.35, 1.2, 1.35, 1.2, 0.8, 0]), on);
+        lF = lerp(lF, kf(t, T, [0, -0.3, -0.45, 0, -0.45, 0, -0.45, 0, -0.1, 0]), on); tw += kf(t, T, [0, 0.15, 0.38, -0.32, 0.38, -0.32, 0.38, -0.32, -0.15, 0]) * on;
+        shoe = (t > 0.1 && t < 0.35) || (t > 0.4 && t < 0.5) || (t > 0.55 && t < 0.65) ? 1 : 0;
+        let kick = 0; for (const c of [0.35, 0.5, 0.65]) kick += bump(t - c + 0.05, 0.13);
+        kp += 0.06 * kick; ks -= 0.04 * on; nd -= 0.08 * on + 0.05 * kick; tn += 0.2 * on - 0.2 * kick; ky += 0.03 * kick;
+        hx -= 0.1 * on + 0.05 * kick; ear += 0.4 * on; lookY += 0.2 * on;
+        psi = lerp(psi, -0.45, on); phi = lerp(phi, 1.25, on);
+        break;
+      }
+      case 'summon': {   // lance raised high, the little horn from his belt to his lips (0.14–0.36), blown 0.42–0.62 (the call at 0.5),
+        // back at his belt by 0.85; the horse prances proudly
+        const k = smooth01(t / 0.16) * (1 - smooth01((t - 0.84) / 0.16)), hk = smooth01((t - 0.14) / 0.22) * (1 - smooth01((t - 0.66) / 0.18)), blow = bump(t - 0.4, 0.24);
+        rX -= 2.2 * k; rF -= 0.3 * k; psi = lerp(psi, 0.1, k); phi = lerp(phi, 1.5, k);
+        poseL(SV_LHORN, hk);
+        horn = hk > 0.4 ? 1 : 0; hornP = bump(t - 0.46, 0.1);
+        kp -= 0.1 * blow; nd -= 0.06 * blow; puff += 0.05 * blow; tn += 0.12 * hk;
+        LG.FL[0] -= 0.6 * Math.max(0, Math.sin(t * PI * 6)) * k; LG.FL[1] += 1.2 * Math.max(0, Math.sin(t * PI * 6)) * k;
+        LG.FR[0] -= 0.6 * Math.max(0, -Math.sin(t * PI * 6)) * k; LG.FR[1] += 1.2 * Math.max(0, -Math.sin(t * PI * 6)) * k;
+        hy += Math.abs(Math.sin(t * PI * 6)) * 0.05 * k; nk -= 0.25 * k; hx -= 0.12 * k; ear += 0.5 * k; tl += 0.3 * k;
+        break;
+      }
+      case 'roar': {   // "hımf!": chin up, face turned away, puffed up, the lance shaken; the horse half-rears and neighs
+        const k = smooth01(t / 0.18) * (1 - smooth01((t - 0.8) / 0.2)), away = smooth01((t - 0.22) / 0.12) * (1 - smooth01((t - 0.62) / 0.14));
+        nd -= 0.24 * k; tn += 0.5 * away; tt -= 0.08 * away; puff += 0.06 * k; kp -= 0.06 * k;
+        rX -= 0.5 * k; psi = lerp(psi, -0.1, k) + Math.sin(s.t * 18) * 0.08 * k; phi = lerp(phi, 1.25, k);
+        hp -= 0.22 * k; LG.FL[0] -= 0.5 * k; LG.FL[1] += 1.0 * k; LG.FR[0] -= 0.35 * k; LG.FR[1] += 0.8 * k;
+        for (const n of ['BL', 'BR']) LG[n][0] += 0.2 * k;
+        nk -= 0.35 * k; hx -= 0.3 * k; jaw += (0.38 + 0.06 * Math.sin(s.t * 34)) * bump(t - 0.12, 0.62); ear += 0.5 * k; tl += 0.4 * k; tsw += Math.sin(s.t * 10) * 0.3 * k;
+        break;
+      }
+      case 'dizzy': {   // wobbling round, little stars circling his helmet; the horse sways, cross-eyed, its tongue out
+        const k = smooth01(t / 0.06) * (1 - smooth01((t - 0.95) / 0.05)), a = s.t * 3.2;
+        ks += 0.12 * Math.sin(a) * k; kp += 0.08 * Math.cos(a) * k; nd += 0.12 * Math.cos(a * 1.3) * k; tt += 0.2 * Math.sin(a * 1.3 + 1) * k;
+        psi = lerp(psi, -0.75, k) + 0.15 * Math.sin(a * 0.8) * k; phi = lerp(phi, 0.3, k) + 0.15 * Math.sin(a) * k; rX += 0.25 * k; rZ -= 0.15 * k;
+        poseL(SV_LDIZZY, k); stars = k; plZ += 0.5 * Math.sin(a) * k; plX += 0.25 * k;
+        hr += 0.07 * Math.sin(a * 0.7) * k; hw += 0.05 * Math.sin(a * 0.45) * k;
+        for (const [n, sd] of [['FL', 1], ['FR', -1], ['BL', 1], ['BR', -1]]) LG[n][2] += sd * 0.13 * k;
+        nk += 0.22 * k; hz += 0.28 * Math.sin(a * 0.7 + 1) * k; hyw += 0.15 * Math.sin(a * 0.5) * k;
+        cross = k; tongue = k; ear -= 0.9 * k; look *= 1 - k; lookY += 0.15 * k;
+        break;
+      }
+      case 'dying': {   // overjoyed: 0–0.35 the helmet off and waved, the horse prances · 0.35–0.7 happy hops together · then the twirl
+        const d = st.dying, wv = Math.sin(s.t * 11);
+        helm = smooth01((d - 0.05) / 0.12);
+        const reach = smooth01(d / 0.06);
+        poseL(SV_LWAVE, reach); lZ += 0.22 * wv * helm; lF += 0.2 * wv * helm;
+        rX -= 1.4; rZ -= 0.2; psi = 0.1 + 0.12 * wv; phi = 1.4;
+        nd -= 0.12; tt += Math.sin(s.t * 7) * 0.08; plX += 0.3;
+        const pr = 1 - smooth01((d - 0.3) / 0.08), hop = d > 0.35 && d < 0.72 ? Math.abs(Math.sin((d - 0.35) / 0.37 * PI * 3)) : 0;
+        LG.FL[0] -= 0.7 * Math.max(0, Math.sin(s.t * 9)) * pr; LG.FL[1] += 1.3 * Math.max(0, Math.sin(s.t * 9)) * pr;
+        LG.FR[0] -= 0.7 * Math.max(0, -Math.sin(s.t * 9)) * pr; LG.FR[1] += 1.3 * Math.max(0, -Math.sin(s.t * 9)) * pr;
+        hy += Math.abs(Math.sin(s.t * 9)) * 0.05 * pr + hop * 0.42; nk -= 0.25; hx -= 0.15 + Math.sin(s.t * 9) * 0.05 * pr; ear += 0.6; tl += 0.5;
+        for (const n in LG) LG[n][1] += (n[0] === 'F' ? 1 : -1) * 0.9 * hop;
+        ky += hop * 0.08;
+        break;
+      }
+    }
+    // hit (st.hurt; m.anim leaves his root alone, def.ownHurt): he jolts back in the saddle, the horse tosses its head up with
+    // a squeezed blink and its ears back — its hooves stay where they are
+    if (st.hurt > 0 && ph !== 'dying') {
+      const h = st.hurt * st.hurt;
+      kp -= 0.32 * h; ky -= 0.04 * h; nd -= 0.14 * h; tt += 0.08 * h; plX += 0.4 * h;
+      nk -= 0.3 * h; hx -= 0.18 * h; ear -= 0.7 * h; eyeK = Math.min(eyeK, 1 - 0.7 * h); tl += 0.3 * h;
+    }
+    // cut short up on its hind legs (cheered up, or Feza napped and the knight calmed down): the horse comes down by itself and
+    // lands with a little squash instead of snapping to the ground
+    if (ph !== 'rear' && s.rearA > 0) {
+      s.rearV = (s.rearV || 0) + 7 * dt; s.rearA = Math.max(0, s.rearA - s.rearV * dt);
+      const k = s.rearA / 0.72;
+      hp -= s.rearA; LG.FL[0] -= 0.95 * k; LG.FR[0] -= 0.95 * k; LG.FL[1] += 1.35 * k; LG.FR[1] += 1.35 * k; LG.BL[0] += s.rearA * 0.92; LG.BR[0] += s.rearA * 0.92;
+      kp += s.rearA * 0.62; nk -= 0.3 * k;
+      if (s.rearA <= 0) s.landT = 1;
+    }
+    if (s.landT > 0) { sq = Math.max(sq, Math.sin(PI * (1 - s.landT))); s.landT = Math.max(0, s.landT - dt / 0.3); }
+    // any other phase cut short (a phase ends in its rest pose; a nap or the goodbye may come in the middle): blend out of the
+    // pose it left over a quarter of a second
+    const pose = s.pose || (s.pose = new Float32Array(13));
+    if (s.lastPh !== ph) { s.lastPh = ph; s.pose0 = s.pose0 || new Float32Array(13); s.pose0.set(pose); s.bl = s.t > 0.1 ? 1 : 0; }
+    if (s.bl > 0) {
+      s.bl = Math.max(0, s.bl - dt / 0.25); const k = smooth01(s.bl), P = s.pose0;
+      hp = lerp(hp, P[0], k); hy = lerp(hy, P[1], k); nk = lerp(nk, P[2], k); hx = lerp(hx, P[3], k); kp = lerp(kp, P[4], k); psi = lerp(psi, P[5], k); phi = lerp(phi, P[6], k);
+      tw = lerp(tw, P[7], k); rX = lerp(rX, P[8], k); lX = lerp(lX, P[9], k); lY = lerp(lY, P[10], k); lZ = lerp(lZ, P[11], k); lF = lerp(lF, P[12], k);
+    }
+    pose[0] = hp; pose[1] = hy; pose[2] = nk; pose[3] = hx; pose[4] = kp; pose[5] = psi; pose[6] = phi; pose[7] = tw; pose[8] = rX; pose[9] = lX; pose[10] = lY; pose[11] = lZ; pose[12] = lF;
+    // the trot's placed hooves (targets from the trot block), with the horse's final lift and pitch: the fetlock over the spot,
+    // the hoof kept flat on the ground, in the air flicked up (its sole turned back) as high as it is lifted, so it clears.
+    // The horse's yaw (the sweep turns him about the hind hips) and roll are undone at the hooves: the spot (off its line when
+    // he turns on a planted hoof) is turned back into the horse's frame (fore-aft for the IK) and the leg leans out / in
+    // (splay) to reach it sideways, the hoof kept level (a placed leg takes this splay instead of the pose's: the sweep's
+    // braced legs would slide the planted hooves apart).
+    const FT = s.ft || (s.ft = { FL: 0, FR: 0, BL: 0, BR: 0 }), FZ = s.fz || (s.fz = { FL: 0, FR: 0, BL: 0, BR: 0 });
+    const cw = Math.cos(hw), sw = Math.sin(hw);
+    for (const [n, sd, z0] of SV_LEGS) {
+      FT[n] = FZ[n] = 0;
+      if (gk <= 0.002) continue;
+      const x = 0.32 * sd, X = x + TX[n], Z = TZ[n] + 0.7, zl = X * sw + Z * cw - 0.7, dx = X * cw - Z * sw - x, hh = hy + x * Math.sin(hr);   // (hh: the roll lifts one hip, lowers the other)
+      const spl = Math.asin(clamp(dx / (0.9 + hh - SV_FET - TY[n]), -0.6, 0.6)) - hr;
+      svLegIK(z0, zl, TY[n] + SV_FET, hh, hp, _ik, Math.cos(spl + hr));
+      LG[n][0] = lerp(LG[n][0], _ik[0], gk); LG[n][1] = lerp(LG[n][1], _ik[1], gk); LG[n][2] = lerp(LG[n][2], spl, gk);
+      FT[n] = (Math.min(0.7, 2.2 * TY[n]) - (hp + LG[n][0] + LG[n][1])) * gk;   // (the hoof's world tilt − the shin's)
+      FZ[n] = -(LG[n][2] + hr) * gk;
+    }
+    // ── apply: the horse ──
+    B.horse.position.y += hy; B.horse.rotation.set(hp, hw, hr);
+    if (sq > 0.001) B.horse.scale.set(1 + 0.04 * sq, 1 - 0.07 * sq, 1 + 0.03 * sq);
+    for (const [n] of SV_LEGS) { B['leg' + n].rotation.set(LG[n][0], 0, LG[n][2]); B['shin' + n].rotation.x = LG[n][1]; B['hoof' + n].rotation.set(FT[n], 0, FZ[n]); }
+    B.hNeck.rotation.set(nk, hyw * 0.35, hz * 0.3);
+    B.hHead.rotation.set(hx - nk * 0.45, hyw * 0.65, hz * 0.7);
+    B.hJaw.rotation.x = jaw;
+    for (const [b, sd] of [[B.hEarL, 1], [B.hEarR, -1]]) { b.rotation.x = ear * 0.35 + Math.sin(s.t * 2.3 + sd) * 0.04; b.rotation.z = sd * (0.08 + (ear < 0 ? -ear * 0.25 : 0)) + (s.ekS === sd ? Math.min(0, ear) * 0.3 * sd : 0); }
+    B.hEyes.scale.y = eyeK;
+    B.hPupL.rotation.set(-lookY, look - 0.42 * cross, 0); B.hPupR.rotation.set(-lookY, look + 0.42 * cross, 0);
+    B.hTongue.scale.setScalar(tongue > 0.02 ? tongue : 0.0001);
+    B.tail0.rotation.set(-tl * 0.8, 0, tsw); B.tail1.rotation.set(-tl * 0.4, 0, tsw * 0.8 + Math.sin(s.t * 2.6 + s.ph) * 0.08);
+    // ── apply: the knight ──
+    B.kHips.position.y += ky; B.kHips.rotation.x = kp;
+    B.body.rotation.set(0, tw, ks); if (puff) B.body.scale.setScalar(1 + puff);
+    B.head.rotation.set(nd + Math.sin(s.t * 1.1 + s.ph) * 0.02, tn, tt + Math.sin(s.t * 0.9 + s.ph) * 0.03);
+    B.kLegL.rotation.z = 1.2 * ky; B.kLegR.rotation.z = -1.2 * ky;   // (his short legs flap as he bounces)
+    B.armR.rotation.set(rX, 0, rZ); B.foreR.rotation.set(rF, 0, 0);
+    B.armL.rotation.set(lX, lY, lZ); B.foreL.rotation.set(lF, 0, 0);
+    holdDir(B.lance, SV_Y, svDir(psi, phi, _lv), B.kHips);
+    B.shoe.scale.setScalar(shoe ? 1 : 0.0001);
+    B.hornH.scale.setScalar(horn ? 1 + 0.12 * hornP : 0.0001); B.hornB.scale.setScalar(horn ? 0.0001 : 1);
+    if (horn) {   // the mouthpiece at his lips (the tube stretched to reach them: chibi arms), the bell out in front of his hand
+      m.marker('mouth', _hw); B.hornH.getWorldPosition(_ap); _hw.sub(_ap);
+      B.body.getWorldQuaternion(_uq); holdBasis(B.hornH, _hw, _av.set(0, 0.3, 1).applyQuaternion(_uq));
+      B.hornH.scale.y *= clamp(_hw.length() / 0.34, 0.85, 1.3);
+    }
+    B.stars.scale.setScalar(stars > 0.01 ? stars : 0.0001); B.stars.rotation.y = s.t * 4.5; B.stars.rotation.z = Math.sin(s.t * 2.2) * 0.12;
+    s.plV = damp(s.plV || 0, plX - kp * 0.6 - nd * 0.4, 6, dt);
+    B.plume.rotation.set(s.plV + Math.sin(s.t * 2.1 + s.ph) * 0.05, 0, plZ + Math.sin(s.t * 1.7 + s.ph) * 0.04 - tt * 0.5);
+    if (helm > 0.001) {   // the goodbye: the helmet lifts off and rides in his waving left hand (held by its rim)
+      m.marker('muzzle', _hw); _hw.y += 0.26;
+      B.head.worldToLocal(_hw);
+      B.helm.position.lerp(_hw, helm); B.helm.rotation.set(0.3 * helm, 0, (0.5 + 0.3 * Math.sin(s.t * 11)) * helm);
+    }
+  }
+
   // ════════════════ Instances ════════════════
   const TYPES = {
     jole: [buildJole, animJole], mantar: [buildMantar, animMantar], yarasa: [buildYarasa, animYarasa], goblin: [buildGoblin, animGoblin],
@@ -3525,6 +5091,8 @@ const EMODEL = (function (G0) {
     kraljole: [buildKraljole, animKraljole], kostebekusta: [buildKostebekusta, animKostebekusta], lavkaplumbaga: [buildLavkaplumbaga, animLavkaplumbaga],
     yogurt: [buildYogurt, animYogurt], kaymak: [buildKaymak, animKaymak], kopuk: [buildKopuk, animKopuk], peynir: [buildPeynir, animPeynir],
     kefirdev: [buildKefirdev, animKefirdev],
+    nobetci: [buildNobetci, animNobetci], simitci: [buildSimitci, animSimitci], supurgeci: [buildSupurgeci, animSupurgeci], tellal: [buildTellal, animTellal],
+    sovalye: [buildSovalye, animSovalye],
   };
   // Model variants per type (first = default). ZONES[i].variants picks among them (kefir: jole 'muhallebi'; volcano: jole 'lava',
   // golem 'magma').
@@ -3612,7 +5180,7 @@ const EMODEL = (function (G0) {
         resetPose(I.bones);
         anim(m, dt, st, s);
         const R = I.B.root;
-        if (st.hurt > 0 && !dying) {   // (bosses: a smaller squash — they are big and get hit a lot)
+        if (st.hurt > 0 && !dying && !def.ownHurt) {   // (bosses: a smaller squash — they are big and get hit a lot)
           const h = st.hurt * st.hurt * (boss ? 0.45 : 1);
           R.scale.set(1 + 0.2 * h, 1 - 0.2 * h, 1 + 0.2 * h); R.rotation.x -= 0.22 * h; R.position.z -= 0.08 * h;
         }
@@ -3621,9 +5189,13 @@ const EMODEL = (function (G0) {
           s.bt -= dt; let bl = 1;
           if (s.bt < 0) { const u = -s.bt / 0.14; if (u >= 1) s.bt = frand(1.6, 4.5); else bl = 1 - Math.sin(u * PI) * 0.9; }
           if (st.windup >= 0) {   // telegraph: eyes squeeze into a giggle while the body leans back / puffs up
-            bl = Math.min(bl, 1 - 0.58 * smooth01(st.windup * 1.8));
+            // (def.pout, the lidded sulky "hıh!" faces: their eyes open a little wider, no blink — squeezed or half-shut under the
+            // lids they read as a glare from the gameplay camera above; their wind-up puffs the cheeks and lifts the chin instead,
+            // see townWalk)
+            if (def.pout) bl = 1 + 0.06 * smooth01(st.windup * 2);
+            else bl = Math.min(bl, 1 - 0.58 * smooth01(st.windup * 1.8));
             if (I.B.brow) I.B.brow.position.y += 0.03 * smooth01(st.windup * 2) * (m.height / sc);
-          } else if (st.attack < 0 && !dying) {   // now and then a little mischievous giggle
+          } else if (st.attack < 0 && !dying && !def.pout) {   // now and then a little mischievous giggle (the townsfolk: their "hıh!" instead)
             s.gg -= dt;
             if (s.gg < 0) {
               const u = -s.gg / 0.5;
@@ -3897,6 +5469,77 @@ const EMODEL = (function (G0) {
     };
   }
 
+  // ── Sancak: the knight's tournament banner (arena surprise; GAME treats it like a breakable). anim(dt, st):
+  //   st.fall 0..1 — 0–0.1 a little rock, 0.1–0.72 it tips over backwards (faster and faster), lands at 0.72 (the sun smiles
+  //   ^ ^, glints burst out of the crest), a small bounce until 0.86, then it lies flat (crest up);
+  //   st.glow 0..1 — the soft golden shimmer + orbiting glints while it stands; optional st.hurt 0..1 (a wobble when hit) and
+  //   st.pop 0..1 (springs up out of the ground; default 1). flash(a, c) / setTint(c) as the creatures. ──
+  const SAN_FALL = PI / 2 + 0.06;   // (lying: the golden ball touches the ground, the foot's back edge is the pivot)
+  const SAN_DIM = 0.2;              // lying down its colours are a little dimmer (which of the three are already down)
+  function sancak() {
+    const def = DEFS.sancak || (DEFS.sancak = lodBuild(LOD.sancak, buildSancak));
+    const mat = eMat({ tex: def.tex, rough: 0.5, ns: 0.7, rimK: 0.3, wob: 0.016, wobF: 3.2, wobS: 3.4 });
+    const uGR = { value: new THREE.Color(0, 0, 0) };   // the golden shimmer: a pulsing warm edge light
+    patchMat(mat, { uniforms: { uGR }, fDecl: 'uniform vec3 uGR;', fOut: 'outgoingLight += uGR * pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 1.8);', key: 'sancakGlow' });
+    const I = skinned(def, mat), root = new THREE.Group(); root.name = 'sancak'; root.add(I.mesh);
+    for (const n of def.hide) I.B[n].scale.setScalar(0.0001);
+    const s = { t: frand(0, 10), ph: frand(0, TAU), mood: 1, fa: 0, fc: new THREE.Color(1, 1, 1), tint: null, glow: 0, side: Math.random() < 0.5 ? -1 : 1 };
+    const em = { s, U: mat.userData.U, mat, def: { glowC: col('#fff0c8') } };
+    return {
+      root,
+      anim(dt, st = {}) {
+        const B = I.B, f = clamp(+st.fall || 0, 0, 1), up = 1 - smooth01((f - 0.1) / 0.3), hurt = clamp(+st.hurt || 0, 0, 1);
+        s.t += dt;
+        resetPose(I.bones);
+        // the fall (pivot: the foot's back edge)
+        let a = 0;
+        if (f < 0.1) a = -0.07 * Math.sin(PI * f / 0.1);
+        else if (f < 0.72) { const u = (f - 0.1) / 0.62; a = SAN_FALL * u * u; }
+        else a = SAN_FALL - 0.14 * Math.sin(PI * clamp((f - 0.72) / 0.14, 0, 1));
+        B.tip.rotation.x = -a;
+        // (st.side −1 / +1: it falls toward −x / +x; the quarter turn is done by the time it is half way down)
+        const sd = st.side < 0 ? -1 : st.side > 0 ? 1 : s.side;
+        B.root.rotation.y = -sd * PI / 2 * smooth01((f - 0.06) / 0.4);
+        if (!s.tint) mat.color.setScalar(1 - SAN_DIM * smooth01((f - 0.45) / 0.4));
+        B.tip.rotation.z = Math.sin(s.t * 24) * 0.03 * hurt * up;   // hit: a quick wobble
+        B.tip.rotation.x += Math.sin(s.t * 19) * 0.025 * hurt * up;
+        const pop = st.pop ?? 1;   // springs up out of the ground
+        if (pop < 1) { const p = clamp(pop, 0, 1); B.root.scale.set(1 + 0.12 * Math.sin(p * PI) * (1 - p), Math.max(0.0001, 1 - Math.pow(1 - p, 3) * Math.cos(p * PI * 2.2)), 1 + 0.12 * Math.sin(p * PI) * (1 - p)); }
+        // the cloth sways and flutters, the pennant flaps (both still once it lies on the ground)
+        B.cloth.rotation.x = (Math.sin(s.t * 1.7 + s.ph) * 0.04 + Math.sin(s.t * 3.1) * 0.015) * up - 0.25 * bump(f - 0.1, 0.62);
+        B.cloth.rotation.z = Math.sin(s.t * 1.3 + s.ph) * 0.03 * up;
+        B.pennant.rotation.y = (Math.sin(s.t * 5.2 + s.ph) * 0.35 + Math.sin(s.t * 8.7) * 0.12) * up;
+        mat.userData.U.uWob.value.x = 0.016 * up;
+        const md = f >= 0.72 ? 2 : 1;   // the sun smiles ^ ^ once it has landed
+        if (md !== s.mood) { s.mood = md; I.mesh.geometry = def.g[md - 1]; }
+        // glow: a pulsing golden edge light, a faint warm lift and three glints circling the crest; on landing the glints
+        // burst out of it
+        const g = clamp(+st.glow || 0, 0, 1) * up, burst = f >= 0.72 && f < 0.98 ? (f - 0.72) / 0.26 : -1, pulse = 0.5 + 0.5 * Math.sin(s.t * 3.4 + s.ph);
+        uGR.value.setRGB(1, 0.72, 0.22).multiplyScalar(g * (0.5 + 0.6 * pulse));
+        s.glow = g * (0.03 + 0.04 * pulse);
+        for (let i = 0; i < 3; i++) {
+          const b = B['tw' + i], an = s.t * 1.6 + i * TAU / 3, tw = 0.6 + 0.4 * Math.sin(s.t * 7 + i * 2.1);
+          if (burst >= 0) {
+            const d = 0.08 + 0.42 * Math.sqrt(burst), aa = i * TAU / 3 + 0.4;
+            b.position.x += Math.sin(aa) * d; b.position.y += Math.cos(aa) * d; b.position.z += 0.1 + 0.25 * burst;
+            b.scale.setScalar(Math.max(0.0001, Math.sin(PI * burst) * 1.4)); b.rotation.z = burst * 3;
+          } else if (g > 0.01) {
+            b.position.x += Math.sin(an) * 0.34; b.position.y += Math.cos(an * 0.7) * 0.18 + 0.1; b.position.z += Math.cos(an) * 0.16;
+            b.scale.setScalar(Math.max(0.0001, g * tw)); b.rotation.y = s.t * 2;
+          } else b.scale.setScalar(0.0001);
+        }
+        applyEm(em);
+      },
+      flash(a, c = '#ffffff') { s.fa = clamp(a || 0, 0, 1); s.fc.set(c); applyEm(em); },
+      setTint(c) {
+        s.tint = c ? new THREE.Color(c) : null;
+        if (c) mat.color.copy(_ice.set(0xffffff).lerp(s.tint, 0.6)); else mat.color.set(0xffffff);
+        applyEm(em);
+      },
+      dispose() { if (root.parent) root.parent.remove(root); mat.dispose(); I.mesh.skeleton.dispose(); },
+    };
+  }
+
   // ── Neşe kristali: big faceted pink gem with an inner light ──
   let HALO = null;
   function haloTex() {
@@ -3951,13 +5594,15 @@ const EMODEL = (function (G0) {
 
   // Build geometry caches (and optionally compile the shader programs against the live scene's lights) ahead of time,
   // e.g. right after a zone loads, so the first spawn of a type never hitches. Warm instances stay alive (programs persist).
-  // types: ['jole', 'golem:magma', …] ('type:variant' builds just that variant); variants: optional {type: [ids]} (the shape
-  // of ZONES[i].variants). Without either, jole builds its four forest colours and every other type its default look.
+  // types: ['jole', 'golem:magma', 'sancak', …] ('type:variant' builds just that variant; 'sancak' = the knight's banner);
+  // variants: optional {type: [ids]} (the shape of ZONES[i].variants). Without either, jole builds its four forest colours and
+  // every other type its default look.
   const WARM = {};
   function warm(types, compile = true, variants) {
     const fresh = [];
     for (const tv of types || Object.keys(TYPES)) {
       const [t, v1] = String(tv).split(':');
+      if (t === 'sancak') { if (compile && !WARM.sancak) fresh.push(WARM.sancak = sancak()); else if (!DEFS.sancak) sancak().dispose(); continue; }   // (the knight's banners)
       if (!TYPES[t]) continue;
       const vs = v1 ? [v1] : (variants && variants[t] && variants[t].length) ? variants[t] : t === 'jole' ? ['green', 'pink', 'blue', 'purple'] : [undefined];
       for (const v of vs) getDef(t, v, false);
@@ -3972,5 +5617,5 @@ const EMODEL = (function (G0) {
   }
   function stats() { const out = {}; for (const k in DEFS) out[k] = DEFS[k].verts; return out; }
 
-  return { build, owl, babyDragon, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS };
+  return { build, owl, babyDragon, sancak, crystal, warm, stats, TYPES: Object.keys(TYPES), VARIANTS };
 })(G);

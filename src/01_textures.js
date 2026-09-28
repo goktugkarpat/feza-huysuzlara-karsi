@@ -1,5 +1,5 @@
 /* ── Dokular: prosedürel, döşenebilir yüzey dokuları (renk + normal haritası) ──
-   TEX.init() ortak ve orman yüzeylerini üretir; kefir/mağara/yanardağ/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir;
+   TEX.init() ortak ve orman yüzeylerini üretir; kefir/mağara/yanardağ/şehir/kale yüzeyleri TEX.ensure(tema) ile (ya da ilk kullanıldıkları an) üretilir;
    TEX.release(tema) / TEX.keepOnly(bölge) geride kalan bölgelerin yüzeylerini bellekten atar (gerekirse yeniden üretilir).
    Her yüzey: TEX.<ad> = { map, normalMap } (init'ten sonra hepsi var); TEX.M.<ad> = bir karonun metre boyu.
    normalMap'in alfa kanalı yüksekliği (0..1) taşır (zemin karışımlarında "yüksekliğe göre geçiş" için). */
@@ -8,13 +8,14 @@ const TEX = (function () {
   // Metres covered by one texture tile.
   const M = { grass: 4, dirt: 3, cobble: 3, caveFloor: 4, caveSand: 3, castleFloor: 4, carpet: 2, brick: 2, rock: 3, wood: 1,
     bark: 1, roof: 2, plaster: 1, leaves: 2, fabric: 0.5, metal: 0.5, moss: 2, basalt: 4, ash: 3, lava: 6,
-    yogurt: 4, biscuit: 3, cheese: 4, milk: 6, swiss: 1.5 };
+    yogurt: 4, biscuit: 3, cheese: 4, milk: 6, swiss: 1.5, townStone: 3, townPath: 4, plaza: 4, rampart: 3.6 };
   // Suggested material settings (TEX.mat): roughness, normalScale, metalness.
   const HINT = { grass: [0.9, 1], dirt: [0.95, 1], cobble: [0.8, 1], caveFloor: [0.75, 1], caveSand: [0.95, 1], castleFloor: [0.32, 0.8],
     carpet: [0.95, 0.8], brick: [0.85, 1], rock: [0.85, 1], wood: [0.7, 1], bark: [0.9, 1], roof: [0.55, 1], plaster: [0.9, 1],
     leaves: [0.7, 0.9], fabric: [0.9, 0.8], metal: [0.35, 0.6, 1], moss: [0.95, 1], shirt: [0.85, 0.6],
     basalt: [0.78, 1], ash: [0.96, 1], lava: [0.55, 0.7],
-    yogurt: [0.46, 0.75], biscuit: [0.88, 1], cheese: [0.5, 0.85], milk: [0.22, 0.5], swiss: [0.48, 0.8] };
+    yogurt: [0.46, 0.75], biscuit: [0.88, 1], cheese: [0.5, 0.85], milk: [0.22, 0.5], swiss: [0.48, 0.8],
+    townStone: [0.78, 1], townPath: [0.72, 0.9], plaza: [0.66, 0.9], rampart: [0.88, 1] };
 
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const fract = x => x - Math.floor(x);
@@ -1179,6 +1180,268 @@ const TEX = (function () {
     return surf(A, H, S, 4);
   }
 
+  // ───────────────────── Town surfaces (Surlu Şehir; TEX.ensure('town') or on first use) ─────────────────────
+  // Soft-limit how far each stone's colour strays from its group's average — brightness to ±lb, tint to ±lc (sRGB units) — so no
+  // beacon stone marks the texture repeat. C: sRGB per stone (interleaved, changed in place); idx: the stones of one group.
+  function tame(C, idx, lb, lc) {
+    let mr = 0, mg = 0, mb = 0;
+    for (const k of idx) { mr += C[k * 3]; mg += C[k * 3 + 1]; mb += C[k * 3 + 2]; }
+    mr /= idx.length; mg /= idx.length; mb /= idx.length;
+    const soft = (v, lim) => (Math.abs(v) > 1e-3 ? lim * Math.tanh(v / lim) / v : 1);
+    for (const k of idx) {
+      const o = k * 3, l = (C[o] + C[o + 1] + C[o + 2] - mr - mg - mb) / 3, cr = C[o] - mr - l, cg = C[o + 1] - mg - l, cb = C[o + 2] - mb - l;
+      const L = l * soft(l, lb), fc = soft(Math.sqrt(cr * cr + cg * cg + cb * cb), lc);
+      C[o] = mr + L + cr * fc; C[o + 1] = mg + L + cg * fc; C[o + 2] = mb + L + cb * fc;
+    }
+  }
+
+  // Walkable town streets: small rounded honey / sand / cream cobbles (rows of ~0.2 m, stones 0.17–0.33 m long: smaller than
+  // 'cobble') laid in gently wavy rows, each row with its own joints and every stone a little turned and wobbly; domed, worn
+  // smoother and lighter on top, in warm sandy joints; a few thin moss lines creep along some row joints. The rows run along u (x):
+  // LEVEL's rotated anti-tiling sample would cross them (anti: 0).
+  function genTownStone() {
+    const S = 512, n = S * S, NR = 15, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wob = fbm(S, 32, 3, 701), mot = fbm(S, 16, 3, 702), wu = fbm(S, 4, 2, 703), wv = fbm(S, 4, 2, 704), msk = fbm(S, 6, 3, 705), fuzz = fbm(S, 32, 2, 706);
+    const fine = fbm(S, 128, 1, 7), grit = fbm(S, 64, 2, 8), R = mulberry32(707);
+    const pal = [0xe0c290, 0xd6b27e, 0xe8d4ae, 0xdcc49c, 0xd2b48c, 0xeadcbc, 0xd8b088, 0xcfbca0, 0xe2c8a0, 0xd9bc96].map(hex3);
+    // row heights ±12 % (sum = S) → ROW / RY lookup
+    const RY = [0], RHs = [], hs = [];
+    for (let r = 0; r < NR; r++) hs.push(0.88 + R() * 0.24);
+    const ht = hs.reduce((a, b) => a + b, 0);
+    for (let r = 0; r < NR; r++) { RHs.push(hs[r] / ht * S); RY.push(RY[r] + RHs[r]); }
+    const ROW = new Uint8Array(S);
+    for (let y = 0, r = 0; y < S; y++) { while (r < NR - 1 && y + 0.5 >= RY[r + 1]) r++; ROW[y] = r; }
+    // rows → stones: start x, width, turn, tilt, height, colour; RS / RI = each row's stone starts (sorted, wrapping) and ids
+    const RS = [], RI = [], SX = [], SW = [], SC = [], SS = [], TX = [], TY = [], SH = [], col = [];
+    for (let r = 0; r < NR; r++) {
+      const cnt = 11 + ((R() * 3) | 0), w = [], row = [];
+      let tw = 0, x = R() * S;
+      for (let k = 0; k < cnt; k++) { const v = 0.7 + R() * 0.6; w.push(v); tw += v; }
+      for (let k = 0; k < cnt; k++) {
+        const id = SX.length, bw = w[k] / tw * S, an = (R() - 0.5) * 0.12, c = pal[(R() * pal.length) | 0], b = 0.92 + R() * 0.14;
+        SX.push(x % S); SW.push(bw); SC.push(Math.cos(an)); SS.push(Math.sin(an)); TX.push((R() - 0.5) * 0.9); TY.push((R() - 0.5) * 0.9); SH.push(R());
+        col.push(c[0] * b, c[1] * b, c[2] * b); row.push(id);
+        x += bw;
+      }
+      row.sort((a, b) => SX[a] - SX[b]);
+      RS.push(row.map(k => SX[k])); RI.push(row);
+    }
+    const C = new Float32Array(col);
+    tame(C, SX.map((_, k) => k), 11, 8);
+    for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
+      // gently wavy rows and slightly slanted joints (tileable warp)
+      let X = x + 0.5 + (wu[i] - 0.5) * 7, Y = y + 0.5 + (wv[i] - 0.5) * 11;
+      X -= Math.floor(X / S) * S; Y -= Math.floor(Y / S) * S;
+      let r = ROW[Y | 0];
+      if (Y < RY[r]) r--; else if (Y >= RY[r + 1]) r++;
+      const rh = RHs[r], ly = Y - RY[r], js = RS[r];
+      let q = js.length - 1;
+      for (let t = 0; t < js.length; t++) if (X >= js[t]) q = t;
+      const id = RI[r][q], lx = X >= js[q] ? X - js[q] : X + S - js[q];
+      // rounded, slightly turned stone inside its cell (joint half-width g)
+      const bw = SW[id], qx = lx - bw * 0.5, qy = ly - rh * 0.5, u = qx * SC[id] + qy * SS[id], v = -qx * SS[id] + qy * SC[id];
+      const g = 1.3, hx = bw * 0.5 - g, hy = rh * 0.5 - g, rc = Math.min(hx, hy) * 0.85, dx = Math.abs(u) - hx + rc, dy = Math.abs(v) - hy + rc;
+      const e = rc - hyp(Math.max(dx, 0), Math.max(dy, 0)) - Math.min(Math.max(dx, dy), 0) + (wob[i] - 0.5) * 5 - ss(0.78, 0.94, wob[i]) * 1.5;
+      // domed across the whole stone (no flat top: a plateau edge would draw a ring inside every stone)
+      const t = clamp(e / (Math.min(hx, hy) * 0.85), 0, 1), dome = Math.sqrt(1 - (1 - t) * (1 - t)), cov = clamp(e + 0.5, 0, 1);
+      // moss: a few thin lines, mostly along the row joints (and just onto the stone edges there)
+      const mo = ss(0.6, 0.74, msk[i]) * ss(0.28, 0.62, fuzz[i]) * (dy > dx ? 1 : 0.3);
+      const hs = 0.12 + dome * (0.72 + SH[id] * 0.16) + (u * TX[id] + v * TY[id]) / rh * 0.14 * dome + (mot[i] - 0.5) * 0.07 + (fine[i] - 0.5) * 0.02;
+      const hm = 0.03 + grit[i] * 0.07 + mo * 0.06;
+      H[i] = hm + (Math.max(hs, hm) - hm) * cov;
+      const br = (0.92 + (mot[i] - 0.5) * 0.14 + (fine[i] - 0.5) * 0.06 + (grit[i] - 0.5) * 0.05) * (0.76 + 0.24 * dome) * (1 + dome * dome * 0.06);
+      const em = mo * (1 - ss(0, 0.45, t)) * 0.45, o = id * 3;
+      let sr = C[o] * br, sg = C[o + 1] * br, sb = C[o + 2] * br;
+      sr += (122 - sr) * em; sg += (140 - sg) * em; sb += (64 - sb) * em;
+      // joints: warm sandy soil, moss where the lines run
+      const mk = 0.84 + grit[i] * 0.32, ma = mo * 0.9, f = fuzz[i] * 30;
+      const jr = (156 + (104 + f - 156) * ma) * mk, jg = (132 + (134 + f - 132) * ma) * mk, jb = (98 + (54 - 98) * ma) * mk, p = i * 4;
+      A[p] = jr + (sr - jr) * cov; A[p + 1] = jg + (sg - jg) * cov; A[p + 2] = jb + (sb - jb) * cov; A[p + 3] = 255;
+    }
+    cavityWarm(A, H, S, 4, 1.1, 0.62, 1.06);
+    return surf(A, H, S, 4.5);
+  }
+
+  // Plaza / market square / tournament arena pavers: fish-scale fans (Bogenpflaster) — rows of overlapping fans 1.33 m wide, 0.67 m
+  // apart, each laid in concentric courses of small flat cream / sand pavers around a round foot stone; a slim outer course and the
+  // foot stone are terracotta, so soft terracotta arcs scallop across a cream square (calm enough for the boss telegraphs). Bevelled
+  // pavers in narrow sandy joints. The arcs bulge towards +v (north: up the screen). The rotated anti-tiling sample would break
+  // the scallops (anti: 0).
+  function genPlaza() {
+    const S = 512, n = S * S, NF = 3, FW = S / NF, RF = FW / 2, NRW = NF * 2, NC = 6, CW = RF / NC, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wob = fbm(S, 32, 3, 721), mot = fbm(S, 16, 3, 722), big = fbm(S, 4, 3, 723), fine = fbm(S, 128, 1, 7), grit = fbm(S, 64, 2, 8), R = mulberry32(724);
+    // course radii: a small foot stone, even cream courses, a slimmer terracotta outer course
+    const CR = [0, CW * 0.8];
+    for (let k = 2; k < NC; k++) CR.push(CW * 0.8 + (RF - CW * 0.72 - CW * 0.8) * (k - 1) / (NC - 2));
+    CR.push(RF);
+    // stones per course (every fan alike): the foot stone (course 0), then rings of stones ~1.3 × the course width long
+    const MK = [1], OFF = [0];
+    for (let k = 1; k < NC; k++) { MK.push(Math.max(4, Math.round(TAU * (CR[k] + CR[k + 1]) * 0.5 / (1.3 * Math.max(CR[k + 1] - CR[k], CW * 0.9))))); OFF.push(OFF[k - 1] + MK[k - 1]); }
+    const PER = OFF[NC - 1] + MK[NC - 1], NFAN = NF * NRW, NS = NFAN * PER, C = new Float32Array(NS * 3), SH = new Float32Array(NS), PH = new Float32Array(NFAN * NC);
+    const cream = [0xeee2c8, 0xe8d8b8, 0xf2e8d2, 0xe6d4b4, 0xecdec2, 0xe4d6bc, 0xf0e0c2].map(hex3), terra = [0xd4825c, 0xda8e66, 0xcc7856, 0xde9870, 0xd08260, 0xd68a5e].map(hex3);
+    const gC = [], gT = [];
+    for (let f = 0; f < NFAN; f++) for (let k = 0; k < NC; k++) {
+      PH[f * NC + k] = R();
+      for (let q = 0; q < MK[k]; q++) {
+        const s = f * PER + OFF[k] + q, tc = k === 0 || k === NC - 1, P = tc ? terra : cream, c = P[(R() * P.length) | 0], b = 0.95 + R() * 0.08;
+        C[s * 3] = c[0] * b; C[s * 3 + 1] = c[1] * b; C[s * 3 + 2] = c[2] * b; SH[s] = R();
+        (tc ? gT : gC).push(s);
+      }
+    }
+    tame(C, gC, 8, 6); tame(C, gT, 9, 7);
+    for (let y = 0, i = 0; y < S; y++) {
+      const Y = y + 0.5, jf = Math.floor(Y / RF);
+      for (let x = 0; x < S; x++, i++) {
+        const X = x + 0.5;
+        // the fan of row jf (its foot below the pixel) wins where it reaches; elsewhere the pixel is in the lower part of a row jf + 1
+        // fan. eb = distance to the fans of the row below (they cut this fan's lower flanks)
+        let j = jf, off = (j & 1) * RF, fi = Math.round((X - off) / FW), dx = X - fi * FW - off, dy = Y - j * RF, r = hyp(dx, dy), eb;
+        if (r <= RF) {
+          const o2 = ((j - 1) & 1) * RF, f2 = Math.round((X - o2) / FW);
+          eb = hyp(X - f2 * FW - o2, Y - (j - 1) * RF) - RF;
+        } else {
+          eb = r - RF; j = jf + 1; off = (j & 1) * RF; fi = Math.round((X - off) / FW); dx = X - fi * FW - off; dy = Y - j * RF; r = hyp(dx, dy);
+        }
+        const fan = (((j % NRW) + NRW) % NRW) * NF + (((fi % NF) + NF) % NF);
+        let k = NC - 1;
+        while (k > 0 && r < CR[k]) k--;
+        // course (radial) and stone (along the arc) edges, rounded corners
+        const er = Math.min(k ? r - CR[k] : 1e9, CR[k + 1] - r, eb);
+        let ea = 1e9, q = 0;
+        if (k) { const u = (Math.atan2(dx, dy) / TAU + 0.5) * MK[k] + PH[fan * NC + k], qi = Math.floor(u), fu = u - qi; q = qi % MK[k]; ea = Math.min(fu, 1 - fu) * TAU * r / MK[k]; }
+        const rc = 2.5, e = (er < rc && ea < rc ? rc - hyp(rc - er, rc - ea) : Math.min(er, ea)) + (wob[i] - 0.5) * 2.2;
+        const j0 = 1.2 + grit[i] * 0.7, t = clamp((e - j0) / 3.5, 0, 1), bev = Math.sqrt(1 - (1 - t) * (1 - t)), cov = clamp(e - j0 + 0.5, 0, 1);
+        const s = fan * PER + OFF[k] + q, o = s * 3;
+        const hs = 0.3 + bev * (0.55 + SH[s] * 0.1) + (mot[i] - 0.5) * 0.04 + (fine[i] - 0.5) * 0.015, hm = 0.05 + grit[i] * 0.05;
+        H[i] = hm + (Math.max(hs, hm) - hm) * cov;
+        const br = (0.93 + (mot[i] - 0.5) * 0.12 + (fine[i] - 0.5) * 0.05 + (big[i] - 0.5) * 0.06) * (0.82 + 0.18 * bev);
+        const gk = 0.84 + grit[i] * 0.3, jr = 196 * gk, jg = 180 * gk, jb = 152 * gk, p = i * 4;
+        A[p] = jr + (C[o] * br - jr) * cov; A[p + 1] = jg + (C[o + 1] * br - jg) * cov; A[p + 2] = jb + (C[o + 2] * br - jb) * cov; A[p + 3] = 255;
+      }
+    }
+    cavityWarm(A, H, S, 3, 0.8, 0.74, 1.04);
+    return surf(A, H, S, 2.8);
+  }
+
+  // Stone courses along u: NR rows (heights 1 ± hv/2 of the average, sum = S; ROW = the course of each pixel row), each cut into
+  // nb blocks (nb picked from nbs, lengths 0.75–1.25 × the course's average; J = sorted, wrapping start positions) with no joint
+  // closer than gap px to one in the course below (the last course also checks the first: the tile wraps).
+  function courses(S, NR, R, hv, nbs, gap) {
+    const RY = [0], RH = [], hs = [];
+    for (let r = 0; r < NR; r++) hs.push(1 - hv / 2 + R() * hv);
+    const ht = hs.reduce((a, b) => a + b, 0);
+    for (let r = 0; r < NR; r++) { RH.push(hs[r] / ht * S); RY.push(RY[r] + RH[r]); }
+    const ROW = new Uint8Array(S);
+    for (let y = 0, r = 0; y < S; y++) { while (r < NR - 1 && y + 0.5 >= RY[r + 1]) r++; ROW[y] = r; }
+    const wd = (a, b) => { const d = Math.abs(a - b) % S; return Math.min(d, S - d); }, J = [];
+    for (let r = 0; r < NR; r++) {
+      let js = null;
+      for (let tr = 0; tr < 40; tr++) {
+        const nb = nbs[(R() * nbs.length) | 0], w = [];
+        let tw = 0, x = R() * S;
+        for (let k = 0; k < nb; k++) { const v = 0.75 + R() * 0.5; w.push(v); tw += v; }
+        const c = [];
+        for (let k = 0; k < nb; k++) { c.push(x % S); x += w[k] / tw * S; }
+        js = c.sort((a, b) => a - b);
+        const near = [r > 0 ? J[r - 1] : null, r === NR - 1 ? J[0] : null].filter(Boolean);
+        if (near.every(p => js.every(a => p.every(b => wd(a, b) > gap)))) break;
+      }
+      J.push(js);
+    }
+    return { RY, RH, ROW, J };
+  }
+
+  // Main street (LEVEL's path layer): big pale cream / light sand flagstones — 8 courses of ~0.5 m (±18 %), 3–6 slabs each
+  // (0.5–1.7 m; no joint lines up with the one below), worn smooth with soft bevels, each slab a little tilted, a few chipped
+  // corners, narrow light sandy joints with a rare tuft of moss. Paler, calmer and bigger than townStone's honey cobbles, so the
+  // main route reads as a lighter, wider street (a brighter tint on townStone alone hardly shows after tone mapping). The courses
+  // run along u (anti: 0).
+  function genTownPath() {
+    const S = 512, n = S * S, NR = 8, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wob = fbm(S, 32, 3, 761), mot = fbm(S, 16, 4, 762), big = fbm(S, 4, 3, 763), msk = fbm(S, 8, 3, 764), fuzz = fbm(S, 32, 2, 766);
+    const fine = fbm(S, 128, 1, 7), grain = fbm(S, 32, 4, 748), grit = fbm(S, 64, 2, 8), R = mulberry32(765);
+    const { RY, RH, ROW, J } = courses(S, NR, R, 0.36, [3, 4, 5, 5, 6], 30);
+    const pal = [0xf0e4ca, 0xeadabc, 0xf2e8d4, 0xe8d6b6, 0xeee0c4, 0xe4d4b8, 0xecdcc0].map(hex3), NBk = NR * 8;
+    const C = new Float32Array(NBk * 3), BH = new Float32Array(NBk), TX = new Float32Array(NBk), TY = new Float32Array(NBk);
+    for (let id = 0; id < NBk; id++) {
+      const c = pal[(hash(id, 3) * pal.length) | 0], b = 0.94 + hash(id, 4) * 0.1;
+      C[id * 3] = c[0] * b; C[id * 3 + 1] = c[1] * b; C[id * 3 + 2] = c[2] * b; BH[id] = hash(id, 2); TX[id] = hash(id, 6) - 0.5; TY[id] = hash(id, 7) - 0.5;
+    }
+    tame(C, Array.from({ length: NBk }, (_, k) => k), 11, 7);
+    for (let y = 0, i = 0; y < S; y++) {
+      const r = ROW[y], rh = RH[r], ly = y + 0.5 - RY[r], js = J[r], nb = js.length;
+      for (let x = 0; x < S; x++, i++) {
+        const X = x + 0.5; let k = nb - 1;
+        for (let q = 0; q < nb; q++) if (X >= js[q]) k = q;
+        const a = js[k], b = k < nb - 1 ? js[k + 1] : js[0] + S, lx = X >= a ? X - a : X + S - a, bw = b - a;
+        const dx = Math.min(lx, bw - lx), dy = Math.min(ly, rh - ly), rc = 9;
+        let e = (dx < rc && dy < rc) ? rc - hyp(rc - dx, rc - dy) : Math.min(dx, dy);
+        e += (wob[i] - 0.5) * 4.5 - ss(0.8, 0.94, wob[i]) * 5;   // worn, a little irregular, here and there chipped edges
+        const id = r * 8 + k, j0 = 1.8 + grit[i] * 0.6, t = clamp((e - j0) / 6, 0, 1), bev = Math.sqrt(1 - (1 - t) * (1 - t)), cov = clamp(e - j0 + 0.5, 0, 1);
+        const mo = ss(0.66, 0.76, msk[i]) * ss(0.35, 0.7, fuzz[i]);   // rare moss tufts in the joints
+        const tl = ((lx - bw * 0.5) * TX[id] + (ly - rh * 0.5) * TY[id]) * 0.006 * bev;   // each slab a little tilted
+        const hs = 0.3 + bev * (0.5 + BH[id] * 0.08) + tl + (mot[i] - 0.5) * 0.05 + (grain[i] - 0.5) * 0.02 + (fine[i] - 0.5) * 0.008;
+        const hm = 0.06 + grit[i] * 0.05 + mo * 0.05;
+        H[i] = hm + (Math.max(hs, hm) - hm) * cov;
+        const br = (0.93 + (mot[i] - 0.5) * 0.1 + (grain[i] - 0.5) * 0.05 + (big[i] - 0.5) * 0.05) * (0.86 + 0.14 * bev) * (0.95 + 0.05 * ss(4, 16, e));
+        const gk = 0.84 + grit[i] * 0.3, ma = mo * 0.85, f = fuzz[i] * 26, o = id * 3, p = i * 4;
+        const jr = (192 + (108 + f - 192) * ma) * gk, jg = (172 + (136 + f - 172) * ma) * gk, jb = (140 + (62 - 140) * ma) * gk;
+        A[p] = jr + (C[o] * br - jr) * cov; A[p + 1] = jg + (C[o + 1] * br - jg) * cov; A[p + 2] = jb + (C[o + 2] * br - jb) * cov; A[p + 3] = 255;
+      }
+    }
+    cavityWarm(A, H, S, 3, 0.9, 0.72, 1.04);
+    return surf(A, H, S, 3);
+  }
+
+  // Town walls (surlar) and round towers: big warm-beige sandstone blocks — 6 courses of ~0.6 m (heights vary a little), 2–4 blocks
+  // each (0.9–1.8 m; no joint lines up with the one below), soft chamfered edges, a dressed face (a smooth drafted margin inside the
+  // chamfer around a slightly grainier, gently pillowed field), soft horizontal bedding bands, sparse little pores, a rare faint
+  // hairline crack and a few chipped corners, in recessed light mortar. Light and low in saturation (neutral cavity shading), so
+  // LEVEL can tint it (vertex / instance colour). v runs up the wall (triplanar: world y).
+  function genRampart() {
+    const S = 512, n = S * S, m = S - 1, NR = 6, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
+    const wob = fbm(S, 32, 3, 741), mot = fbm(S, 16, 4, 742), big = fbm(S, 4, 3, 743), bed = fbm(S, 2, 3, 744, 0.5, 24), bed2 = fbm(S, 4, 2, 745, 0.5, 48);
+    const crk = fbm(S, 8, 4, 746), fine = fbm(S, 128, 1, 7), grain = fbm(S, 32, 4, 748), R = mulberry32(747);
+    const { RY, RH: RHs, ROW, J } = courses(S, NR, R, 0.2, [2, 3, 3, 4], 40);
+    const pal = [0xdcd0b6, 0xd6c9ae, 0xe2d7c0, 0xd4c6aa, 0xdbcdb0, 0xe0d2b8, 0xd0c3a8, 0xd9cdb6].map(hex3), NBk = NR * 8, C = new Float32Array(NBk * 3), BH = new Float32Array(NBk);
+    for (let id = 0; id < NBk; id++) { const c = pal[(hash(id, 3) * pal.length) | 0], b = 0.93 + hash(id, 4) * 0.12; C[id * 3] = c[0] * b; C[id * 3 + 1] = c[1] * b; C[id * 3 + 2] = c[2] * b; BH[id] = hash(id, 2); }
+    tame(C, Array.from({ length: NBk }, (_, k) => k), 10, 6);
+    for (let y = 0, i = 0; y < S; y++) {
+      const r = ROW[y], rh = RHs[r], ly = y + 0.5 - RY[r], js = J[r], nb = js.length;
+      for (let x = 0; x < S; x++, i++) {
+        const X = x + 0.5; let k = nb - 1;
+        for (let q = 0; q < nb; q++) if (X >= js[q]) k = q;
+        const a = js[k], b = k < nb - 1 ? js[k + 1] : js[0] + S, lx = X >= a ? X - a : X + S - a, bw = b - a;
+        const dx = Math.min(lx, bw - lx), dy = Math.min(ly, rh - ly), rc = 9;
+        let e = (dx < rc && dy < rc) ? rc - hyp(rc - dx, rc - dy) : Math.min(dx, dy);
+        e += (wob[i] - 0.5) * 5 - ss(0.74, 0.9, wob[i]) * 7;   // uneven, here and there chipped edges
+        const id = r * 8 + k, j0 = 3.6, t = clamp((e - j0) / 12, 0, 1), bev = Math.sqrt(1 - (1 - t) * (1 - t)), cov = clamp(e - j0 + 0.5, 0, 1);
+        const pu = 2 * lx / bw - 1, pv = 2 * ly / rh - 1, pw = (1 - pu * pu) * (1 - pv * pv);   // pillow face
+        const fd = ss(19, 25, e + (wob[i] - 0.5) * 3);   // 0 on the drafted margin … 1 on the dressed field
+        const cl = (1 - ss(0, 0.01, Math.abs(crk[i] - 0.5))) * ss(0.76, 0.9, hash(id, 5) * 0.5 + big[i] * 0.5) * fd;
+        const bd = (bed[i] - 0.5) * 0.7 + (bed2[i] - 0.5) * 0.3;
+        const hb = bev * (0.8 + BH[id] * 0.12) + pw * 0.07 * fd + (mot[i] - 0.5) * 0.08 + (fine[i] - 0.5) * 0.012 + (grain[i] - 0.5) * 0.05 * fd
+          + bd * 0.03 - cl * 0.12, hm = 0.05 + fine[i] * 0.04;
+        H[i] = hm + (Math.max(hb, hm) - hm) * cov;
+        const br = (0.9 + (mot[i] - 0.5) * 0.12 + (fine[i] - 0.5) * 0.02 + (grain[i] - 0.5) * 0.08 * fd + bd * 0.16) * (0.84 + 0.16 * bev) * (1 + (1 - fd) * bev * 0.035) * (1 - cl * 0.18)
+          * (1 - (1 - ly / rh) * 0.08 * big[i]);
+        const mk = 0.9 + fine[i] * 0.15, mr = 204 * mk, mg = 196 * mk, mb = 180 * mk, o = id * 3, p = i * 4;
+        A[p] = mr + (C[o] * br - mr) * cov; A[p + 1] = mg + (C[o + 1] * br - mg) * cov; A[p + 2] = mb + (C[o + 2] * br - mb) * cov; A[p + 3] = 255;
+      }
+    }
+    // sparse little round pores (sandstone)
+    for (let q = 0; q < 360; q++) {
+      const cx = R() * S, cy = R() * S, rr = 0.9 + R() * R() * 2.6, dp = 0.04 + rr * 0.015;
+      for (let py = Math.floor(cy - rr - 1); py <= cy + rr + 1; py++) for (let px = Math.floor(cx - rr - 1); px <= cx + rr + 1; px++) {
+        const d = hyp(px + 0.5 - cx, py + 0.5 - cy) / rr; if (d >= 1) continue;
+        const i = (py & m) * S + (px & m), b = 1 - d * d, o = i * 4;
+        H[i] -= dp * b; A[o] *= 1 - 0.1 * b; A[o + 1] *= 1 - 0.11 * b; A[o + 2] *= 1 - 0.12 * b;
+      }
+    }
+    cavity(A, H, S, 5, 1.1, 0.62, 1.06);
+    return surf(A, H, S, 4);
+  }
+
   // ── Feza's T-shirt: canvas print (clouds, pastel planes, stars on off-white) + ribbed-knit normal map ──
   function genShirt() {
     const S = 512, cv = document.createElement('canvas'); cv.width = cv.height = S;
@@ -1284,17 +1547,18 @@ const TEX = (function () {
   const GEN = { grass: genGrass, dirt: genDirt, cobble: genCobble, caveFloor: genCaveFloor, caveSand: genCaveSand, castleFloor: genCastleFloor,
     carpet: genCarpet, brick: genBrick, rock: genRock, wood: genWood, bark: genBark, roof: genRoof, plaster: genPlaster, leaves: genLeaves,
     fabric: genFabric, metal: genMetal, moss: genMoss, shirt: genShirt, basalt: genBasalt, ash: genAsh, lava: genLava,
-    yogurt: genYogurt, biscuit: genBiscuit, cheese: () => genCheese(512, true), milk: genMilk, swiss: () => genCheese(256, false) };
-  // Surfaces only the kefir/cave/volcano/castle zones need: TEX.init() gives them placeholder textures (real, shareable Texture objects)
+    yogurt: genYogurt, biscuit: genBiscuit, cheese: () => genCheese(512, true), milk: genMilk, swiss: () => genCheese(256, false),
+    townStone: genTownStone, townPath: genTownPath, plaza: genPlaza, rampart: genRampart };
+  // Surfaces only the kefir/cave/volcano/town/castle zones need: TEX.init() gives them placeholder textures (real, shareable Texture objects)
   // whose pixels are generated by TEX.ensure(theme) — or automatically the first time anything reads image.data (GPU upload, canvas copy).
   // swiss = jointless cheese (256 px) for props and creatures (cheese wheels / wedges, the peynir wedge).
   const THEME = { forest: [], dairy: ['yogurt', 'biscuit', 'cheese', 'milk', 'swiss'], cave: ['caveFloor', 'caveSand'], volcano: ['basalt', 'ash', 'lava'],
-    castle: ['castleFloor', 'carpet', 'brick'] };
+    town: ['townStone', 'townPath', 'plaza', 'rampart'], castle: ['castleFloor', 'carpet', 'brick'] };
   const SIZE = { swiss: 256 };   // lazy surfaces that are not 512 px (a size here also makes a surface lazy when it has no theme)
-  // Zone index → theme: ZONES (06_level.js) when it is there, else the Round 4 order.
+  // Zone index → theme: ZONES (06_level.js) when it is there, else the Round 5 order.
   function themeOf(i) {
     try { if (typeof ZONES !== 'undefined' && ZONES && ZONES[i] && ZONES[i].theme) return ZONES[i].theme; } catch (e) { /* not loaded yet */ }
-    return ['forest', 'dairy', 'cave', 'volcano', 'castle'][i];
+    return ['forest', 'dairy', 'cave', 'volcano', 'town', 'castle'][i];
   }
   const LAZY = {}, PEND = {};
   for (const th in THEME) for (const k of THEME[th]) LAZY[k] = SIZE[k] || 512;
@@ -1364,7 +1628,7 @@ const TEX = (function () {
 
   const TEX = {
     M, HINT, ready: false, times: {},
-    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Kefir/cave/volcano/castle surfaces get placeholders
+    // Generate the common + forest surfaces (synchronous) and upload them to the GPU. Kefir/cave/volcano/town/castle surfaces get placeholders
     // (see TEX.ensure). Safe to call twice.
     init() {
       if (TEX.ready) return TEX;
@@ -1386,7 +1650,7 @@ const TEX = (function () {
       console.log('TEX ' + log.join(', ') + ' | upload ' + TEX.times.upload + ' | total ' + TEX.times.total + ' ms (later: ' + Object.keys(PEND).join(', ') + ')');
       return TEX;
     },
-    // Generate the surfaces a zone theme needs ('forest' | 'dairy' | 'cave' | 'volcano' | 'castle', or a zone index 0..4 → ZONES[i].theme;
+    // Generate the surfaces a zone theme needs ('forest' | 'dairy' | 'cave' | 'volcano' | 'town' | 'castle', or a zone index 0..5 → ZONES[i].theme;
     // a surface name also works; no argument = all) and upload them. Call it while the screen is faded (LEVEL.build).
     // Cheap no-op when they already exist.
     ensure(theme) {
@@ -1404,7 +1668,7 @@ const TEX = (function () {
     },
     // Names of surfaces whose pixels are not generated yet.
     pending: () => Object.keys(PEND),
-    // Free a zone theme's surfaces (same arguments as ensure; no argument / 'all' = every kefir/cave/volcano/castle surface): GPU
+    // Free a zone theme's surfaces (same arguments as ensure; no argument / 'all' = every kefir/cave/volcano/town/castle surface): GPU
     // textures + pixels go, the surfaces become pending again (TEX.ensure or their next use makes them again, ~0.1–0.3 s under the
     // fade). For zones behind the player (≈ 12 MB each on the GPU). Don't call it for the zone on screen (its next frame would make
     // them again). Returns the names it freed.

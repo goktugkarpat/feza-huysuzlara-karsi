@@ -5,7 +5,7 @@
 const FX = (() => {
   let ready = false, clock = 0;
   const uTime = { value: 0 };
-  const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _c = new THREE.Color();
+  const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _eu = new THREE.Euler(), _c = new THREE.Color();
   const _dbs = new THREE.Vector2(), ZAX = new THREE.Vector3(0, 0, 1), scr = { x: 0, y: 0, vis: false }, EMPTY = {};
   const sat = v => (v < 0 ? 0 : v > 1 ? 1 : v);
   const sstep = (a, b, x) => { const t = sat((x - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -37,10 +37,12 @@ const FX = (() => {
     return hueNorm(n, k);
   }
 
-  // ───────────────────────── Atlas: 4×4 cells of 128 px, drawn with signed distance fields ─────────────────────────
-  // Channels: R = shade (tint multiplier, darker rim), G = white highlight, A = coverage.
-  const SH = { GLOW: 0, STAR: 1, SPARK: 2, SMOKE: 3, HEART: 4, Z: 5, RING: 6, SHARD: 7, PLUS: 8, DOT: 9, PETAL: 10, FLAME: 11, SQUARE: 12, NOTE: 13, SWIRL: 14, FLOWER: 15 };
-  const CELL = 128, PX1 = 1 / CELL;
+  // ───────────────────────── Atlas: 4 × 5 cells of 128 px, drawn with signed distance fields ─────────────────────────
+  // Channels: R = shade (tint multiplier, darker rim), G = white highlight, A = coverage. Cells 0–15 keep their old places;
+  // row 4 (Round 5) holds the new glyphs (16 ♫, 17–19 free). Only the cells in CELLS are painted.
+  const SH = { GLOW: 0, STAR: 1, SPARK: 2, SMOKE: 3, HEART: 4, Z: 5, RING: 6, SHARD: 7, PLUS: 8, DOT: 9, PETAL: 10, FLAME: 11, SQUARE: 12, NOTE: 13, SWIRL: 14, FLOWER: 15,
+    NOTES: 16 };
+  const CELL = 128, ROWS = 5, PX1 = 1 / CELL;
   const aa = d => sat(0.5 - d / PX1);
   const gauss = (x, s) => Math.exp(-(x * x) / (s * s));
   function sdStar5(x, y, r, rf) {
@@ -175,10 +177,18 @@ const FX = (() => {
       const es = edgeShade(d, 0.06) * (0.9 + 0.1 * sat(r / 0.2));
       o[3] = f; o[0] = es + (1 - es) * cf; o[1] = f * (cf * 0.8 + 0.3 * Math.exp(-((x + 0.1) ** 2 + (y - 0.18) ** 2) * 200));
     },
+    (x, y, o) => {   // 16 two beamed notes (♫), outlined like the single note, a glint on each head
+      const c = Math.cos(0.45), s = Math.sin(0.45);
+      const head = (hx, hy) => (Math.hypot((c * hx + s * hy) / 0.125, (-s * hx + c * hy) / 0.088) - 1) * 0.088;
+      let d = Math.min(head(x + 0.18, y + 0.24), head(x - 0.17, y + 0.17));
+      d = Math.min(d, sdSeg(x, y, -0.075, -0.22, -0.075, 0.2) - 0.032, sdSeg(x, y, 0.275, -0.15, 0.275, 0.27) - 0.032, sdSeg(x, y, -0.075, 0.19, 0.275, 0.26) - 0.055);
+      o[3] = aa(d - 0.035); o[0] = 0.3 + 0.7 * aa(d);
+      o[1] = 0.5 * aa(d) * (Math.exp(-((x + 0.22) ** 2 + (y + 0.2) ** 2) * 300) + Math.exp(-((x - 0.13) ** 2 + (y + 0.13) ** 2) * 300));
+    },
   ];
   function buildAtlas() {
-    const W = CELL * 4, data = new Uint8Array(W * W * 4), o = [0, 0, 0, 0];
-    for (let cell = 0; cell < 16; cell++) {
+    const W = CELL * 4, data = new Uint8Array(W * CELL * ROWS * 4), o = [0, 0, 0, 0];
+    for (let cell = 0; cell < CELLS.length; cell++) {
       const cx = cell & 3, cy = cell >> 2, fn = CELLS[cell];
       for (let j = 0; j < CELL; j++) for (let i = 0; i < CELL; i++) {
         o[0] = 1; o[1] = 0; o[2] = 0; o[3] = 0;
@@ -187,7 +197,7 @@ const FX = (() => {
         data[k] = sat(o[0]) * 255 + 0.5; data[k + 1] = sat(o[1]) * 255 + 0.5; data[k + 2] = 0; data[k + 3] = sat(o[3]) * 255 + 0.5;
       }
     }
-    const t = new THREE.DataTexture(data, W, W, THREE.RGBAFormat);
+    const t = new THREE.DataTexture(data, W, CELL * ROWS, THREE.RGBAFormat);
     t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
     return t;
   }
@@ -243,7 +253,7 @@ const FX = (() => {
       gl_PointSize = min(uMaxPt, aMisc.x * uScale / max(0.2, -mv.z));
       if (aMisc.x <= 0.0 || aCol.a <= 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       vCol = aCol; vRot = vec2(cos(aMisc.y), sin(aMisc.y));
-      float sh = aMisc.z; vSoft = step(15.5, sh); sh -= 16.0 * vSoft;   // shape + 16 = soft shading (milk / kefir: no grey belly)
+      float sh = aMisc.z; vSoft = step(63.5, sh); sh -= 64.0 * vSoft;   // shape + 64 = soft shading (milk / kefir: no grey belly)
       vCell = vec2(mod(sh + 0.01, 4.0) - 0.01, floor(sh / 4.0 + 0.01)); vStr = aMisc.w;
     }`;
   const PT_FS = `uniform sampler2D uAtlas; varying vec4 vCol; varying vec2 vRot; varying vec2 vCell; varying float vStr, vSoft;
@@ -251,7 +261,7 @@ const FX = (() => {
       vec2 p = vec2(gl_PointCoord.x - 0.5, 0.5 - gl_PointCoord.y);
       p = vec2(vRot.x * p.x + vRot.y * p.y, -vRot.y * p.x + vRot.x * p.y);
       p.x *= vStr;
-      vec4 t = texture2D(uAtlas, (vCell + clamp(p, -0.5, 0.5) + 0.5) * 0.25);
+      vec4 t = texture2D(uAtlas, (vCell + clamp(p, -0.5, 0.5) + 0.5) * vec2(0.25, ${1 / ROWS}));
       float a = t.a * vCol.a;
       if (dot(p, p) > 0.25 || a < 0.003) discard;
       float m = max(max(vCol.r, vCol.g), vCol.b);
@@ -302,7 +312,7 @@ const FX = (() => {
     const g = p.glow || 1, c0 = lin(p.color ?? C.W1), c1 = p.color1 == null ? c0 : lin(p.color1);
     d[o + R0] = c0[0] * g; d[o + G0] = c0[1] * g; d[o + B0] = c0[2] * g; d[o + R1] = c1[0] * g; d[o + G1] = c1[1] * g; d[o + B1] = c1[2] * g;
     d[o + AL] = p.alpha ?? 1; d[o + GRV] = (p.grav || 0) * k; d[o + DRG] = p.drag || 0;
-    d[o + ROT] = p.rot ?? Math.random() * TAU; d[o + SPN] = p.spin || 0; d[o + SHP] = (p.shape || 0) + (p.soft ? 16 : 0);
+    d[o + ROT] = p.rot ?? Math.random() * TAU; d[o + SPN] = p.spin || 0; d[o + SHP] = (p.shape || 0) + (p.soft ? 64 : 0);
     d[o + POP] = p.pop || 0; d[o + FAD] = p.fade || 1; d[o + FLK] = p.flick || 0; d[o + BNC] = p.bounce || 0;
     d[o + OX] = bx + ((p.ox ?? p.x) - bx) * k; d[o + OZ] = bz + ((p.oz ?? p.z) - bz) * k; d[o + ORB] = p.orbit || 0;
     d[o + WOB] = (p.wob || 0) * k; d[o + STR] = p.stretch || 1; d[o + PHS] = p.phase ?? Math.random() * TAU;
@@ -392,7 +402,16 @@ const FX = (() => {
       KEFG: ['#ffa8cc', '#9fd4ff', '#ffe08a', '#b5f5d0', '#d5b8ff'].map(h => lin(h, 2.1)),
       KEFR: ['#ffa4cf', '#9ccfff', '#c4acff', '#9eecc2', '#ffd978'].map(h => lin(h)),   // bubble rims: pastel, but coloured enough to read on cream
       CRUMB: ['#e3ad5c', '#c98a3c', '#f0cb86', '#b0702e', '#dca050'].map(h => lin(h)), OAT: lin('#f4e2b8'), CRUMBD: lin('#efdcb6'),
+      // Surlu Şehir (Round 5): toasty simit browns + cream sesame; hoof dust in sand and cream puffs (the sandy ones show on
+      // the pale plaza, the cream ones on the honey cobbles); silver sparkles a touch cool beside the gold, and solid gold /
+      // sky-blue stars for the pale plaza; candy-coloured music notes (the solid ones stay under 1: they never bloom).
+      SIMITC: ['#c8742c', '#a95a20', '#e09a4a', '#8c4818', '#d6883a'].map(h => lin(h)), SESAME: lin('#fff0c6'), SESAMED: lin('#f2d9a0'),
+      HOOFD: ['#e2c08e', '#faf0de', '#d8b480', '#f4e6cc'].map(h => lin(h)), HOOFP: ['#c9a676', '#ad8656'].map(h => lin(h)),
+      SILV: lin('#eef4ff', 2.6), SILVB: lin('#bcd6ff', 2.4), SILVG: lin('#dfeaff', 1.6),
+      SHOEG: lin('#ffb82a', 0.98), SHOEY: lin('#ffd644', 0.98), SHOEB: lin('#86bcff', 0.98),
+      NOTEC: ['#ff5fa8', '#39b4ff', '#ffc21f', '#4cd46a', '#a47bff', '#ff8a2a'].map(h => lin(h, 0.95)),
     };
+    C.NOTEG = C.NOTEC.map(c => hueNorm(c, 2.2));
   }
   const N = (n, K) => Math.max(1, Math.round(n * K));
   function radial(q, s0, s1, u0, u1) { const a = Math.random() * TAU, s = frand(s0, s1); q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s; q.vy = frand(u0, u1); return a; }
@@ -411,7 +430,8 @@ const FX = (() => {
     portal: 6, spore: 6, ghost: 5, debris: 10, zzz: 3, embers: 8, confetti: 28, star: 1, shadowPuff: 6, zap: 6,
     slime: 2, dirt: 8, bubblePop: 7, bubbles: 3, bubble: 7, pop: 7, glitter: 3, dig: 8, mud: 8, clods: 8, trail: 2,
     lava: 12, magma: 12, erupt: 16, eruption: 16, volcano: 16, steam: 4, vent: 4, jelly: 9, splat: 9,
-    milk: 12, cream: 12, yogurt: 12, splash: 12, fizz: 10, kefir: 10, foam: 6, fizzPop: 8, crumbs: 10, crumb: 10, biscuit: 10 };
+    milk: 12, cream: 12, yogurt: 12, splash: 12, fizz: 10, kefir: 10, foam: 6, fizzPop: 8, crumbs: 10, crumb: 10, biscuit: 10,
+    hoof: 5, gallop: 5, hooves: 5, notes: 7, note: 7, music: 7, horseshoe: 16, clink: 16, simit: 10, sesame: 10 };
   const B = {
     // opts.color (the saber's blade colour, or a projectile's colour): the flash, ring and energy streaks take that hue and
     // a few crackling sparks fly off — a "zap". The cute yellow stars stay. No coloured droplets (a red blade must never
@@ -944,7 +964,7 @@ const FX = (() => {
     // Biscuit crumbs: golden chips (faceted and rounded) and round bits hop out, tumble and bounce, a pale oat flake or two
     // flutter down, and a light biscuit-dust puff. opts: {color (biscuit tone), dir, scale, count}.
     crumbs(x, y, z, o, K) {
-      const v = o.color ? [lin(o.color, 0.72), lin(o.color), lin(o.color, 1.18)] : C.CRUMB, dx = o.dir ? o.dir.x * 1.4 : 0, dz = o.dir ? o.dir.z * 1.4 : 0;
+      const v = o.color ? [lin(o.color, 0.72), lin(o.color), lin(o.color, 1.18)] : o.pal || C.CRUMB, dx = o.dir ? o.dir.x * 1.4 : 0, dz = o.dir ? o.dir.z * 1.4 : 0;
       const gy = Math.max(0.05, y);
       let q;
       for (let i = 0, n = N(10, K); i < n; i++) {
@@ -962,11 +982,122 @@ const FX = (() => {
         q.drag = 3; q.size = frand(0.32, 0.45); q.size1 = q.size * 2.1; q.life = frand(0.5, 0.75); q.alpha = 0.6; q.fade = 2; q.pop = 0.1; q.spin = frand(-1, 1); q.color = C.CRUMBD; emitRaw(q);
       }
     },
+    // ── Surlu Şehir (Round 5) ── A simit breaks (the Simitçi's throw ends): a soft golden "pop" ring and twinkles, toasty crumbs
+    // in simit browns (or opts.color) and cream sesame seeds tumbling out. opts: {color, dir, scale, count}.
+    simit(x, y, z, o, K) {
+      simO.color = o.color; simO.dir = o.dir; simO.pal = C.SIMITC;
+      B.crumbs(x, y, z, simO, K);
+      simO.color = simO.dir = null;
+      const gy = Math.max(0.05, y);
+      let q = P(1, SH.RING, x, y, z); q.size = 0.45; q.size1 = 1.3; q.life = 0.22; q.rot = 0; q.color = C.GOLD; q.alpha = 0.55; q.fade = 1.4; emitRaw(q);
+      flashGlow(x, y, z, 0.9, C.GOLD, 0.12, 0.35);
+      twinkles(N(3, K), x, y, z, 0.35, C.YEL, 0.3);
+      for (let i = 0, n = N(7, K); i < n; i++) {
+        q = P(0, SH.PETAL, x + frand(-0.12, 0.12), gy + 0.06, z + frand(-0.12, 0.12)); radial(q, 0.8, 2.4, 2.2, 4.2);
+        q.grav = 11; q.bounce = 0.3; q.drag = 0.4; q.size = frand(0.075, 0.1); q.life = frand(0.8, 1.2); q.spin = frand(-12, 12); q.fade = 4;
+        q.color = i % 3 ? C.SESAME : C.SESAMED; q.delay = frand(0, 0.04); emitRaw(q);
+      }
+    },
+    // The knight's big horse: a warm dust puff rolling out in a low ring (sandy and cream puffs mixed: one of them always shows,
+    // on the honey cobbles or the pale plaza), two tiny pebbles and a few golden sparkles twinkling up, one of them a little
+    // solid gold star (gallop steps, the rear landing, the charge's skid stop). Cheap: fine once per hoof beat. opts: {dir
+    // (pushes the dust: behind a galloping hoof, or ahead in a skid), color (dust tint), scale (≈ 2: the rear landing — a wide
+    // stomp ring with golden stars), count}.
+    hoof(x, y, z, o, K) {
+      const t = o.color ? lin(o.color) : null, gy = Math.max(0.04, y), dx = o.dir ? o.dir.x * 1.6 : 0, dz = o.dir ? o.dir.z * 1.6 : 0, big = bk >= 1.5;
+      let q;
+      for (let i = 0, n = N(5, K) + (big ? 3 : 0); i < n; i++) {   // the dust ring
+        const a = (i / n) * TAU + frand(-0.3, 0.3), s = frand(1.1, 1.9);
+        q = P(0, SH.SMOKE, x + Math.cos(a) * 0.16, gy + 0.08, z + Math.sin(a) * 0.16);
+        q.vx = Math.cos(a) * s + dx; q.vz = Math.sin(a) * s + dz; q.vy = frand(0.35, 0.8); q.drag = 3.4; q.grav = -0.15;
+        q.size = frand(0.3, 0.42); q.size1 = q.size * 2.2; q.life = frand(0.55, 0.85); q.alpha = 0.92; q.fade = 2.2; q.pop = 0.1; q.spin = frand(-1.2, 1.2);
+        q.color = t || C.HOOFD[i & 3]; q.delay = frand(0, 0.03); emitRaw(q);
+      }
+      for (let i = 0, n = N(2, K); i < n; i++) {   // tiny pebbles hop
+        q = P(0, SH.DOT, x + frand(-0.1, 0.1), gy + 0.05, z + frand(-0.1, 0.1)); radial(q, 0.6, 1.6, 1.6, 2.8); q.vx += dx * 0.5; q.vz += dz * 0.5;
+        q.grav = 12; q.bounce = 0.3; q.size = frand(0.06, 0.09); q.life = frand(0.5, 0.7); q.fade = 4; q.color = C.HOOFP[i & 1]; emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // golden sparkles on the rim of the puff (over the floor, not lost in the dust)
+        const a = (i / n) * TAU + frand(-0.5, 0.5), r = frand(0.45, 0.65), st = i === 0;
+        q = P(st ? 0 : 1, st ? SH.STAR : SH.SPARK, x + Math.cos(a) * r, gy + frand(0.2, 0.4), z + Math.sin(a) * r);
+        q.vx = Math.cos(a) * 0.5 + dx * 0.3; q.vy = frand(0.6, 1.1); q.vz = Math.sin(a) * 0.5 + dz * 0.3; q.drag = 1.5;
+        q.life = frand(0.55, 0.8); q.fade = 1.6; q.pop = 0.08; q.rot = frand(-0.3, 0.3); q.delay = frand(0.05, 0.14);
+        if (st) { q.size = frand(0.13, 0.16); q.size1 = 0.05; q.spin = frand(-5, 5); q.color = C.SHOEG; }
+        else { q.size = frand(0.3, 0.4); q.size1 = 0.06; q.flick = frand(12, 18); q.color = i === 2 ? C.YEL : C.GOLD; }
+        emitRaw(q);
+      }
+      if (big) for (let i = 0, n = N(4, K); i < n; i++) {   // the rear landing: solid golden stars hop out of the stomp
+        q = P(0, SH.STAR, x, gy + 0.15, z); radial(q, 0.5, 1.1, 1.6, 2.4); q.grav = 5; q.drag = 1.2;
+        q.size = frand(0.13, 0.17); q.size1 = 0.05; q.life = frand(0.6, 0.8); q.spin = frand(-6, 6); q.pop = 0.08; q.fade = 2; q.color = i & 1 ? C.SHOEY : C.SHOEG; q.delay = frand(0.02, 0.08); emitRaw(q);
+      }
+    },
+    // Little music notes (♪ and ♫) popping out, rising and swaying, candy-coloured with a soft glow each; a faint golden sound
+    // ring or two and twinkles (the Tellal's drum boom, the knight's horn). opts: {dir (+ speed): the notes stream out along dir —
+    // the horn's bell; color (one colour for all), scale, count}.
+    notes(x, y, z, o, K) {
+      const dir = o.dir, spd = o.speed || 2.2, tc = o.color ? hueNorm(lin(o.color), 0.95) : null, tg = tc ? hueNorm(tc, 2.2) : null, r0 = (Math.random() * 6) | 0;
+      let q;
+      for (let i = 0, n = N(7, K); i < n; i++) {
+        const a = (i / n) * TAU + frand(-0.35, 0.35), ci = (r0 + i) % 6;
+        q = P(0, i % 3 === 1 ? SH.NOTES : SH.NOTE, x + Math.cos(a) * 0.22, y + frand(-0.1, 0.15), z + Math.sin(a) * 0.22);
+        if (dir) { const s = spd * frand(0.6, 1.1); q.vx = dir.x * s + Math.cos(a) * 0.35; q.vz = dir.z * s + Math.sin(a) * 0.35; q.vy = frand(0.7, 1.3); q.drag = 1.3; }
+        else { const s = frand(0.6, 1.2); q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s * 0.7; q.vy = frand(1.4, 2.2); q.drag = 1.5; }
+        q.grav = -0.35; q.wob = frand(0.9, 1.4); q.phase = frand(0, TAU);
+        q.size = frand(0.4, 0.52); q.size1 = q.size * 0.9; q.life = frand(1.2, 1.7); q.pop = 0.2; q.fade = 3; q.rot = frand(-0.3, 0.3); q.spin = frand(-0.35, 0.35);
+        q.color = tc || C.NOTEC[ci]; q.delay = i * 0.04; emitRaw(q);
+        q.add = 1; q.shape = SH.GLOW; q.size *= 1.9; q.size1 = q.size * 0.8; q.color = tg || C.NOTEG[ci]; q.alpha = 0.15; emitRaw(q);   // its glow, on the same path
+      }
+      for (let i = 0; i < (dir ? 1 : 2); i++) {   // sound rings
+        q = P(1, SH.RING, x, y, z); q.size = 0.6; q.size1 = dir ? 1.6 : i ? 2.0 : 2.6; q.life = 0.3; q.rot = 0; q.color = C.GOLD; q.alpha = i ? 0.3 : 0.42; q.fade = 1.4; q.delay = i * 0.1; emitRaw(q);
+      }
+      twinkles(N(4, K), x, y + 0.2, z, 0.5, null, 0.34);
+    },
+    // A silver horseshoe lands (the knight's toss — GAME's mortar end): a ring gliding out over the ground (stops at ~1.3 m ×
+    // scale) of little gold and sky-blue stars (normal blend with a soft glow each: they read on the pale plaza too) between
+    // silver sparkles (the shine on the darker stones), a slower golden inner ring, a bright glint with two "clink" streaks,
+    // gold stars hopping and a little warm dust. opts: {color (tints the silver sparkles), scale, ring: true | radius (a soft
+    // warm-gold ground ring; off by default — GAME draws its own)}.
+    horseshoe(x, y, z, o, K) {
+      const gy = Math.max(0.05, y), tc = o.color ? hueNorm(lin(o.color), 2.4) : null;
+      flashGlow(x, gy + 0.3, z, 1.4, C.SILV, 0.12, 0.36);
+      let q;
+      for (let i = 0, n = N(16, K); i < n; i++) {   // the ring: evenly spaced, gliding outward and slowing
+        const a = (i / n) * TAU + frand(-0.06, 0.06), s = frand(3.9, 4.3), st = !(i & 1), b = i & 2;
+        q = P(st ? 0 : 1, st ? SH.STAR : SH.SPARK, x + Math.cos(a) * 0.22, gy + 0.16, z + Math.sin(a) * 0.22);
+        q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s; q.vy = frand(0.05, 0.3); q.drag = 3.6; q.life = frand(0.7, 0.85); q.fade = 2; q.pop = 0.06; q.rot = frand(-0.3, 0.3);
+        if (st) {
+          q.size = frand(0.22, 0.26); q.size1 = 0.1; q.spin = frand(-5, 5); q.color = b ? C.SHOEB : C.SHOEG; emitRaw(q);
+          q.add = 1; q.shape = SH.GLOW; q.size *= 2; q.size1 = 0.1; q.spin = 0; q.color = b ? C.SILVB : C.GOLD; q.alpha = 0.22; emitRaw(q);   // its glow, on the same path
+        } else { q.size = frand(0.34, 0.42); q.size1 = 0.16; q.flick = frand(10, 16); q.color = tc && b ? tc : b ? C.SILVB : C.SILV; emitRaw(q); }
+      }
+      for (let i = 0, n = N(8, K); i < n; i++) {   // inner ring: small gold twinkles, slower
+        const a = ((i + 0.5) / n) * TAU + frand(-0.1, 0.1), s = frand(2.0, 2.4);
+        q = P(1, SH.SPARK, x + Math.cos(a) * 0.15, gy + 0.12, z + Math.sin(a) * 0.15);
+        q.vx = Math.cos(a) * s; q.vz = Math.sin(a) * s; q.vy = frand(0.05, 0.25); q.drag = 3.6;
+        q.size = frand(0.22, 0.28); q.size1 = 0.08; q.life = frand(0.6, 0.75); q.fade = 2; q.pop = 0.06; q.flick = frand(14, 20); q.rot = frand(-0.3, 0.3);
+        q.color = i & 1 ? C.YEL : C.GOLD; q.delay = 0.05; emitRaw(q);
+      }
+      for (let i = 0; i < 2; i++) {   // clink streaks
+        q = P(1, SH.GLOW, x + (i ? 0.12 : -0.12), gy + 0.2, z); q.vx = i ? 2.2 : -2.2; q.vy = 5.5; q.drag = 5;
+        q.size = 0.55; q.size1 = 0.15; q.stretch = 4; q.life = 0.16; q.color = C.SILV; emitRaw(q);
+      }
+      for (let i = 0, n = N(4, K); i < n; i++) {   // gold stars hop up
+        q = P(0, SH.STAR, x, gy + 0.2, z); radial(q, 0.6, 1.4, 2.6, 3.6); q.grav = 7; q.drag = 1;
+        q.size = frand(0.2, 0.26); q.size1 = 0.08; q.life = frand(0.6, 0.8); q.spin = frand(-7, 7); q.pop = 0.08; q.fade = 2; q.color = i & 1 ? C.SHOEY : C.SHOEG; emitRaw(q);
+      }
+      for (let i = 0, n = N(3, K); i < n; i++) {   // warm dust
+        q = P(0, SH.SMOKE, x + frand(-0.2, 0.2), gy + 0.08, z + frand(-0.2, 0.2)); radial(q, 0.5, 1.1, 0.3, 0.6);
+        q.drag = 3; q.size = frand(0.32, 0.42); q.size1 = q.size * 2.1; q.life = frand(0.5, 0.7); q.alpha = 0.6; q.fade = 2; q.pop = 0.1; q.spin = frand(-1, 1); q.color = C.HOOFD[i % 3]; emitRaw(q);
+      }
+      if (o.ring) ring(x, z, { r0: 0.25 * bk, r1: (o.ring > 0.3 ? o.ring : 1.5) * bk, dur: 0.4, color: '#ffe6a8', k: 1.0, edge: 0.25, width: 0.4 * bk });
+    },
   };
+  const simO = { color: null, dir: null, pal: null };   // scratch opts: the simit break reuses the crumbs preset
   // Friendly aliases (other modules may guess a name): all fall back to a real preset instead of the generic sparkle.
   B.bubble = B.bubblePop; B.pop = B.bubblePop; B.glitter = B.bubbles; B.dig = B.dirt; B.mud = B.dirt; B.clods = B.dirt; B.trail = B.slime;
   B.magma = B.lava; B.eruption = B.erupt; B.volcano = B.erupt; B.vent = B.steam; B.splat = B.jelly;
   B.cream = B.milk; B.yogurt = B.milk; B.splash = B.milk; B.kefir = B.fizz; B.crumb = B.crumbs; B.biscuit = B.crumbs;
+  B.gallop = B.hoof; B.hooves = B.hoof; B.note = B.notes; B.music = B.notes; B.clink = B.horseshoe; B.sesame = B.simit;
   let warnedKind = null;
   function burst(kind, x, y, z, o) {
     if (!ready) init();
@@ -1619,6 +1750,12 @@ const FX = (() => {
     // drawn with normal blending (an additive glow vanishes on a bright floor) and a ground marker with a dark core and a
     // pink ring (shadow 3). haloA = the aura's opacity (normal blending).
     fizz: { core: 'fizz', col: '#aee6ff', haloCol: '#ff9ccf', halo: 1.75, hk: 1, haloA: 0.6, r: 0.31, pop: 1, popKind: 'fizzPop', shadow: 3 },
+    // Round 5 (Surlu Şehir): the Simitçi's simit — a toasty twisted sesame ring spinning flat like a frisbee, tipped toward the
+    // camera so its hole always shows (it ends in GAME's 'crumbs', or FX 'simit' with sesame) — and the knight's lucky silver
+    // horseshoe, lobbed as a mortar: it tumbles in the screen plane, rocking to flash its shine, and leaves a silver and gold
+    // sparkle trail (it lands with FX 'horseshoe': a ring of sparkles). Both keep a soft dark blob on the floor (shadow 1).
+    simit: { core: 'simit', col: '#d0842f', haloCol: '#ffe4b8', halo: 1.15, hk: 0.3, r: 0.37, shadow: 1 },
+    horseshoe: { core: 'horseshoe', col: '#e8eef8', haloCol: '#f2f0ff', halo: 1.15, hk: 0.3, r: 0.38, shadow: 1 },
   };
   // Last colour GAME asked for per kind: FX.trail(kind, x, y, z) has no colour, so the trail matches the projectile.
   const lastCol = {};
@@ -1649,7 +1786,7 @@ const FX = (() => {
     return new THREE.ShaderMaterial({ uniforms: { uT: uTime, uHot: { value: new THREE.Color(h[0], h[1], h[2]) }, uMid: { value: new THREE.Color(m[0], m[1], m[2]) },
       uCrust: { value: new THREE.Color(k[0], k[1], k[2]) } }, vertexShader: LAVA_VS, fragmentShader: LAVA_FS });
   }
-  let ROCK_GEO = null, EMBER_GEO = null, SHADOW_GEO = null, SHADOW_DARK = null, SHADOW_GLOW = null, SHADOW_FIZZ = null;
+  let ROCK_GEO = null, EMBER_GEO = null, SIMIT_GEO = null, SHOE_GEO = null, SHADOW_GEO = null, SHADOW_DARK = null, SHADOW_GLOW = null, SHADOW_FIZZ = null;
   function rockGeo() {   // soft lumpy dirt clod (radius ~1) with a few pebbles stuck in it
     const base = new THREE.IcosahedronGeometry(1, 3), p = base.attributes.position, v = new THREE.Vector3(), key = [], nrm = new Map();
     const lump = (x, y, z) => 0.74 + 0.3 * vnoise(x * 2.1 + 5, z * 2.1 + y * 1.7) + 0.16 * vnoise(x * 5.3 + 1, y * 5.3 - z * 2.6);
@@ -1682,6 +1819,95 @@ const FX = (() => {
     const g = new THREE.LatheGeometry(pts, 12);
     g.rotateX(Math.PI / 2);
     return keep(g);
+  }
+  function weldN(g) {   // smooth vertex normals across the seams of a displaced geometry (same corner → one normal)
+    g.computeVertexNormals();
+    const p = g.attributes.position, n = g.attributes.normal, key = [], acc = new Map();
+    for (let i = 0; i < p.count; i++) {
+      key[i] = Math.round(p.getX(i) * 1e4) + ',' + Math.round(p.getY(i) * 1e4) + ',' + Math.round(p.getZ(i) * 1e4);
+      const a = acc.get(key[i]) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(key[i], a);
+    }
+    for (let i = 0; i < p.count; i++) { const a = acc.get(key[i]), l = Math.hypot(a[0], a[1], a[2]) || 1; n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+    return g;
+  }
+  // Simit (unit: outer radius ≈ 1, flat in XZ): a two-strand dough rope twisted round the ring — toasty grooves, golden
+  // ridges — dotted with cream sesame seeds lying on its top and sides. One merged vertex-coloured mesh.
+  function simitGeo() {
+    const R = 0.68, T = 0.27, TW = 7, rr = (u, v) => T * (1 + 0.15 * Math.cos(2 * (v - TW * u)));   // ring radius, rope radius, twists
+    const ring = new THREE.TorusGeometry(R, T, 16, 72), p = ring.attributes.position, uv = ring.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      const u = uv.getX(i) * TAU, v = uv.getY(i) * TAU, r = rr(u, v), w = R + r * Math.cos(v);
+      p.setXYZ(i, w * Math.cos(u), w * Math.sin(u), r * Math.sin(v));
+    }
+    weldN(ring); ring.rotateX(-Math.PI / 2);   // torus Z (its thickness) → +Y: lies flat
+    const cG = new THREE.Color('#6a3212'), cR = new THREE.Color('#ac612a'), cT = new THREE.Color('#d6944c'), t = new THREE.Color();
+    const k = new Kit();
+    k.add(ring, (x, y, z) => {
+      const u = Math.atan2(-z, x), v = Math.atan2(y, Math.hypot(x, z) - R), w = 0.5 + 0.5 * Math.cos(2 * (v - TW * u));
+      return t.copy(cG).lerp(cR, sstep(0.05, 0.7, w)).lerp(cT, sstep(0.78, 1, w) * 0.65);
+    });
+    const rnd = mulberry32(5), n = new THREE.Vector3(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion();
+    const seed = G.sphere(6, 4), sc = ['#fff3cf', '#f7e2b0', '#fffaee'];
+    for (let s = 0; s < 96; s++) {
+      const u = rnd() * TAU, v = Math.PI / 2 + (rnd() * 2 - 1) * 1.9, r = rr(u, v) + 0.012, w = R + r * Math.cos(v);
+      n.set(Math.cos(v) * Math.cos(u), Math.sin(v), -Math.cos(v) * Math.sin(u));
+      q.setFromUnitVectors(UP, n).multiply(q2.setFromAxisAngle(UP, rnd() * TAU));
+      k.add(seed, sc[s % 3], [w * Math.cos(u), r * Math.sin(v), -w * Math.sin(u)], q, [0.052, 0.021, 0.029]);
+    }
+    const g = k.build();
+    ring.dispose();
+    return keep(g);
+  }
+  // Horseshoe (unit: outer radius ≈ 1, in the XY plane facing +z, opening down): a chunky rounded silver band over a 290° arc
+  // (a little wider at the toe) with a soft groove along both faces, round knobs at the heels and three gold studs a side.
+  function shoeGeo() {
+    const R = 0.74, HW = 0.22, HT = 0.12, A = 2.52, NA = 44, NS = 16, pos = [], idx = [];
+    for (let i = 0; i <= NA; i++) {
+      const a = -A + 2 * A * i / NA, sx = Math.sin(a), cy = Math.cos(a), hw = HW * (1 + 0.12 * cy);   // a = 0 at the top (the toe)
+      for (let j = 0; j < NS; j++) {
+        const b = j / NS * TAU, cb = Math.cos(b), sb = Math.sin(b);
+        const ex = Math.sign(cb) * Math.pow(Math.abs(cb), 0.55), ez = Math.sign(sb) * Math.pow(Math.abs(sb), 0.55);   // rounded rectangle
+        pos.push(sx * (R + ex * hw), cy * (R + ex * hw), ez * HT);
+      }
+    }
+    for (let i = 0; i < NA; i++) for (let j = 0; j < NS; j++) {
+      const a = i * NS + j, b = i * NS + (j + 1) % NS, c = a + NS, d = b + NS;
+      idx.push(a, b, c, b, d, c);
+    }
+    const band = new THREE.BufferGeometry();
+    band.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); band.setIndex(idx); band.computeVertexNormals();
+    const cS = new THREE.Color('#eef2fa'), cD = new THREE.Color('#aab6ca'), t = new THREE.Color(), k = new Kit();
+    k.add(band, (x, y, z) => { const e = (Math.hypot(x, y) - R) / 0.07; return t.copy(cS).lerp(cD, 0.6 * Math.exp(-e * e) * sstep(0.75, 0.97, Math.abs(z) / HT)); });
+    for (const s of [-1, 1]) {
+      k.add(G.sphere(16), '#eef2fa', [s * Math.sin(A) * R, Math.cos(A) * R, 0], 0, [HW * 1.12, HW * 1.12, HT * 1.25]);   // heel knobs
+      for (const a of [0.62, 1.3, 1.98]) for (const f of [-1, 1]) k.add(G.sphere(10), '#ffc43a', [s * Math.sin(a) * R, Math.cos(a) * R, f * (HT - 0.012)], 0, [0.058, 0.058, 0.036]);
+    }
+    const g = k.build();
+    band.dispose();
+    return keep(g);
+  }
+  // Cartoon chrome (the horseshoe): the view-space reflection picks a banded sky — light blue above, a bright white horizon
+  // line, a warm dusky ground below — so the silver reads as SHINY at any light and the bands slide over it as it tumbles;
+  // vertex colours tint it (gold studs, the darker groove), plus a white fresnel rim and a crisp top-left glint.
+  const CHROME_VS = `varying vec3 vN, vV, vC;
+    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vC = color; gl_Position = projectionMatrix * mv; }`;
+  const CHROME_FS = `uniform vec3 uSky, uHor, uGnd; varying vec3 vN, vV, vC;
+    void main() {
+      vec3 n = normalize(vN), v = normalize(vV), r = reflect(-v, n);
+      float y = r.y + 0.12 * r.x + 0.04;
+      vec3 env = y > 0.0 ? mix(uHor, uSky, smoothstep(0.0, 0.5, y)) : mix(uHor * 0.82, uGnd, smoothstep(0.16, 0.38, -y));
+      env += vec3(0.5) * exp(-y * y / 0.002);
+      float f = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 2.6);
+      vec3 c = env * vC + vec3(0.55) * f;
+      float h = max(dot(n, normalize(vec3(-0.45, 0.7, 0.55) + v)), 0.0);
+      c += vec3(1.3) * smoothstep(0.986, 0.996, h) + vec3(0.18) * pow(h, 24.0);
+      gl_FragColor = vec4(c, 1.0);
+      ${CHUNK_OUT}
+    }`;
+  function chromeMat() {
+    const C3 = (h, k) => { const a = lin(h, k); return new THREE.Color(a[0], a[1], a[2]); };
+    return new THREE.ShaderMaterial({ uniforms: { uSky: { value: C3('#cadcff', 0.95) }, uHor: { value: C3('#ffffff', 1.05) }, uGnd: { value: C3('#665760', 1) } },
+      vertexShader: CHROME_VS, fragmentShader: CHROME_FS, vertexColors: true });
   }
   // Iridescent soap-film shell (additive): nearly clear in the middle, pastel rainbow at the rim, two glossy glints.
   const BUB_VS = `varying vec3 vN, vV, vO, vW;
@@ -1826,6 +2052,11 @@ const FX = (() => {
       core = new THREE.Mesh(ROCK_GEO, m); core.scale.setScalar(D.r); core.castShadow = false;
     } else if (D.core === 'fizz') {
       core = new THREE.Mesh(G.sphere(24), projMat('fizz|' + col, () => fizzMat(col))); core.scale.setScalar(D.r); core.renderOrder = 24;
+    } else if (D.core === 'simit') {   // glossy molasses glaze: a little shine and a warm rim so it reads on the honey cobbles
+      core = new THREE.Mesh(SIMIT_GEO, projMat('simit', () => rimify(vcMat({ roughness: 0.36, envMapIntensity: 0.75 }), 0xffe2b0, 0.35, 2.4)));
+      core.scale.setScalar(D.r);
+    } else if (D.core === 'horseshoe') {   // polished cartoon silver with gold studs
+      core = new THREE.Mesh(SHOE_GEO, projMat('horseshoe', chromeMat)); core.scale.setScalar(D.r);
     } else if (D.core === 'lava') {
       core = new THREE.Mesh(G.sphere(24), projMat('lava|' + col, () => lavaMat(col))); core.scale.setScalar(D.r);
     } else if (D.core === 'ember') {   // hot yellow heart inside an additive orange flame teardrop
@@ -1946,6 +2177,14 @@ const FX = (() => {
       } else if (u.look === 'fizz') {   // soft wobble + a slow bob (the kefir inside sloshes in the shader)
         const w = Math.sin(u.t * 6.1) * 0.06, w2 = Math.sin(u.t * 4.3 + 1.1) * 0.045;
         u.core.scale.set(u.cs * (1 + w), u.cs * (1 - w + w2), u.cs * (1 + w2)); u.core.position.y = Math.sin(u.t * 2.7) * 0.05;
+      } else if (u.look === 'simit') {   // spins flat like a thrown ring, tipped toward the camera (the hole shows), wobbling a little
+        g.getWorldQuaternion(_q).invert();
+        _q2.setFromEuler(_eu.set(0.36 + 0.12 * Math.sin(u.t * 5.3), 0, 0.14 * Math.sin(u.t * 3.7)));
+        u.core.quaternion.copy(_q).multiply(_q2).multiply(_q3.setFromAxisAngle(UP, u.t * 11));
+      } else if (u.look === 'horseshoe') {   // tumbles in the screen plane (the U always shows), rocking so the silver flashes
+        g.getWorldQuaternion(_q).invert();
+        _q2.setFromEuler(_eu.set(0.24 * Math.sin(u.t * 4.1), 0.6 * Math.sin(u.t * 2.9), 0));
+        u.core.quaternion.copy(_q).multiply(camera.quaternion).multiply(_q2).multiply(_q3.setFromAxisAngle(ZAX, -u.t * 8));
       } else if (u.look === 'rock') { u.core.rotation.x += dt * 7; u.core.rotation.z = Math.sin(u.t * 3) * 0.35; }   // tumbling clod
       else if (u.look === 'lava') { u.core.rotation.y += dt * 1.4; u.core.scale.setScalar(u.cs * (1 + Math.sin(u.t * 11) * 0.04)); }
       else if (u.look === 'ember') {   // flickering flame
@@ -2018,6 +2257,28 @@ const FX = (() => {
         if (Math.random() < 0.25) {
           q = P(1, SH.SPARK, x + frand(-0.25, 0.25), y + frand(-0.2, 0.2), z + frand(-0.25, 0.25)); q.vy = frand(0.1, 0.4);
           q.size = frand(0.12, 0.2); q.size1 = 0.02; q.life = frand(0.35, 0.55); q.flick = 18; q.rot = 0; q.color = C.KEFG[(Math.random() * 5) | 0]; emitRaw(q);
+        }
+        break;
+      }
+      case 'simit':   // sesame seeds and toasty crumbs trickle off the spinning ring, now and then a golden twinkle
+        if (Math.random() < 0.35) {
+          const sd = Math.random() < 0.6;
+          q = P(0, sd ? SH.PETAL : SH.DOT, x + frand(-0.22, 0.22), y + frand(-0.1, 0.08), z + frand(-0.22, 0.22)); q.vx = frand(-0.4, 0.4); q.vy = frand(0.2, 0.9); q.vz = frand(-0.4, 0.4);
+          q.grav = 10; q.bounce = 0.3; q.size = sd ? frand(0.07, 0.1) : frand(0.05, 0.08); q.life = frand(0.6, 0.9); q.spin = frand(-10, 10); q.fade = 4;
+          q.color = sd ? C.SESAME : C.SIMITC[(Math.random() * 5) | 0]; emitRaw(q);
+        }
+        if (Math.random() < 0.12) twinkles(1, x, y, z, 0.2, C.GOLD, 0.28);
+        break;
+      case 'horseshoe': {   // a sparkle trail: silver and gold twinkles hanging in the air behind it, a soft silver glow, and
+        // little solid gold / sky-blue stars among them (they still show over the pale plaza, where the additive ones fade)
+        const tc = color || lastCol.horseshoe;
+        q = P(1, SH.GLOW, x + frand(-0.04, 0.04), y + frand(-0.04, 0.04), z + frand(-0.04, 0.04)); q.size = 0.4; q.size1 = 0.08; q.life = 0.24; q.alpha = 0.28; q.color = C.SILVG; emitRaw(q);
+        if (Math.random() < 0.8) {
+          const st = Math.random() < 0.3, gd = Math.random() < 0.45;
+          q = P(st ? 0 : 1, st ? SH.STAR : SH.SPARK, x + frand(-0.3, 0.3), y + frand(-0.26, 0.26), z + frand(-0.3, 0.3)); q.vx = frand(-0.3, 0.3); q.vy = frand(-0.1, 0.35); q.vz = frand(-0.3, 0.3);
+          q.drag = 1.5; q.size = st ? frand(0.15, 0.2) : frand(0.26, 0.36); q.size1 = 0.04; q.life = frand(0.5, 0.75); q.pop = 0.06; q.flick = st ? 0 : frand(14, 22);
+          q.rot = frand(-0.3, 0.3); q.spin = st ? frand(-5, 5) : 0;
+          q.color = st ? (gd ? C.SHOEG : C.SHOEB) : gd ? C.GOLD : tc && Math.random() < 0.5 ? hueNorm(lin(tc), 2.4) : C.SILV; emitRaw(q);
         }
         break;
       }
@@ -2313,7 +2574,7 @@ const FX = (() => {
     RESIZE_HOOKS.push(updScale);
     SN = makeSys(1000, false); SA = makeSys(2000, true);
     QUAD = quadGeo(); SLASH_GEO = slashGeo(); BEAM_GEO = beamGeo(); STAR_GEO = starGeo();
-    ICE_GEO = iceGeo(); ROCK_GEO = rockGeo(); EMBER_GEO = emberGeo();
+    ICE_GEO = iceGeo(); ROCK_GEO = rockGeo(); EMBER_GEO = emberGeo(); SIMIT_GEO = simitGeo(); SHOE_GEO = shoeGeo();
     SHADOW_GEO = keep(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
     SHADOW_DARK = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: 0x2a1824, transparent: true, opacity: 0.4, depthWrite: false }));
     SHADOW_GLOW = keep(new THREE.MeshBasicMaterial({ map: blobTex, color: new THREE.Color('#ff7020').multiplyScalar(0.5), transparent: true, opacity: 0.65, blending: THREE.AdditiveBlending, depthWrite: false }));

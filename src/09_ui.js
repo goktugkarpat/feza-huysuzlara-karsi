@@ -8,7 +8,8 @@ const UI = (() => {
   const SLOT_AD = { weapon: 'Işın Kılıçları', hat: 'Şapkalar', cape: 'Pelerinler' };
   const SLOT_EMO = { weapon: '⚔️', hat: '🎩', cape: '🦸' };   // weapon: replaced by the tiny saber SVG once SVG exists (below)
   const BLADE_DEF = '#5ad8ff';   // attack-button blade colour when ITEMS.bladeColor is missing
-  const BASE_EMO = { migfer: '⛑️', sihirbaz: '🧙', kovboy: '🤠', korsan: '🏴‍☠️', tac: '👑' };
+  const BASE_EMO = { migfer: '⛑️', sihirbaz: '🧙', kovboy: '🤠', korsan: '🏴‍☠️', tac: '👑',
+    sovalyemigfer: '🪶', sovalyesihir: '🌞' };   // the knight's treasures: plumed helmet, sun-crest cape (his sword: the saber icon)
   const RAR = ['#f4f4f4', '#5aa8ff', '#ffd23f', '#ff8a1c'];
   const RAR_AD = ['Sıradan', 'Sihirli', 'Nadir', 'Efsane'];
   // Skill buttons around the attack button: [radius, angle°] (0° = left of it, 90° = above). Up to 3 sit on the inner arc
@@ -33,7 +34,7 @@ const UI = (() => {
     M.EMODEL = get(() => (typeof EMODEL !== 'undefined' ? EMODEL : null));
     M.EDEF = get(() => (typeof EDEF !== 'undefined' ? EDEF : null));
   }
-  const zoneCount = () => (M.ZONES && M.ZONES.length) || 5;   // Round 4: orman, kefir, magara, yanardag, kale
+  const zoneCount = () => (M.ZONES && M.ZONES.length) || 6;   // Round 5: orman, kefir, magara, yanardag, sehir, kale
   const warned = {};
   function warn(k, e) { if (!warned[k]) { warned[k] = 1; console.warn('[UI] ' + k, e); } }
   function safe(k, f) { try { return f(); } catch (e) { warn(k, e); return undefined; } }
@@ -193,6 +194,48 @@ const UI = (() => {
       '<path d="M42 76.5Q50 86 58 76.5Q50 79.5 42 76.5Z" fill="#6a1a3a" stroke="#2a4a7a" stroke-width="2" stroke-linejoin="round"/>' +
       '<path d="M46 81Q50 83.8 54 81Q50 79.6 46 81Z" fill="#ff7aa0"/>' +
       '<ellipse cx="29" cy="75" rx="4.8" ry="2.9" fill="#ff6fa0" opacity=".6"/><ellipse cx="71" cy="75" rx="4.8" ry="2.9" fill="#ff6fa0" opacity=".6"/></svg>',
+    // Huysuz Şövalye — the knight (visor up, curly moustache, rainbow plume) riding behind his big chunky horse's smiling face
+    // (braided forelock with a bow, a silver chanfron with a golden star, lashes), a blue/yellow checkered caparison below
+    sovalye: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<g stroke="#26306a" stroke-width="2.4" stroke-linejoin="round">' +
+      '<path d="M13 100C12 87 20 78 33 75H67C80 78 88 87 87 100Z" fill="#3d64d8"/>' +
+      '<path d="M17 68C16 55 26 47 38 46H62C74 47 84 55 83 68C83 72 17 72 17 68Z" fill="#dfe6f2"/><path d="M40 46H60L58 62H42Z" fill="#3d64d8"/></g>' +
+      '<path d="M20.5 60C23 53 29 50 37 49.5M79.5 60C77 53 71 50 63 49.5" fill="none" stroke="#ffc933" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<g fill="#ffd23f"><path d="M25 86l5-5 5 5-5 5z"/><path d="M65 86l5-5 5 5-5 5z"/><path d="M27 95l4-4 4 4-4 4z"/><path d="M65 95l4-4 4 4-4 4z"/></g>' +
+      '<g stroke="#26306a" stroke-width="1.7" stroke-linejoin="round">' +
+      '<path d="M49 14C44 11 43 7 45 3C49 5 51 9 52 13Z" fill="#b07aff"/><path d="M50.5 13C49.5 9 51 5 54 2C57 5 56 10 53 13Z" fill="#5ab4ff"/>' +
+      '<path d="M52 13C54 8 57 4.5 62 3C62.5 8 59.5 11.5 54 14Z" fill="#6fdc6a"/><path d="M53 14C57 9.5 63.5 7 70.5 8C68 12 63 14.5 55 15Z" fill="#ffd93f"/>' +
+      '<path d="M54 15C60 12 68.5 11.5 75.5 14.5C71 18.5 64 18.5 55 17Z" fill="#ffa53a"/><path d="M55 17C62 16 70.5 18.5 76.5 22.5C71 25.5 63 23.5 55 19.5Z" fill="#ff5f7a"/></g>' +
+      '<g stroke="#26306a" stroke-width="2.4" stroke-linejoin="round">' +
+      '<path d="M31 36C30 20 39 11 50 11C61 11 70 20 69 36C69 44 61 48.5 50 48.5C39 48.5 31 44 31 36Z" fill="#dfe6f2"/>' +
+      '<path d="M36.5 25H63.5C65.5 30 65.5 39 61 43.5C57 47 43 47 39 43.5C34.5 39 34.5 30 36.5 25Z" fill="#ffdcbc" stroke-width="2"/>' +
+      '<path d="M35 20Q50 14 65 20L64.5 26Q50 21.5 35.5 26Z" fill="#b9c4dc" stroke-width="2"/></g>' +
+      '<path d="M42 19.6v2.4M46 18.6v2.4M50 18.2v2.4M54 18.6v2.4M58 19.6v2.4" stroke="#26306a" stroke-width="1.3" stroke-linecap="round"/>' +
+      '<path d="M32 40.5Q50 52 68 40.5" fill="none" stroke="#ffc933" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<ellipse cx="40" cy="17.5" rx="5" ry="2.4" fill="#fff" opacity=".7" transform="rotate(-32 40 17.5)"/>' +
+      '<path d="M40 29.4Q43.6 27 47.2 29.2M52.8 29.2Q56.4 27 60 29.4" fill="none" stroke="#7a4222" stroke-width="2.2" stroke-linecap="round"/>' +
+      '<circle cx="44" cy="33.4" r="2.9" fill="#2a1a30"/><circle cx="56" cy="33.4" r="2.9" fill="#2a1a30"/>' +
+      '<circle cx="43" cy="32.3" r="1.1" fill="#fff"/><circle cx="55" cy="32.3" r="1.1" fill="#fff"/>' +
+      '<ellipse cx="39.5" cy="38.6" rx="3.2" ry="1.9" fill="#ff7a9a" opacity=".65"/><ellipse cx="60.5" cy="38.6" rx="3.2" ry="1.9" fill="#ff7a9a" opacity=".65"/>' +
+      '<path d="M45.6 41.4Q50 47.2 54.4 41.4Q50 43.2 45.6 41.4Z" fill="#6a1a3a" stroke="#6a1a3a" stroke-width="1" stroke-linejoin="round"/>' +
+      '<path d="M50 38C47.6 35.8 43.8 36 42.2 38.4C41.2 40 42.4 41.6 43.8 40.6C45.4 39.4 47.6 39.3 50 39.8C52.4 39.3 54.6 39.4 56.2 40.6C57.6 41.6 58.8 40 57.8 38.4C56.2 36 52.4 35.8 50 38Z" fill="#8a4a22"/>' +
+      '<g stroke="#5a2e14" stroke-width="2.4" stroke-linejoin="round">' +
+      '<path d="M36.5 61L30.5 45L43.5 54.5Z" fill="#e8a060"/><path d="M63.5 61L69.5 45L56.5 54.5Z" fill="#e8a060"/>' +
+      '<path d="M50 52C61 52 67 58 67 66C67 72 63.5 76 62.5 81C61.5 91 57 98 50 98C43 98 38.5 91 37.5 81C36.5 76 33 72 33 66C33 58 39 52 50 52Z" fill="#e8a060"/>' +
+      '<ellipse cx="50" cy="88.5" rx="12.5" ry="9" fill="#fbe0c4"/>' +
+      '<path d="M45.5 57H54.5L53.5 76H46.5Z" fill="#dfe6f2" stroke="#26306a" stroke-width="1.8"/>' +
+      '<path d="M41.5 56.5C42.5 51 57.5 51 58.5 56.5C55.5 58.5 53 55.5 50 59.5C47 55.5 44.5 58.5 41.5 56.5Z" fill="#7a4424"/></g>' +
+      '<path d="M35.6 57.4L32.6 49.6L39.6 54.6Z" fill="#f7b8a8"/><path d="M64.4 57.4L67.4 49.6L60.4 54.6Z" fill="#f7b8a8"/>' +
+      '<path d="M50 61.8L51.4 64.9H54.6L52 66.8L53 70L50 68.1L47 70L48 66.8L45.4 64.9H48.6Z" fill="#ffd23f" stroke="#8a5a08" stroke-width=".9" stroke-linejoin="round"/>' +
+      '<path d="M50 53.6C47.4 51.4 47.2 49.4 48.7 49.3C49.5 49.3 50 49.9 50 50.5C50 49.9 50.5 49.3 51.3 49.3C52.8 49.4 52.6 51.4 50 53.6Z" fill="#ff6aa4" stroke="#8a2a56" stroke-width="1"/>' +
+      '<g stroke="#5a2e14" stroke-width="2"><ellipse cx="39.5" cy="67" rx="5.2" ry="6.3" fill="#fff"/><ellipse cx="60.5" cy="67" rx="5.2" ry="6.3" fill="#fff"/></g>' +
+      '<circle cx="40.2" cy="68.2" r="3.7" fill="#3a2410"/><circle cx="59.8" cy="68.2" r="3.7" fill="#3a2410"/>' +
+      '<circle cx="38.8" cy="66.3" r="1.5" fill="#fff"/><circle cx="58.4" cy="66.3" r="1.5" fill="#fff"/>' +
+      '<path d="M34.9 63L32 61.4M36 61.2L34.3 58.6M65.1 63L68 61.4M64 61.2L65.7 58.6" stroke="#5a2e14" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<ellipse cx="45" cy="85.6" rx="2" ry="1.4" fill="#8a4a30"/><ellipse cx="55" cy="85.6" rx="2" ry="1.4" fill="#8a4a30"/>' +
+      '<path d="M43.5 90.2Q50 97.4 56.5 90.2Q50 92.6 43.5 90.2Z" fill="#6a1a3a" stroke="#5a2e14" stroke-width="1.8" stroke-linejoin="round"/>' +
+      '<path d="M46.8 93.8Q50 95.8 53.2 93.8Q50 92.8 46.8 93.8Z" fill="#ff7aa0"/>' +
+      '<ellipse cx="36" cy="77.5" rx="3.6" ry="2.2" fill="#ff6f90" opacity=".55"/><ellipse cx="64" cy="77.5" rx="3.6" ry="2.2" fill="#ff6f90" opacity=".55"/></svg>',
     // any other boss: a smiling golden star
     bstar: '<svg class="u-dimg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
       '<path d="M50 12L60.5 37.5L88 39L67 56.5L74 84L50 69L26 84L33 56.5L12 39L39.5 37.5Z" fill="#ffd23f" stroke="#7a4205" stroke-width="3" stroke-linejoin="round"/>' +
@@ -415,7 +458,7 @@ const UI = (() => {
     const bbar = el('div', 'u-bossbar', brow);
     D.bossTrail = el('div', 'u-bosstrail', bbar);
     D.bossFill = el('div', 'u-bossfill', bbar);
-    D.bossFizz = el('div', 'u-bossfizz', D.bossFill, '<i></i>');   // Kefir Devi: fizzy bubbles rising in its bar (ui.css; hidden for the others)
+    D.bossFizz = el('div', 'u-bossfizz', D.bossFill, '<i></i>');   // Kefir Devi: fizzy bubbles rising in its bar; the knight: lance stripes (ui.css; hidden for the others)
 
     // toast, banner, item card, subtitles
     D.toast = el('div', 'u-toast', hud);
@@ -625,7 +668,7 @@ const UI = (() => {
       ? 'Normal macera başlasın mı?<small>Karakter seçimine döneceksin.<br>Hardcore kaydın ayrı saklanır.</small>'
       : 'Yeniden en baştan<br>başlansın mı?') : kind === 'hardcoreContinue'
       ? `Hardcore kaydına dönülsün mü?<small>${cp ? cp.zone + 1 : '?'}. bölümün başında, kayıtlı karakterle devam edeceksin.</small>`
-      : 'Yeni Hardcore macerası başlasın mı?<small>Onaylayınca Hardcore açılır; bu karakterle en baştan başlarsın.<br>Kayıt yalnızca 2. ve 4. bölüm başında.' +
+      : 'Yeni Hardcore macerası başlasın mı?<small>Onaylayınca Hardcore açılır; bu karakterle en baştan başlarsın.<br>Kayıt yalnızca 2., 4. ve 6. bölüm başında.' +
         (cp ? '<br>Önceki Hardcore kaydı silinecek.' : '') + '</small>';
     D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800;
   }
@@ -911,10 +954,13 @@ const UI = (() => {
   // ───────────────────────── Minimap ─────────────────────────
   const MM = { L: null, W: 0, H: 0, S: 4, base: null, mask: null, rev: null, seen: null, lx: -1e9, lz: -1e9, dirty: false, px: 0, bg: null, front: null, spr: {}, theme: '' };
   // Minimap backdrop (the unexplored / non-walkable part) per zone theme. Kefir Vadisi: a blueberry-milk pool with little
-  // milk bubbles (its floors — creamy yogurt, biscuit path, cheese plazas — read bright on it); elsewhere the night-blue dots.
+  // milk bubbles (its floors — creamy yogurt, biscuit path, cheese plazas — read bright on it); Surlu Şehir: the town's
+  // gardens, soft green with little grass tufts and a few tiny flowers — never water, so LEVEL's blue river and canals and its
+  // sandstone city walls read as water and walls next to the honey cobblestone streets; elsewhere the night-blue dots.
   const MAP_BG = {
     _: { c0: '#2a3566', c1: '#0c1028', dot: 'rgba(160,190,255,0.10)', r: 0.006 },
     dairy: { c0: '#6a62c4', c1: '#231c5a', dot: 'rgba(255,246,228,0.2)', r: 0.011, ring: 'rgba(255,250,240,0.16)' },
+    town: { c0: '#7ba95a', c1: '#304c27', tuft: 'rgba(214,246,170,0.24)', flower: ['rgba(255,196,222,0.55)', 'rgba(255,240,168,0.55)', 'rgba(255,255,255,0.45)'] },
   };
   function mapBg() {
     const px = MM.px, cx = px / 2, B = MAP_BG[MM.theme] || MAP_BG._;
@@ -923,6 +969,23 @@ const UI = (() => {
     const g = c.createRadialGradient(cx, cx * 0.8, px * 0.05, cx, cx, cx);
     g.addColorStop(0, B.c0); g.addColorStop(1, B.c1);
     c.clearRect(0, 0, px, px); c.fillStyle = g; c.fillRect(0, 0, px, px);
+    if (B.tuft) {   // little grass tufts (three blades) in staggered rows, and a few tiny five-petal flowers
+      const w = px * 0.012;
+      c.strokeStyle = B.tuft; c.lineWidth = Math.max(1, px * 0.007); c.lineCap = 'round';
+      c.beginPath();
+      for (let y = px * 0.06, row = 0; y < px; y += px * 0.08, row++) for (let x = px * (row % 2 ? 0.09 : 0.04); x < px; x += px * 0.1) {
+        c.moveTo(x - w, y - w * 1.3); c.lineTo(x - w * 0.3, y); c.moveTo(x, y - w * 1.7); c.lineTo(x, y); c.moveTo(x + w, y - w * 1.3); c.lineTo(x + w * 0.3, y);
+      }
+      c.stroke();
+      const r = px * 0.009;
+      for (let i = 0; i < 14; i++) {
+        const x = px * (0.08 + ((i * 37) % 84) / 100), y = px * (0.1 + ((i * 53) % 80) / 100);
+        c.fillStyle = B.flower[i % B.flower.length];
+        for (let k = 0; k < 5; k++) { const a = k * TAU / 5 + i; c.beginPath(); c.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.72, 0, TAU); c.fill(); }
+        c.fillStyle = 'rgba(255,214,90,0.7)'; c.beginPath(); c.arc(x, y, r * 0.5, 0, TAU); c.fill();
+      }
+      return;
+    }
     c.fillStyle = B.dot;
     let n = 0;
     for (let y = px * 0.04; y < px; y += px * 0.07) for (let x = px * 0.04; x < px; x += px * 0.07) {
@@ -1030,7 +1093,7 @@ const UI = (() => {
   function gridCanvas(L) {   // fallback base when LEVEL gave no (or an empty) mapCanvas
     const c = cnv(L.W, L.H), x = c.getContext('2d'), img = x.createImageData(L.W, L.H), d = img.data;
     const theme = (L.Z && L.Z.theme) || 'forest';
-    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : theme === 'volcano' ? '#e0a47a' : theme === 'dairy' ? '#fff0d2' : '#94d470');
+    const col = new THREE.Color(theme === 'cave' ? '#86a9c9' : theme === 'castle' ? '#c3b2e6' : theme === 'volcano' ? '#e0a47a' : theme === 'dairy' ? '#fff0d2' : theme === 'town' ? '#efc47e' : '#94d470');
     const r = Math.round(Math.pow(col.r, 1 / 2.2) * 255), gg = Math.round(Math.pow(col.g, 1 / 2.2) * 255), b = Math.round(Math.pow(col.b, 1 / 2.2) * 255);
     for (let i = 0; i < L.W * L.H; i++) {
       if (!L.grid[i]) continue;
@@ -1039,7 +1102,7 @@ const UI = (() => {
     }
     x.putImageData(img, 0, 0);
     if (L.path && L.path.length > 1) {   // soft path line so the way forward reads on the map
-      x.strokeStyle = theme === 'dairy' ? 'rgba(214,150,70,0.6)' : 'rgba(255,238,190,0.45)'; x.lineWidth = 2; x.lineCap = x.lineJoin = 'round';   // (dairy: the biscuit-crumb trail)
+      x.strokeStyle = theme === 'dairy' ? 'rgba(214,150,70,0.6)' : theme === 'town' ? 'rgba(255,248,226,0.7)' : 'rgba(255,238,190,0.45)'; x.lineWidth = 2; x.lineCap = x.lineJoin = 'round';   // (dairy: the biscuit-crumb trail; town: the lighter main street)
       x.beginPath(); L.path.forEach((p, i) => (i ? x.lineTo(p.x, p.z) : x.moveTo(p.x, p.z))); x.stroke();
     }
     return c;
@@ -1365,9 +1428,10 @@ const UI = (() => {
     kefirdev: { ad: 'Köpüklü Kefir Devi', svg: SVG.kefirdev, lines: ['kefirdev_'], disc: ['#eaf7ff', '#b4e0fc', '#5494dc'], halo: 'rgba(130,205,255,0.9)' },
     kostebekusta: { ad: 'Usta Köstebek', svg: SVG.kostebekusta, lines: ['usta_'], disc: ['#fffaf0', '#ffe3b0', '#f5b86a'], halo: 'rgba(255,190,80,0.85)' },
     lavkaplumbaga: { ad: 'Koca Lav Kaplumbağası', svg: SVG.lavkaplumbaga, lines: ['kaplumbaga_'], disc: ['#fff8f0', '#ffd6b0', '#ff9f6a'], halo: 'rgba(255,130,60,0.85)' },
+    sovalye: { ad: 'Huysuz Şövalye', svg: SVG.sovalye, lines: ['sovalye_'], disc: ['#fffbea', '#ffe39a', '#3d64d8'], halo: 'rgba(90,130,255,0.9)' },   // royal blue + gold
     ejderha: { ad: 'Huysuz Ejderha', svg: SVG.dragon, lines: ['ejderha_', 'ejder'], disc: ['#fff6fc', '#ffc9ec', '#f59ad6'], halo: 'rgba(255,90,140,0.85)' },
   };
-  const BOSS_ORDER = ['kraljole', 'kefirdev', 'kostebekusta', 'lavkaplumbaga', 'ejderha'];   // when ZONES has no boss fields yet
+  const BOSS_ORDER = ['kraljole', 'kefirdev', 'kostebekusta', 'lavkaplumbaga', 'sovalye', 'ejderha'];   // when ZONES has no boss fields yet
   const bossUi = t => BOSS_UI[t] || { ad: 'Kocaman Huysuz', svg: SVG.bstar, lines: [], disc: BOSS_UI.ejderha.disc, halo: BOSS_UI.ejderha.halo };
   const BP = {};   // type → { url, cv, tried, img }
   const bpRec = t => BP[t] || (BP[t] = { url: null, cv: null, tried: false, img: null });
@@ -1389,6 +1453,9 @@ const UI = (() => {
     kefirdev: { over: true, dx: 0.1, dy: -0.05, cam: { cx: 0, cy: 1.9, cz: 0.75, rad: 1.25 } },
     kostebekusta: { dx: 0.12, dy: 0.14, cam: { cx: 0, cy: 2.0, cz: 0.45, rad: 1.12 } },
     lavkaplumbaga: { dx: 0.12, dy: 0.2, cam: { cx: 0, cy: 1.26, cz: 1.62, rad: 1.0 } },   // the face fills the badge (reads at 58 px), lava-crack shell around
+    // the knight on his horse, framed from its silhouette (the model's own m.portrait wins): the upper part seen from the front,
+    // a little from the right and above — his rainbow plume, the face under the raised visor and the horse's smiling head
+    sovalye: { y0: 0.45, y1: 1, dx: 0.2, dy: 0.16, fill: 0.95 },
     _: { y0: 0, y1: 1, dx: 0.15, dy: 0.25, fill: 0.9 },
   };
   function bossSvg(t) { return bossUi(t).svg.replace('class="u-dimg"', `class="u-dimg b-${t}"`); }
@@ -1556,6 +1623,11 @@ const UI = (() => {
     'C356 4 354 13 352 22C350 30 340 30 339 22C338 12 336 6 326 5C312 4 306 10 296 9C286 8 284 4 272 4C262 4 262 9 258 16C255 22 247 22 246 15' +
     'C245 8 242 5 232 5C216 5 212 11 196 11C182 11 180 4 168 4C158 4 156 10 154 20C152 32 140 32 139 21C138 10 134 5 122 5C108 5 104 10 92 10' +
     'C82 10 80 4 70 4C60 4 58 8 56 14C54 20 46 20 45 14C44 8 40 4 30 4C20 4 18 8 10 8C4 8 4 4 0 4Z"/></svg>';
+  // Surlu Şehir: the ribbon is a piece of the sandstone city wall — battlements on top (stretched to its width, like the drips)
+  // and festive bunting flags hanging from its lower edge
+  const ZONE_WALL = '<svg class="u-zwall" viewBox="0 0 400 20" preserveAspectRatio="none"><path d="M0 20V16' +
+    Array.from({ length: 10 }, (_, i) => `H${i * 40 + 8}V0H${i * 40 + 32}V16`).join('') + 'H400V20Z"/></svg>';   // (10 merlons on a ledge)
+  const ZONE_FLAGS = '<div class="u-zflags">' + '<i></i>'.repeat(11) + '</div>';
   function banner(o) {
     for (let i = BQ.length - 1; i >= 0; i--) if (BQ[i].kind === o.kind && (o.kind === 'level' || o.kind === 'zone')) BQ.splice(i, 1);   // newest wins
     if (BQ.length > 4) BQ.shift();
@@ -1571,10 +1643,11 @@ const UI = (() => {
     let h = '';
     if (o.rays) h += '<div class="u-rays"></div>';
     if (o.kind === 'zone') {
-      const dairy = o.theme === 'dairy', mk = dairy ? '<span class="u-zmk">🥛</span>' : '✦';
+      const dairy = o.theme === 'dairy', town = o.theme === 'town';
+      const mk = dairy ? '<span class="u-zmk">🥛</span>' : town ? '<span class="u-zmk">🏰</span>' : '✦';
       if (o.small) h += `<div class="u-zsm">${mk} ${esc(o.small)} ${mk}</div>`;
-      const rib = `<div class="u-zrib"><div class="u-btitle">${ol(o.title, 'u-gold-t')}</div></div>`;
-      // Kefir Vadisi: a creamy ribbon with milk dripping from its lower edge
+      const rib = `<div class="u-zrib">${town ? ZONE_WALL : ''}<div class="u-btitle">${ol(o.title, 'u-gold-t')}</div>${town ? ZONE_FLAGS : ''}</div>`;
+      // Kefir Vadisi: a creamy ribbon with milk dripping from its lower edge (Surlu Şehir: a piece of the city wall, see above)
       h += dairy ? `<div class="u-zwrap">${rib}${ZONE_DRIP}</div>` : rib;
       if (o.pips && o.pips.n > 1) {   // where we are on the journey: one gem per zone (done · here · still ahead)
         let p = '';
@@ -1643,7 +1716,7 @@ const UI = (() => {
     const it = o.item, r = clamp(it.rarity || 0, 0, 3), col = rarCol(r), c = D.card;
     c.style.setProperty('--rc', col); c.style.setProperty('--rl', shade(col, 0.55)); c.style.setProperty('--rd', shade(col, -0.55));
     c.classList.toggle('leg', r >= 3);
-    const name = it.ad || (typeof it.base === 'string' ? it.base : 'Hazine');
+    const name = (it.ad || (typeof it.base === 'string' ? it.base : 'Hazine')).replace(/ ✦$/, '\u00a0✦');   // (a long name wraps before its ✦, never leaves it alone)
     const slotWord = it.slot === 'weapon' ? (M.ITEMS && M.ITEMS.isWand(it) ? 'BÜYÜ DEĞNEĞİ' : 'IŞIN KILICI') : it.slot === 'hat' ? 'ŞAPKA' : 'PELERİN';
     c.innerHTML = `<div class="u-cthumb">${itemThumb(it)}</div><div class="u-ctext">
       <div class="u-cnew">YENİ ${slotWord} · ${esc(rarAd(r).toLocaleUpperCase('tr'))}</div>
@@ -1665,8 +1738,11 @@ const UI = (() => {
   }
   const SUB_EMO = { baykus: '🦉', ilk_salyangoz: '🐌', ilk_kostebek: '⛏️', ilk_kaplumbaga: '🐢', ilk_ateskusu: '🐥',
     // Kefir Vadisi (Round 4): the valley, its creatures, and the glass of kefir the happy Kefir Devi gives Feza
-    kefir: '🥛', ilk_yogurt: '🥣', ilk_kaymak: '🍯', ilk_kopuk: '🫧', ilk_peynir: '🧀', kefir_ikram: '🥛', yolculuk: '🗺️' };
+    kefir: '🥛', ilk_yogurt: '🥣', ilk_kaymak: '🍯', ilk_kopuk: '🫧', ilk_peynir: '🧀', kefir_ikram: '🥛', yolculuk: '🗺️',
+    // Surlu Şehir (Round 5): the walled town and its grumpy townsfolk (the knight's lines show his portrait)
+    sehir: '🏰', ilk_nobetci: '🛡️', ilk_simitci: '🥯', ilk_supurgeci: '🧹', ilk_tellal: '🥁' };
   const SUB_MILK = { kefir: 1, ilk_yogurt: 1, ilk_kaymak: 1, ilk_kopuk: 1, ilk_peynir: 1, kefir_ikram: 1 };   // their icon sits on a milky-blue disc (ui.css .u-subico.milk)
+  const SUB_TOWN = { sehir: 1, ilk_nobetci: 1, ilk_simitci: 1, ilk_supurgeci: 1, ilk_tellal: 1 };   // … on a sky-blue disc with a gold ring (.u-subico.town)
   // Title screen: the spoken "Oyna düğmesine bas…" line sits just above the Oyna / Devam Et buttons, never on them. Measured
   // from the buttons' layout box (offsetTop ignores their entry/breathing transforms); other screens use the CSS positions.
   function subPlace() {
@@ -1694,7 +1770,8 @@ const UI = (() => {
       const key = lineKey(text), emo = SUB_EMO[key], bt = emo ? null : lineBoss(key);
       if (bt) D.subIco.innerHTML = bossHTML(bt);
       else D.subIco.textContent = emo || '✨';
-      D.subIco.classList.toggle('drg', !!bt); D.subIco.classList.toggle('milk', !bt && !!SUB_MILK[key]); D.subIco.dataset.b = bt || '';
+      D.subIco.classList.toggle('drg', !!bt); D.subIco.classList.toggle('milk', !bt && !!SUB_MILK[key]); D.subIco.classList.toggle('town', !bt && !!SUB_TOWN[key]);
+      D.subIco.dataset.b = bt || '';
       subPlace();
       D.subTxt.textContent = text;
       D.sub.classList.add('on');
@@ -1729,20 +1806,24 @@ const UI = (() => {
   }
   // Zone a "Devam Et" will load (GAME's saveZone does the same): the save's zone id (zid, sv 4) when ZONES knows it, else
   // the index — saves from before the volcano (no sv or sv < 3) at zone ≥ 2 first move one zone on (Round 3), then saves
-  // from before Kefir Vadisi (sv < 4) at zone ≥ 1 move one more (Round 4: the kefir zone is index 1, the castle index 4).
+  // from before Kefir Vadisi (sv < 4) at zone ≥ 1 move one more (Round 4). That index is in the Round 4 order (SAVE_Z4),
+  // mapped by id onto today's ZONES (Round 5: Surlu Şehir is index 4, so an old castle save stays the castle, index 5).
+  const SAVE_Z4 = ['orman', 'kefir', 'magara', 'yanardag', 'kale'];
   function savedZone() {
     try {
       const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
       if (!s || typeof s.zone !== 'number') return -1;
-      if (typeof s.zid === 'string' && M.ZONES && M.ZONES.findIndex) {
-        const k = M.ZONES.findIndex(Z => Z && Z.id === s.zid);
+      const Zs = M.ZONES && M.ZONES.findIndex ? M.ZONES : null;
+      if (typeof s.zid === 'string' && Zs) {
+        const k = Zs.findIndex(Z => Z && Z.id === s.zid);
         if (k >= 0) return k;
       }
       let z = s.zone | 0;
       const sv = typeof s.sv === 'number' ? s.sv : 0, n = zoneCount();
-      if (sv < 3 && z >= 2 && n >= 4) z++;
-      if (sv < 4 && z >= 1 && n >= 5) z++;
-      return clamp(z, 0, n - 1);
+      if (sv < 3 && z >= 2) z++;
+      if (sv < 4 && z >= 1) z++;
+      const k = Zs && sv < 5 && SAVE_Z4[z] ? Zs.findIndex(Z => Z && Z.id === SAVE_Z4[z]) : -1;   // (sv 5 saves: today's order)
+      return k >= 0 ? k : clamp(z, 0, n - 1);
     } catch (e) { return -1; }
   }
 
@@ -1997,10 +2078,12 @@ const UI = (() => {
     bossFill(S.bossFrac); D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
     D.boss.classList.add('on');
   }
-  // The fill shrinks with scaleX; its bubble layer is scaled back (1/frac), so the bubbles stay round at any health.
+  // The fill shrinks with scaleX; its pattern layer is scaled back (1/frac), so the kefir bubbles stay round and the knight's
+  // lance stripes keep their slant at any health.
+  const BAR_FX = { kefirdev: 1, sovalye: 1 };
   function bossFill(f) {
     D.bossFill.style.transform = `scaleX(${f.toFixed(4)})`;
-    if (D.boss.dataset.b === 'kefirdev') D.bossFizz.style.transform = `scaleX(${(1 / Math.max(0.02, f)).toFixed(4)})`;
+    if (BAR_FX[D.boss.dataset.b]) D.bossFizz.style.transform = `scaleX(${(1 / Math.max(0.02, f)).toFixed(4)})`;
   }
   function hideBoss() { S.boss = false; D.boss.classList.remove('on'); }
 
@@ -2123,27 +2206,81 @@ const UI = (() => {
   // … and, only while a subtitle narrows the box (portrait: it crosses the middle), aiming closer to Feza (or a little past
   // him, away from the focus) may be needed to lift everything above it
   const FIT_FX = FIT_F.concat([0.22, 0.12, 0, -0.12, -0.25]);
-  const FIT = { pts: new Float32Array(72), n: 0, ox: 0, oz: 0, zoom: 1, res: 0, f: 0 };   // res/f: last rule + look-at fraction (tests)
+  const FIT = { pts: new Float32Array(120), n: 0, ox: 0, oz: 0, zoom: 1, res: 0, f: 0 };   // res/f: last rule + look-at fraction (tests)
   const CAMK = { k: 1 };   // cameraFollow's distance factor for this aspect (portrait pulls back), read off the real camera
   const _fc = new THREE.PerspectiveCamera(), _fv = new THREE.Vector3();
-  function fitAdd(x, y, z) { const i = FIT.n++ * 3; FIT.pts[i] = x; FIT.pts[i + 1] = y; FIT.pts[i + 2] = z; }
+  function fitAdd(x, y, z) { if (FIT.n >= 40) return; const i = FIT.n++ * 3; FIT.pts[i] = x; FIT.pts[i + 1] = y; FIT.pts[i + 2] = z; }
+  // Bosses that are not a round blob: their silhouette as fractions of their size (x, z × r; y × height). Huysuz Şövalye on
+  // his long horse: plume top, his shoulders and shield, the horse's ears, nose, rump and hooves. lance: his lance tip (the
+  // model's marker('lance'), lowered forward in a charge) joins the fit when it is within that many metres. run: while he
+  // gallops (st.phase 'charge', or faster than RUN_V) the camera keeps up this much quicker and also frames where he will be
+  // in `lead` s (so the damped view is there in time, e.g. when he thunders past Feza toward the camera); zoom: extra zoom-out
+  // room (his lanes start at the arena rim); zoomN: more of it on a narrow (portrait) screen while he is off to Feza's side
+  // (sideK) — an upright screen shows far less across than a landscape one, and a sideways lane runs rim to rim (~20 m);
+  // up and down the screen it needs none (more room there would only let a stricter framing win at a far smaller Feza).
+  // The portrait screen is ~1.44× taller while its view pulls back only 1.2×, so even at that cap Feza stays about as tall
+  // on screen as the landscape cap keeps him (~48 px to his head); the fit still picks the smallest zoom that shows
+  // everything. cheer: his goodbye keeps full size until that st.dying (05: waves, prances and hops, then twirls away),
+  // hop: its extra height meanwhile. tilt: how much flatter than the play view the boss view looks (rad; the other round
+  // bosses 0.05): his lanes run rim to rim up the screen, and a flatter view shortens the arena's depth on screen while
+  // Feza stands taller — so waiting at the far rim (12+ m up the screen, a subtitle at the bottom) he and Feza fit at a
+  // zoom that keeps Feza ≥ 45 px to his head (0.74 rad, the story camera's pitch when he cheers).
+  const BOSS_SHAPE = {
+    sovalye: { pts: [0, 1.04, -0.08, -0.55, 0.74, 0, 0.55, 0.74, 0, 0, 0.72, 0.9, 0, 0.52, 1.12, 0, 0.45, -1.08,
+      -0.32, 0, 0.82, 0.32, 0, 0.82, -0.32, 0, -0.86, 0.32, 0, -0.86], lance: 4.6, run: 5, lead: 0.3, zoom: 0.14, zoomN: 0.7, cheer: 0.7, hop: 1.16, tilt: 0.12 },
+  };
+  const narrowK = () => clamp((1.1 - camera.aspect) / 0.4, 0, 1);   // 0 on a landscape screen … 1 from aspect 0.7 (an iPad held upright)
+  const sideK = (dx, d) => (d > 1 ? clamp(2 * Math.abs(dx) / d - 1, 0, 1) : 0);   // 1 straight to Feza's side … 0 from 60° up/down the screen
+  const RUN_V = 5;   // m/s
   const BPC = { key: '', pts: null };
   function bossPts(b) {
     if (!b.type || b.type === 'ejderha') return BOSS_PTS;
     const h = b.height > 0.5 ? b.height : 2.8, r = Math.max(0.7, b.r || 1.2), key = b.type + h.toFixed(2) + r.toFixed(2);
     if (BPC.key !== key) {
       BPC.key = key;
-      BPC.pts = [0, h * 1.08, 0, -r * 1.1, h * 0.62, 0, r * 1.1, h * 0.62, 0, 0, h * 0.62, r * 1.1, -r * 1.1, 0, 0, r * 1.1, 0, 0, 0, 0, r * 1.25, 0, 0, -r * 1.2];
+      const F = BOSS_SHAPE[b.type];
+      BPC.pts = F ? F.pts.map((v, i) => v * (i % 3 === 1 ? h : r))
+        : [0, h * 1.08, 0, -r * 1.1, h * 0.62, 0, r * 1.1, h * 0.62, 0, 0, h * 0.62, r * 1.1, -r * 1.1, 0, 0, r * 1.1, 0, 0, 0, 0, r * 1.25, 0, 0, -r * 1.2];
     }
     return BPC.pts;
   }
   const bigBoss = b => !b.type || b.type === 'ejderha' || b.height > 3.6;   // the tall dragon: a more frontal, wider view
-  function fitBoss(b, sc) {   // add the boss's sample points (scaled by its dying shrink `sc`)
-    const cs = Math.cos(b.face || 0), sn = Math.sin(b.face || 0), PTS = bossPts(b);
+  const _lv = new THREE.Vector3();
+  // add the boss's sample points (scaled by its dying shrink `sc`; ys: extra height; sx/sz: moved by that much — see fitLead)
+  function fitBoss(b, sc, ys = 1, sx = 0, sz = 0) {
+    const cs = Math.cos(b.face || 0), sn = Math.sin(b.face || 0), PTS = bossPts(b), F = BOSS_SHAPE[b.type], x = b.x + sx, z = b.z + sz;
     for (let i = 0; i < PTS.length; i += 3) {
-      const lx = PTS[i] * sc, ly = PTS[i + 1] * sc, lz = PTS[i + 2] * sc;
-      fitAdd(b.x + lx * cs + lz * sn, ly, b.z - lx * sn + lz * cs);
+      const lx = PTS[i] * sc, ly = PTS[i + 1] * sc * ys, lz = PTS[i + 2] * sc;
+      fitAdd(x + lx * cs + lz * sn, ly, z - lx * sn + lz * cs);
     }
+    const m = b.m, tip = F && F.lance && m && typeof m.marker === 'function' ? safe('marker', () => m.marker('lance', _lv)) : null;
+    if (tip && Number.isFinite(tip.x) && Math.hypot(tip.x - b.x, tip.z - b.z) < F.lance) fitAdd(x + (tip.x - b.x) * sc, clamp(tip.y, 0, 6) * sc, z + (tip.z - b.z) * sc);
+  }
+  // Boss velocity (m/s, smoothed; a jump — a reset, a new zone — starts it over) for a boss with BOSS_SHAPE.run: returns the
+  // quicker camera rate while it gallops, else 0
+  const BV = { b: null, x: 0, z: 0, vx: 0, vz: 0, L: null, rm: null };
+  function bossRun(b, dt) {
+    const F = BOSS_SHAPE[b.type];
+    if (!F || !F.run) return 0;
+    const mx = b.x - BV.x, mz = b.z - BV.z;
+    if (BV.b !== b || Math.hypot(mx, mz) > 25 * Math.max(dt, 1 / 60)) { BV.b = b; BV.vx = BV.vz = 0; }
+    else if (dt > 0) { BV.vx = damp(BV.vx, mx / dt, 12, dt); BV.vz = damp(BV.vz, mz / dt, 12, dt); }
+    BV.x = b.x; BV.z = b.z;
+    return (b.st && b.st.phase === 'charge') || Math.hypot(BV.vx, BV.vz) > RUN_V ? F.run : 0;
+  }
+  // galloping: the whole boss again where it will be in BOSS_SHAPE.lead s, but never past the arena rim (it stops there)
+  function fitLead(b, L) {
+    const t = BOSS_SHAPE[b.type].lead || 0, r = b.r || 1.2;
+    if (!t) return;
+    let x = b.x + BV.vx * t, z = b.z + BV.vz * t;
+    if (BV.L !== L) { BV.L = L; BV.rm = (L && L.rooms && L.rooms.find(q => q && q.kind === 'boss')) || null; }
+    const rm = BV.rm;
+    if (rm && rm.hw && rm.hh) { x = clamp(x, rm.x - rm.hw + r, rm.x + rm.hw - r); z = clamp(z, rm.z - rm.hh + r, rm.z + rm.hh - r); }
+    else if (rm && rm.r) {
+      const dx = x - rm.x, dz = z - rm.z, d = Math.hypot(dx, dz), q = Math.max(0.5, rm.r - r * 0.5);
+      if (d > q) { x = rm.x + dx / d * q; z = rm.z + dz / d * q; }
+    }
+    fitBoss(b, 1, 1, x - b.x, z - b.z);
   }
   // The safe screen box for the fit (NDC, y up): below the boss bar (else the top 10 %), above the bottom controls, inside the
   // sides; under the stricter rules the points must also stay clear of the HUD corners (portrait + XP block, 🎒⏸ row, minimap,
@@ -2273,9 +2410,13 @@ const UI = (() => {
     FITP.ctx = ctx; FITP.sub = S.subTop; FITP.rule = res;
     return res;
   }
-  function fitPortal(po) {   // the stone arch (06: pillars at ±1.58, arch top + keystone ≈ 4.3 m, front step to z + 1.6)
-    fitAdd(po.x, 0, po.z + 1.4); fitAdd(po.x, 4.25, po.z);
-    fitAdd(po.x - 1.9, 0.2, po.z); fitAdd(po.x + 1.9, 0.2, po.z); fitAdd(po.x - 1.75, 3.3, po.z); fitAdd(po.x + 1.75, 3.3, po.z);
+  // the stone arch (06: pillars at ±1.58, arch top + keystone ≈ 4.3 m, front step to z + 1.6); a bigger gate around it (Surlu
+  // Şehir's castle gate) may tell its half width and height in po.fit {hw, h}
+  const portalH = po => (po.fit && po.fit.h > 4.25 ? Math.min(po.fit.h, 8) : 4.25);
+  function fitPortal(po) {
+    const f = po.fit, hw = f && f.hw > 1.9 ? Math.min(f.hw, 5) : 1.9, h = portalH(po);
+    fitAdd(po.x, 0, po.z + 1.4); fitAdd(po.x, h, po.z);
+    fitAdd(po.x - hw, 0.2, po.z); fitAdd(po.x + hw, 0.2, po.z); fitAdd(po.x - hw * 0.92, h * 0.78, po.z); fitAdd(po.x + hw * 0.92, h * 0.78, po.z);
   }
   // Mid-boss story beat (S.cine, fin false): 0–4.6 s the cheering boss, then the portal that woke up — with Feza when both fit,
   // else (a far portal) a short flight to the portal (until CINE.back) and back to Feza (CINE.panEnd). Final boss: CINE.fin.
@@ -2303,7 +2444,9 @@ const UI = (() => {
   }
   const PAN_F = [0, 0.12, 0.24, 0.36, 0.48];
   function fitCheerBoss(c, b, dy) {   // the cheering boss, shrinking in its goodbye (dy 0..1), or where it stood
-    if (b && dy < 1) fitBoss(b, Math.max(0.3, 1 - dy));
+    const F = b && BOSS_SHAPE[b.type];
+    if (b && dy < 1 && F && F.cheer) fitBoss(b, dy < F.cheer ? 1 : Math.max(0.3, 1 - (dy - F.cheer) / (1 - F.cheer)), dy < F.cheer ? F.hop || 1 : 1);
+    else if (b && dy < 1) fitBoss(b, Math.max(0.3, 1 - dy));
     else { fitAdd(c.bx, 0, c.bz); fitAdd(c.bx, c.wait ? clamp((b && b.height) || 2.2, 2.2, 3.4) : 2.2, c.bz); }   // (waiting: the whole boss)
   }
   // Title: while the spoken prompt shows, Feza steps up the screen so its box never covers his legs (his head stays under the logo).
@@ -2329,13 +2472,15 @@ const UI = (() => {
     else if (S.mode === 'end') { zoom = 0.62; pitch = 0.78; yaw = Math.sin(S.t * 0.16) * 0.35; ty = 1.0; k = 1.2; }
     else if (P && P.dead) { zoom = 0.82; }
     else if (S.boss && g.boss && !g.boss.dead) {   // keep the whole boss on screen, not just Feza
+      const run = bossRun(g.boss, dt), F = BOSS_SHAPE[g.boss.type];
       fitBoss(g.boss, 1);
+      if (run) fitLead(g.boss, g.L);   // (the knight's gallop: also where he is heading, and a quicker camera below)
       const big = bigBoss(g.boss), bd = Math.hypot(g.boss.x - px, g.boss.z - pz);
       // a little more frontal (the tall dragon needs less zoom-out); zoom cap keeps Feza ≥ ~70 px tall, only when he is far
       // from the boss (it walks closer) a bit more is allowed
       if (big) { ty = 1.6; pitch = S.playPitch - 0.08; fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.05, 1.62 + clamp((bd - 10) * 0.05, 0, 0.16)); }
-      else { ty = clamp((g.boss.height || 2.8) * 0.42, 0.9, 1.5); pitch = S.playPitch - 0.05; fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.0, 1.42 + clamp((bd - 10) * 0.05, 0, 0.16)); }
-      zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = 1.5;
+      else { ty = clamp((g.boss.height || 2.8) * 0.42, 0.9, 1.5); pitch = S.playPitch - (F && F.tilt > 0 ? F.tilt : 0.05); fitSolve('boss', px, pz, g.boss.x, g.boss.z, ty, pitch, 1.0, 1.42 + ((F && F.zoom) || 0) + ((F && F.zoomN) || 0) * narrowK() * sideK(g.boss.x - px, bd) + clamp((bd - 10) * 0.05, 0, 0.16)); }
+      zoom = FIT.zoom; ox = FIT.ox; oz = FIT.oz; k = Math.max(1.5, run);
     } else if (S.cine && P) {   // boss defeated: look at the cheering boss, then at the rising crystal (castle) or the portal
       const c = S.cine, L = g.L, po = c.fin === false && L ? L.portalObj || L.exit : null;
       pitch = 0.74; ty = 1.3; k = 1.3;
@@ -2369,13 +2514,15 @@ const UI = (() => {
         if (!done) { fitCheerBoss(c, b, dy); fitSolve('cheer', px, pz, c.bx, c.bz, ty, pitch, 1.15, 1.7); }
       } else if (po) {   // mid-boss: the portal that just woke up
         pitch = 0.72;
+        const tall = portalH(po) - 4.25;   // a taller gate (po.fit: the castle gate) : aim higher, may zoom out a little more
+        ty += tall * 0.25;
         if (!c.pan) {   // Feza and the portal together (a far one may zoom out a little more)…
           fitPortal(po);
           const far = Math.hypot(po.x - px, po.z - pz) > 12;
-          c.pan = fitSolve('portal', px, pz, po.x, po.z, ty, pitch, 1.1, far ? 1.75 : 1.6, true) < 0;
+          c.pan = fitSolve('portal', px, pz, po.x, po.z, ty, pitch, 1.1, (far ? 1.75 : 1.6) + tall * 0.08, true) < 0;
         }
         if (c.pan && c.t < CINE.back) {   // …or they don't fit: fly over to the portal, frame it whole, then back to Feza
-          fitPortal(po); fitSolve('pan', po.x, po.z, po.x, po.z + 5, ty, pitch, 1.0, 1.35, false, PAN_F);   // (aim a little south of it if a subtitle needs the room)
+          fitPortal(po); fitSolve('pan', po.x, po.z, po.x, po.z + 5, ty, pitch, 1.0, 1.35 + tall * 0.1, false, PAN_F);   // (aim a little south of it if a subtitle needs the room)
           FIT.ox += po.x - px; FIT.oz += po.z - pz; k = 1.5;
         } else if (c.pan) { fit = false; k = 1.6; }   // (flying back: the plain follow view)
       } else {
@@ -2560,7 +2707,7 @@ const UI = (() => {
     boot, ready: readyP, fade, banner, toast, itemCard, openBag, openPause, closeMenu, showVictory, showTitle, startGame,
     refreshPortrait, subtitle, setPref,
     get mode() { return S.mode; }, get menu() { return S.menu; }, get paused() { return S.paused; },
-    _S: S, _D: D, _TC: TITLE_CAM, _DC: DRG_CAM, _BF: BOSS_FIT, _FIT: FIT, _FL: FL,
+    _S: S, _D: D, _TC: TITLE_CAM, _DC: DRG_CAM, _BF: BOSS_FIT, _BS: BOSS_SHAPE, _FIT: FIT, _FL: FL,
     _dragon() { DRG.tried = false; DRG.url = DRG.cv = null; return dragonPortrait(); },   // tests: render the dragon portrait again
     _boss(t) { const R = bpRec(t); R.tried = false; R.url = R.cv = null; return bossPortrait(t); },   // tests: (re)render a boss portrait
     _bossHTML: t => bossHTML(t), _bossSvg: t => bossSvg(t), _savedZone: () => savedZone(), _goal: () => MV.goal, _mapTheme: () => MM.theme, _CINE: CINE,

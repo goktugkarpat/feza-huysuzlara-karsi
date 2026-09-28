@@ -1,6 +1,8 @@
 /* ── Bölgeler ve seviye: seviye üretimi, görseller, çarpışma, yol bulma ──
-   ZONES: beş bölgenin tanımı (sıra = kayıttaki bölge numarası). Her bölgenin sonunda büyük bir bölüm sonu canavarı arenası var.
+   ZONES: altı bölgenin tanımı (sıra = kayıttaki bölge numarası). Her bölgenin sonunda büyük bir bölüm sonu canavarı arenası var.
    Bölge 1 = Kefir Vadisi (Feza'nın isteği): süt ve kefir nehirleri, yoğurt tepeleri, peynirler, bisküvi köprüler.
+   Bölge 4 = Surlu Şehir (Feza'nın isteği): ejderhanın kalesinin önündeki surlu şehir; nehir ve kanallar, taş köprüler,
+   renkli ahşap çatılı evler, pazar tezgâhları, surlar ve kuleler, en sonda Turnuva Meydanı ve Kale Kapısı.
    LEVEL.generate() saf veri üretir, LEVEL.build() sahneyi kurar (bkz. src/SPEC.md). */
 const ZONES = [
   { id: 'orman', ad: 'Huysuz Orman', theme: 'forest', line: 'orman', music: 'orman', size: 100, rooms: 8, side: 3,
@@ -13,15 +15,18 @@ const ZONES = [
   { id: 'yanardag', ad: 'Lav Yanardağı', theme: 'volcano', line: 'yanardag', music: 'yanardag', size: 100, rooms: 8, side: 3,
     enemies: { jole: 3, kaplumbaga: 4, ateskusu: 3, atescik: 2, golem: 1 }, variants: { jole: ['lava'], golem: ['magma'] }, elites: ['kaplumbaga', 'ateskusu'],
     hpMult: 2.3, dmgMult: 1.65, xpMult: 2.1, gold: 2.5, ilvl: 6, boss: 'lavkaplumbaga' },
+  { id: 'sehir', ad: 'Surlu Şehir', theme: 'town', line: 'sehir', music: 'sehir', size: 100, rooms: 8, side: 3,
+    enemies: { nobetci: 4, simitci: 3, supurgeci: 3, tellal: 1 }, elites: ['nobetci', 'simitci'],
+    hpMult: 2.55, dmgMult: 1.8, xpMult: 2.3, gold: 2.8, ilvl: 7, boss: 'sovalye' },
   { id: 'kale', ad: 'Ejderhanın Kalesi', theme: 'castle', line: 'kale', music: 'kale', size: 104, rooms: 8, side: 2,
-    enemies: { asker: 4, atescik: 3, hayalet: 2, golem: 1 }, elites: ['asker', 'atescik'], hpMult: 2.8, dmgMult: 1.9, xpMult: 2.5, gold: 3, ilvl: 7, boss: 'ejderha', final: true },
+    enemies: { asker: 4, atescik: 3, hayalet: 2, golem: 1 }, elites: ['asker', 'atescik'], hpMult: 3.0, dmgMult: 2.0, xpMult: 2.7, gold: 3.2, ilvl: 8, boss: 'ejderha', final: true },
 ];
 
 const LEVEL = (function () {
   'use strict';
-  const BIG = ['golem', 'peynir'];         // at most one of these per pack (the golem; Kefir Vadisi's big cheese wedge)
+  const BIG = ['golem', 'peynir', 'tellal'];   // at most one of these per pack (the golem; Kefir Vadisi's big cheese wedge; Surlu Şehir's town crier)
   const MARGIN = { x: 16, n: 18, s: 15 };  // empty border (trees / rock / wall mass) around the playable area
-  const ARENA_R = 11.5;                    // boss arena radius (forest / dairy / cave / volcano; the castle keeps its 26×22 m hall)
+  const ARENA_R = 11.5;                    // boss arena radius (forest / dairy / cave / volcano / town; the castle keeps its 26×22 m hall)
   // Gameplay camera pitch, captured once at load (core has applied its default and any ?kam override by now). All occlusion
   // math uses it, never the live CAM.pitch the UI animates (title 0.32, victory 0.78), so a seed always builds the same level.
   const LV_PITCH = CAM.pitch || 0.86, LV_PK = 1 / Math.tan(LV_PITCH);   // floor distance hidden behind 1 m of height
@@ -106,7 +111,7 @@ const LEVEL = (function () {
       let best = null;
       for (let t = 0; t < 80 && !best; t++) {
         const sd = t < 40 ? side : -side;
-        const a = sd * RNG.range(0.62, 1.2), d = A.r + r + RNG.range(3.8, 6.2);
+        const a = sd * RNG.range(0.62, 1.2), d = A.r + r + RNG.range(3.8, 6.2) + (Z.theme === 'town' && k === 3 && t < 60 ? 3.4 : 0);   // (Surlu Şehir: room for the river to run between rooms 2 and 3)
         const c = { x: A.x + Math.sin(a) * d, z: A.z - Math.cos(a) * d, r, kind, hs: harmonics(last ? 0.045 : 0.11) };
         if (Math.abs(c.x) > 22) continue;
         if (clear(c, k - 1)) best = c;
@@ -293,7 +298,7 @@ const LEVEL = (function () {
         for (let j = rm.z - rm.hh; j < rm.z + rm.hh; j++) for (let i = rm.x - rm.hw; i < rm.x + rm.hw; i++) if (inb(i, j)) grid[idx(i, j)] = 1;
         continue;
       }
-      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : rm.kind === 'boss' ? 0.4 : theme === 'cave' ? 1.0 : theme === 'volcano' || theme === 'dairy' ? 0.8 : 0.7;
+      const e = Math.ceil(rm.r * 1.35 + 2), na = rm.kind === 'start' && zi === 0 ? 0.35 : rm.kind === 'boss' ? 0.4 : theme === 'cave' ? 1.0 : theme === 'volcano' || theme === 'dairy' ? 0.8 : theme === 'town' ? 0.4 : 0.7;   // (town: smoother plaza edges, the house rows follow them)
       for (let j = Math.floor(rm.z - e); j <= rm.z + e; j++) for (let i = Math.floor(rm.x - e); i <= rm.x + e; i++) {
         if (!inb(i, j)) continue;
         const x = i + 0.5, z = j + 0.5, dx = x - rm.x, dz = z - rm.z;
@@ -496,10 +501,28 @@ const LEVEL = (function () {
       taken.push({ x: L.crystalSpot.x, z: L.crystalSpot.z, r: 3 });
     } else {
       let pz = last.z - (last.hh || last.r) * (Z.boss ? 0.95 : 0.5);
-      while (pz < last.z - (Z.boss ? 3 : 0) && dW(last.x, pz) < 3.2) pz += 0.5;
+      while (pz < last.z - (Z.boss ? 3 : 0) && dW(last.x, pz) < (L.theme === 'town' ? 1.8 : 3.2)) pz += 0.5;   // (Surlu Şehir: the gate stands in the city wall at the rim)
       L.exit = { x: last.x, z: pz };
       taken.push({ x: L.exit.x, z: L.exit.z, r: 3 });
       addSolid(L.exit.x - 1.55, L.exit.z - 0.1, 0.5, 'portal'); addSolid(L.exit.x + 1.55, L.exit.z - 0.1, 0.5, 'portal');
+      if (L.theme === 'town') {   // Kale Kapısı: its two round towers; the floor ends at the portal (no walking in behind it, where the
+        // towers and the bridge over the arch would hide Feza: every cell north of the portal between the towers' outer sides, and
+        // behind the towers themselves, is no floor; the portal's own cell stays)
+        const ex = L.exit;
+        for (const sd of [-1, 1]) addSolid(ex.x + sd * 2.85, ex.z - 0.25, 0.95, 'gate');
+        let cut = 0;
+        for (let j = Math.max(1, Math.floor(ex.z - 9)); j < Math.min(H - 1, Math.ceil(ex.z)); j++) for (let i = Math.max(1, Math.floor(ex.x - 5.5)); i <= Math.min(W - 2, Math.ceil(ex.x + 5.5)); i++) {
+          const k = j * W + i, dx = Math.abs(i + 0.5 - ex.x), z = j + 0.5;
+          if (grid[k] && (dx < 3.9 ? z < ex.z - 0.5 : dx < 4.9 && z < ex.z - 1.3)) { grid[k] = 0; cut++; }
+        }
+        if (cut) {
+          const sn = floodFrom(W, H, grid, Math.floor(L.start.x), Math.floor(L.start.z));
+          for (let k = 0; k < W * H; k++) if (grid[k] && !sn[k]) grid[k] = 0;
+          L.dWall.set(chamfer(W, H, grid, 0));
+          L._sat = makeSAT(W, H, grid);
+          L._gateCut = cut;
+        }
+      }
     }
     {   // the main route ends at the portal / dragon, not at the last room's centre
       const g = L.exit || L.boss, e = path[path.length - 1];
@@ -637,6 +660,7 @@ const LEVEL = (function () {
       if (p) { L.chests.push({ x: p.x, z: p.z, big: false }); taken.push({ x: p.x, z: p.z, r: 2 }); }
     }
     for (const c of L.chests) addSolid(c.x, c.z, c.big ? 0.8 : 0.62, 'chest');
+    if (L.theme === 'town') townData(L, { main, taken, free, addSolid, dW, clearOfPath, gapOK, linkD });   // (before the packs: they keep clear of it)
 
     // enemy packs — none within reach of a checkpoint's wake-up spot (cp.z + 1.6, where GAME puts Feza after a nap): creatures notice
     // him at ~9 m, so a pack there would be on him the moment he wakes up. 12 m (the pack's centre 13.5 m, room for its members),
@@ -734,7 +758,7 @@ const LEVEL = (function () {
     if (!ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12 && cpD(x, z) >= 10)) ensureBig(L, types, taken, N, dW, (x, z) => hyp(x - L.start.x, z - L.start.z) > 12);
 
     // breakables: small clusters against the walls
-    const kindsBy = { forest: ['barrel', 'crate', 'vase'], dairy: ['barrel', 'vase', 'barrel', 'crate'], cave: ['crate', 'barrel', 'vase'], volcano: ['vase', 'crate', 'barrel'], castle: ['vase', 'vase', 'barrel', 'crate'] }[L.theme] || ['barrel', 'crate', 'vase'];   // dairy: barrel = copper milk can, vase = milk jug
+    const kindsBy = { forest: ['barrel', 'crate', 'vase'], dairy: ['barrel', 'vase', 'barrel', 'crate'], cave: ['crate', 'barrel', 'vase'], volcano: ['vase', 'crate', 'barrel'], castle: ['vase', 'vase', 'barrel', 'crate'], town: ['barrel', 'crate', 'vase', 'barrel'] }[L.theme] || ['barrel', 'crate', 'vase'];   // dairy: barrel = copper milk can, vase = milk jug
     rooms.forEach((rm, ri) => {
       if (rm.kind === 'boss') return;
       const nCl = rm.kind === 'start' ? (zi === 0 ? 1 : 0) : rm.kind === 'side' ? 1 : RNG.int(1, 2);
@@ -787,6 +811,72 @@ const LEVEL = (function () {
     }
     for (const t of L.torches) if (L.theme === 'cave' || t.brazier) addSolid(t.x, t.z, t.brazier ? 0.55 : 0.28, 'torch');
     for (const s of L.solids) s.r = +s.r.toFixed(2);
+  }
+
+  // Surlu Şehir (pure data): the fountain in a square in the first views (the start plaza, north of Feza, or the next one), a well or
+  // two against square rims, the market square's stall spots along its northern rim and sides (the stalls face the square: their
+  // awnings hide no floor behind them, not even one cell). Solids: the fountain's basin, the wells, each stall as two circles side
+  // by side. → L.town = { fountain: {x, z, r, room} | null, wells: [{x, z, room, ry}], market: room index | -1, stalls: [{x, z, yaw, v}] }
+  function townData(L, T) {
+    const { main, taken, free, addSolid, dW, clearOfPath, gapOK, linkD } = T, N = main.length;
+    const TD = L.town = { fountain: null, wells: [], market: -1, stalls: [] };
+    for (const k of [0, 1, 2]) {
+      const rm = main[k];
+      if (!rm || rm.kind === 'boss') continue;
+      let best = null;
+      for (let t = 0; t < 500; t++) {
+        const a = RNG.range(0, TAU), d = Math.sqrt(RNG.r()) * rm.r * 0.85, x = rm.x + Math.cos(a) * d, z = rm.z + Math.sin(a) * d;
+        if (dW(x, z) < 2.8 || !inRoom(rm, x, z, 1.6) || !free(x, z, 2.3) || !clearOfPath(x, z, 3.1, 3.6) || !gapOK(x, z, 1.35) || linkD(x, z) < 3.2) continue;
+        if (k === 0 && z > L.start.z - 2) continue;   // in the start plaza: north of Feza (in the first view, never between him and the camera)
+        const sc = hiddenBehind(L, x, z, 0.45, 2.3) * 1.5 + Math.abs(hyp(x - rm.x, z - rm.z) - rm.r * 0.4) * 0.3 + RNG.r() * 0.5;
+        if (!best || sc < best.sc) best = { x, z, sc };
+      }
+      if (!best) continue;
+      TD.fountain = { x: best.x, z: best.z, r: 1.35, room: k };
+      taken.push({ x: best.x, z: best.z, r: 2.2 }); addSolid(best.x, best.z, 1.35, 'fountain');
+      break;
+    }
+    // the market square: the roomiest main room between the start and the checkpoint before the arena (the next roomiest gets the rest,
+    // up to 4 stalls in all)
+    const mks = [];
+    for (let k = 2; k <= N - 3; k++) if (main[k].kind === 'main' && (!TD.fountain || TD.fountain.room !== k)) mks.push(k);
+    mks.sort((p, q) => main[q].r - main[p].r);
+    for (const mk of mks.slice(0, 2)) {
+      if (TD.stalls.length >= 4) break;
+      const rm = main[mk], n0 = TD.stalls.length;
+      for (let a = -Math.PI / 2 - 2.1 + RNG.r() * 0.3; a <= -Math.PI / 2 + 2.1 && TD.stalls.length < (n0 ? 4 : 3); a += 0.08) {   // along the northern rim and the sides
+        const dx = Math.cos(a), dz = Math.sin(a);
+        let r = rm.r * 0.4;
+        while (r < rm.r + 4 && isFloor(L, rm.x + dx * r, rm.z + dz * r)) r += 0.1;
+        if (r >= rm.r + 4) continue;
+        const x = rm.x + dx * (r - 0.95), z = rm.z + dz * (r - 0.95), yaw = Math.atan2(-dx, -dz), tx = Math.cos(yaw), tz = -Math.sin(yaw);   // (tx, tz): along its width
+        const ok = q => gapOK(q.x, q.z, 0.55) && dW(q.x, q.z) >= 0.6;
+        const c1 = { x: x + tx * 0.62, z: z + tz * 0.62 }, c2 = { x: x - tx * 0.62, z: z - tz * 0.62 };   // (the solids reach its awning's ends: Feza never stands under their sides)
+        if (!ok(c1) || !ok(c2) || !free(x, z, 1.35) || !clearOfPath(x, z, 2.4, 3.2) || linkD(x, z) < 2.6 || TD.stalls.some(q => hyp(q.x - x, q.z - z) < 2.7)) continue;
+        {   // no floor behind its awning (2.3 × 1.4 m, up to 2.45 m) where Feza could stand (≥ 0.45 m past its back): camera rule
+          const hx = Math.abs(tx) * 1.15 + Math.abs(tz) * 0.7, hz = Math.abs(tz) * 1.15 + Math.abs(tx) * 0.7;
+          if (satCount(L, x - hx - 0.25, z - hz - (2.45 - 0.2) * LV_PK, x + hx + 0.25, z - hz - 0.45) > 0) continue;
+        }
+        TD.stalls.push({ x, z, yaw, v: TD.stalls.length });
+        taken.push({ x, z, r: 1.3 });
+        addSolid(c1.x, c1.z, 0.55, 'stall'); addSolid(c2.x, c2.z, 0.55, 'stall');
+      }
+      if (TD.market < 0 && TD.stalls.length > n0) TD.market = mk;
+    }
+    const mk = TD.market;
+    // (Turnuva Meydanı's tournament banners: GAME places its own, west, north and east of the knight)
+    // wells: against a square's rim where the little roof hides no floor, one or two rooms apart
+    for (let k = 1; k < N - 1 && TD.wells.length < 2; k++) {
+      const rm = main[k];
+      if (rm.kind !== 'main' || k === mk || (TD.fountain && TD.fountain.room === k) || TD.wells.some(w => Math.abs(w.room - k) < 2)) continue;
+      for (let t = 0; t < 200; t++) {
+        const a = RNG.range(0, TAU), d = Math.sqrt(RNG.r()) * rm.r, x = rm.x + Math.cos(a) * d, z = rm.z + Math.sin(a) * d;
+        if (dW(x, z) < 1.4 || dW(x, z) > 2.4 || !inRoom(rm, x, z, 0.5) || !free(x, z, 1.8) || !clearOfPath(x, z, 2.6, 3.2) || !gapOK(x, z, 0.95) || linkD(x, z) < 2.8 || hiddenBehind(L, x, z, 1.0, 2.4) > 0) continue;
+        TD.wells.push({ x, z, room: k, ry: RNG.range(-0.3, 0.3) });
+        taken.push({ x, z, r: 1.8 }); addSolid(x, z, 0.95, 'well');
+        break;
+      }
+    }
   }
 
   // Every level whose roster lists a big one (the Kaya Devi) gets at least one — the weighted pick alone left about 1 cave in 6
@@ -1264,8 +1354,10 @@ const LEVEL = (function () {
   const keep = o => { o.userData.keep = true; return o; };
   const texOK = () => typeof TEX !== 'undefined' && !!TEX && !!TEX.grass && !!TEX.grass.map;
   let FLAT = null;
+  const SURF_ALT = { townStone: 'cobble', townPath: 'cobble', plaza: 'cobble', rampart: 'brick' };   // Surlu Şehir's surfaces, while a TEX without them is loaded
   function surf(name) {   // {map, normalMap} or neutral fallbacks when TEX is absent
     if (texOK() && TEX[name]) return TEX[name];
+    if (texOK() && SURF_ALT[name] && TEX[SURF_ALT[name]]) return TEX[SURF_ALT[name]];
     if (!FLAT) {
       const w = new THREE.DataTexture(new Uint8Array([205, 205, 205, 255]), 1, 1); w.needsUpdate = true; w.colorSpace = THREE.SRGBColorSpace;
       const n = new THREE.DataTexture(new Uint8Array([128, 128, 255, 128]), 1, 1); n.needsUpdate = true;
@@ -1274,7 +1366,7 @@ const LEVEL = (function () {
     }
     return FLAT;
   }
-  const tM = name => (texOK() && TEX.M && TEX.M[name]) || 2;
+  const tM = name => (texOK() && TEX.M && (TEX.M[name] || (!TEX[name] && TEX.M[SURF_ALT[name]]))) || 2;
   const lin = (hex, k = 1) => new THREE.Color(hex).multiplyScalar(k);
   const _v = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _e3 = new THREE.Euler(), _m = new THREE.Matrix4();
   const mat4 = (x, y, z, ry = 0, sx = 1, sy = sx, sz = sx, rx = 0, rz = 0) =>
@@ -1534,6 +1626,8 @@ const LEVEL = (function () {
       vDecl: 'uniform float uTime;',
       vBegin: `if (uv.x > 45.0) { float lvB = uv.y;   // bobbing on the milk (Kefir Vadisi's cereal rings): each item has its phase in uv.y
         transformed.y += sin(uTime * 1.5 + lvB) * 0.025; transformed.xz += vec2(sin(uTime * 0.55 + lvB * 1.7), cos(uTime * 0.47 + lvB * 2.3)) * 0.06; }
+        else if (uv.x > 35.0) { float lvF = uv.y, lvP = position.x * 1.7 + position.z * 1.3;   // flags fluttering (Surlu Şehir's bunting and pennants): uv.y = how far from the string / pole
+        transformed.x += sin(uTime * 3.4 + lvP + lvF * 2.0) * 0.06 * lvF; transformed.z += cos(uTime * 2.9 + lvP * 0.8 + lvF * 2.5) * 0.08 * lvF; transformed.y += sin(uTime * 4.1 + lvP) * 0.03 * lvF; }
         else if (uv.x > 25.0) { float lvS = max(0.0, position.y) * 0.09;
         transformed.x += sin(uTime * 2.1 + position.x * 0.9 + position.z * 0.7) * lvS; transformed.z += cos(uTime * 1.7 + position.x * 0.6) * lvS * 0.6; }`,
     });
@@ -1583,6 +1677,10 @@ const LEVEL = (function () {
     // spatula lips as wrinkles), with a creamy sheen on the rim (only Kefir Vadisi uses it)
     M.yog = makeTriMat('yogurt', { key: 'rock', rough: 0.24, m: 6, aoH: 0.35, ao: 0.8, nk: 0.25 });
     M.yog.userData.u.uRim.value.set(1, 0.98, 0.96, 0.3);
+    // Surlu Şehir: sandstone rampart blocks (city walls, towers, quays, plinths; triplanar, the rocks' program), roof tiles tinted per house
+    M.ramp = makeTriMat('rampart', { key: 'rock', aoH: 0.9, ao: 0.8, rough: 0.9, nk: 1.1 });
+    M.roofN = keep(stdMat({ map: neutralRoof(), normalMap: surf('roof').normalMap, roughness: 0.62, vertexColors: true }));
+    M.rockN = M.rock; M.roofNC = M.roofN;   // (the same materials under their own merge keys: far decor that casts no shadow, like roofC)
   }
 
   // ── Floor: one plane, splat of 3 textures by a baked mask (R path, G wall AO, B plaza/rug, A outside) ──
@@ -1613,6 +1711,13 @@ const LEVEL = (function () {
     // (tAk 1.1 with the near-white TEX 'yogurt'; it was 1.2 for the older, creamier one);
     // tC × tCk: a cool lift so the cheese stays butter-yellow under the warm sun instead of orange; ao: the soft band inside the walkable edge)
     dairy: { a: 'yogurt', b: 'biscuit', c: 'cheese', tA: 0xfbfbff, tAk: 1.1, tB: 0xf4f0ec, tC: 0xf4f8ff, tCk: 1.18, rough: [0.46, 0.9, 0.56], crispB: 0, crispC: 0, ao: 0.38, border: 0, out: 0xf2cccc, outAmt: 0.42, anti: 1, macro: 0xfff0ea, lava: 2 },
+    // Surlu Şehir: honey cobbled streets (the main street in big pale flagstones, TEX 'townPath' tinted tA2, where tGlow.a is 0: see
+    // buildGlowTex and the shader's uLava.x = -1 branch), soft green gardens on the
+    // ground beside them (B: the streets end at a crisp sandstone kerb line — the trim), patterned pavers in the squares with a light
+    // stone curb; out = a slightly deeper green for the meadow beyond the city walls (the canals are no floor: the floor mesh stops at
+    // the quays and the water lies 0.8 m lower, see townFloorGeo). (anti 0: the cobbles run in rows, a turned sample would cross them)
+    town: { a: 'townStone', b: 'grass', c: 'plaza', street: 'townPath', tA: 0xf2e4d2, tA2: 0xfff6ec, tB: 0xe2f2c0, tBk: 1.06, tC: 0xfffaf4, rough: [0.8, 0.94, 0.66], crispB: 1, crispC: 1, ao: 0.28, border: 0,
+      out: 0x8cbc5c, outAmt: 0.3, anti: 0, macro: 0xffe6c8, trim: 0xf2dcbc, trimM: 0 },
   };
   // ── Volcano ground: which non-walkable ground is lava (at the floor mask's 4 px/m) ──
   // Lava fills most of the ground next to the floor — always on the camera side, where it is flat and hides nothing — and the rest
@@ -1681,9 +1786,11 @@ const LEVEL = (function () {
     return V;
   }
   // Bridges: corridor stretches (outside both rooms) with the liquid (lava / milk, V.lava at 4 px/m) close on both sides
-  function liquidBridges(L, V) {
+  // (far: liquid anywhere from 1.1 m to that far past the edge counts — Surlu Şehir's water keeps a wider shore off a narrow street)
+  function liquidBridges(L, V, far = 1.1) {
     const { lava, MW, MH, P } = V;
     const lavaAt = (x, z) => lava[clamp(Math.floor(z * P), 0, MH - 1) * MW + clamp(Math.floor(x * P), 0, MW - 1)];
+    const wetOut = (x, z, nx, nz, e) => { for (let d = e + 1.1; d <= e + far + 1e-6; d += 0.3) if (lavaAt(x + nx * d, z + nz * d) > 0.5) return true; return false; };
     const edge = (x, z, nx, nz) => { for (let d = 0; d < 4.5; d += 0.1) if (!isFloor(L, x + nx * d, z + nz * d)) return d; return 9; };
     for (const l of L.links) {
       const c = l.curve;
@@ -1697,7 +1804,7 @@ const LEVEL = (function () {
         let ok = !inRoom(A, x, z, -0.8) && !inRoom(B, x, z, -0.8) && isFloor(L, x, z), e1 = 0, e2 = 0;
         if (ok) {
           e1 = edge(x, z, nx, nz); e2 = edge(x, z, -nx, -nz);
-          ok = e1 < 4 && e2 < 4 && lavaAt(x + nx * (e1 + 1.1), z + nz * (e1 + 1.1)) > 0.5 && lavaAt(x - nx * (e2 + 1.1), z - nz * (e2 + 1.1)) > 0.5;
+          ok = e1 < 4 && e2 < 4 && wetOut(x, z, nx, nz, e1) && wetOut(x, z, -nx, -nz, e2);
         }
         if (ok) { if (!run) run = { pts: [], main: !!l.main }; if (gap) run.pts.push(...run.hold); run.hold = []; gap = 0; run.pts.push({ x, z, nx, nz, e1, e2 }); }
         else if (run && gap < 2 && isFloor(L, x, z)) { gap++; run.hold.push({ x, z, nx, nz, e1: Math.min(edge(x, z, nx, nz), 4), e2: Math.min(edge(x, z, -nx, -nz), 4) }); }   // bridge a short break
@@ -1712,7 +1819,7 @@ const LEVEL = (function () {
     return V;
   }
   // The liquid field of a level (volcano lava or Kefir Vadisi milk), or null
-  const liqOf = L => (L && (L._volc || L._dairy)) || null;
+  const liqOf = L => (L && (L._volc || L._dairy || L._town)) || null;
 
   // ── Kefir Vadisi ground: which non-walkable ground is milk / kefir (4 px/m, V.lava like the volcano's lava) and how it flows ──
   // Milk rivers meander through the valley (bands along the zero line of a warped noise) and kefir ponds fill its hollows. Like the
@@ -1963,6 +2070,32 @@ const LEVEL = (function () {
       if (ar) disc(ar.x, ar.z, ar.r * 0.5, 1.0, Bm, 0.15);   // Kefir Pınarı: the round cheese plaza around the spring
       if (ar && L.exit) band([{ x: ar.x, z: ar.z }, { x: L.exit.x, z: L.exit.z + 0.6 }], 1.35, 0.9, Bm, 0.1);
     }
+    if (L.theme === 'town') {
+      // R = the gardens' grass beside the streets: a soft line over the cells' staircase (0.5 = the walkable edge, drawn crisp with a
+      // kerb), a grassy bank up to the quays, paved on the bridges' decks; B = pavers in every square, on the stone
+      // bridges and in Turnuva Meydanı; L._mainSt = the main street (paler cobbles, carried in tGlow.a); A = the meadow outside the walls
+      const fc = new Float32Array(n), wt = new Float32Array(n), dk = new Float32Array(n), ms = L._mainSt = new Float32Array(n);
+      for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) { fc[o + px] = L.grid[row + ((px / P) | 0)]; wt[o + px] = VL && VL[o + px] > 0.5 ? 1 : 0; } }
+      let cv = boxBlur(fc, MW, MH, 3); cv = boxBlur(cv, MW, MH, 2);
+      const wn = boxBlur(wt, MW, MH, 2);
+      for (const b of (LQ && LQ.bridges) || []) for (let i = 1; i < b.pts.length; i++) {
+        const p0 = b.pts[i - 1], p1 = b.pts[i];
+        band([p0, p1], Math.max(p0.e1, p0.e2, p1.e1, p1.e2) + 0.45, 0.4, dk, 0);
+        if (b.stone) band([p0, p1], Math.max(p0.e1, p0.e2, p1.e1, p1.e2) + 0.4, 0.5, Bm, 0);   // stone bridges: flagstone decks, wall to wall
+      }
+      for (let k = 0; k < n; k++) Rm[k] = (1 - cv[k]) * (1 - smooth01(wn[k] * 2 - 1)) * (1 - dk[k]);   // (a grassy bank up to the quays: never a bare walkable-looking strip)
+      band(L.path, 1.95, 0.4, ms, 0.15);   // (a wide main street with a clear edge: its own flagstones, see floorMat)
+      for (const rm of L.rooms) if (rm.kind !== 'boss') disc(rm.x, rm.z, rm.r * (rm.kind === 'side' ? 0.5 : 0.6), 0.7, Bm, 0);   // (a clean round curb: no edge noise)
+      for (const c of L.checkpoints) disc(c.x, c.z, 2.0, 0.7, Bm, 0);
+      const ar = LQ && LQ.arena;
+      if (ar) disc(ar.x, ar.z, ar.r * 0.8, 0.8, Bm, 0);   // Turnuva Meydanı
+      if (L.exit) { disc(L.exit.x, L.exit.z + 0.6, 2.8, 0.7, Bm, 0); band([{ x: L.exit.x, z: L.exit.z }, { x: L.exit.x, z: L.exit.z - 13 }], 1.2, 0.6, Bm, 0); }   // (…and the road on through the gate to the castle's hill)
+      const F = LQ && LQ.outF;
+      if (F) for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+        const fx = clamp((px + 0.5) / P - 0.5, 0, L.W - 1.001), fz = clamp((py + 0.5) / P - 0.5, 0, L.H - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, c = j * L.W + i;
+        a[py * MW + px] = (F[c] * (1 - tx) + F[c + 1] * tx) * (1 - tz) + (F[c + L.W] * (1 - tx) + F[c + L.W + 1] * tx) * tz;
+      }
+    }
     const D = new Uint8Array(n * 4);
     for (let k = 0; k < n; k++) { D[k * 4] = Rm[k] * 255; D[k * 4 + 1] = g[k] * 255; D[k * 4 + 2] = Bm[k] * 255; D[k * 4 + 3] = a[k] * 255; }
     const t = new THREE.DataTexture(D, MW, MH, THREE.RGBAFormat, THREE.UnsignedByteType);
@@ -1976,8 +2109,9 @@ const LEVEL = (function () {
     B.dispose.push(mask);
     const m = floorMat(L.theme);
     m.userData.u.tMask.value = mask; m.userData.u.uMaskInv.value.set(1 / L.W, 1 / L.H);
-    const fg = new THREE.PlaneGeometry(L.W + 28, L.H + 28);
-    fg.rotateX(-Math.PI / 2); fg.translate(L.W / 2, 0, L.H / 2);
+    let fg;
+    if (L._town) fg = townFloorGeo(L);   // Surlu Şehir: the streets end at the quays (the canals lie lower)
+    else { fg = new THREE.PlaneGeometry(L.W + 28, L.H + 28); fg.rotateX(-Math.PI / 2); fg.translate(L.W / 2, 0, L.H / 2); }
     const floor = new THREE.Mesh(fg, m);
     floor.receiveShadow = true; floor.name = 'floor';
     B.g.add(floor);
@@ -2016,7 +2150,7 @@ const LEVEL = (function () {
     const D = new Uint8Array(GW * GH * 4), sc = 255 / GLOW_K;
     for (let i = 0, n = GW * GH; i < n; i++) {
       D[i * 4] = Math.min(255, acc[i * 3] * sc); D[i * 4 + 1] = Math.min(255, acc[i * 3 + 1] * sc); D[i * 4 + 2] = Math.min(255, acc[i * 3 + 2] * sc);
-      D[i * 4 + 3] = V ? 255 - Math.round(clamp(V.lava[i], 0, 1) * 255) : 255;
+      D[i * 4 + 3] = V === L._town && L._mainSt ? 255 - Math.round(clamp(L._mainSt[i], 0, 1) * 255) : V ? 255 - Math.round(clamp(V.lava[i], 0, 1) * 255) : 255;   // (Surlu Şehir: the main street)
     }
     for (const rm of styled) {   // alpha = room style (rectangular castle rooms, reaching a little under the walls)
       const x0 = Math.max(0, Math.floor((rm.x - rm.hw - 0.25) * gp)), x1 = Math.min(GW - 1, Math.ceil((rm.x + rm.hw + 0.25) * gp) - 1);
@@ -2051,17 +2185,20 @@ const LEVEL = (function () {
     const U = m.userData.u = {
         tMask: { value: null }, tNoise: { value: noise }, tA: { value: A.map }, tAn: { value: A.normalMap }, tB: { value: Bt.map }, tBn: { value: Bt.normalMap },
         tC: { value: C.map }, tCn: { value: C.normalMap },
-        uSc: { value: new THREE.Vector4(1 / tM(th.a), 1 / tM(th.b), 1 / (tM(th.c) * (th.cScale || 1)), th.anti && LV_HQ ? 1 : 0) }, uMaskInv: { value: new THREE.Vector2(1, 1) },
-        uTintA: { value: lin(th.tA, th.tAk ?? 1) }, uTintB: { value: lin(th.tB) }, uTintC: { value: lin(th.tC, th.tCk ?? 1) }, uRough: { value: new THREE.Vector3(...th.rough) },
+        uSc: { value: new THREE.Vector4(1 / tM(th.a), 1 / (tM(th.b) * (th.bScale || 1)), 1 / (tM(th.c) * (th.cScale || 1)), th.anti && LV_HQ ? 1 : 0) }, uMaskInv: { value: new THREE.Vector2(1, 1) },
+        uTintA: { value: lin(th.tA, th.tAk ?? 1) }, uTintB: { value: lin(th.tB, th.tBk ?? 1) }, uTintC: { value: lin(th.tC, th.tCk ?? 1) }, uRough: { value: new THREE.Vector3(...th.rough) },
         uTintA2: { value: lin(th.tA2 ?? th.tA, th.tAk ?? 1) }, uTintC2: { value: lin(th.tC2 ?? th.tC, th.tCk ?? 1) },
         uMode: { value: new THREE.Vector4(th.crispB, th.crispC, th.ao, th.border) }, uOut: { value: new THREE.Vector4(oc.r, oc.g, oc.b, th.outAmt) },
-        uTrim: { value: lin(0xffcf5a, 0.9) }, uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 },
+        uTrim: { value: lin(th.trim ?? 0xffcf5a, 0.9) }, uTrimM: { value: th.trimM ?? 0.9 },   // (trim: the gold inlay / curb line and how metallic it is)
+        uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 },
         tGlow: { value: blackTex() }, uTime: TIME.u, uSpeck: { value: th.speck ? lin(th.speck[0], th.speck[1]) : new THREE.Color(0, 0, 0) },
         // liquid: lava (volcano, x = 1): TEX.lava scrolled + wobbled · milk / kefir (dairy, x = 2): TEX.milk moved along tFlow (a flow
         // map), lit and glossy. tGlow.a = 1 - liquid there. x mode · y 1/tile · z shore rim · w emissive gain
-        tLava: { value: th.lava ? surf(LIQ_TEX[th.lava]).map : blackTex() }, tLavaN: { value: th.lava === 2 ? surf('milk').normalMap : blackTex() },
+        // (Surlu Şehir, x = -1: no liquid; the main street's flagstones th.street sit in the liquid's two texture slots instead)
+        tLava: { value: th.lava ? surf(LIQ_TEX[th.lava]).map : th.street ? surf(th.street).map : blackTex() },
+        tLavaN: { value: th.lava === 2 ? surf('milk').normalMap : th.street ? surf(th.street).normalMap : blackTex() },
         tFlow: { value: blackTex() },
-        uLava: { value: new THREE.Vector4(th.lava || 0, 1 / (th.lava ? tM(LIQ_TEX[th.lava]) : 6), 0.55, 1) },
+        uLava: { value: new THREE.Vector4(th.lava || (th.street ? -1 : 0), 1 / (th.lava ? tM(LIQ_TEX[th.lava]) : th.street ? tM(th.street) : 6), 0.55, 1) },
         uLavaT: { value: th.lava && !(texOK() && TEX[LIQ_TEX[th.lava]]) ? (th.lava === 2 ? lin(0xffffff, 1.2) : lin(0xff8a30)) : new THREE.Color(1, 1, 1) },
         // milk (cool, glossy bluish white) / kefir (warm ivory) / strawberry milk (pastel pink) tints, liquid roughness
         uLiqA: { value: lin(0xeaf3ff, 1.1) }, uLiqB: { value: lin(0xfff8e4, 1.08) }, uLiqC: { value: lin(0xffcfdc, 1.05) }, uLiqR: { value: th.lava === 2 ? 0.16 : 0.8 },
@@ -2074,7 +2211,7 @@ const LEVEL = (function () {
       vDecl: 'varying vec3 vLvW;',
       vBegin: 'vLvW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
       fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow, tLava, tLavaN, tFlow; uniform vec4 uSc, uMode, uOut, uLava; uniform vec2 uMaskInv;
-        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT, uLiqA, uLiqB, uLiqC, uEdge; uniform vec4 uRip[4]; uniform float uLumC, uTime, uLiqR; varying vec3 vLvW;
+        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT, uLiqA, uLiqB, uLiqC, uEdge; uniform vec4 uRip[4]; uniform float uLumC, uTime, uLiqR, uTrimM; varying vec3 vLvW;
         ${GLSL_NOISE}
         float lvHB(float h1, float h2, float t) {   // height-aware blend weight of layer 2
           t = clamp(t, 0.0, 1.0);
@@ -2102,6 +2239,14 @@ const LEVEL = (function () {
             cA = mix(cA, cA2, k2); nAu = mix(nAu, n2, k2); nA.a = mix(nA.a, nA2.a, k2);
           }
           cB = texture2D(tB, uB); nB = texture2D(tBn, uB); cC = texture2D(tC, uC); nC = texture2D(tCn, uC);
+          if (uLava.x < -0.5) {   // Surlu Şehir: the main street (tGlow.a → 0) in big pale flagstones, a darker joint along its edges; the
+            // courses run north–south, along most of the route (the texture's u turned onto the world's z; its normals turned with it)
+            vec2 uP = vec2(-lvU.y, lvU.x) * uLava.y; vec4 cP = texture2D(tLava, uP), nP = texture2D(tLavaN, uP);
+            float kR = 1.0 - lvGs.a, kP = smoothstep(0.3, 0.7, kR);
+            vec3 nPu = nP.xyz * 2.0 - 1.0; nPu.xy = vec2(nPu.y, -nPu.x);
+            cA = mix(cA, cP, kP); nAu = mix(nAu, nPu, kP); nA.a = mix(nA.a, nP.a, kP);
+            cA.rgb *= 1.0 - 0.3 * smoothstep(0.12, 0.42, kR) * (1.0 - smoothstep(0.5, 0.8, kR));
+          }
         }
         float fwB = fwidth(lvM.r) * 0.7 + 0.004, fwC = fwidth(lvM.b) * 0.7 + 0.004;
         float wB = uMode.x > 0.5 ? smoothstep(0.5 - fwB, 0.5 + fwB, lvM.r) : lvHB(nA.a, nB.a, lvM.r + (lvN.b - 0.5) * 0.3);
@@ -2225,7 +2370,7 @@ const LEVEL = (function () {
         vec3 lvWn = normalize(vec3(lvNt.x, lvNt.z, -lvNt.y));
         normal = normalize((viewMatrix * vec4(lvWn, 0.0)).xyz);
         roughnessFactor = mix(mix(mix(mix(uRough.x, uRough.y, wB), uRough.z, wC), 0.3, lvTrim), uLiqR, lvLv);
-        metalnessFactor = lvTrim * 0.9;`,
+        metalnessFactor = lvTrim * uTrimM;`,
       fAO: 'reflectedLight.indirectDiffuse *= lvAOv; reflectedLight.indirectSpecular *= lvAOv * lvAOv;',
       // baked coloured light pools (crystals, torches, lamps, stained glass) with a gentle shimmer
       fOut: `vec3 lvGl = lvGs.rgb * ${GLOW_K.toFixed(1)};
@@ -2241,14 +2386,29 @@ const LEVEL = (function () {
     const c = document.createElement('canvas'); c.width = L.W; c.height = L.H;
     const g = c.getContext('2d'), id = g.createImageData(L.W, L.H), M = L._mask;
     const pal = { forest: [[112, 178, 86], [206, 164, 110], [196, 190, 176]], cave: [[98, 112, 150], [176, 160, 132], [90, 170, 160]], castle: [[168, 156, 196], [196, 52, 64], [140, 100, 200]],
-      volcano: [[132, 112, 104], [214, 186, 156], [186, 160, 140]], dairy: [[238, 228, 212], [218, 168, 96], [246, 206, 92]] }[L.theme] || [[150, 150, 150], [200, 180, 150], [180, 180, 180]];
+      volcano: [[132, 112, 104], [214, 186, 156], [186, 160, 140]], dairy: [[238, 228, 212], [218, 168, 96], [246, 206, 92]],
+      town: [[214, 184, 146], [246, 228, 196], [230, 150, 108]] }[L.theme] || [[150, 150, 150], [200, 180, 150], [180, 180, 180]];
     for (let j = 0; j < L.H; j++) for (let i = 0; i < L.W; i++) {
       if (!L.grid[j * L.W + i]) continue;
       const k = ((j * MPX + 2) * M.W + i * MPX + 2) * 4, pr = M.data[k] / 255, pb = M.data[k + 2] / 255, ao = M.data[k + 1] / 255;
-      const w1 = pr > 0.5 ? 1 : 0, w2 = pb > 0.5 && L.theme !== 'cave' ? 1 : 0;
+      const w1 = (L._mainSt ? L._mainSt[(j * MPX + 2) * M.W + i * MPX + 2] : pr) > 0.5 ? 1 : 0, w2 = pb > 0.5 && L.theme !== 'cave' ? 1 : 0;   // (Surlu Şehir: R is the gardens)
       const o = (j * L.W + i) * 4, sh = L.theme === 'dairy' ? 1 : 1 - ao * 0.35;   // (dairy: G is the floor coverage, not AO)
       for (let c3 = 0; c3 < 3; c3++) id.data[o + c3] = (w2 ? pal[2][c3] : w1 ? pal[1][c3] : pal[0][c3]) * sh;
       id.data[o + 3] = 255;
+    }
+    const TW = L._town;
+    if (TW) {   // Surlu Şehir: the river and the canals (translucent blue, not a floor plate) and the city walls (a thin sandstone line)
+      for (let j = 0; j < L.H; j++) for (let i = 0; i < L.W; i++) {
+        const o = (j * L.W + i) * 4;
+        if (L.grid[j * L.W + i]) continue;
+        const w = TW.lava[(j * MPX + 2) * TW.MW + i * MPX + 2];
+        if (w > 0.5) { id.data[o] = 92; id.data[o + 1] = 176; id.data[o + 2] = 232; id.data[o + 3] = 150; }
+      }
+      for (const q of (TW.wallPts || []).concat(TW.wallIn || [])) {   // (the ring and the old town wall's spurs)
+        const i = Math.floor(q.x), j = Math.floor(q.z);
+        if (i < 0 || j < 0 || i >= L.W || j >= L.H || L.grid[j * L.W + i]) continue;
+        const o = (j * L.W + i) * 4; id.data[o] = 200; id.data[o + 1] = 164; id.data[o + 2] = 118; id.data[o + 3] = 170;
+      }
     }
     g.putImageData(id, 0, 0);
     L.mapCanvas = c;
@@ -2270,6 +2430,10 @@ const LEVEL = (function () {
     // (neutral creamy bounce light, a paler haze, less saturation and a lighter vignette: the pink/tan cast made the yogurt read as sand)
     dairy: { moss: [0xf4ead8, 0], rim: [0xfff0f4, 0.1], fog: [0xf6e6de, 36, 92], hemiSky: 0xfff8f0, hemiGround: 0xf2ede4, hemi: 0.55, sunColor: 0xfff2e0, sun: 1.9, sunOffset: [-12, 26, 14],
       env: [0xcfe0ff, 0xfff2e6, 0xe8dccc, 0.55], bloom: 0.28, exposure: 1.0, fezaLight: 0, fezaLightColor: 0xffd9a0, sat: 1.06, vig: 0.2 },
+    // a warm, golden afternoon: a peach-lavender haze, a golden sun a little lower in the west (soft long shadows down the streets),
+    // warm bounce light from the honey stones, a clear pale-blue sky in the canals' reflections
+    town: { moss: [0x7a9a5a, 0.3], rim: [0xfff0e0, 0.1], fog: [0xf2d6cc, 40, 100], hemiSky: 0xfff2e8, hemiGround: 0xc8a888, hemi: 0.78, sunColor: 0xffe2b4, sun: 2.35, sunOffset: [-15, 24, 12],
+      env: [0xb8d6ff, 0xffe4d0, 0xa08870, 0.8], bloom: 0.42, exposure: 1.0, fezaLight: 0, fezaLightColor: 0xffd9a0, sat: 1.08, vig: 0.26 },
   };
 
   // ── Instancing (chunked ~16 m for frustum culling) and merged static decor per chunk ──
@@ -2333,7 +2497,7 @@ const LEVEL = (function () {
     }
   }
   // (yog: the yogurt hills cast through cheap low-poly stand-ins, 'yogSh', instead of their detailed meshes)
-  const DEC_CAST = { prop: 1, stone: 1, plaster: 1, roof: 1, brick: 1, rock: 1, shiny: 1, gold: 1, coin: 1, soil: 1, food: 1, copper: 1, yogSh: 1 };
+  const DEC_CAST = { prop: 1, stone: 1, plaster: 1, roof: 1, brick: 1, rock: 1, shiny: 1, gold: 1, coin: 1, soil: 1, food: 1, copper: 1, yogSh: 1, ramp: 1, roofN: 1 };
   function finishDecor(L, B) {
     for (const key in B.dec) {
       const mk = key.split('|')[0], sh = mk === 'yogSh', mesh = new THREE.Mesh(mergeList(B.dec[key]), sh ? R.mat.proxy || (R.mat.proxy = keep(new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }))) : R.mat[mk]);
@@ -2816,6 +2980,7 @@ const LEVEL = (function () {
   function bannerTex(hue) {
     const key = 'banner' + hue;
     return R.tex[key] || (R.tex[key] = canvasTex(128, 256, (g, w, h) => {
+      if (hue >= 2) return crestBanner(g, w, h, hue);
       const base = hue === 0 ? ['#7a3fc0', '#51287f'] : ['#c83a52', '#8a2236'];
       g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h); g.lineTo(w / 2, h - 34); g.lineTo(0, h); g.closePath();
       const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, base[1]); gr.addColorStop(0.5, base[0]); gr.addColorStop(1, base[1]);
@@ -2832,6 +2997,27 @@ const LEVEL = (function () {
       g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k & 1 ? 9 : 21; g.lineTo(64 + Math.cos(a) * r, 162 + Math.sin(a) * r); } g.closePath(); g.fill();
       g.restore();
     }));
+  }
+  // Surlu Şehir's banners: the smiling golden sun of the town's crest on sky blue (2) or sunny red (3), a gold border, a scalloped hem
+  function crestBanner(g, w, h, hue) {
+    const base = hue === 2 ? ['#4a8ae0', '#2e64b8'] : ['#e8504a', '#b8302e'];
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, h - 30);
+    for (let i = 3; i >= 0; i--) g.arc(i * w / 4 + w / 8, h - 30, w / 8, 0, Math.PI, false);   // the scalloped hem
+    g.closePath();
+    const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, base[1]); gr.addColorStop(0.5, base[0]); gr.addColorStop(1, base[1]);
+    g.fillStyle = gr; g.fill();
+    g.save(); g.clip();
+    g.fillStyle = '#ffd35a'; g.fillRect(0, 0, w, 16); g.fillRect(0, 0, 8, h); g.fillRect(w - 8, 0, 8, h);
+    g.fillStyle = hue === 2 ? '#ffd35a' : '#fff0a0';
+    for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(i * w / 4 + w / 8, h - 30, w / 8 - 6, 0, Math.PI, false); g.lineWidth = 5; g.strokeStyle = '#ffd35a'; g.stroke(); }
+    const cx = w / 2, cy = 118;
+    g.fillStyle = '#ffc83a';
+    for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; g.beginPath(); g.moveTo(cx + Math.cos(a - 0.16) * 30, cy + Math.sin(a - 0.16) * 30); g.lineTo(cx + Math.cos(a) * 50, cy + Math.sin(a) * 50); g.lineTo(cx + Math.cos(a + 0.16) * 30, cy + Math.sin(a + 0.16) * 30); g.fill(); }
+    g.fillStyle = '#ffe066'; g.beginPath(); g.arc(cx, cy, 32, 0, TAU); g.fill();
+    g.fillStyle = '#5a3a20'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * 11, cy - 6, 4, 6, 0, 0, TAU); g.fill(); }
+    g.fillStyle = '#ff9a8a'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * 19, cy + 6, 6, 4, 0, 0, TAU); g.fill(); }
+    g.strokeStyle = '#8a4a2a'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy + 4, 12, 0.35, Math.PI - 0.35, false); g.stroke();
+    g.restore();
   }
   const GLASS = [['#ff7ad8', '#7ad8ff', '#ffd35a', '#b07aff'], ['#7affc0', '#ff9a5a', '#7ab0ff', '#ff7ad8'], ['#ffd35a', '#b07aff', '#7affc0', '#ff5a8a']];
   const GLASS_LIGHT = [[0xff70d0, 0x60c8ff], [0x60ffb0, 0xff9050], [0xffc040, 0xa060ff]];   // two main colours of each window (light pools)   // average colour of each window (for its light pool)
@@ -4365,9 +4551,9 @@ const LEVEL = (function () {
   function finishSigns(L, B) {
     for (const sg of B.signs || []) {
       if (sg.so && !L.solids.includes(sg.so)) continue;   // taken out by fixReach (its posts went with it)
-      const mk = 'sign-' + sg.text, bm = R.mat[mk] || (R.mat[mk] = keep(new THREE.MeshStandardMaterial({ map: signTex(sg.text), roughness: 0.72, metalness: 0 })));
+      const mk = 'sign-' + sg.text, bm = R.mat[mk] || (R.mat[mk] = keep(new THREE.MeshStandardMaterial({ map: sg.town ? townSignTex(sg.text) : signTex(sg.text), roughness: 0.72, metalness: 0 })));   // (Surlu Şehir: its own board)
       const board = new THREE.Mesh(R.geo.signBoard || (R.geo.signBoard = keep(new THREE.PlaneGeometry(1.62, 0.81))), bm);
-      board.position.set(sg.x + Math.sin(sg.yaw) * 0.03, 1.3, sg.z + Math.cos(sg.yaw) * 0.03); board.rotation.set(-0.08, sg.yaw, 0, 'YXZ');
+      board.position.set(sg.x + Math.sin(sg.yaw) * 0.03, sg.by || 1.3, sg.z + Math.cos(sg.yaw) * 0.03); board.rotation.set(-0.08, sg.yaw, 0, 'YXZ');
       board.receiveShadow = true; board.name = 'sign';
       B.g.add(board);
     }
@@ -5306,6 +5492,1899 @@ const LEVEL = (function () {
       if (best) makeSign(L, B, best.x, best.z, 'Kefir Pınarı', -best.sd * 0.18, false);
     }
   }
+  // ════════════════════════════════════════════════════════════════════════════════════════════════
+  //  Surlu Şehir (theme 'town', Feza's 6th chapter): the walled town below the dragon's castle on a golden afternoon. Cobbled streets,
+  //  paved squares, a river and canals of clear blue water 0.8 m below the streets (their own mesh: the floor mesh stops at the stone
+  //  quays), arched stone and wooden bridges; rows of colourful half-timbered houses facing the streets (shops with signs, shutters,
+  //  flower boxes, chimneys), market stalls with striped awnings, a fountain, wells, carts, hay, benches, potted trees, lantern posts,
+  //  bunting and crest banners (a smiling golden sun); the city walls with crenellations and round towers (tall to the north and the
+  //  sides, none on the camera side), the dragon's castle far to the north and the boss arena Turnuva Meydanı with its Kale Kapısı.
+  // ════════════════════════════════════════════════════════════════════════════════════════════════
+  const WD = 0.8;   // the canals' water lies this far below the streets
+  // Iso-lines of a lattice field (F[b·(FW+1)+a] at (o + a·s, o + b·s)) at level lv: oriented polylines of {x, z} with the side where
+  // F < lv on their left, i.e. along (-dz, dx); a closed loop repeats its first point at the end
+  const MS_SEG = { 1: [[3, 0]], 2: [[0, 1]], 3: [[3, 1]], 4: [[1, 2]], 6: [[0, 2]], 7: [[3, 2]], 8: [[2, 3]], 9: [[0, 2]], 11: [[1, 2]], 12: [[1, 3]], 13: [[0, 1]], 14: [[3, 0]] };
+  function isoLines(F, FW, FH, s, lv, o = 0) {
+    const W1 = FW + 1, starts = new Map(), segs = [];
+    const val = (a, b) => F[b * W1 + a];
+    const pt = (e) => { const [a, b, v] = e, f0 = val(a, b), f1 = v ? val(a, b + 1) : val(a + 1, b), t = clamp((lv - f0) / ((f1 - f0) || 1e-9), 0, 1); return v ? { x: o + a * s, z: o + (b + t) * s } : { x: o + (a + t) * s, z: o + b * s }; };
+    for (let b = 0; b < FH; b++) for (let a = 0; a < FW; a++) {
+      const v0 = val(a, b), v1 = val(a + 1, b), v2 = val(a + 1, b + 1), v3 = val(a, b + 1);
+      const c = (v0 < lv ? 1 : 0) | (v1 < lv ? 2 : 0) | (v2 < lv ? 4 : 0) | (v3 < lv ? 8 : 0);
+      if (c === 0 || c === 15) continue;
+      const E = [[a, b, 0], [a + 1, b, 1], [a, b + 1, 0], [a, b, 1]], id = e => ((e[1] * W1 + e[0]) << 1) | e[2];   // edges: top, right, bottom, left
+      const mid = (v0 + v1 + v2 + v3) / 4 < lv;
+      const pairs = c === 5 ? (mid ? [[0, 1], [2, 3]] : [[3, 0], [1, 2]]) : c === 10 ? (mid ? [[3, 0], [1, 2]] : [[0, 1], [2, 3]]) : MS_SEG[c];
+      for (const [e0, e1] of pairs) {
+        let p = pt(E[e0]), q = pt(E[e1]), i0 = id(E[e0]), i1 = id(E[e1]);
+        const dx = q.x - p.x, dz = q.z - p.z, l = hyp(dx, dz) || 1e-6;
+        const u = clamp(((p.x + q.x) / 2 - o) / s - a, 0, 1), w = clamp(((p.z + q.z) / 2 - o) / s - b, 0, 1);   // F must fall to the left of its middle
+        const gu = (v1 - v0) * (1 - w) + (v2 - v3) * w, gw = (v3 - v0) * (1 - u) + (v2 - v1) * u;   // (the bilinear gradient: a test point beside a
+        if (gu * -dz + gw * dx > 0) { const t = p; p = q; q = t; const ti = i0; i0 = i1; i1 = ti; }   //  curved corner could fall on the wrong side)
+        starts.set(i0, segs.length); segs.push({ p, q, i0, i1 });
+      }
+    }
+    const inc = new Set(); for (const g of segs) inc.add(g.i1);
+    const used = new Uint8Array(segs.length), out = [];
+    const walk = k => { const pl = [segs[k].p]; while (k >= 0 && !used[k]) { used[k] = 1; pl.push(segs[k].q); const nk = starts.get(segs[k].i1); k = nk === undefined ? -1 : nk; } return pl; };
+    for (let k = 0; k < segs.length; k++) if (!used[k] && !inc.has(segs[k].i0)) out.push(walk(k));   // open lines first (they end at the border)
+    for (let k = 0; k < segs.length; k++) if (!used[k]) out.push(walk(k));
+    return out;
+  }
+  // Chaikin corner cutting (ends kept; a closed loop stays closed) and resampling at a fixed spacing
+  function chaikin(pts, it, closed) {
+    let P = pts;
+    for (let k = 0; k < it; k++) {
+      const Q = closed ? [] : [P[0]], n = P.length - 1;
+      for (let i = 0; i < n; i++) { const a = P[i], b = P[i + 1]; Q.push({ x: a.x * 0.75 + b.x * 0.25, z: a.z * 0.75 + b.z * 0.25 }, { x: a.x * 0.25 + b.x * 0.75, z: a.z * 0.25 + b.z * 0.75 }); }
+      if (closed) Q.push(Q[0]); else Q.push(P[n]);
+      P = Q;
+    }
+    return P;
+  }
+  function resample(pts, step) {
+    const out = [{ x: pts[0].x, z: pts[0].z }];
+    let carry = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], l = hyp(b.x - a.x, b.z - a.z);
+      let t = step - carry;
+      while (t <= l) { out.push({ x: a.x + (b.x - a.x) * t / l, z: a.z + (b.z - a.z) * t / l }); t += step; }
+      carry = l - (t - step);
+    }
+    const e = pts[pts.length - 1], q = out[out.length - 1];
+    if (hyp(e.x - q.x, e.z - q.z) > step * 0.3) out.push({ x: e.x, z: e.z });
+    return out;
+  }
+
+  // ── Surlu Şehir ground: the river and the canals (V.lava, 4 px/m, like the volcano's lava), bridges, the city walls' line ──
+  // The river: one smooth band from the west edge to the east edge that crosses the main route once, at a corridor early on the
+  // route running north-south (an arched stone bridge there), and keeps clear of every other floor (a cheapest path round the rooms,
+  // shy of the floor's edge and of the arena). The canals: on the camera side of the floor (flat water hides nothing), 3.4–4.7 m wide,
+  // a garden instead now and then, never round the arena (tents, stands). Shore: the smooth line of the dairy's milk (0.28 m+ off the
+  // walkable cells); under a bridge the water comes straight to its deck edges (the quay walls there are the bridge's sides).
+  // V.wflow (2 px/m): rg the current's direction, b its speed, a the water's depth factor (0 at the quays → 1 at 2.4 m from them).
+  // V.outF (per cell): the meadow beyond the city walls (the walls run along its edge at 7–9 m from the floor), V.wallPts the wall line.
+  function townField(L) {
+    const P = MPX, W = L.W, H = L.H, MW = W * P, MH = H * P, n = MW * MH, grid = L.grid, seed = (L.seed & 0xffff) + 71, rnd = mulberry32(L.seed + 7101);
+    const fl = new Uint8Array(n);
+    for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * W, o = py * MW; for (let px = 0; px < MW; px++) fl[o + px] = grid[row + ((px / P) | 0)]; }
+    const D = chamfer(MW, MH, fl, 1), dF = chamfer(W, H, grid, 1);   // mask pixels / cells to the nearest floor
+    const up = new Float32Array(W * H), Uc = new Float32Array(W * H);   // metres to the floor straight north (this ground is on its camera side)
+    for (let i = 0; i < W; i++) { let lf = -99; for (let j = 0; j < H; j++) { if (grid[j * W + i]) lf = j; up[j * W + i] = j - lf; } }
+    for (let c = 0; c < W * H; c++) {   // (reaching round a floor edge sideways a little)
+      const i = c % W;
+      let u = Math.min(20, up[c]);
+      for (let di = 1; di <= 2; di++) { if (i - di >= 0) u = Math.min(u, up[c - di] + 2.4 * di); if (i + di < W) u = Math.min(u, up[c + di] + 2.4 * di); }
+      Uc[c] = u;
+    }
+    const ar = L.rooms.find(r => r.kind === 'boss' && !r.hw);
+    let dA = null;
+    if (ar) { const src = new Uint8Array(W * H); for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) src[j * W + i] = grid[j * W + i] && inRoom(ar, i + 0.5, j + 0.5, -1.5) ? 1 : 0; dA = chamfer(W, H, src, 1); }
+    const bil = (F, x, z) => {
+      const fx = clamp(x - 0.5, 0, W - 1.001), fz = clamp(z - 0.5, 0, H - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, k = j * W + i;
+      return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + W] * (1 - tx) + F[k + W + 1] * tx) * tz;
+    };
+    // smooth noises on a 0.5 m lattice (sampled bilinearly: the mask has 16 pixels per m²)
+    const FP = 2, LW = W * FP, LH = H * FP, NL = (LW + 1) * (LH + 1), NWX = new Float32Array(NL), NWZ = new Float32Array(NL), NCW = new Float32Array(NL), NGD = new Float32Array(NL), NSH = new Float32Array(NL);
+    for (let b = 0; b <= LH; b++) for (let a = 0; a <= LW; a++) {
+      const k = b * (LW + 1) + a, x = a / FP, z = b / FP;
+      NWX[k] = vnoise(x / 2.4, z / 2.4, seed + 5); NWZ[k] = vnoise(x / 2.4, z / 2.4, seed + 6); NCW[k] = vnoise(x / 13, z / 13, seed + 2);
+      NGD[k] = vnoise(x / 10, z / 10, seed + 3); NSH[k] = vnoise(x / 2.6, z / 2.6, seed);
+    }
+    const lat = (F, x, z) => {
+      const fx = clamp(x * FP, 0, LW - 0.001), fz = clamp(z * FP, 0, LH - 0.001), a = fx | 0, b = fz | 0, tx = fx - a, tz = fz - b, k = b * (LW + 1) + a;
+      return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + LW + 1] * (1 - tx) + F[k + LW + 2] * tx) * tz;
+    };
+    // the river band
+    const river = townRiver(L, dF, dA, rnd, seed), rv = new Float32Array(n);
+    if (river) for (let i = 1; i < river.pts.length; i++) {
+      const p0 = river.pts[i - 1], p1 = river.pts[i], hw = (p0.hw + p1.hw) / 2, e = hw + 0.5;
+      const x0 = Math.max(0, Math.floor((Math.min(p0.x, p1.x) - e) * P)), x1 = Math.min(MW - 1, Math.ceil((Math.max(p0.x, p1.x) + e) * P));
+      const y0 = Math.max(0, Math.floor((Math.min(p0.z, p1.z) - e) * P)), y1 = Math.min(MH - 1, Math.ceil((Math.max(p0.z, p1.z) + e) * P));
+      for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+        const k = py * MW + px, v = clamp(0.5 + (hw - segDist((px + 0.5) / P, (py + 0.5) / P, p0.x, p0.z, p1.x, p1.z)) / 0.3, 0, 1);
+        if (v > rv[k]) rv[k] = v;
+      }
+    }
+    // the shore follows the blurred floor coverage (soft curves, not the cells' staircase), as the dairy's milk does
+    const flF = new Float32Array(n); for (let k = 0; k < n; k++) flF[k] = fl[k];
+    let fb = boxBlur(flF, MW, MH, 4); fb = boxBlur(fb, MW, MH, 3);
+    const raw = new Float32Array(n);
+    for (let py = 0; py < MH; py++) for (let px = 0; px < MW; px++) {
+      const k = py * MW + px;
+      if (fl[k]) continue;
+      const x = (px + 0.5) / P, z = (py + 0.5) / P, d = D[k] / P;
+      const wa = 0.8 * smooth01((d - 0.4) / 1.6), u = bil(Uc, x + lat(NWX, x, z) * wa, z + lat(NWZ, x, z) * wa);
+      let canal = 1 - smooth01((u - (3.4 + 1.3 * (lat(NCW, x, z) * 0.5 + 0.5))) / 0.8 + 0.5);   // camera side: 3.4–4.7 m of canal
+      canal *= 1 - smooth01((lat(NGD, x, z) + 0.05) / 0.2);   // (a garden instead about half the time)
+      if (dA) canal *= smooth01((bil(dA, x, z) - 6) / 1.5);   // round the arena: its tents and stands
+      const w = Math.max(canal, rv[k]) * smooth01((Math.min(x, z, W - x, H - z) - 2) / 1.5);
+      if (w <= 0) continue;
+      const lvl = 0.2 + 0.06 * lat(NSH, x, z) + 0.03 * vnoise(x / 1.1, z / 1.1, seed + 7);
+      raw[k] = w * smooth01((lvl - fb[k]) / 0.05 + 0.5) * smooth01((d - 0.2) / 0.12);   // (the blurred cover gives the smooth line; ≥ 0.2 m off the cells)
+    }
+    const liq = boxBlur(boxBlur(raw, MW, MH, 2), MW, MH, 1);   // (a soft round-off: beside a narrow street the shore would follow its cells' staircase)
+    for (let k = 0; k < n; k++) if (fl[k] || D[k] < 0.6) liq[k] = 0;   // never on (or within 0.15 m of) walkable floor, even blurred
+    {   // no thin slivers or tiny pools (squeezed between two streets they read as trenches): a patch of water stays only if some of it
+        // lies ≥ 1.1 m from its shore (≥ 2.2 m across) and it covers ≥ 8 m² (the river always does)
+      const wm = new Uint8Array(n); for (let k = 0; k < n; k++) wm[k] = liq[k] > 0.5 ? 1 : 0;
+      const dq0 = chamfer(MW, MH, wm, 0), seen = new Uint8Array(n), q = new Int32Array(n);
+      for (let k0 = 0; k0 < n; k0++) {
+        if (!wm[k0] || seen[k0]) continue;
+        let h = 0, t = 0, big = 0; q[t++] = k0; seen[k0] = 1;
+        while (h < t) {
+          const c = q[h++], i = c % MW;
+          big = Math.max(big, dq0[c]);
+          for (const m of [i > 0 ? c - 1 : -1, i < MW - 1 ? c + 1 : -1, c >= MW ? c - MW : -1, c < n - MW ? c + MW : -1]) if (m >= 0 && wm[m] && !seen[m]) { seen[m] = 1; q[t++] = m; }
+        }
+        if (big >= 1.1 * P && t >= 8 * P * P) continue;
+        for (let a = 0; a < t; a++) { const c = q[a], i = c % MW, j = (c / MW) | 0; for (let b = -2; b <= 2; b++) for (let d = -2; d <= 2; d++) { const ii = i + d, jj = j + b; if (ii >= 0 && jj >= 0 && ii < MW && jj < MH) liq[jj * MW + ii] = 0; } }
+      }
+    }
+    const V = L._town = { lava: liq, MW, MH, P, dA, arena: ar || null, bridges: [], river, fb };
+    liquidBridges(L, V, 2.4);
+    if (river && !V.bridges.some(b => b.pts.some(q => hyp(q.x - river.cross.x, q.z - river.cross.z) < 1.6))) {   // the river's crossing is always a bridge
+      const l = L.links.find(k => k.curve && k.curve.some(q => hyp(q[0] - river.cross.x, q[1] - river.cross.z) < 0.4)), rp = river.pts;
+      const rD = (x, z) => { let d = 1e9, hw = 2.2; for (let i = 1; i < rp.length; i++) { const e = segDist(x, z, rp[i - 1].x, rp[i - 1].z, rp[i].x, rp[i].z); if (e < d) { d = e; hw = rp[i].hw; } } return d - hw; };
+      const edge = (x, z, nx, nz) => { for (let d = 0; d < 4.5; d += 0.1) if (!isFloor(L, x + nx * d, z + nz * d)) return d; return 4; };
+      const run = { pts: [], main: !!(l && l.main) };
+      if (l) for (let s = 0; s < l.curve.length; s += 2) {
+        const c = l.curve, x = c[s][0], z = c[s][1], a = c[Math.max(0, s - 2)], b = c[Math.min(c.length - 1, s + 2)];
+        if (rD(x, z) > 2.2 || !isFloor(L, x, z)) continue;   // (the whole stretch the river's banks touch)
+        const dx = b[0] - a[0], dz = b[1] - a[1], ll = hyp(dx, dz) || 1, nx = -dz / ll, nz = dx / ll;
+        run.pts.push({ x, z, nx, nz, e1: edge(x, z, nx, nz), e2: edge(x, z, -nx, -nz) });
+      }
+      if (run.pts.length >= 3) {
+        for (let it = 0; it < 2; it++) { const e1 = run.pts.map(q => q.e1), e2 = run.pts.map(q => q.e2), n = e1.length; for (let i = 0; i < n; i++) { const a = Math.max(0, i - 1), c = Math.min(n - 1, i + 1); run.pts[i].e1 = (e1[a] + e1[i] * 2 + e1[c]) / 4; run.pts[i].e2 = (e2[a] + e2[i] * 2 + e2[c]) / 4; } }
+        V.bridges.push(run);
+      }
+    }
+    // under a bridge the water comes straight to the deck's edges (0.26 m past the walkable cells; its ends ease into the usual shore):
+    // each side of the deck is one smooth line (the widest edge distance along the run: past every cell of the staircase), dry inside
+    const liqS = (x, z) => liq[clamp(Math.floor(z * P), 0, MH - 1) * MW + clamp(Math.floor(x * P), 0, MW - 1)];
+    for (const b of V.bridges) {
+      const Q = b.pts, cum = [0];
+      b.e1c = Math.max(...Q.map(q => q.e1)) + 0.05; b.e2c = Math.max(...Q.map(q => q.e2)) + 0.05;
+      for (let i = 1; i < Q.length; i++) cum.push(cum[i - 1] + hyp(Q[i].x - Q[i - 1].x, Q[i].z - Q[i - 1].z));
+      const tot = b.len = cum[cum.length - 1], em = Math.max(...Q.map(q => Math.max(q.e1, q.e2))) + 1.8;
+      b.stone = !!river && Q.some(q => river.pts.some(r => hyp(r.x - q.x, r.z - q.z) < r.hw + 1.2)) || rnd() < 0.45;   // (the river's bridge is always stone)
+      b.river = !!river && Q.some(q => hyp(q.x - river.cross.x, q.z - river.cross.z) < 3);
+      const xs = Q.map(q => q.x), zs = Q.map(q => q.z);
+      const x0 = Math.max(0, Math.floor((Math.min(...xs) - em) * P)), x1 = Math.min(MW - 1, Math.ceil((Math.max(...xs) + em) * P));
+      const y0 = Math.max(0, Math.floor((Math.min(...zs) - em) * P)), y1 = Math.min(MH - 1, Math.ceil((Math.max(...zs) + em) * P));
+      for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) {
+        const k = py * MW + px;
+        if (fl[k]) continue;
+        const x = (px + 0.5) / P, z = (py + 0.5) / P;
+        let best = null;
+        for (let i = 1; i < Q.length; i++) {
+          const a = Q[i - 1], c = Q[i], sx = c.x - a.x, sz = c.z - a.z, l2 = sx * sx + sz * sz || 1e-6, l = Math.sqrt(l2);
+          let t = ((x - a.x) * sx + (z - a.z) * sz) / l2;
+          if (t < 0 && i > 1) t = 0; if (t > 1 && i < Q.length - 1) t = 1;
+          const la = ((x - a.x) * sz - (z - a.z) * sx) / l, dd = Math.abs(la) + Math.max(0, -t, t - 1) * l;
+          if (best && dd >= best.dd) continue;
+          best = { dd, la, along: cum[i - 1] + t * l, nx: sz / l, nz: -sx / l, e: (x - a.x) * a.nx + (z - a.z) * a.nz >= 0 ? b.e1c : b.e2c };
+        }
+        if (!best || Math.abs(best.la) > best.e + 1.6) continue;
+        const sd = best.la >= 0 ? 1 : -1, taper = smooth01((Math.min(best.along, tot - best.along) + 0.3) / 0.5), wl = smooth01((Math.abs(best.la) - best.e - 0.26) / 0.06 + 0.5);
+        if (best.along > 0.1 && best.along < tot - 0.1) liq[k] = Math.min(liq[k], wl);   // (the deck's margin beyond the cells stays dry)
+        if (taper <= 0 || liqS(x + best.nx * sd * 1.1, z + best.nz * sd * 1.1) < 0.5) continue;
+        liq[k] = Math.max(liq[k], wl * taper);
+      }
+    }
+    // the water's depth factor (distance from the quays) and the current: along the river (west → east), along the canals elsewhere
+    const wet = new Uint8Array(n); for (let k = 0; k < n; k++) wet[k] = liq[k] > 0.5 ? 1 : 0;
+    const dq = chamfer(MW, MH, wet, 0);   // mask pixels to the nearest land
+    const QW = W * 2, QH = H * 2, Fd = new Uint8Array(QW * QH * 4), rp = river ? river.pts : [];
+    const dqAt = (px, py) => dq[clamp(py, 0, MH - 1) * MW + clamp(px, 0, MW - 1)];
+    for (let qy = 0; qy < QH; qy++) for (let qx = 0; qx < QW; qx++) {
+      const o = (qy * QW + qx) * 4, px = qx * 2 + 1, py = qy * 2 + 1, k = py * MW + px;
+      if (liq[k] < 0.05) { Fd[o] = Fd[o + 1] = 128; continue; }
+      const gx = dqAt(px + 2, py) - dqAt(px - 2, py), gz = dqAt(px, py + 2) - dqAt(px, py - 2), gl = hyp(gx, gz);
+      let fx = gl > 1e-3 ? -gz / gl : 1, fz = gl > 1e-3 ? gx / gl : 0;
+      if (fx < 0) { fx = -fx; fz = -fz; }
+      const r = rv[k];
+      if (r > 0.1 && rp.length > 1) {
+        const x = (px + 0.5) / P, z = (py + 0.5) / P;
+        let bi = 1, bd = 1e9;
+        for (let i = 1; i < rp.length; i++) { const d = segDist(x, z, rp[i - 1].x, rp[i - 1].z, rp[i].x, rp[i].z); if (d < bd) { bd = d; bi = i; } }
+        const tx = rp[bi].x - rp[bi - 1].x, tz = rp[bi].z - rp[bi - 1].z, tl = hyp(tx, tz) || 1;
+        fx = lerp(fx, tx / tl, r); fz = lerp(fz, tz / tl, r);
+        const fl2 = hyp(fx, fz) || 1; fx /= fl2; fz /= fl2;
+      }
+      Fd[o] = Math.round((fx * 0.5 + 0.5) * 255); Fd[o + 1] = Math.round((fz * 0.5 + 0.5) * 255);
+      Fd[o + 2] = Math.round(lerp(0.3, 0.85, r) * 255); Fd[o + 3] = Math.round(clamp(dq[k] / P / 2.4, 0, 1) * 255);
+    }
+    V.wflow = { data: Fd, W: QW, H: QH };
+    // the city walls: along the edge of the ground 7–9 m or more from the floor that reaches the map's border (the meadow outside);
+    // north of the arena they close in on its rim (1.3 m off it: Turnuva Meydanı lies against the wall, the castle gate in it)
+    const out = new Uint8Array(W * H), q = [];
+    const arN = c => (ar ? smooth01((ar.z - ar.r * 0.2 - ((c / W) | 0) - 0.5) / 3.5) * (1 - smooth01((dA[c] - 6) / 3)) : 0);
+    const far = c => dF[c] >= lerp(7.2 + 1.8 * (vnoise((c % W) / 19, ((c / W) | 0) / 19, seed + 9) * 0.5 + 0.5), 1.3, arN(c));
+    for (let c = 0; c < W * H; c++) { const i = c % W, j = (c / W) | 0; if ((i === 0 || j === 0 || i === W - 1 || j === H - 1) && far(c)) { out[c] = 1; q.push(c); } }
+    while (q.length) {
+      const c = q.pop(), i = c % W;
+      for (const m of [i > 0 ? c - 1 : -1, i < W - 1 ? c + 1 : -1, c >= W ? c - W : -1, c < W * (H - 1) ? c + W : -1]) if (m >= 0 && !out[m] && far(m)) { out[m] = 1; q.push(m); }
+    }
+    const of = new Float32Array(W * H); for (let c = 0; c < W * H; c++) of[c] = out[c];
+    const outF = V.outF = boxBlur(boxBlur(of, W, H, 1), W, H, 1);
+    const LF = new Float32Array((W + 1) * (H + 1));   // lattice at the cell centres
+    for (let b = 0; b <= H; b++) for (let a = 0; a <= W; a++) LF[b * (W + 1) + a] = outF[Math.min(H - 1, b) * W + Math.min(W - 1, a)];
+    const loops = isoLines(LF, W, H, 1, 0.5, 0.5).filter(l => l.length > 20).sort((p1, p2) => p2.length - p1.length);
+    if (loops.length) { const lp = loops[0], cl = hyp(lp[0].x - lp[lp.length - 1].x, lp[0].z - lp[lp.length - 1].z) < 0.01; V.wallPts = resample(chaikin(lp, 2, cl), 1); V.wallClosed = cl; }
+    return V;
+  }
+  // The river's course (see townField): a cheapest path (8-neighbour Dijkstra over the cells) from the crossing to either side of
+  // the map, then smoothed. → { pts: [{x, z, hw}] west → east, cross: {x, z} } or null (no corridor to cross)
+  function townRiver(L, dF, dA, rnd, seed) {
+    const W = L.W, H = L.H, grid = L.grid, N = L.Z.rooms;
+    let pick = null;
+    for (const l of L.links) {
+      if (!l.main || !l.curve || l.b > N - 2) continue;
+      const A = L.rooms[l.a], Bb = L.rooms[l.b], c = l.curve, out = [];
+      for (let i = 0; i < c.length; i++) if (!inRoom(A, c[i][0], c[i][1], -0.6) && !inRoom(Bb, c[i][0], c[i][1], -0.6)) out.push(i);
+      if (out.length < 7) continue;   // (≥ 2.5 m of corridor between the rooms)
+      const i = out[out.length >> 1], a = c[Math.max(0, i - 4)], b = c[Math.min(c.length - 1, i + 4)], dx = b[0] - a[0], dz = b[1] - a[1], len = hyp(dx, dz) || 1;
+      if (Math.abs(dz) / len < 0.42) continue;   // it runs north(-east / -west)-south: the river crosses it east-west
+      const sc = Math.abs(l.a - (N - 1) * 0.3) - out.length * 0.22 + rnd() * 1.2;   // (early on the route, a long crossing)
+      if (!pick || sc < pick.sc) pick = { x: c[i][0], z: c[i][1], sc };
+    }
+    if (!pick) return null;
+    const cost = new Float32Array(W * H);
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const c = j * W + i;
+      if (grid[c]) { cost[c] = hyp(i + 0.5 - pick.x, j + 0.5 - pick.z) < 2.8 ? 1 : 0; continue; }   // (0 = blocked: it crosses no floor but the bridge's)
+      cost[c] = 1 + Math.max(0, 3 - dF[c]) + (dA && dA[c] < 9 ? 25 : 0);
+    }
+    const dist = new Float64Array(W * H).fill(1e9), prev = new Int32Array(W * H).fill(-1), heap = [];   // (64-bit: a float32 dist re-queued nodes endlessly)
+    const push = (d, c) => { heap.push([d, c]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const t = heap[0], e = heap.pop(); if (heap.length) { heap[0] = e; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return t; };
+    const c0 = Math.floor(pick.z) * W + Math.floor(pick.x);
+    dist[c0] = 0; push(0, c0);
+    while (heap.length) {
+      const [d, c] = pop();
+      if (d > dist[c]) continue;
+      const i = c % W, j = (c / W) | 0;
+      for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) {
+        if (!a && !b) continue;
+        const ii = i + a, jj = j + b;
+        if (ii < 0 || jj < 0 || ii >= W || jj >= H) continue;
+        const m = jj * W + ii;
+        if (!cost[m] || (a && b && (!cost[j * W + ii] || !cost[jj * W + i]))) continue;
+        const nd = d + cost[m] * (a && b ? Math.SQRT2 : 1);
+        if (nd < dist[m]) { dist[m] = nd; prev[m] = c; push(nd, m); }
+      }
+    }
+    const side = i => { let bc = -1; for (let j = 1; j < H - 1; j++) { const c = j * W + i; if (dist[c] < 1e9 && (bc < 0 || dist[c] < dist[bc])) bc = c; } return bc; };
+    const trace = c => { const o = []; while (c >= 0) { o.push({ x: c % W + 0.5, z: ((c / W) | 0) + 0.5 }); c = prev[c]; } return o; };   // (edge → crossing)
+    const cw = side(0), ce = side(W - 1);
+    if (cw < 0 || ce < 0) return null;
+    const pw = trace(cw), pe = trace(ce).reverse();
+    const raw = pw.concat(pe.slice(1));
+    raw.unshift({ x: raw[0].x - 3, z: raw[0].z }); raw.push({ x: raw[raw.length - 1].x + 3, z: raw[raw.length - 1].z });   // (on past the map's edges)
+    const pts = resample(chaikin(raw, 3, false), 0.6);
+    let s = 0;
+    pts.forEach((p, i) => { if (i) s += hyp(p.x - pts[i - 1].x, p.z - pts[i - 1].z); p.hw = 2.2 + 0.5 * vnoise(s / 12, 1.7, seed + 21); });
+    return { pts, cross: { x: pick.x, z: pick.z } };
+  }
+  // The water level field on the 0.5 m lattice (the floor mesh and the quays are cut along its 0.5 line)
+  function townLattice(L) {
+    const V = L._town;
+    if (V.lat) return V.lat;
+    const FW = L.W * 2, FH = L.H * 2, W1 = FW + 1, F = new Float32Array(W1 * (FH + 1)), P = V.P;
+    for (let b = 0; b <= FH; b++) for (let a = 0; a <= FW; a++) {   // bilinear, like the GPU samples the mask (pixel centres at (i + 0.5) / 4)
+      const fx = clamp(a * 0.5 * P - 0.5, 0, V.MW - 1.001), fz = clamp(b * 0.5 * P - 0.5, 0, V.MH - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, k = j * V.MW + i;
+      F[b * W1 + a] = (V.lava[k] * (1 - tx) + V.lava[k + 1] * tx) * (1 - tz) + (V.lava[k + V.MW] * (1 - tx) + V.lava[k + V.MW + 1] * tx) * tz;
+    }
+    return (V.lat = { F, FW, FH, s: 0.5 });
+  }
+  // The town's floor: the ground where the water is < 0.5 (marching squares on the 0.5 m lattice; whole dry cells merged into row
+  // runs), plus a 14 m border round the map like the other themes' plane
+  function townFloorGeo(L) {
+    const { F, FW, FH, s } = townLattice(L), W1 = FW + 1, pos = [];
+    const tri = (a, b, c) => { const ny = (b.z - a.z) * (c.x - a.x) - (b.x - a.x) * (c.z - a.z); if (ny < 0) { const t = b; b = c; c = t; } pos.push(a.x, 0, a.z, b.x, 0, b.z, c.x, 0, c.z); };
+    const quad = (x0, z0, x1, z1) => { tri({ x: x0, z: z0 }, { x: x0, z: z1 }, { x: x1, z: z0 }); tri({ x: x1, z: z0 }, { x: x0, z: z1 }, { x: x1, z: z1 }); };
+    for (let b = 0; b < FH; b++) {
+      let run = -1;
+      for (let a = 0; a <= FW; a++) {
+        let full = false, c = 0, v = null;
+        if (a < FW) { v = [F[b * W1 + a], F[b * W1 + a + 1], F[(b + 1) * W1 + a + 1], F[(b + 1) * W1 + a]]; c = (v[0] < 0.5 ? 1 : 0) | (v[1] < 0.5 ? 2 : 0) | (v[2] < 0.5 ? 4 : 0) | (v[3] < 0.5 ? 8 : 0); full = c === 15; }
+        if (full) { if (run < 0) run = a; continue; }
+        if (run >= 0) { quad(run * s, b * s, a * s, (b + 1) * s); run = -1; }
+        if (!c) continue;
+        // a mixed cell: its dry part (corners below 0.5 + the crossings, going round; saddles split unless the middle is dry)
+        const C = [{ x: a * s, z: b * s }, { x: (a + 1) * s, z: b * s }, { x: (a + 1) * s, z: (b + 1) * s }, { x: a * s, z: (b + 1) * s }];
+        const X = k => { const k2 = (k + 1) & 3, t = clamp((0.5 - v[k]) / ((v[k2] - v[k]) || 1e-9), 0, 1); return { x: lerp(C[k].x, C[k2].x, t), z: lerp(C[k].z, C[k2].z, t) }; };
+        const mid = (v[0] + v[1] + v[2] + v[3]) / 4 < 0.5;
+        const polys = [];
+        if ((c === 5 || c === 10) && !mid) { const k0 = c === 5 ? 0 : 1; for (const k of [k0, k0 + 2]) polys.push([C[k], X(k), X((k + 3) & 3)]); }
+        else { const pl = []; for (let k = 0; k < 4; k++) { if (v[k] < 0.5) pl.push(C[k]); if ((v[k] < 0.5) !== (v[(k + 1) & 3] < 0.5)) pl.push(X(k)); } polys.push(pl); }
+        for (const pl of polys) for (let k = 1; k + 1 < pl.length; k++) tri(pl[0], pl[k], pl[k + 1]);
+      }
+    }
+    const Wm = L.W, Hm = L.H, e = 14;
+    quad(-e, -e, 0, Hm + e); quad(Wm, -e, Wm + e, Hm + e); quad(0, -e, Wm, 0); quad(0, Hm, Wm, Hm + e);
+    const g = new THREE.BufferGeometry(), nor = new Float32Array(pos.length);
+    for (let i = 1; i < nor.length; i += 3) nor[i] = 1;
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.computeBoundingSphere(); g.computeBoundingBox();
+    return g;
+  }
+  // Clear blue water (lit PBR, very smooth): shallow turquoise over a pebbly bed at the quays, clear blue in mid-stream, a flowing
+  // two-phase ripple normal from TEX.noise (along V.wflow's current), a caustic light net in the shallows, a soft foam line at the
+  // walls, a sky sheen at grazing angles and little sun glints twinkling on the ripples (they bloom). uFix: a still basin (the fountain).
+  function waterMat(fix) {
+    const key = fix ? 'waterF' : 'water';
+    if (R.mat[key]) return R.mat[key];
+    const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.08, metalness: 0 });
+    const U = m.userData.u = { uTime: TIME.u, tNoise: { value: texOK() && TEX.noise ? TEX.noise : blackTex() }, tFlow: { value: blackTex() }, uMaskInv: { value: new THREE.Vector2(1, 1) },
+      uDeep: { value: lin(0x2e8ccc) }, uShal: { value: lin(0x62d0d8) }, uBed: { value: lin(0xd8d0a8) }, uFix: { value: fix ? 1 : 0 } };
+    lvShade(m, {
+      key: 'water',
+      uniforms: U,
+      vDecl: 'varying vec3 vLvW;',
+      vBegin: 'vLvW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+      fDecl: `uniform sampler2D tNoise, tFlow; uniform vec2 uMaskInv; uniform vec3 uDeep, uShal, uBed; uniform float uTime, uFix; varying vec3 vLvW;
+        ${GLSL_NOISE}`,
+      fMap: `vec2 lvXZ = vLvW.xz;
+        vec4 lvFw = texture2D(tFlow, lvXZ * uMaskInv);
+        float lvDep = mix(lvFw.a, 0.5, uFix);                              // 0 at the quay walls → 1 in mid-stream
+        vec2 lvFd = (lvFw.rg * 2.0 - 1.0) * lvFw.b * (1.0 - uFix);         // the current: direction × speed
+        float lvT = uTime * 0.14 + (texture2D(tNoise, lvXZ * 0.021).r - 0.5) * 0.8;
+        float lvP0 = fract(lvT), lvP1 = fract(lvT + 0.5), lvW0 = 1.0 - abs(1.0 - 2.0 * lvP0);
+        vec2 lvU = lvXZ * 0.2, lvF = lvFd * 1.25;
+        vec2 lvA0 = lvU - lvF * lvP0, lvA1 = lvU - lvF * lvP1 + vec2(0.43, 0.27);
+        vec4 lvN = mix(texture2D(tNoise, lvA1), texture2D(tNoise, lvA0), lvW0);
+        vec4 lvM = mix(texture2D(tNoise, lvA1 * 2.7 + vec2(0.71, 0.13)), texture2D(tNoise, lvA0 * 2.7 + vec2(0.17, 0.61)), lvW0);
+        vec2 lvS = (lvN.gb - 0.5) * 0.8 + (lvM.gr - 0.5) * 0.9;           // ripple slopes (x, z)
+        lvS += 0.07 * vec2(sin(lvXZ.x * 3.3 + lvXZ.y * 1.2 - uTime * 2.1 + lvN.r * 5.0), sin(lvXZ.y * 2.9 - lvXZ.x * 0.8 - uTime * 1.8 + lvM.b * 5.0));
+        vec3 lvCol = mix(uShal, uDeep, smoothstep(0.08, 0.9, lvDep));
+        float lvPb = texture2D(tNoise, lvXZ * 0.45 + lvS * 0.05).b;        // the pebbly bed, wobbling under the ripples
+        float lvSh = 1.0 - smoothstep(0.0, 0.42, lvDep);
+        lvCol = mix(lvCol, uBed * (0.62 + 0.55 * lvPb), lvSh * 0.4);
+        float lvCa = texture2D(tNoise, lvXZ * 0.16 + lvS * 0.04 + vec2(uTime * 0.013, -uTime * 0.009)).a;   // a caustic net over the shallows
+        float lvCb = texture2D(tNoise, lvXZ * 0.23 - lvS * 0.03 + vec2(-uTime * 0.011, uTime * 0.015)).a;
+        float lvCn = (1.0 - smoothstep(0.0, 0.035, abs(lvCa - 0.5))) + (1.0 - smoothstep(0.0, 0.03, abs(lvCb - 0.5)));
+        lvCol += vec3(0.22, 0.26, 0.2) * lvCn * (0.35 + 0.65 * lvSh) * (1.0 - uFix * 0.5);
+        float lvFo = (1.0 - smoothstep(0.02, 0.1, lvDep)) * (1.0 - uFix) * smoothstep(0.35, 0.7, lvN.r + lvM.g * 0.5);   // a broken foam line at the walls
+        lvCol = mix(lvCol, vec3(0.92, 0.97, 1.0), lvFo * 0.6);
+        diffuseColor.rgb = lvCol;`,
+      fNormal: `vec3 lvWn = normalize(vec3(-lvS.x * 0.5, 1.0, -lvS.y * 0.5));
+        normal = normalize((viewMatrix * vec4(lvWn, 0.0)).xyz);`,
+      fOut: `float lvFr = pow(1.0 - saturate(dot(normal, normalize(vViewPosition))), 4.0);
+        outgoingLight += vec3(0.5, 0.66, 0.84) * lvFr * 0.45;           // the pale sky at grazing angles
+        vec2 lvGp = lvXZ * 4.2 + lvS * 1.6, lvGi = floor(lvGp); float lvGh = lvH21(lvGi);
+        vec2 lvGo = fract(lvGp) - 0.5 - (vec2(lvH21(lvGi + 3.1), lvH21(lvGi + 7.7)) - 0.5) * 0.6;
+        float lvTw = pow(max(0.0, sin(uTime * (1.3 + lvGh * 2.2) + lvGh * 40.0)), 14.0);
+        float lvGl = step(0.74, lvGh) * smoothstep(0.09, 0.0, length(lvGo * vec2(1.0, 1.6))) * lvTw * smoothstep(0.08, 0.4, lvDep);
+        outgoingLight += vec3(1.7, 1.6, 1.35) * lvGl;                    // sun glints twinkling on the ripples`,
+    });
+    return (R.mat[key] = keep(m));
+  }
+  // Stone quays along every shore: a rounded coping stone on the edge of the street (a little over the water) and the wall face
+  // going down into the water, a wet darker band at the water line (on the bridges these walls are their sides). One geometry per
+  // ~12 m piece of shore, merged into the decor chunks ('ramp': the sandstone rampart blocks, triplanar)
+  const QUAY = [[-0.17, 0.0, 1], [-0.12, 0.105, 1], [0.1, 0.105, 1], [0.155, 0.03, 0.97], [0.11, -0.05, 0.86], [0.1, -0.4, 0.8], [0.1, -WD + 0.12, 0.74], [0.1, -WD + 0.02, 0.5], [0.1, -WD - 0.35, 0.32]];   // (offset out, y, brightness)
+  function townQuays(L, B) {
+    const { F, FW, FH, s } = townLattice(L), lines = isoLines(F, FW, FH, s, 0.5), V = L._town, RS = L.townDecor;
+    const kerb = new THREE.Color(0xf8ecd4), face = new THREE.Color(0xe8d0aa), wetC = new THREE.Color(0x96a888);
+    const bridgeAt = (x, z) => { for (const b of V.bridges) for (const q of b.pts) if (hyp(q.x - x, q.z - z) < Math.max(q.e1, q.e2) + 0.9) return b; return null; };
+    let segsN = 0;
+    for (const line of lines) {
+      // simplify (the lattice gives ~0.5 m steps on smooth curves): drop points that stay within 3 cm of the chord
+      let pl = [line[0]];
+      for (let i = 1; i < line.length - 1; i++) {
+        const a = pl[pl.length - 1], c = line[i + 1], p = line[i];
+        if (hyp(p.x - a.x, p.z - a.z) > 0.8 || segDist(p.x, p.z, a.x, a.z, c.x, c.z) > 0.03) pl.push(p);
+      }
+      pl.push(line[line.length - 1]);
+      if (pl.length < 2) continue;
+      const closed = hyp(pl[0].x - pl[pl.length - 1].x, pl[0].z - pl[pl.length - 1].z) < 1e-3;
+      if (pl.length > 3) pl = chaikin(pl, 1, closed);   // (a softer line: the lattice's corners; the coping still covers the floor's cut)
+      const nrm = pl.map((p, i) => {   // toward the water: right of the line (the land lies to its left)
+        const a = pl[i > 0 ? i - 1 : closed ? pl.length - 2 : 0], c = pl[i < pl.length - 1 ? i + 1 : closed ? 1 : i];
+        const dx = c.x - a.x, dz = c.z - a.z, l = hyp(dx, dz) || 1;
+        return { x: dz / l, z: -dx / l };
+      });
+      for (let i0 = 0, i1 = 0; i0 < pl.length - 1; i0 = i1) {   // pieces of ≤ 6 m (a chunk's bounds stay tight: better culling)
+        for (let run = 0; i1 < pl.length - 1 && (i1 === i0 || run < 6); i1++) run += hyp(pl[i1 + 1].x - pl[i1].x, pl[i1 + 1].z - pl[i1].z);
+        const ox = pl[i0].x, oz = pl[i0].z, np = QUAY.length, pos = [], nor = [], col = [], idx = [];
+        for (let i = i0; i <= i1; i++) {
+          const p = pl[i], nn = nrm[i], br = bridgeAt(p.x, p.z);
+          for (let k = 0; k < np; k++) {
+            const [o, y, bri] = QUAY[k], a = QUAY[Math.max(0, k - 1)], c = QUAY[Math.min(np - 1, k + 1)];
+            let pnx = c[1] - a[1], pny = -(c[0] - a[0]); const pln = hyp(pnx, pny) || 1; pnx /= pln; pny /= pln;   // the profile's normal (out, up)
+            if (pny < 0 && k < 3) { pnx = -pnx; pny = -pny; }
+            pos.push(p.x - ox + nn.x * o, y, p.z - oz + nn.z * o);
+            nor.push(nn.x * pnx, pny, nn.z * pnx);
+            const cc = (k < 4 ? kerb : face).clone().multiplyScalar(bri);
+            if (k >= 6) cc.lerp(wetC.clone().multiplyScalar(bri), 0.55);   // the wet band at the water line
+            if (br && k >= 4) cc.multiplyScalar(0.92);
+            col.push(cc.r, cc.g, cc.b);
+          }
+          if (i > i0) { const b0 = (i - i0 - 1) * np, b1 = b0 + np; for (let k = 0; k < np - 1; k++) idx.push(b0 + k, b1 + k, b0 + k + 1, b1 + k, b1 + k + 1, b0 + k + 1); segsN++; }   // (facing the water / up)
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+        g.setIndex(idx);
+        B.tmpGeo.push(g);
+        dec(B, 'ramp', g, mat4(ox, 0, oz), null);
+      }
+    }
+    RS.quaySegs = segsN;
+  }
+  // Roof tiles in any colour: a grey copy of TEX.roof (same pattern and relief) the town's roofs tint per house (kept)
+  function neutralRoof() {
+    if (R.tex.roofN) return R.tex.roofN;
+    const src = surf('roof').map, im = src && src.image, d = im && im.data;
+    if (!d || !d.length || !im.width) return src;
+    const n = im.width * im.height, out = new Uint8Array(n * 4);
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += d[i * 4] * 0.3 + d[i * 4 + 1] * 0.55 + d[i * 4 + 2] * 0.15;
+    const k = 212 / Math.max(1, sum / n);
+    for (let i = 0; i < n; i++) { const v = Math.min(255, (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.55 + d[i * 4 + 2] * 0.15) * k); out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = v; out[i * 4 + 3] = 255; }
+    const t = new THREE.DataTexture(out, im.width, im.height, THREE.RGBAFormat, THREE.UnsignedByteType);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true; t.anisotropy = ANISO; t.needsUpdate = true;
+    return (R.tex.roofN = keep(t));
+  }
+  // ── Surlu Şehir: the houses ──
+  const TPL = [0xfff2dc, 0xffd6cc, 0xffeea8, 0xd6f0c4, 0xcfe4ff, 0xffdcbc, 0xe6d8ff, 0xfff8f0];   // plaster: cream, pink, butter, mint, sky, peach, lavender, white
+  const TRF = [0xe8744a, 0xd65a48, 0xf09a50, 0xe26a4c, 0x5a8ad0, 0x48a8a0, 0xa070c0, 0xd0785a];   // roof tiles: mostly warm, some blue, teal, plum
+  const TAC = [0x3a8ad8, 0x3aa878, 0xe05050, 0xf0b030, 0x9060c8, 0x30b0c0, 0xf07aa0];              // doors, shutters, awnings, sign rims
+  const TSTONE = 0xf4e4c8, TGLASS = 0x98c8e8, TFRAME = 0xfaf6ee, TTIMBER = 0x7a4a2c;
+  // Heaped blossoms and leaves for a window box (local: the box's top centre, 0.7 m wide)
+  function flowerBoxGeo(v) {
+    const key = 'tFlBox' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), rnd = mulberry32(5100 + v), cols = [[0xff6a8a, 0xffffff, 0xffd84a], [0xe8404e, 0xff9ac8, 0xfff4f4], [0xb88af0, 0xffd84a, 0xffffff], [0xff8a3a, 0xffe07a, 0xff6a8a]][v % 4];
+    for (let i = 0; i < 7; i++) k.add(G.octa(), i % 2 ? 0x5aa844 : 0x48983a, [(i / 6 - 0.5) * 0.6, 0.03, (rnd() - 0.5) * 0.08], [rnd(), rnd() * 3, rnd()], [0.09, 0.06, 0.07]);
+    for (let i = 0; i < 6; i++) k.add(G.ico(0), cols[i % 3], [(i / 5 - 0.5) * 0.54 + (rnd() - 0.5) * 0.05, 0.09 + rnd() * 0.04, (rnd() - 0.5) * 0.06], [rnd(), rnd(), rnd()], 0.055);
+    return (R.geo[key] = keep(k.build()));
+  }
+  // Shop-sign pictures (local: centred, ≈0.35 m, facing +z): 0 a simit (the bakery) · 1 a davul drum · 2 an apple · 3 a flower ·
+  // 4 a loaf · 5 a boot
+  function shopIconGeo(v) {
+    const key = 'tIcon' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), fz = [Math.PI / 2, 0, 0];
+    if (v === 0) {
+      k.add(G.torus(TAU, 0.42, 22), (x, y, z) => new THREE.Color(0xc8783a).lerp(new THREE.Color(0xe8a05a), clamp(z * 12 + 0.4, 0, 1)), [0, 0, 0.02], 0, 0.15);
+      for (let i = 0; i < 14; i++) { const a = i / 14 * TAU + 0.2; k.add(G.sphere(6, 4), 0xfff4dc, [Math.cos(a) * 0.15, Math.sin(a) * 0.15, 0.08], [0, 0, a], [0.018, 0.01, 0.008]); }
+    } else if (v === 1) {
+      k.add(G.cyl(1, 1, 18), 0xe0484a, [0, 0, 0.04], fz, [0.17, 0.12, 0.17]);
+      for (const z of [-0.02, 0.1]) k.add(G.cyl(1, 1, 18), 0xfff6e8, [0, 0, z], fz, [0.175, 0.02, 0.175]);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.add(G.box(), 0xffd24a, [Math.cos(a) * 0.172, Math.sin(a) * 0.172, 0.04], [0, 0, a], [0.012, 0.022, 0.13]); }
+      for (const sx of [-1, 1]) k.seg([sx * 0.05, 0.1, 0.13], [sx * 0.2, 0.26, 0.14], 0.012, 0x9a6a3a, 0.012, 6);   // two mallets
+      for (const sx of [-1, 1]) k.add(G.sphere(8, 6), 0xf6eadc, [sx * 0.21, 0.27, 0.14], 0, 0.035);
+    } else if (v === 2) {
+      k.add(G.sphere(16, 12), 0xe8323e, [0, -0.01, 0.04], 0, [0.16, 0.15, 0.1]);
+      k.add(G.sphere(8, 6), 0xff8a8a, [-0.06, 0.05, 0.12], 0, 0.03);   // a shine
+      k.add(G.cyl(1, 1, 6), 0x6a4a2a, [0, 0.16, 0.04], 0, [0.012, 0.07, 0.012]);
+      k.add(G.sphere(8, 6), 0x5cb040, [0.06, 0.17, 0.04], [0, 0, -0.6], [0.06, 0.025, 0.02]);
+    } else if (v === 3) {
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + 0.3; k.add(G.sphere(10, 8), 0xff8ac8, [Math.cos(a) * 0.1, Math.sin(a) * 0.1, 0.04], [0, 0, a], [0.08, 0.055, 0.03]); }
+      k.add(G.sphere(10, 8), 0xffd23a, [0, 0, 0.07], 0, [0.055, 0.055, 0.03]);
+      k.add(G.box(), 0x4caa3c, [0, -0.2, 0.04], 0, [0.02, 0.18, 0.02]);
+    } else if (v === 4) {
+      k.add(G.capsule(1, 10), 0xd89a50, [0, 0, 0.05], [0, 0, Math.PI / 2], [0.09, 0.14, 0.07]);
+      for (const x of [-0.07, 0, 0.07]) k.add(G.box(), 0xfff0d0, [x, 0.02, 0.115], [0, 0, 0.5], [0.012, 0.09, 0.01]);
+    } else {
+      k.add(G.rbox(), 0x8a5a3a, [0, 0.05, 0.04], 0, [0.12, 0.22, 0.08]);
+      k.add(G.rbox(), 0x8a5a3a, [0.07, -0.08, 0.04], 0, [0.25, 0.1, 0.09]);
+      k.add(G.box(), 0xffd24a, [0, 0.14, 0.085], 0, [0.13, 0.03, 0.01]);
+    }
+    return (R.geo[key] = keep(k.build()));
+  }
+  // A house's measures (see townHouse): wall top, ridge, roof rise / half span, the top storey's middle and size
+  function houseDims(h) {
+    const j = h.st > 1 ? 0.16 : 0, top = 0.34 + 2.25 + (h.st > 1 ? 0.14 + 2.0 : 0), W2 = h.w + 2 * j, D2 = h.d + j, zc = (j - h.d) / 2;
+    const alongX = !h.gable, span = alongX ? D2 : W2, hs = span / 2 + 0.34, rh = clamp(span * 0.54, 1.5, 2.9);
+    return { j, top, W2, D2, zc, alongX, span, hs, rh, yr: top + (span / 2) * (rh / hs) };
+  }
+  // Roof height over a local point of the house (for the camera test)
+  const houseHt = (D, lx, lz) => Math.max(D.top, D.yr - (D.alongX ? Math.abs(lz - D.zc) : Math.abs(lx)) / D.hs * D.rh);
+  // Where the chimney stands (local), k: 0 on the back slope (its side from the seed) · 1 the back, the other side · 2 / 3 the same on
+  // the front slope; its cap's top is at D.yr + 0.66 (townHouses picks the first k whose chimney hides no floor, h.chim; -1 none)
+  const chimAt = (D, h, k) => { const sd = (h.seed % 2 ? 1 : -1) * (k & 1 ? -1 : 1), bk = k < 2 ? -1 : 1;
+    return D.alongX ? { cx: sd * D.W2 * 0.27, cz: D.zc + bk * D.hs * 0.38 } : { cx: sd * D.hs * 0.42, cz: D.zc + bk * D.D2 * 0.22 }; };
+  // A half-timbered town house (local frame: the front's centre on the ground, the front facing +z, the body behind it to z = -d):
+  // a sandstone plinth, a plastered ground storey, often an upper storey jettied out over the street, a steep tiled roof (eaves or
+  // a gable to the street) with a round ridge, a chimney (some smoke), an arched door with a step, windows with white frames, open
+  // painted shutters and flower boxes, now and then a shop (sign, striped awning, a warm window) or a wall lantern.
+  // h: {x, z, yaw, w, d, st, gable, door, pl, rf, ac, shop, lamp, smoke, seed}; merged into the decor chunks
+  function townHouse(B, h) {
+    const M = mat4(h.x, 0, h.z, h.yaw), rnd = mulberry32(h.seed), D = houseDims(h);
+    const P = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+    const w = h.w, d = h.d, j = D.j, base = 0.34, h1 = 2.25, top = D.top;
+    const pl = lin(TPL[h.pl]), ac = lin(TAC[h.ac]), rf = lin(TRF[h.rf]), stone = lin(TSTONE), timber = lin(TTIMBER), glass = lin(TGLASS), frame = lin(TFRAME);
+    P('ramp', G.box(), mat4(0, base / 2, -d / 2, 0, w + 0.16, base, d + 0.16), stone);
+    P('plaster', G.box(), mat4(0, base + h1 / 2, -d / 2, 0, w, h1, d), pl);
+    if (h.st > 1) {
+      P('prop', G.box(), mat4(0, base + h1 + 0.07, D.zc, 0, D.W2 + 0.06, 0.14, D.D2 + 0.06), timber);   // the beam under the jetty
+      P('plaster', G.box(), mat4(0, base + h1 + 0.14 + 1.0, D.zc, 0, D.W2, 2.0, D.D2), pl.clone().multiplyScalar(0.985));
+    }
+    // the roof: two tiled slabs, a round ridge, the plastered gables with a beam across
+    const len = (D.alongX ? D.W2 : D.D2) + 0.5, th = Math.atan2(D.rh, D.hs), sl = Math.hypot(D.hs, D.rh), yc = D.yr - D.rh / 2 + 0.07;
+    const slab = boxUV(len, 0.15, sl, 2); B.tmpGeo.push(slab);
+    for (const sd of [-1, 1]) {
+      if (D.alongX) P('roofN', slab, mat4(0, yc, D.zc + sd * D.hs / 2, 0, 1, 1, 1, sd * th, 0), rf);
+      else P('roofN', slab, mat4(sd * D.hs / 2, yc, D.zc, Math.PI / 2, 1, 1, 1, sd * th, 0), rf);
+    }
+    const rdg = rf.clone().multiplyScalar(0.8);
+    P('roofN', G.cyl(1, 1, 8), D.alongX ? mat4(0, D.yr + 0.08, D.zc, 0, 0.13, len + 0.06, 0.13, 0, Math.PI / 2) : mat4(0, D.yr + 0.08, D.zc, 0, 0.13, len + 0.06, 0.13, Math.PI / 2), rdg);
+    const gg = gableGeo(D.span, D.yr - top); B.tmpGeo.push(gg);
+    for (const sd of [-1, 1]) {
+      if (D.alongX) { P('plaster', gg, mat4(sd * D.W2 / 2, top, D.zc, sd * Math.PI / 2), pl); P('prop', G.box(), mat4(sd * (D.W2 / 2 + 0.03), top + 0.05, D.zc, 0, 0.08, 0.1, D.D2 + 0.1), timber); }
+      else { P('plaster', gg, mat4(0, top, D.zc + sd * D.D2 / 2, sd > 0 ? 0 : Math.PI), pl); P('prop', G.box(), mat4(0, top + 0.05, D.zc + sd * (D.D2 / 2 + 0.03), 0, D.W2 + 0.1, 0.1, 0.08), timber); }
+    }
+    if (!D.alongX) {   // a round window high in the street gable, a little timber cross
+      const gy = top + (D.yr - top) * 0.4, gz = j + 0.03;
+      P('shiny', G.cyl(1, 1, 16), mat4(0, gy, gz, 0, 0.3, 0.05, 0.3, Math.PI / 2), frame);
+      P(h.seed % 3 ? 'shiny' : 'window', G.cyl(1, 1, 16), mat4(0, gy, gz + 0.02, 0, 0.23, 0.05, 0.23, Math.PI / 2), h.seed % 3 ? glass : lin(0xfff0d0));
+      for (const r of [0, Math.PI / 2]) P('shiny', G.box(), mat4(0, gy, gz + 0.05, 0, 0.46, 0.03, 0.03, 0, r), frame);
+    }
+    // chimney (on the back slope, else where it hides nothing: see chimAt), smoke now and then
+    if ((h.chim ?? 0) >= 0) {
+      const { cx, cz } = chimAt(D, h, h.chim ?? 0), ch = D.yr + 0.55 - top;
+      P('ramp', G.box(), mat4(cx, top + ch / 2, cz, 0, 0.5, ch, 0.5), lin(0xe8d2b4));
+      P('ramp', G.box(), mat4(cx, top + ch + 0.05, cz, 0, 0.64, 0.12, 0.64), lin(0xd8c0a0));
+      if (h.smoke) { const p = new THREE.Vector3(cx, top + ch + 0.15, cz).applyMatrix4(M); for (let n = 0; n < 5; n++) B.pts.norm.push({ x: p.x, y: p.y, z: p.z, kind: 7, ph: n / 5 + rnd() * 0.05, size: 0.5, prm: 0.15, col: lin(0xf6f2f4, 0.95) }); }
+    }
+    // a window: white frame and cross, glass (or a warm lit pane), open painted shutters, often a flower box
+    const win = (px, py, pz, ry, s, lit, box) => {
+      const Wm = new THREE.Matrix4().multiplyMatrices(M, mat4(px, py, pz, ry)), Q = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(Wm, m), col);
+      Q(lit ? 'window' : 'shiny', G.box(), mat4(0, 0, 0.015, 0, 0.56 * s, 0.7 * s, 0.03), lit ? lin(0xfff0d8) : glass);
+      for (const [ox, oy, sx, sy] of [[0, 0.38, 0.7, 0.07], [0, -0.38, 0.74, 0.08], [0.31, 0, 0.07, 0.76], [-0.31, 0, 0.07, 0.76], [0, 0.05, 0.56, 0.035], [0, 0, 0.035, 0.7]])
+        Q('shiny', G.box(), mat4(ox * s, oy * s, 0.045, 0, sx * s, sy * s, 0.04), frame);
+      for (const sd of [-1, 1]) {
+        Q('shiny', G.box(), mat4(sd * 0.49 * s, 0, 0.08, -sd * 0.25, 0.27 * s, 0.72 * s, 0.03), ac);
+        Q('decor', G.box(), mat4(sd * 0.49 * s, 0.14 * s, 0.1, -sd * 0.25, 0.16 * s, 0.03, 0.01), ac.clone().multiplyScalar(0.7));   // a shutter slat line
+      }
+      if (box) { Q('prop', G.box(), mat4(0, -0.47 * s, 0.12, 0, 0.74 * s, 0.14, 0.22), lin(0xc48a58)); Q('decor', flowerBoxGeo((h.seed + Math.round(px * 7)) & 3), mat4(0, -0.4 * s, 0.12, 0, s), null); }
+    };
+    // windows over the front, the sides and the upper storey
+    const up = h.st > 1, yU = base + h1 + 0.14 + 1.05, yG = base + 1.3;
+    const slots = (x0, x1, avoid) => {   // window centres across [x0, x1] (≥ 1.45 m apart), not over [avoid ± 0.95]
+      const o = [], n = Math.max(1, Math.floor((x1 - x0) / 1.45));
+      for (let i = 0; i < n; i++) { const x = x0 + (i + 0.5) * (x1 - x0) / n; if (avoid === null || Math.abs(x - avoid) > 1.12) o.push(x); }
+      return o;
+    };
+    const shopX = h.shop >= 0 ? (h.door > 0 ? -1 : 1) * Math.min(w / 2 - 0.9, 1.05) : null;
+    for (const x of slots(-w / 2 + 0.1, w / 2 - 0.1, h.door)) if (shopX === null || Math.abs(x - shopX) > 0.9) win(x, yG, 0, 0, 0.95, (h.seed >> 2) % 5 === 0, rnd() < 0.6);
+    if (up) for (const x of slots(-D.W2 / 2 + 0.1, D.W2 / 2 - 0.1, null)) win(x, yU, j, 0, 0.92, (h.seed >> 3) % 6 === 0, rnd() < 0.75);
+    for (const sd of [-1, 1]) {   // the sides (the one facing the camera shows)
+      if (d >= 3.2) win(sd * w / 2, yG, -d * 0.5, sd * Math.PI / 2, 0.85, false, rnd() < 0.4);
+      if (up && D.D2 >= 3.2) win(sd * D.W2 / 2, yU, D.zc, sd * Math.PI / 2, 0.85, false, rnd() < 0.5);
+    }
+    // the door: a stone frame with an arched top, the painted leaf with boards, a golden knob, a step
+    const dx = h.door;
+    P('ramp', G.box(), mat4(dx, base + 0.6, 0.02, 0, 1.16, 1.2, 0.05), stone);
+    P('ramp', halfCyl(), mat4(dx, base + 1.2, 0.02, Math.PI / 2, 0.58, 0.05, 0.58, 0, Math.PI / 2), stone);
+    P('shiny', G.box(), mat4(dx, base + 0.6, 0.05, 0, 0.9, 1.2, 0.05), ac);
+    P('shiny', halfCyl(), mat4(dx, base + 1.2, 0.05, Math.PI / 2, 0.45, 0.05, 0.45, 0, Math.PI / 2), ac);
+    for (const ox of [-0.22, 0, 0.22]) P('decor', G.box(), mat4(dx + ox, base + 0.72, 0.078, 0, 0.018, 1.36 - Math.abs(ox) * 0.9, 0.01), ac.clone().multiplyScalar(0.72));
+    P('shiny', G.sphere(8, 6), mat4(dx + 0.3, base + 0.66, 0.09, 0, 0.045), lin(0xffcf4a));
+    P('ramp', G.rbox(), mat4(dx, 0.07, 0.2, 0, 1.2, 0.14, 0.42), stone);
+    // a shop: a big warm window with a striped awning over it, the sign board above the door (and hanging from a bracket when the
+    // house faces east or west: then the camera sees it from the side). A front the camera looks at gets a bigger board standing
+    // out in front of the eave on two iron struts (flat on the wall the eave hid it from the gameplay camera; h.fb, see townHouses).
+    if (shopX !== null) {
+      const sx = shopX;
+      P('window', G.box(), mat4(sx, base + 0.9, 0.02, 0, 1.12, 0.9, 0.03), lin(0xfff0d8));
+      for (const [ox, oy, a, b] of [[0, 0.47, 1.26, 0.08], [0, -0.47, 1.3, 0.1], [0.6, 0, 0.08, 1.0], [-0.6, 0, 0.08, 1.0], [0, 0, 0.04, 0.9]]) P('shiny', G.box(), mat4(sx + ox, base + 0.9 + oy, 0.05, 0, a, b, 0.05), frame);
+      const n = 6, aw = 1.5, ay = base + 1.55;
+      for (let i = 0; i < n; i++) P('decor', G.box(), mat4(sx + (i + 0.5 - n / 2) * aw / n, ay, 0.34, 0, aw / n + 0.005, 0.03, 0.7, 0.55), i % 2 ? lin(0xfff8f0) : ac);   // stripes
+      for (let i = 0; i < n; i++) P('decor', halfCyl(), mat4(sx + (i + 0.5 - n / 2) * aw / n, ay - 0.2, 0.64, Math.PI / 2, aw / n / 2, 0.02, aw / n / 2, 0, -Math.PI / 2), i % 2 ? lin(0xfff8f0) : ac);   // scalloped hem
+      const fb = Math.abs(Math.sin(h.yaw)) <= 0.6 && h.fb !== false, bk = fb ? 1.3 : 1, by = base + (fb ? 2.16 : 2.0), bz = fb ? 0.55 : 0.05;
+      P('prop', G.box(), mat4(dx, by, bz, 0, 0.72 * bk, 0.4 * bk, 0.05), lin(0xfff0dc));
+      for (const [ox, oy, a, b] of [[0, 0.21, 0.78, 0.05], [0, -0.21, 0.78, 0.05], [0.38, 0, 0.05, 0.46], [-0.38, 0, 0.05, 0.46]]) P('shiny', G.box(), mat4(dx + ox * bk, by + oy * bk, bz + 0.02, 0, a * bk, b * bk, 0.04), ac);
+      P('shiny', shopIconGeo(h.shop), mat4(dx, by, bz + 0.02, 0, 0.8 * bk), null);
+      if (fb) for (const sd of [-1, 1]) {   // (from the wall below the eave up to its bottom corners: they pass under the eave's edge)
+        const x = dx + sd * 0.36 * bk, y0 = base + 1.6, y1 = by - 0.2 * bk, z1 = bz - 0.02, ln = Math.hypot(y1 - y0, z1 - 0.05);
+        P('prop', MK(G.box()), mat4(x, (y0 + y1) / 2, (0.05 + z1) / 2, 0, 0.03, 0.03, ln, -Math.atan2(y1 - y0, z1 - 0.05)), lin(0x3a3438));
+      }
+      if (Math.abs(Math.sin(h.yaw)) > 0.6 && h.hang !== false) {   // the hanging sign (not where it would hide the street: h.hang, see townHouses)
+        const hx = dx + (h.door > 0 ? 1 : -1) * 0.2, hy = base + h1 + 0.02;
+        P('prop', MK(G.box()), mat4(hx, hy + 0.25, 0.45, 0, 0.04, 0.04, 0.9), lin(0x3a3438));
+        P('prop', MK(G.box()), mat4(hx, hy + 0.1, 0.12, 0, 0.03, 0.3, 0.03, 0.8), lin(0x3a3438));
+        P('prop', G.box(), mat4(hx, hy - 0.08, 0.55, Math.PI / 2, 0.6, 0.46, 0.05), lin(0xfff0dc));
+        for (const sd of [-1, 1]) P('shiny', shopIconGeo(h.shop), mat4(hx + sd * 0.03, hy - 0.08, 0.55, sd * Math.PI / 2, 0.85), null);
+      }
+    }
+    // a wall lantern beside the door (it lights the street: one of the 4 pooled lights near Feza)
+    if (h.lamp) {
+      const lx = dx + (dx > 0 || h.shop >= 0 ? -1 : 1) * 0.78, ly = base + 1.72;
+      P('prop', MK(G.box()), mat4(lx, ly + 0.12, 0.14, 0, 0.04, 0.04, 0.26), lin(0x2c3a36));
+      P('window', G.box(), mat4(lx, ly - 0.08, 0.27, 0, 0.17, 0.24, 0.17), lin(0xffffff));
+      P('prop', MK(G.cone(4)), mat4(lx, ly + 0.1, 0.27, Math.PI / 4, 0.17, 0.14, 0.17), lin(0x2c3a36));
+      const p = new THREE.Vector3(lx, ly, 0.6).applyMatrix4(M), g = new THREE.Vector3(lx, 0, 1.3).applyMatrix4(M);
+      B.lights.push({ x: p.x, y: p.y, z: p.z, col: new THREE.Color(0xffc478), int: 2.2, dist: 6, fl: 0.25, ph: rnd() * 9 });
+      glowAt(B, g.x, g.z, 2.0, 0xffc070, 0.18);
+    }
+  }
+  // Rows of houses facing the streets and squares: along the floor's edge (a line just off the floor cells, on the 0.5 m lattice)
+  // one after another, each front set back just enough to clear the cells' staircase, never on floor, water, outside the city walls
+  // or over anything taken; as tall as the camera rule allows (2 storeys, else 1, else none: the camera side keeps its canals and
+  // gardens). Then a back row between them and the walls (each facing the nearest floor; mostly roofs from the camera).
+  function townHouses(L, B, T) {
+    const { rnd, dF, cellOf, liqAt, outAt, occAt, occRect, RS, reserve } = T, W = L.W, H = L.H, grid = L.grid;
+    const path = L.path, pathD = (x, z) => { let d = 1e9; for (let s = 1; s < path.length; s++) d = Math.min(d, segDist(x, z, path[s - 1].x, path[s - 1].z, path[s].x, path[s].z)); return d; };
+    const wl = (yaw, lx, lz, fx, fz) => ({ x: fx + Math.cos(yaw) * lx + Math.sin(yaw) * lz, z: fz - Math.sin(yaw) * lx + Math.cos(yaw) * lz });
+    // does a house (front centre f, yaw, width w, depth d incl. the jetty) fit: no floor, water, outside, nothing taken under it
+    const fits = (fx, fz, yaw, w, d, jet) => {
+      for (let lz = jet; lz >= -d - 0.1; lz -= 0.25) for (let lx = -w / 2 - 0.1; lx <= w / 2 + 0.1 + 1e-6; lx += (w + 0.2) / Math.ceil((w + 0.2) / 0.25)) {
+        const p = wl(yaw, lx, lz, fx, fz), c = cellOf(p.x, p.z);
+        if (c < 0 || grid[c] || liqAt(p.x, p.z) > 0.12 || outAt(p.x, p.z) > 0.35 || occAt(p.x, p.z) || reserve(p.x, p.z)) return false;
+      }
+      return true;
+    };
+    const frontClear = (fx, fz, yaw, w) => {
+      for (const lz of [0.22, 0.05, -0.2]) for (let lx = -w / 2 - 0.1; lx <= w / 2 + 0.1 + 1e-6; lx += (w + 0.2) / Math.ceil((w + 0.2) / 0.25)) {
+        const p = wl(yaw, lx, lz, fx, fz), c = cellOf(p.x, p.z);
+        if (c < 0 || grid[c]) return false;
+      }
+      return true;
+    };
+    // would its roof hide walkable floor from the gameplay camera? (each spot of the roof, its own height; at the back out to its
+    // overhang: a back row house's high gable end over a street behind it)
+    const hidesH = (fx, fz, yaw, h, D) => {
+      const z0 = D.j, z1 = -h.d - (D.alongX ? 0.34 : 0.25);
+      for (let lz = z0; lz >= z1 - 1e-6; lz -= (z0 - z1) / Math.ceil((z0 - z1) / 0.5)) for (let lx = -D.W2 / 2; lx <= D.W2 / 2 + 1e-6; lx += D.W2 / Math.ceil(D.W2 / 0.5)) {
+        const p = wl(yaw, lx, lz, fx, fz), hh = houseHt(D, lx, lz) + 0.1;
+        if (satCount(L, p.x - 0.25, p.z - (hh - 0.5) * LV_PK + 0.3, p.x + 0.25, p.z - 0.2) > 0) return true;
+      }
+      return false;
+    };
+    // …and its chimney (0.64 m cap, top at D.yr + 0.66, higher than the ridge): the first spot of chimAt that hides nothing, else none
+    const chimK = (fx, fz, yaw, h, D) => {
+      for (let k = 0; k < 4; k++) {
+        const c = chimAt(D, h, k), p = wl(yaw, c.cx, c.cz, fx, fz);
+        if (!satCount(L, p.x - 0.32, p.z - (D.yr + 0.76 - 0.5) * LV_PK + 0.3, p.x + 0.32, p.z - 0.2)) return k;
+      }
+      return -1;
+    };
+    let lastPl = -1, lastRf = -1;
+    const colours = h => {
+      do h.pl = Math.floor(rnd() * TPL.length); while (h.pl === lastPl);
+      do h.rf = Math.floor(rnd() * TRF.length); while (h.rf === lastRf);
+      h.ac = Math.floor(rnd() * TAC.length); lastPl = h.pl; lastRf = h.rf;
+    };
+    // try a house of width w, depth up to dMax at the front centre f: 2 storeys, else 1; → the house or null. Never one facing north
+    // (it would stand on the camera side of its street: that side keeps its canals and gardens)
+    const tryHouse = (fx, fz, yaw, w, dMax, front) => {
+      if (Math.cos(yaw) < -0.45) return null;
+      let d = dMax;
+      while (d >= 2.9 && !fits(fx, fz, yaw, w, d, 0.2)) d -= 0.5;
+      if (d < 2.9) return null;
+      const h = { x: fx, z: fz, yaw, w, d, st: 2, gable: rnd() < 0.42, seed: 1 + Math.floor(rnd() * 1e6) };
+      for (const st of rnd() < 0.8 ? [2, 1] : [1]) {
+        h.st = st;
+        let D = houseDims(h);
+        if (hidesH(fx, fz, yaw, h, D) && h.gable) { h.gable = false; D = houseDims(h); }   // (eaves to the street: a lower roof over the front)
+        if (!hidesH(fx, fz, yaw, h, D)) {
+          h.chim = chimK(fx, fz, yaw, h, D);
+          colours(h);
+          h.door = clamp((rnd() - 0.5) * (w - 2.2), -w / 2 + 1.0, w / 2 - 1.0);
+          h.front = front; h.pd = pathD(fx, fz); h.shop = -1; h.lamp = false;
+          h.smoke = rnd() < 0.3;
+          occRect(fx, fz, yaw, w + 0.2, h.d + 0.1, 0.2 + D.j);
+          T.houses.push(h);
+          return h;
+        }
+      }
+      return null;
+    };
+    // the front rows: along every edge loop (the land lies to the left of each)
+    const FW = W * 2, FH = H * 2, W1 = FW + 1, cov = new Float32Array(W1 * (FH + 1));
+    const gc = (i, j) => (i < 0 || j < 0 || i >= W || j >= H ? 0 : grid[j * W + i]);
+    for (let b = 0; b <= FH; b++) for (let a = 0; a <= FW; a++) {
+      const x = a * 0.5 - 0.5, z = b * 0.5 - 0.5, i = Math.floor(x), j = Math.floor(z), tx = x - i, tz = z - j;
+      cov[b * W1 + a] = (gc(i, j) * (1 - tx) + gc(i + 1, j) * tx) * (1 - tz) + (gc(i, j + 1) * (1 - tx) + gc(i + 1, j + 1) * tx) * tz;
+    }
+    const loops = T.edgeLoops = isoLines(cov, FW, FH, 0.5, 0.45, 0).map(l => resample(l, 0.25)).filter(l => l.length > 24);   // (0.45: no lattice value sits on the level)
+    for (const pts of loops) {
+      const n = pts.length, at = s => { const f = clamp(s / 0.25, 0, n - 1.001), i = Math.floor(f), t = f - i; return { x: lerp(pts[i].x, pts[i + 1].x, t), z: lerp(pts[i].z, pts[i + 1].z, t), i }; };
+      const tot = (n - 1) * 0.25;
+      let s = rnd() * 1.2;
+      while (s < tot - 3) {
+        let h = null, used = 0;
+        for (const wk of [1, 0.72]) {   // (a narrower house where the wide one doesn't fit)
+          const w = (3.3 + rnd() * 1.9) * wk, A = at(s), Bq = at(s + w), tx = Bq.x - A.x, tz = Bq.z - A.z, cl = hyp(tx, tz);
+          if (w < 2.8 || cl < w * 0.86) continue;   // (a tight corner)
+          const ux = tx / cl, uz = tz / cl, nx = -uz, nz = ux;   // along the front · into the land
+          let bulge = -9;
+          for (let i = A.i; i <= Bq.i + 1 && i < n; i++) bulge = Math.max(bulge, (pts[i].x - A.x) * nx + (pts[i].z - A.z) * nz);
+          if (bulge > 1.3) continue;
+          const yaw = Math.atan2(-nx, -nz), mx = (A.x + Bq.x) / 2, mz = (A.z + Bq.z) / 2;
+          // the least setback whose front strip clears every floor cell (the cells' staircase runs off the smooth edge line)
+          let o = Math.max(0, bulge) + 0.25, okF = false;
+          for (; o < Math.max(0, bulge) + 1.5 && !okF; o += 0.15) okF = frontClear(mx + nx * o, mz + nz * o, yaw, cl);
+          if (!okF) continue;
+          h = tryHouse(mx + nx * (o - 0.15), mz + nz * (o - 0.15), yaw, cl, 4.2 + rnd() * 2.2, true);
+          if (h) { used = w; break; }
+        }
+        if (h) { RS.houses++; s += used + 0.22 + (rnd() < 0.25 ? 0.6 + rnd() * 0.8 : rnd() * 0.15); } else s += 0.5;
+      }
+    }
+    // the back row: roofs between the front houses and the city walls, each facing the nearest floor
+    for (let t = 0, made = 0, want = Math.round(RS.houses * 1.1); t < 6000 && made < want; t++) {
+      const x = 1 + rnd() * (W - 2), z = 1 + rnd() * (H - 2), c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] < 3.2 || dF[c] > 12 || outAt(x, z) > 0.2 || occAt(x, z)) continue;
+      const gx = dF[c + 1] - dF[c - 1], gz = dF[c + W] - dF[c - W], gl = hyp(gx, gz);
+      if (gl < 0.3) continue;
+      const yaw = Math.atan2(-gx / gl, -gz / gl) + (rnd() - 0.5) * 0.3, w = 3.6 + rnd() * 1.6;
+      if (tryHouse(x + Math.sin(yaw) * 2.4, z + Math.cos(yaw) * 2.4, yaw, w, 4 + rnd() * 1.6, false)) { made++; RS.back++; }
+    }
+    // the shops: the two front houses nearest the route become the simit bakery and the drum shop, a few more near it sell fruit,
+    // flowers, bread or shoes; wall lanterns on some fronts along the route; then everything is built
+    const fr = T.houses.filter(h => h.front && h.w >= 3.5).sort((a, b) => a.pd - b.pd);
+    fr.forEach((h, i) => { if (i < 2) h.shop = i; else if (h.pd < 9 && rnd() < 0.3) h.shop = 2 + Math.floor(rnd() * 4); if (h.shop >= 0) { RS.shops++; h.door = (h.door >= 0 ? 1 : -1) * (h.w / 2 - 0.95); } });   // (a shop's door to one side, its window to the other)
+    // (a wall lantern or a shop's hanging sign sticks out over the street: not where it would hide Feza on the street behind it)
+    const outHides = (h, lx, lz, top) => { const p = wl(h.yaw, lx, lz, h.x, h.z); return satCount(L, p.x - 0.5, p.z - 0.3 - (top - 0.5) * LV_PK, p.x + 0.5, p.z - 0.3) > 0; };
+    for (const h of T.houses) {
+      h.lamp = h.front && h.pd < 8.5 && rnd() < 0.42 && !outHides(h, h.door + (h.door > 0 || h.shop >= 0 ? -1 : 1) * 0.78, 0.27, 2.36); if (h.lamp) RS.lamps++;
+      if (h.shop >= 0) { h.hang = !outHides(h, h.door + (h.door > 0 ? 1 : -1) * 0.2, 0.55, 2.95); h.fb = !outHides(h, h.door, 0.55, 2.84); }
+      townHouse(B, h); if (h.shop >= 0 && h.shop < 2) RS['shop' + h.shop] = { x: +(h.x + Math.sin(h.yaw) * 3).toFixed(1), z: +(h.z + Math.cos(h.yaw) * 3).toFixed(1) }; }
+  }
+  // Bridges: stone (the river's always) — humped sandstone parapets with a pale coping along both deck edges (lower on the camera
+  // side), square end posts with a stone ball, lanterns on the river bridge — or wooden: plank decking laid over the street, railings
+  // on posts, piles standing in the water. Every post and rail stands on the deck's dry margin, never on walkable cells.
+  function townBridges(L, B, T) {
+    const { rnd, V, liqAt, occDisc, RS } = T;
+    for (const b of V.bridges) {
+      const P = b.pts, n = P.length, cum = [0];
+      for (let i = 1; i < n; i++) cum.push(cum[i - 1] + hyp(P[i].x - P[i - 1].x, P[i].z - P[i - 1].z));
+      const tot = cum[n - 1] || 1;
+      for (const sd of [1, -1]) {
+        const e = (sd > 0 ? b.e1c : b.e2c) || 1.8, side = [];
+        for (let i = 0; i < n; i++) { const q = P[i], nx = q.nx * sd, nz = q.nz * sd; side.push({ x: q.x + nx * (e + 0.2), z: q.z + nz * (e + 0.2), nx, nz, t: cum[i] / tot }); }
+        // (extend the ends a little so the parapet meets the quays)
+        for (const [k, k2] of [[0, 1], [n - 1, n - 2]]) { const a = side[k], c = side[k2], dx = a.x - c.x, dz = a.z - c.z, l = hyp(dx, dz) || 1; side[k] = Object.assign({}, a, { x: a.x + dx / l * 0.35, z: a.z + dz / l * 0.35 }); }
+        const south = side.some(q => q.nz > 0.4);   // this parapet lies between the camera and the deck (anywhere along a curved bridge)
+        for (const q of side) occDisc(q.x, q.z, 0.5);
+        if (b.stone) {
+          const hp = t => (south ? 0.4 + 0.12 * Math.sin(Math.PI * t) : 0.56 + 0.34 * Math.sin(Math.PI * t));
+          for (let i = 1; i < n; i++) {
+            const a = side[i - 1], c = side[i], l = hyp(c.x - a.x, c.z - a.z), ya = Math.atan2(c.x - a.x, c.z - a.z), h = hp((a.t + c.t) / 2), mx = (a.x + c.x) / 2, mz = (a.z + c.z) / 2;
+            dec(B, 'ramp', G.box(), mat4(mx, h / 2, mz, ya, 0.34, h, l + 0.06), lin(pick3(rnd, 0xf2dcbc, 0xeacfae, 0xf6e4c8)));
+            dec(B, 'ramp', G.rbox(), mat4(mx, h + 0.05, mz, ya, 0.44, 0.12, l + 0.1), lin(0xfff2dc));   // the coping
+          }
+          for (const k of [0, n - 1]) {   // end posts: a square pillar, a cap, a stone ball (a lantern on the river's bridge); a low one
+            // with just its cap where floor lies right behind it (camera rule)
+            const q = side[k], low = satCount(L, q.x - 0.45, q.z - 0.3 - (hp(q.t) + 0.36) * LV_PK, q.x + 0.45, q.z - 0.3) > 0, h = hp(q.t) + (low ? 0.08 : 0.36);
+            dec(B, 'ramp', G.box(), mat4(q.x, h / 2, q.z, Math.atan2(q.nx, q.nz), 0.56, h, 0.56), lin(0xf0d8b6));
+            dec(B, 'ramp', G.rbox(), mat4(q.x, h + 0.06, q.z, Math.atan2(q.nx, q.nz), 0.68, 0.14, 0.68), lin(0xfff2dc));
+            if (low) continue;
+            if (b.river && !satCount(L, q.x - 0.5, q.z - 0.3 - (h + 1.0 - 0.5) * LV_PK, q.x + 0.5, q.z - 0.3)) {   // (where the lantern hides no floor behind it)
+              dec(B, 'prop', MK(G.cyl(1, 1, 8)), mat4(q.x, h + 0.35, q.z, 0, 0.04, 0.5, 0.04), lin(0x2c3a36));
+              dec(B, 'window', G.box(), mat4(q.x, h + 0.72, q.z, 0.4, 0.24, 0.3, 0.24), lin(0xffffff));
+              dec(B, 'prop', MK(G.cone(4)), mat4(q.x, h + 0.93, q.z, Math.PI / 4 + 0.4, 0.2, 0.15, 0.2), lin(0x2c3a36));
+              B.lights.push({ x: q.x, y: h + 0.75, z: q.z, col: new THREE.Color(0xffc478), int: 2.6, dist: 7, fl: 0.2, ph: rnd() * 9 });
+              glowAt(B, q.x - q.nx * 0.8, q.z - q.nz * 0.8, 2.4, 0xffc070, 0.22);
+            } else dec(B, 'ramp', G.sphere(12, 8), mat4(q.x, h + 0.3, q.z, 0, 0.2), lin(0xfff4e0));
+          }
+        } else {
+          const hp = south ? 0.55 : 0.85;
+          let last = null;
+          for (let i = 0; i < n; i++) {   // posts ~1.1 m apart, two rails, a pile in the water under every other post
+            if (i % 2 && i !== n - 1) continue;
+            const q = side[i], end = i === 0 || i === n - 1;
+            dec(B, 'prop', G.box(), mat4(q.x, (hp + (end ? 0.2 : 0.06)) / 2, q.z, Math.atan2(q.nx, q.nz), 0.13, hp + (end ? 0.2 : 0.06), 0.13), lin(0xc89a68));
+            if (end) dec(B, 'prop', G.cone(4), mat4(q.x, hp + 0.3, q.z, Math.PI / 4, 0.1, 0.14, 0.1), lin(0xb88a58));
+            const px = q.x + q.nx * 0.12, pz = q.z + q.nz * 0.12;
+            if (liqAt(px, pz) > 0.5 || liqAt(px + q.nx * 0.3, pz + q.nz * 0.3) > 0.5) dec(B, 'prop', G.cyl(1, 1, 8), mat4(px, -0.45, pz, rnd(), 0.1, 1.0, 0.1), lin(0x9a7248));
+            if (last) { const l = hyp(q.x - last.x, q.z - last.z), ya = Math.atan2(q.x - last.x, q.z - last.z); for (const y of [hp * 0.45, hp - 0.04]) dec(B, 'prop', G.box(), mat4((q.x + last.x) / 2, y, (q.z + last.z) / 2, ya, 0.06, 0.09, l), lin(0xd8aa78)); }
+            last = q;
+          }
+        }
+      }
+      if (!b.stone) for (let s = 0.17; s < tot; s += 0.36) {   // plank decking across the deck, a little proud of the cobbles
+        let i = 1; while (i < n - 1 && cum[i] < s) i++;
+        const a = P[i - 1], c = P[i], t = clamp((s - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1), 0, 1), x = lerp(a.x, c.x, t), z = lerp(a.z, c.z, t);
+        const cx = x + a.nx * (b.e1c - b.e2c) / 2, cz = z + a.nz * (b.e1c - b.e2c) / 2, w = b.e1c + b.e2c + 0.5;
+        dec(B, 'prop', G.box(), mat4(cx, 0.012, cz, Math.atan2(a.nx, a.nz), 0.32, 0.024, w), lin(pick3(rnd, 0xf0d0a8, 0xe6c49a, 0xf6dcb8)));
+      }
+      for (const q of P) { const c = T.cellOf(q.x, q.z); if (c >= 0) B.noDec[c] = 1; }
+      RS.bridgeSt = (RS.bridgeSt || 0) + (b.stone ? 1 : 0);
+    }
+  }
+  const pick3 = (rnd, a, b, c) => { const r = rnd(); return r < 0.34 ? a : r < 0.67 ? b : c; };
+  // ── City walls ──
+  KIND.tTop = { mat: 'ramp', shadow: 'near', geo() {   // the walkway cap with a merlon (every other metre: tCap alone; merged into the ramp chunks)
+    const k = new Kit(); k.add(G.box(), 0xfff4e0, [0, 0.06, 0], 0, [1.42, 0.12, 1.02]); k.add(G.rbox(), 0xfaeede, [0, 0.4, 0], 0, [1.3, 0.58, 0.58]); return k.build(); } };
+  KIND.tCap = { mat: 'ramp', shadow: 'near', geo() { const k = new Kit(); k.add(G.box(), 0xfff4e0, [0, 0.06, 0], 0, [1.42, 0.12, 1.02]); return k.build(); } };
+  // A round wall tower (radius r, body height h): plinth, body, a string course, a corbelled crenellated top, a conical tiled roof with
+  // a golden ball and a fluttering pennant; two arrow slits and a crest banner toward the town (yaw: the town's side)
+  function townTower(B, x, z, r, h, yaw, roofCol, banner, pennCol) {
+    const put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(mat4(x, 0, z, yaw), m), col);
+    put('ramp', G.cyl(1, 1.06, 18), mat4(0, 0.3, 0, 0, r + 0.14, 0.6, r + 0.14), lin(0xe8d2b0));
+    put('ramp', G.cyl(1, 1, 18), mat4(0, h / 2, 0, 0, r, h, r), lin(0xf6e2c2));
+    put('ramp', G.cyl(1, 1, 18), mat4(0, h * 0.55, 0, 0, r + 0.05, 0.16, r + 0.05), lin(0xe4ccaa));
+    put('ramp', G.cyl(1, 0.92, 18), mat4(0, h + 0.2, 0, 0, r + 0.26, 0.4, r + 0.26), lin(0xfff0d8));
+    const nm = Math.max(8, Math.round(r * 5.5));
+    for (let i = 0; i < nm; i++) { const a = (i + 0.5) / nm * TAU; put('ramp', G.box(), mat4(Math.sin(a) * (r + 0.16), h + 0.64, Math.cos(a) * (r + 0.16), a, TAU * (r + 0.16) / nm * 0.55, 0.5, 0.26), lin(0xfaeede)); }
+    put('roofN', G.cone(18), mat4(0, h + 0.4 + r * 0.95, 0, 0, r + 0.4, r * 1.9, r + 0.4), lin(roofCol));
+    put('shiny', G.sphere(10, 8), mat4(0, h + 0.4 + r * 1.9 + 0.1, 0, 0, 0.13), lin(0xffcf4a));
+    put('prop', MK(G.cyl(1, 1, 6)), mat4(0, h + 0.4 + r * 1.9 + 0.55, 0, 0, 0.03, 0.9, 0.03), lin(0x6a5a50));
+    put('decor', flagGeo(1), mat4(0, h + 0.4 + r * 1.9 + 0.95, 0, -yaw + 0.6, 0.9), lin(pennCol));
+    for (const [a, y] of [[-0.5, h * 0.35], [0.45, h * 0.72]]) put('decor', G.box(), mat4(Math.sin(a) * (r + 0.01), y, Math.cos(a) * (r + 0.01), a, 0.12, 0.5, 0.05), lin(0x5a4a44));
+    if (banner) { const bx = x + Math.sin(yaw) * (r + 0.06), bz = z + Math.cos(yaw) * (r + 0.06); B.banners.push({ x: bx, z: bz, y: h * 0.62 + 0.6, yaw, hue: 2 + (banner & 1), s: 1.1 }); }
+  }
+  // Pennant flags (local: the pole top at 0, the flag toward +x in the XY plane; uv 40.. = fluttering in the decor shader, uv.y = how
+  // far from the pole): 0 a triangle for bunting · 1 a long swallow-tailed pennant
+  function flagGeo(v) {
+    const key = 'tFlag' + v;
+    if (R.geo[key]) return R.geo[key];
+    const g = new THREE.BufferGeometry(), P = v ? [0, 0, 0, 0, -0.34, 0, 0.78, -0.17, 0, 0, 0, 0, 0.78, -0.17, 0, 1, -0.02, 0, 0, -0.34, 0, 1, -0.32, 0, 0.78, -0.17, 0] : [0, 0, 0, 0.19, -0.3, 0, 0.38, 0, 0];
+    const pos = [], uv = [];
+    for (let i = 0; i < P.length; i += 3) { pos.push(P[i], P[i + 1], P[i + 2]); uv.push(40, v ? P[i] : -P[i + 1] / 0.3); }
+    const n = pos.length / 3;
+    for (let i = 0; i < n; i++) { pos.push(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]); uv.push(uv[i * 2], uv[i * 2 + 1]); }   // (the back face)
+    const idx = []; for (let i = 0; i < n; i += 3) { idx.push(i, i + 1, i + 2, n + i, n + i + 2, n + i + 1); }
+    const nor = []; for (let i = 0; i < n; i++) nor.push(0, 0, 1); for (let i = 0; i < n; i++) nor.push(0, 0, -1);
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Array(pos.length).fill(1), 3));
+    g.setIndex(idx);
+    return (R.geo[key] = keep(g));
+  }
+  // The city walls along V.wallPts (inward = the left of its direction): tall sandstone ramparts with merlons to the north and the
+  // sides, a low parapet on the camera (south) side, a water gate (open, two towers) where the river runs through, round towers
+  // every ~15 m where they hide no floor; the castle gate (Kale Kapısı) and its towers at the arena's north rim
+  function townWalls(L, B, T) {
+    const { rnd, V, liqAt, occDisc, RS } = T, Pw = V.wallPts;
+    if (!Pw || Pw.length < 10) return;
+    const ex = L.exit, n = Pw.length, seg = [];
+    for (let i = 1; i < n; i++) {
+      const a = Pw[i - 1], c = Pw[i], l = hyp(c.x - a.x, c.z - a.z);
+      if (l < 0.05) continue;
+      const ux = (c.x - a.x) / l, uz = (c.z - a.z) / l, mx = (a.x + c.x) / 2, mz = (a.z + c.z) / 2, inx = -uz, inz = ux;
+      const wet = liqAt(mx, mz) > 0.25 || liqAt(mx + inx * 0.7, mz + inz * 0.7) > 0.25 || liqAt(mx - inx * 0.7, mz - inz * 0.7) > 0.25;
+      const gate = !!ex && L.theme === 'town' && Math.abs(mx - ex.x) < 2.85 && mz > ex.z - 4.5 && mz < ex.z + 1;   // (behind Kale Kapısı's arch: its own opening)
+      let h = 0;
+      if (!wet && !gate) {
+        if (inz < -0.55) h = 1.05;   // the south wall: a low parapet (camera side)
+        else for (const hh of [4.6, 3.0, 1.6]) if (!hides(L, mx, mz, 0.75, 0, hh + 0.8, 0.2)) { h = hh; break; }
+      }
+      seg.push({ x: mx, z: mz, l, ya: Math.atan2(ux, uz), h, inx, inz, wet: wet || gate, water: wet, gate });
+    }
+    // heights: an opening (erode, then grow back within each segment's own limit, ±2 m), so the wall steps down in whole stretches
+    // and never shows single tall teeth; a tower stands where a tall stretch meets a lower one, if it hides nothing
+    const m = seg.length, h0 = seg.map(q => q.h), er = h0.slice();
+    for (let i = 0; i < m; i++) for (let d = -2; d <= 2; d++) { const j = (i + d + m) % m; if (!seg[j].wet && !seg[i].wet) er[i] = Math.min(er[i], h0[j]); }
+    for (let i = 0; i < m; i++) { if (seg[i].wet) continue; let v = 0; for (let d = -2; d <= 2; d++) { const j = (i + d + m) % m; if (!seg[j].wet) v = Math.max(v, er[j]); } seg[i].h = Math.min(h0[i], v); }
+    let k = 0, sinceT = 6 + rnd() * 6;
+    const towers = T.towers = [], seen = V.wallSeen = [];   // (seen: the built pieces, for tests: where a wall or a tower stands, y on its body)
+    const tower = (q, r, gap = 9) => {
+      if (towers.some(t => hyp(t.x - q.x, t.z - q.z) < gap) || (ex && L.theme === 'town' && hyp(ex.x - q.x, ex.z - q.z) < 5.5)) return false;   // (not against the gate's own towers)
+      let th = 0;
+      for (const hh of [7.2, 6.0, 5.0]) if (!hides(L, q.x, q.z, r + 0.2, 0, hh + r * 2.4, 0.2)) { th = hh; break; }
+      if (!th) return false;
+      towers.push({ x: q.x, z: q.z, r });
+      townTower(B, q.x, q.z, r, th, Math.atan2(q.inx, q.inz), pick3(rnd, 0x5a8ad0, 0xe8744a, 0x48a8a0), towers.length % 2 ? 1 : 2, pick3(rnd, 0xffd24a, 0xff6a8a, 0x5ab0ff));
+      occDisc(q.x, q.z, r + 0.5); RS.towers++; seen.push({ x: q.x, y: 1.5, z: q.z }, { x: q.x, y: 3, z: q.z });
+      return true;
+    };
+    const wallPiece = q => {   // one straight piece of rampart (q: {x, z, l, ya, h}) with its walkway cap, a merlon every other metre
+      occDisc(q.x, q.z, 0.9);
+      const tint = lin(0xffffff, 0.94 + rnd() * 0.1);
+      dec(B, 'ramp', G.box(), mat4(q.x, q.h / 2, q.z, q.ya, 1.3, q.h, q.l + 0.06), tint);
+      dec(B, 'ramp', kgeo(k++ % 2 ? 'tCap' : 'tTop'), mat4(q.x, q.h, q.z, q.ya), q.h < 1.2 ? lin(0xfff8ee) : null);
+      RS.walls++; seen.push({ x: q.x, y: Math.min(1.5, q.h * 0.75), z: q.z });
+    };
+    for (const q of seg) if (q.h) wallPiece(q);   // (a stretch left out, the gate's opening: nothing there keeps the ground)
+    // towers: every ~15 m along the tall stretches, on both banks of the water gate
+    for (let i = 0; i < seg.length; i++) {
+      const q = seg[i], nx = seg[(i + 1) % seg.length];
+      sinceT -= q.l;
+      if (q.h >= 3 && ((!q.wet && nx.water) || (i > 0 && seg[i - 1].water && !q.wet))) { if (tower(q, 1.35)) sinceT = 13; continue; }
+      if (q.h >= 3 && Math.abs(nx.h - q.h) >= 1.3 && !nx.wet && tower(q, 1.35, 6)) { sinceT = 12; continue; }   // (where it steps down)
+      if (q.h >= 3 && sinceT <= 0 && tower(q, 1.5)) sinceT = 13 + rnd() * 5;
+    }
+    // Kale Kapısı: two slim round towers flanking the portal's arch (their solids are placed in generate), a crenellated bridge
+    // over the arch with the town's sun crest, short walls back to the rampart
+    if (ex && L.theme === 'town') {
+      const put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(mat4(ex.x, 0, ex.z), m), col);
+      for (const sd of [-1, 1]) {
+        townTower(B, ex.x + sd * 2.85, ex.z - 0.25, 0.95, 5.6, 0, 0x7a5ad0, sd > 0 ? 1 : 2, 0xffd24a);
+        towers.push({ x: ex.x + sd * 2.85, z: ex.z - 0.25, r: 0.95 }); seen.push({ x: ex.x + sd * 2.85, y: 1.5, z: ex.z - 0.25 }, { x: ex.x + sd * 2.85, y: 3, z: ex.z - 0.25 });
+        let wz = -0.4;
+        while (wz > -6 && !T.occAt(ex.x + sd * 2.85, ex.z + wz - 0.9)) wz -= 0.25;
+        const len = -wz + 0.2;
+        put('ramp', G.box(), mat4(sd * 2.85, 2.1, -0.25 - len / 2, 0, 1.2, 4.2, len), lin(0xf2dcbc));
+      }
+      put('ramp', G.box(), mat4(0, 4.55, -0.25, 0, 4.6, 1.1, 1.1), lin(0xf6e2c2));
+      put('ramp', G.box(), mat4(0, 5.16, -0.25, 0, 4.8, 0.12, 1.3), lin(0xfff4e0));
+      for (let i = 0; i < 5; i++) put('ramp', G.rbox(), mat4((i - 2) * 0.9, 5.5, -0.25, 0, 0.5, 0.55, 1.1), lin(0xfaeede));
+      put('shiny', crestGeo(), mat4(0, 4.5, 0.32, 0, 0.9), null);
+      occDisc(ex.x, ex.z - 1.5, 2.2);
+      for (let j = Math.floor(ex.z - 14); j < ex.z; j++) for (let i = Math.floor(ex.x - 1.8); i <= ex.x + 1.8; i++) { const c = T.cellOf(i + 0.5, j + 0.5); if (c >= 0) B.noDec[c] = 1; }   // (no tufts on the road through it)
+    }
+    if (L.theme === 'town') townInnerWalls(L, B, T, seg, wallPiece);
+  }
+  // The old town wall (iç sur): the ring runs 7–9 m beyond the houses, and the gameplay camera over Feza sees only ≈ 7.5 m north and
+  // 6–9 m to each side (landscape), so along most of the main route no rampart would be on screen. Spurs come in from the ring's
+  // tall stretches toward the streets, each ending in a round tower by the kerb (else a short stretch of wall on its own): greedily
+  // the tower that brings a wall into view at the most route spots (every 3 m) still without one, ≥ 9 m from every other inner tower
+  // (6 m from the ring's); at most 6, and only until ≈ 44 % of the spots see a wall by this (cautious) estimate — each tower takes a
+  // house's place by the kerb. Every piece stands dry, off the floor and off what is kept clear (the arena's rim, the bridges' ends,
+  // the gate and its road), and hides no floor (camera rule: a tower's body is 3.4–5.6 m, a slim turret's 2.6–3.2 m, where the ground
+  // behind it allows). V.wallIn: their 1 m points (the minimap); RS.inner: counts for tests
+  function townInnerWalls(L, B, T, seg, wallPiece) {
+    const { rnd, V, dF, cellOf, nearLiq, outAt, occAt, occDisc, reserve, bridgeD, RS } = T, towers = T.towers, seen = V.wallSeen, W = L.W, ex = L.exit;
+    const path = L.path, spots = [], IN = RS.inner = { towers: 0, small: 0, walls: 0, spots: 0, seen: 0 };
+    V.wallIn = [];
+    { let acc = 0; for (let i = 1; i < path.length; i++) { const a = path[i - 1], c = path[i], l = hyp(c.x - a.x, c.z - a.z); for (let s = 0; s < l; s += 0.5) { acc += 0.5; if (acc >= 3) { acc = 0; spots.push({ x: a.x + (c.x - a.x) * s / l, z: a.z + (c.z - a.z) * s / l, ok: false }); } } } }
+    if (spots.length < 4) return;
+    // on screen from the gameplay camera over Feza at spot s (landscape ≈ 1.4:1, a 6 % margin)?
+    const cd = CAM.dist || 12.5, tf = Math.tan((camera.fov || 40) * Math.PI / 360) * 0.94, sp = Math.sin(LV_PITCH), cp = Math.cos(LV_PITCH);
+    const inView = (s, x, y, z) => { const vy = y - 0.9 - sp * cd, vz = z - s.z - cp * cd, dep = -vy * sp - vz * cp; return dep > 1 && Math.abs(vy * cp - vz * sp) < dep * tf && Math.abs(x - s.x) < dep * tf * 1.4; };
+    const mark = (x, y, z) => { for (const s of spots) if (!s.ok && inView(s, x, y, z)) s.ok = true; };
+    for (const w of seen) mark(w.x, w.y, w.z);
+    const gain = q => { let n = 0; for (const i of q.cov) if (!spots[i].ok) n++; return n; };
+    const noFl = (x, z, r) => !satCount(L, x - r, z - r, x + r, z + r);
+    const pieceOK = (x, z, endOK) => noFl(x, z, 0.8) && nearLiq(x, z, 0.8) < 0.08 && outAt(x, z) < 0.6 && !reserve(x, z) && (endOK || !occAt(x, z)) && !towers.some(t => hyp(t.x - x, t.z - z) < t.r + 0.9);
+    const pieceH = (x, z) => { for (const hh of [3.0, 2.4, 1.6]) if (!hides(L, x, z, 0.85, 0, hh + 0.8, 0.2)) return hh; return 0; };
+    // a round tower (r 1.2, body 3.4–5.6 m), else a slim turret (r 0.85, body 2.6–3.2 m) where one may stand here → {r, th} or null
+    const SIZES = [[1.2, [5.6, 4.8, 4.0, 3.4]], [0.85, [3.2, 2.6]]];
+    const towerAt = (x, z) => {
+      if (x < 3 || z < 3 || x > W - 3 || z > L.H - 3 || outAt(x, z) > 0.25 || occAt(x, z) || reserve(x, z) || (ex && hyp(ex.x - x, ex.z - z) < 8) || hyp(L.start.x - x, L.start.z - z) < 5 || bridgeD(x, z) < 3.5) return null;
+      if (towers.some(t => hyp(t.x - x, t.z - z) < (t.inner ? 9 : 6))) return null;
+      for (const [r, hs] of SIZES) {
+        if (!noFl(x, z, r + 0.35) || noFl(x, z, r + 3.2) || nearLiq(x, z, r + 0.5) > 0.08) continue;   // (by a street, dry)
+        let bad = false;
+        for (let a = 0; a < 8 && !bad; a++) { const qx = x + Math.cos(a * 0.785) * (r + 0.3), qz = z + Math.sin(a * 0.785) * (r + 0.3); if (occAt(qx, qz) || reserve(qx, qz)) bad = true; }
+        if (bad) continue;
+        for (const th of hs) if (!hides(L, x, z, r + 0.2, 0, th + r * 2.4, 0.2)) return { r, th };
+      }
+      return null;
+    };
+    // a straight run of wall pieces (≈ 1 m) from (x0, z0) along (ux, uz) for len metres, all one height (≤ hMax) → the pieces or null
+    const run = (x0, z0, ux, uz, len, toRing, hMax) => {
+      const n = Math.max(1, Math.round(len)), l = len / n, out = [];
+      let h = hMax;
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) * l, x = x0 + ux * t, z = z0 + uz * t, endOK = toRing && t > len - 1.6;
+        if (!pieceOK(x, z, endOK) || !pieceOK(x - uz * 0.55, z + ux * 0.55, endOK) || !pieceOK(x + uz * 0.55, z - ux * 0.55, endOK)) return null;
+        h = Math.min(h, pieceH(x, z));
+        if (h < 1.6) return null;
+        out.push({ x, z, l, ya: Math.atan2(ux, uz) });
+      }
+      for (const q of out) q.h = h;
+      return out;
+    };
+    const cand = [];
+    for (let z = 3; z < L.H - 3; z += 0.5) for (let x = 3; x < W - 3; x += 0.5) {
+      const c = cellOf(x, z);
+      if (c < 0 || dF[c] < 1.2 || dF[c] > 5) continue;
+      const t = towerAt(x, z);
+      if (!t) continue;
+      const cov = []; spots.forEach((s, i) => { if (!s.ok && (inView(s, x, 1.5, z) || inView(s, x, 2.6, z))) cov.push(i); });   // (the spots it would show a tower at)
+      if (cov.length >= 2) cand.push({ x, z, r: t.r, th: t.th, cov });
+    }
+    IN.cand = cand.length;
+    for (let guard = 0; guard < 60 && IN.towers < 6 && spots.filter(s => s.ok).length < spots.length * 0.44; guard++) {   // (enough: every house kept counts too)
+      let best = null;
+      for (const q of cand) {
+        if (q.dead) continue;
+        if (towers.some(t => hyp(t.x - q.x, t.z - q.z) < (t.inner ? 9 : 6))) { q.dead = true; continue; }
+        const g = gain(q);
+        if (g < 2) continue;
+        const sc = g + q.r * 0.8 + q.th * 0.1 + rnd() * 0.3;
+        if (!best || sc > best.sc) best = { q, sc };
+      }
+      if (!best) break;
+      const q = best.q; q.dead = true;
+      const t = towerAt(q.x, q.z);   // (a spur built since may have taken its ground)
+      if (!t) continue;
+      const { r, th } = t, c = cellOf(q.x, q.z), gx = dF[c + 1] - dF[c - 1], gz = dF[c + W] - dF[c - W], gl = hyp(gx, gz) || 1, ox = gx / gl, oz = gz / gl;   // (ox, oz): away from the floor
+      // the spur: straight out to the nearest tall stretch of the ring within 8 m (roughly away from the floor), else a short stub
+      let pcs = null;
+      const ring = seg.filter(s => s.h >= 1.6 && !s.wet && hyp(s.x - q.x, s.z - q.z) < 8 && ((s.x - q.x) * ox + (s.z - q.z) * oz) / (hyp(s.x - q.x, s.z - q.z) || 1) > 0.35)
+        .sort((a, b) => hyp(a.x - q.x, a.z - q.z) - hyp(b.x - q.x, b.z - q.z));
+      for (const s of ring.slice(0, 8)) {
+        const d = hyp(s.x - q.x, s.z - q.z), ux = (s.x - q.x) / d, uz = (s.z - q.z) / d;
+        if ((pcs = run(q.x + ux * r * 0.6, q.z + uz * r * 0.6, ux, uz, d - r * 0.6 - 0.3, true, th - 0.6))) break;
+      }
+      if (!pcs) for (const len of [4.5, 3]) if ((pcs = run(q.x + ox * r * 0.6, q.z + oz * r * 0.6, ox, oz, len, false, th - 0.6))) break;
+      townTower(B, q.x, q.z, r, th, Math.atan2(-ox, -oz), pick3(rnd, 0x5a8ad0, 0xe8744a, 0x48a8a0), IN.towers % 2 ? 1 : 2, pick3(rnd, 0xffd24a, 0xff6a8a, 0x5ab0ff));   // (its crest banner toward the street)
+      towers.push({ x: q.x, z: q.z, r, inner: true }); occDisc(q.x, q.z, r + 0.4); IN.towers++; if (r < 1) IN.small++;
+      seen.push({ x: q.x, y: 1.5, z: q.z }, { x: q.x, y: 2.6, z: q.z }); mark(q.x, 1.5, q.z); mark(q.x, 2.6, q.z); V.wallIn.push({ x: q.x, z: q.z });
+      if (pcs) for (const p of pcs) { wallPiece(p); mark(p.x, Math.min(1.5, p.h * 0.75), p.z); V.wallIn.push({ x: p.x, z: p.z }); IN.walls++; }
+    }
+    IN.spots = spots.length; IN.seen = spots.filter(s => s.ok).length;
+  }
+  // The town's crest: a smiling golden sun on a round sky-blue shield with a gold rim (local: facing +z, radius ≈0.55)
+  function crestGeo() {
+    if (R.geo.tCrest) return R.geo.tCrest;
+    const k = new Kit(), fz = [Math.PI / 2, 0, 0];
+    k.add(G.cyl(1, 1, 24), 0x4a8ae0, [0, 0, 0], fz, [0.55, 0.06, 0.55]);
+    k.add(G.torus(TAU, 0.08, 28), 0xffd24a, [0, 0, 0.03], 0, 0.55);
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; k.add(G.cone(4), 0xffc83a, [Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0.05], [0, 0, a - Math.PI / 2], [0.07, 0.14, 0.03]); }
+    k.add(G.cyl(1, 1, 20), 0xffd84a, [0, 0, 0.06], fz, [0.22, 0.04, 0.22]);
+    for (const sx of [-1, 1]) { k.add(G.sphere(8, 6), 0x5a3a20, [sx * 0.075, 0.05, 0.09], 0, [0.025, 0.035, 0.01]); k.add(G.sphere(8, 6), 0xff9a8a, [sx * 0.13, -0.03, 0.085], 0, [0.035, 0.022, 0.01]); }
+    k.add(G.torus(Math.PI * 0.8, 0.2, 12), 0x8a4a2a, [0, -0.02, 0.09], [0, 0, Math.PI * 1.1], 0.08);
+    return (R.geo.tCrest = keep(k.build()));
+  }
+  // ── Surlu Şehir: the squares (fountain, wells, market stalls) and the street furniture ──
+  // Falling water (the fountain's curtains and jet): streaks sliding down a see-through sheet (uv.y 0 at the lip → 1 at the foot)
+  const FALLW_VS = `varying vec2 vU; varying float vFogD; void main() { vU = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vFogD = -mv.z; gl_Position = projectionMatrix * mv; }`;
+  const FALLW_FS = `uniform float uTime, fogNear, fogFar; uniform vec3 fogColor; uniform sampler2D tNoise; varying vec2 vU; varying float vFogD;
+    void main() {
+      float s = texture2D(tNoise, vec2(vU.x * 3.0, vU.y * 0.7 - uTime * 1.2)).g, s2 = texture2D(tNoise, vec2(vU.x * 8.0 + 0.3, vU.y * 1.4 - uTime * 2.0)).b;
+      float a = (0.3 + 0.55 * smoothstep(0.35, 0.75, s)) * smoothstep(0.0, 0.1, vU.y) * (1.0 - 0.5 * smoothstep(0.75, 1.0, vU.y));
+      vec3 col = mix(vec3(0.6, 0.88, 1.0), vec3(1.0), smoothstep(0.45, 0.85, s2)) * 1.2;
+      col = mix(col, fogColor, smoothstep(fogNear, fogFar, vFogD));
+      gl_FragColor = vec4(col, a);
+      #include <colorspace_fragment>
+    }`;
+  function fallWMat() {
+    return R.mat.fallW || (R.mat.fallW = keep(new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uTime: TIME.u, tNoise: { value: texOK() && TEX.noise ? TEX.noise : blackTex() } }, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)),
+      vertexShader: FALLW_VS, fragmentShader: FALLW_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: true,
+    })));
+  }
+  // The fountain: a round glossy cream-stone basin with a moulded rim, clear water in it, a column with a scalloped bowl, the town's golden
+  // smiling sun on top; a water curtain falls from the bowl, a little jet plays over the sun; sparkles, now and then a glittery splash
+  function townFountain(L, B, T, f) {
+    const { rnd } = T, M = mat4(f.x, 0, f.z, rnd() * TAU), put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+    const R0 = f.r;
+    put('shiny', R.geo.tBasin || (R.geo.tBasin = keep(new THREE.LatheGeometry(v2s([[R0 - 0.2, 0.18], [R0 - 0.2, 0.52], [R0 - 0.14, 0.6], [R0 + 0.02, 0.62], [R0 + 0.08, 0.54], [R0, 0.46], [R0 + 0.02, 0.1], [R0 + 0.12, 0.0]]), 28))), new THREE.Matrix4(), lin(0xf6e6cc));
+    put('shiny', G.cyl(1, 1, 24), mat4(0, 0.1, 0, 0, R0 - 0.15, 0.2, R0 - 0.15), lin(0xd8c8a8));
+    put('shiny', G.cyl(0.85, 1, 12), mat4(0, 0.8, 0, 0, 0.22, 0.8, 0.22), lin(0xf6ead6));
+    put('shiny', R.geo.tBowl || (R.geo.tBowl = keep(new THREE.LatheGeometry(v2s([[0.2, 1.0], [0.5, 1.1], [0.66, 1.22], [0.7, 1.3], [0.62, 1.3], [0.2, 1.22]]), 20))), new THREE.Matrix4(), lin(0xf8ecd6));
+    put('shiny', G.cyl(0.8, 1, 10), mat4(0, 1.5, 0, 0, 0.12, 0.45, 0.12), lin(0xf6ead6));
+    const face = mat4(f.x, 1.95, f.z, 0, 1);   // the sun always looks at the camera (south)
+    for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; dec(B, 'gold', G.cone(6), new THREE.Matrix4().multiplyMatrices(face, mat4(Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0, 0, 0.07, 0.2, 0.07, 0, a - Math.PI / 2)), null); }
+    dec(B, 'gold', G.sphere(16, 12), new THREE.Matrix4().multiplyMatrices(face, mat4(0, 0, 0, 0, 0.26, 0.26, 0.2)), null);
+    for (const sx of [-1, 1]) {
+      dec(B, 'decor', G.sphere(8, 6), new THREE.Matrix4().multiplyMatrices(face, mat4(sx * 0.085, 0.05, 0.19, 0, 0.03, 0.04, 0.02)), lin(0x5a3a20));
+      dec(B, 'decor', G.sphere(8, 6), new THREE.Matrix4().multiplyMatrices(face, mat4(sx * 0.15, -0.04, 0.17, 0, 0.045, 0.03, 0.02)), lin(0xff9a8a));
+    }
+    dec(B, 'decor', G.torus(Math.PI * 0.8, 0.22, 12), new THREE.Matrix4().multiplyMatrices(face, mat4(0, -0.03, 0.19, 0, 0.09, 0.09, 0.09, 0, Math.PI * 1.1)), lin(0x8a4a2a));
+    // water: the basin's and the bowl's surfaces (the still-water shader), the falling curtain and the jet
+    const wg = new Kit(); wg.add(G.cyl(1, 1, 28), 0xffffff, [0, 0.47, 0], 0, [R0 - 0.19, 0.02, R0 - 0.19]); wg.add(G.cyl(1, 1, 20), 0xffffff, [0, 1.26, 0], 0, [0.62, 0.02, 0.62]);
+    const wgeo = wg.build(); B.dispose.push(wgeo);
+    const wm = waterMat(true), wmesh = new THREE.Mesh(wgeo, wm); wmesh.position.set(f.x, 0, f.z); wmesh.receiveShadow = true; wmesh.name = 'fountain-water';
+    B.g.add(wmesh);
+    const cg = R.geo.tCurtain || (R.geo.tCurtain = keep(new THREE.LatheGeometry(v2s([[0.71, 1.29], [0.76, 1.2], [0.8, 0.95], [0.84, 0.7], [0.88, 0.47]]), 28)));
+    const jg = R.geo.tJet || (R.geo.tJet = keep(new THREE.LatheGeometry(v2s([[0.02, 2.55], [0.09, 2.5], [0.12, 2.35], [0.08, 2.16]]), 12)));
+    for (const g of [cg, jg]) { const m = new THREE.Mesh(g, fallWMat()); m.position.set(f.x, 0, f.z); m.renderOrder = 2; m.name = 'fountain-fall'; B.g.add(m); }
+    for (let n = 0; n < 16; n++) { const a = rnd() * TAU, r = 0.8 + rnd() * 0.25; B.pts.add.push({ x: f.x + Math.cos(a) * r, y: 0.5 + rnd() * 0.7, z: f.z + Math.sin(a) * r, kind: 2, ph: rnd(), size: 0.14, prm: 0.4 + rnd() * 0.4, col: lin(0xc8f0ff, 1.8) }); }
+    for (let n = 0; n < 6; n++) { const a = rnd() * TAU, r = rnd() * (R0 - 0.4); B.pts.add.push({ x: f.x + Math.cos(a) * r, y: 0.5, z: f.z + Math.sin(a) * r, kind: 8, ph: rnd(), size: 0.18, prm: 0.5 + rnd() * 0.5, col: lin(0xffffff, 1.6) }); }
+    glowAt(B, f.x, f.z + 0.5, R0 + 1.6, 0xbfe8ff, 0.12);
+    let ft = 1;
+    B.anim.push((dt, hx, hz) => {
+      if ((ft -= dt) > 0 || hyp(hx - f.x, hz - f.z) > 12 || typeof FX === 'undefined' || !FX.burst) return;
+      ft = 1.4 + Math.random() * 1.2;
+      const a = Math.random() * TAU;
+      FX.burst('sparkle', f.x + Math.cos(a) * 0.85, 0.55, f.z + Math.sin(a) * 0.85, { count: 5, color: '#bff0ff' });
+    });
+    T.RS.fountain = 1;
+  }
+  // A well: a round stone wall with water in it, two posts, a tiled little roof, the winch and its bucket (local: roof ridge along x)
+  function townWell(L, B, T, w) {
+    const M = mat4(w.x, 0, w.z, w.ry), put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+    put('ramp', wellRingGeo(), new THREE.Matrix4(), lin(0xf2e0c4));
+    put('shiny', G.cyl(1, 1, 22), mat4(0, 0.42, 0, 0, 0.63, 0.02, 0.63), lin(0x3a7ab8, 0.7));
+    for (const sd of [-1, 1]) put('prop', G.box(), mat4(sd * 0.8, 1.2, 0, 0, 0.12, 2.1, 0.12), lin(0xc49a6a));
+    put('prop', G.cyl(1, 1, 10), mat4(0, 1.75, 0, 0, 0.05, 1.72, 0.05, 0, Math.PI / 2), lin(0xa87a4a));
+    const rs = boxUV(1.95, 0.08, 0.7, 2); B.tmpGeo.push(rs);
+    for (const sd of [-1, 1]) put('roofN', rs, mat4(0, 2.42, sd * 0.28, 0, 1, 1, 1, sd * 0.75, 0), lin(pick3(T.rnd, 0xe8744a, 0x5a8ad0, 0x48a8a0)));
+    put('decor', G.cyl(1, 1, 5), mat4(0.1, 1.42, 0, 0, 0.012, 0.64, 0.012), lin(0x6a5a40));
+    put('prop', kgeo('barrel'), mat4(0.1, 0.98, 0, 0, 0.36, 0.36, 0.36), lin(0xffffff));
+    for (let n = 0; n < 4; n++) { const a = n / 4 * TAU + 0.4; put('decor', flowerGeo((n * 3 + 1) % FLOWER_COL.length), mat4(Math.cos(a) * 1.05, 0, Math.sin(a) * 1.05, a, 0.9), null); }
+  }
+  // Market stall (local: facing +z, 2.1 m wide): a wooden counter with a striped cloth, four posts, a striped sloping awning with a
+  // scalloped hem, the goods: 0 fruit crates · 1 simit and bread · 2 flower buckets · 3 toy drums and tambourines
+  function stallData(v) {
+    const key = 'tStall' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('prop', 'decor', 'shiny', 'gloss'), rnd = mulberry32(5300 + v), c0 = [0xe05050, 0x3a8ad8, 0xf07aa0, 0x3aa878][v], c1 = 0xfff8f0;
+    K.prop.add(G.box(), 0xe8c498, [0, 0.82, 0], 0, [2.0, 0.07, 0.86]);   // the counter top
+    K.decor.add(G.box(), c0, [0, 0.45, 0.43], 0, [2.0, 0.7, 0.03]);
+    for (let i = 0; i < 5; i++) K.decor.add(G.box(), c1, [(i - 2) * 0.4, 0.45, 0.445], 0, [0.16, 0.7, 0.02]);   // cloth stripes
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) K.prop.add(G.box(), 0xc89a68, [sx * 0.96, sz < 0 ? 1.18 : 1.0, sz * 0.4], 0, [0.09, sz < 0 ? 2.36 : 2.0, 0.09]);
+    const n = 8, aw = 2.3;
+    for (let i = 0; i < n; i++) {
+      const x = (i + 0.5 - n / 2) * aw / n;
+      K.decor.add(G.box(), i % 2 ? c1 : c0, [x, 2.2, 0.08], [0.34, 0, 0], [aw / n + 0.004, 0.035, 1.3]);
+      K.decor.add(halfCyl(), i % 2 ? c1 : c0, [x, 1.92, 0.74], [0, Math.PI / 2, -Math.PI / 2], [aw / n / 2, 0.02, aw / n / 2]);
+    }
+    if (v === 0) for (let c = 0; c < 3; c++) {   // three crates of fruit
+      const cx = (c - 1) * 0.62, col = [0xe8323e, 0xff9a2a, 0x8ad040][c];
+      K.prop.add(G.box(), 0xd8b080, [cx, 0.96, 0], 0, [0.54, 0.2, 0.62]);
+      for (let i = 0; i < 9; i++) K.gloss.add(G.sphere(10, 8), col, [cx + ((i % 3) - 1) * 0.16 + (rnd() - 0.5) * 0.03, 1.1 + (i > 5 ? 0.06 : 0), ((i / 3 | 0) - 1) * 0.17], 0, 0.085);
+    } else if (v === 1) {
+      for (let i = 0; i < 6; i++) K.shiny.add(G.torus(TAU, 0.42, 16), 0xd08a3a, [-0.55 + (i % 3) * 0.2, 0.9 + (i / 3 | 0) * 0.07, (i % 2) * 0.1], [Math.PI / 2 + (rnd() - 0.5) * 0.3, 0, rnd()], 0.12);
+      K.prop.add(G.cyl(1, 1, 12), 0xc89a68, [0.35, 0.87, 0], 0, [0.36, 0.04, 0.36]);
+      for (let i = 0; i < 4; i++) K.shiny.add(G.capsule(1, 10), 0xd89a50, [0.25 + (i % 2) * 0.2, 0.96, (i / 2 | 0) * 0.2 - 0.1], [0, rnd(), Math.PI / 2], [0.06, 0.12, 0.06]);
+      for (let i = 0; i < 5; i++) K.shiny.add(G.torus(TAU, 0.42, 16), 0xc8783a, [0.7, 0.9 + i * 0.06, 0.1], [Math.PI / 2, 0, 0], 0.1);   // a stack
+    } else if (v === 2) for (let c = 0; c < 4; c++) {
+      const cx = (c - 1.5) * 0.46;
+      K.shiny.add(G.cyl(1, 0.85, 12), 0x8ab0c8, [cx, 0.98, 0], 0, [0.16, 0.26, 0.16]);
+      for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; K.decor.add(G.ico(0), [0xff6a8a, 0xffd84a, 0xffffff, 0xb88af0][(c + i) % 4], [cx + Math.cos(a) * 0.1, 1.2 + (i % 2) * 0.06, Math.sin(a) * 0.1], [a, a, 0], 0.07); }
+      K.decor.add(G.octa(), 0x4caa3c, [cx, 1.14, 0], 0, [0.14, 0.06, 0.14]);
+    } else for (let c = 0; c < 3; c++) {
+      const cx = (c - 1) * 0.6, col = [0xe0484a, 0x3a8ad8, 0xf0b030][c];
+      K.shiny.add(G.cyl(1, 1, 16), col, [cx, 1.0, 0], 0, [0.2, 0.28, 0.2]);
+      for (const y of [0.86, 1.14]) K.shiny.add(G.cyl(1, 1, 16), 0xfff6e8, [cx, y, 0], 0, [0.205, 0.03, 0.205]);
+      K.gloss.add(G.torus(TAU, 0.18, 16), 0xffd24a, [cx + 0.1, 1.2, 0.25], [1.2, 0, 0], 0.13);   // a tambourine leaning on it
+    }
+    return (R.geo[key] = buildKits(K));
+  }
+  // Street furniture (local: facing +z): a lantern post (the lantern: a pooled light) · a bench · hay bales · a handcart · a tree in a
+  // big terracotta pot · a flower bed · barrels and crates
+  function lampPostData() {
+    if (R.geo.tLamp) return R.geo.tLamp;
+    const K = kits('prop', 'window', 'shiny'), iron = 0x2c3a36;
+    K.prop.add(MK(G.cyl(1, 1.3, 10)), iron, [0, 0.15, 0], 0, [0.15, 0.3, 0.15]);
+    K.prop.add(MK(G.cyl(0.75, 1, 10)), iron, [0, 1.35, 0], 0, [0.055, 2.4, 0.055]);
+    K.prop.add(MK(G.box()), iron, [0, 2.52, 0], 0, [0.3, 0.05, 0.3]);
+    K.window.add(G.box(), 0xffffff, [0, 2.74, 0], 0, [0.22, 0.36, 0.22]);
+    for (const [ox, oz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) K.prop.add(MK(G.box()), iron, [ox * 0.12, 2.74, oz * 0.12], 0, [0.03, 0.4, 0.03]);
+    K.prop.add(MK(G.cone(4)), iron, [0, 3.0, 0], [0, Math.PI / 4, 0], [0.2, 0.16, 0.2]);
+    K.shiny.add(G.sphere(8, 6), 0xffcf4a, [0, 3.12, 0], 0, 0.05);
+    return (R.geo.tLamp = buildKits(K));
+  }
+  function benchData() {
+    if (R.geo.tBench) return R.geo.tBench;
+    const K = kits('prop', 'shiny'), c = 0x3aa878;
+    K.shiny.add(G.box(), c, [0, 0.45, 0], 0, [1.4, 0.07, 0.42]);
+    K.shiny.add(G.box(), c, [0, 0.8, -0.2], [-0.15, 0, 0], [1.4, 0.28, 0.06]);
+    for (const sx of [-0.6, 0.6]) { K.prop.add(MK(G.box()), 0x2c3a36, [sx, 0.22, 0.1], 0, [0.07, 0.44, 0.07]); K.prop.add(MK(G.box()), 0x2c3a36, [sx, 0.45, -0.18], 0, [0.07, 0.9, 0.07]); }
+    return (R.geo.tBench = buildKits(K));
+  }
+  function hayData() {
+    if (R.geo.tHay) return R.geo.tHay;
+    const K = kits('decor');
+    for (const [ox, oz, oy] of [[-0.45, 0, 0.36], [0.45, 0.1, 0.36], [0, 0.05, 0.98]]) {
+      K.decor.add(G.cyl(1, 1, 16), 0xf0cc60, [ox, oy, oz], [0, 0, Math.PI / 2], [0.36, 0.95, 0.36]);
+      for (const b of [-0.25, 0.25]) K.decor.add(G.torus(TAU, 0.06, 16), 0xb08a3a, [ox + b, oy, oz], [0, Math.PI / 2, 0], 0.37);
+    }
+    return (R.geo.tHay = buildKits(K));
+  }
+  function cartData(v) {
+    const key = 'tCart' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('prop', 'gloss', 'decor'), rnd = mulberry32(5400 + v);
+    K.prop.add(G.box(), 0xd8aa78, [0, 0.62, 0], 0, [1.1, 0.08, 1.5]);
+    for (const sx of [-1, 1]) K.prop.add(G.box(), 0xc89a68, [sx * 0.55, 0.78, 0], 0, [0.06, 0.3, 1.5]);
+    for (const sz of [-1, 1]) K.prop.add(G.box(), 0xc89a68, [0, 0.78, sz * 0.75], 0, [1.1, 0.3, 0.06]);
+    for (const sx of [-1, 1]) {   // two big wheels
+      K.prop.add(G.torus(TAU, 0.14, 20), 0x9a6a3a, [sx * 0.66, 0.42, 0.1], [0, Math.PI / 2, 0], 0.4);
+      for (let i = 0; i < 4; i++) K.prop.add(G.box(), 0x9a6a3a, [sx * 0.66, 0.42, 0.1], [i * Math.PI / 4, 0, 0], [0.04, 0.78, 0.05]);
+      K.prop.add(G.box(), 0xb88a58, [sx * 0.3, 0.55, 1.3], 0, [0.06, 0.06, 1.2]);   // the shafts
+    }
+    if (v === 0) for (let i = 0; i < 14; i++) K.gloss.add(G.sphere(10, 8), [0xe8323e, 0xff9a2a, 0xe8323e][i % 3], [(rnd() - 0.5) * 0.8, 0.78 + rnd() * 0.18, (rnd() - 0.5) * 1.2], 0, 0.12);   // apples
+    else if (v === 1) for (let i = 0; i < 4; i++) K.gloss.add(G.sphere(12, 8), 0xf08a2a, [(i % 2 - 0.5) * 0.46, 0.84, ((i / 2) | 0) * 0.55 - 0.28], 0, [0.24, 0.19, 0.24]);   // pumpkins
+    else K.decor.add(G.cyl(1, 1, 16), 0xf0cc60, [0, 0.95, 0], [0, 0, Math.PI / 2], [0.34, 0.9, 0.34]);   // a hay bale
+    return (R.geo[key] = buildKits(K));
+  }
+  function potTreeData(v) {
+    const key = 'tPotTree' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('shiny', 'foliage'), pot = [0xe0845a, 0x5a8ad0, 0x4aa88a][v % 3];
+    K.shiny.add(R.geo.tPot || (R.geo.tPot = keep(new THREE.LatheGeometry(v2s([[0.001, 0], [0.34, 0], [0.44, 0.1], [0.5, 0.5], [0.56, 0.58], [0.55, 0.64], [0.001, 0.6]]), 16))), pot);
+    K.shiny.add(G.torus(TAU, 0.12, 16), 0xffd35a, [0, 0.6, 0], [Math.PI / 2, 0, 0], 0.55);
+    K.foliage.add(G.cyl(0.7, 1, 8), 0xd8c6b2, [0, 1.05, 0], 0, [0.07, 0.9, 0.07]);
+    const greens = [0x5fb444, 0x6cc04a, 0x7acb52];
+    [[0, 1.85, 0, 0.55], [0.3, 1.6, 0.12, 0.36], [-0.28, 1.62, -0.1, 0.36], [0.05, 2.2, 0.02, 0.38]].forEach((c, i) => K.foliage.add(leafBlob1(i % 3), greens[(i + v) % 3], [c[0], c[1], c[2]], [0.4 * i, i, 0], [c[3], c[3] * 0.92, c[3]]));
+    if (v === 1) for (let i = 0; i < 9; i++) { const a = i * 0.8, e = 0.2 + (i % 3) * 0.3; K.foliage.add(marked(G.sphere(6, 4), 20), i % 2 ? 0xff9ac8 : 0xffffff, [Math.cos(a) * 0.5 * Math.cos(e), 1.85 + 0.45 * Math.sin(e), Math.sin(a) * 0.5 * Math.cos(e)], 0, 0.06); }
+    if (v === 2) for (let i = 0; i < 8; i++) { const a = i * 0.9, e = 0.1 + (i % 3) * 0.35; K.foliage.add(marked(G.sphere(6, 4), 20), 0xff8a2a, [Math.cos(a) * 0.52 * Math.cos(e), 1.85 + 0.46 * Math.sin(e), Math.sin(a) * 0.52 * Math.cos(e)], 0, 0.07); }   // oranges
+    return (R.geo[key] = buildKits(K));
+  }
+  function barrelsData(v) {   // a few (not breakable) barrels and crates stacked by a house
+    const key = 'tBarrels' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('prop'), bg = kgeo('barrel'), cg = kgeo('crate');
+    if (v === 0) { K.prop.add(bg, 0xffffff, [-0.36, 0, 0], 0, 1); K.prop.add(bg, 0xf4ece0, [0.36, 0, 0.08], [0, 0.8, 0], 1); K.prop.add(bg, 0xffffff, [0, 0.78, 0.04], [0, 0.3, 0], 0.92); }
+    else { K.prop.add(cg, 0xffffff, [0, 0, 0], [0, 0.1, 0], 1); K.prop.add(cg, 0xfff0e0, [0.72, 0, 0.1], [0, -0.2, 0], 0.86); K.prop.add(cg, 0xffffff, [0.1, 0.78, 0.05], [0, 0.4, 0], 0.8); }
+    return (R.geo[key] = buildKits(K));
+  }
+  // Heights (top) and footprints (radius) of the furniture pieces, for the camera test
+  const TFURN = { lamp: { r: 0.25, h: 3.15 }, bench: { r: 0.72, h: 0.95 }, hay: { r: 0.95, h: 1.35 }, cart: { r: 0.95, h: 1.15 }, tree: { r: 0.62, h: 2.6 }, barrels: { r: 0.75, h: 1.5 }, bed: { r: 0.8, h: 0.4 } };
+  function putFurn(B, id, x, z, yaw, v, s = 1) {
+    const m = mat4(x, 0, z, yaw, s);
+    if (id === 'lamp') {
+      putD(B, lampPostData(), m);
+      B.lights.push({ x, y: 2.7 * s, z, col: new THREE.Color(0xffc478), int: 2.6, dist: 7, fl: 0.2, ph: x * 3.1 });
+      glowAt(B, x, z + 0.2, 2.8, 0xffc070, 0.24);
+      return;
+    }
+    if (id === 'bench') putD(B, benchData(), m);
+    else if (id === 'hay') putD(B, hayData(), m);
+    else if (id === 'cart') putD(B, cartData(v % 3), m);
+    else if (id === 'tree') putD(B, potTreeData(v % 3), m);
+    else if (id === 'barrels') putD(B, barrelsData(v % 2), m);
+    else if (id === 'bed') {   // a low round flower bed with a stone kerb
+      dec(B, 'ramp', G.torus(TAU, 0.18, 20), mat4(x, 0.08, z, 0, 0.72 * s, 0.72 * s, 0.9, Math.PI / 2), lin(0xf2dcbc));
+      dec(B, 'decor', G.cyl(1, 1, 16), mat4(x, 0.09, z, 0, 0.66 * s, 0.14, 0.66 * s), lin(0x6a4a2c));
+      const rnd = mulberry32(Math.round(x * 97 + z * 13));
+      for (let i = 0; i < 9; i++) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * 0.55 * s; dec(B, 'decor', flowerGeo(Math.floor(rnd() * FLOWER_COL.length)), mat4(x + Math.cos(a) * r, 0.14, z + Math.sin(a) * r, rnd() * TAU, 1.0 + rnd() * 0.3), null); }
+    }
+  }
+  // "Surlu Şehir" board: cream with a blue frame and a golden line, the smiling sun of the crest, the name in round letters, bunting
+  function townSignTex(text) {
+    const key = 'tsign' + text;
+    return R.tex[key] || (R.tex[key] = canvasTex(512, 256, (g, w, h) => {
+      const rr = (x, y, ww, hh, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + ww, y, x + ww, y + hh, r); g.arcTo(x + ww, y + hh, x, y + hh, r); g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + ww, y, r); g.closePath(); };
+      g.fillStyle = '#3a78d0'; rr(0, 0, w, h, 34); g.fill();
+      g.fillStyle = '#fff6e4'; rr(18, 18, w - 36, h - 36, 24); g.fill();
+      g.lineWidth = 5; g.strokeStyle = '#ffc83a'; rr(28, 28, w - 56, h - 56, 18); g.stroke();
+      const cols = ['#e84a5a', '#ffd23a', '#3a8ad8', '#3aa878', '#ff8ac8'];
+      for (let i = 0; i < 9; i++) { const x = 60 + i * 44; g.fillStyle = cols[i % 5]; g.beginPath(); g.moveTo(x - 16, 32); g.lineTo(x + 16, 32); g.lineTo(x, 60); g.closePath(); g.fill(); }   // a string of bunting
+      const cx = 96, cy = 150;
+      g.fillStyle = '#ffc83a';
+      for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; g.beginPath(); g.moveTo(cx + Math.cos(a - 0.2) * 34, cy + Math.sin(a - 0.2) * 34); g.lineTo(cx + Math.cos(a) * 56, cy + Math.sin(a) * 56); g.lineTo(cx + Math.cos(a + 0.2) * 34, cy + Math.sin(a + 0.2) * 34); g.fill(); }
+      g.fillStyle = '#ffe066'; g.beginPath(); g.arc(cx, cy, 36, 0, TAU); g.fill();
+      g.fillStyle = '#5a3a20'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * 12, cy - 7, 4.5, 7, 0, 0, TAU); g.fill(); }
+      g.fillStyle = '#ff9a8a'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(cx + sx * 21, cy + 7, 7, 4.5, 0, 0, TAU); g.fill(); }
+      g.strokeStyle = '#8a4a2a'; g.lineWidth = 4.5; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy + 4, 13, 0.35, Math.PI - 0.35, false); g.stroke();
+      g.fillStyle = '#2e4a8a'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const words = text.split(' ');
+      g.font = 'bold 62px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
+      g.fillText(words[0], w / 2 + 58, h / 2 - 12);
+      g.font = 'bold 58px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
+      g.fillText(words.slice(1).join(' '), w / 2 + 58, h / 2 + 50);
+    }));
+  }
+  // The town's sign: a low welcome board (kid height: the board 0.34–1.15 m, the roof's ridge ≈ 1.55 m, so what it could hide behind
+  // it lies inside its own solid) on two posts, the painted board (added after fixReach, see finishSigns), a little tiled roof with a
+  // golden knob, flowers at its foot
+  function townSign(L, B, x, z, text, yaw, solid) {
+    const M = mat4(x, 0, z, yaw), put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col), vis = [];
+    for (const sx of [-0.78, 0.78]) vis.push(put('prop', G.box(), mat4(sx, 0.67, -0.03, 0, 0.12, 1.34, 0.12), lin(0xc89a68)));
+    vis.push(put('prop', G.box(), mat4(0, 0.74, -0.05, 0, 1.76, 0.9, 0.05), lin(0xe8c8a0)));
+    const rs = boxUV(2.0, 0.08, 0.5, 2); B.tmpGeo.push(rs);
+    for (const sd of [-1, 1]) vis.push(put('roofN', rs, mat4(0, 1.36, sd * 0.2, 0, 1, 1, 1, sd * 0.62, 0), lin(0xe8744a)));
+    vis.push(put('shiny', G.sphere(8, 6), mat4(0, 1.54, 0, 0, 0.09), lin(0xffcf4a)));
+    for (let i = 0; i < 7; i++) vis.push(put('decor', flowerGeo((i * 2 + 1) % FLOWER_COL.length), mat4((i - 3) * 0.26, 0, 0.12 + (i % 2) * 0.1, i, 0.9), null));   // flowers at its foot
+    const so = solid ? propSolid(L, x - Math.sin(yaw) * 0.05, z - Math.cos(yaw) * 0.05, 0.9, 'sign', vis) : null;
+    B.signs.push({ x, z, text, yaw, so, town: true, by: 0.74 });
+    return so;
+  }
+  // The arrival, in the first view (like Kefir Vadisi's): the low "Surlu Şehir" sign 2.2–5.3 m north of the start and at most 5.5 m to
+  // a side (the whole board on screen) — on the start square, where its roof hides only floor its own solid keeps Feza off; else just
+  // off the square's floor by the kerb, else against its north rim, both where it hides no floor at all
+  function townArrival(L, B, T) {
+    const { rnd, occAt, occDisc, nearLiq, RS } = T, sx0 = L.start.x, sz0 = L.start.z, S = L.rooms[0], grid = L.grid;
+    const busy = (x, z, pad) => L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 2.4 + pad) || L.chests.some(q => hyp(q.x - x, q.z - z) < 1.3 + pad) ||
+      L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + pad) || hyp(sx0 - x, sz0 - z) < 1.5 + pad;
+    const hidesS = (x, z) => satCount(L, x - 1.3, z - 0.4 - 1.6 * LV_PK, x + 1.3, z - 0.9) > 0;   // (roof ridge 1.6 m, ±1 m wide + Feza's half-width)
+    const ok = (x, z, lk = 2.2, strict = true) => { const c = T.cellOf(x, z); return c >= 0 && grid[c] && L.dWall[c] >= 0.75 && !(strict && hidesS(x, z)) && linkDist(L, x, z) >= lk &&
+      !L.path.some(p => hyp(p.x - x, p.z - z) < 2.0) && !busy(x, z, 1.4) && gapOKL(L, x, z, 0.85) && !occAt(x, z); };
+    const offOK = (x, z) => { const c = T.cellOf(x, z); if (c < 0 || grid[c] || hidesS(x, z) || nearLiq(x, z, 1.0) > 0.05 || busy(x, z, 0.6)) return false;   // (just off the floor: no solid)
+      for (let k = 0; k < 8; k++) { const qx = x + Math.cos(k * 0.785) * 1.05, qz = z + Math.sin(k * 0.785) * 0.55; if (occAt(qx, qz) || T.reserve(qx, qz)) return false; }
+      return !occAt(x, z) && !satCount(L, x - 0.95, z - 0.25, x + 0.95, z + 0.25) && satCount(L, x - 0.9, z + 0.25, x + 0.9, z + 1.1) > 0; };   // (off the cells, the kerb right in front)
+    const score = (x, z) => Math.abs(z - (sz0 - 4.0)) + Math.abs(Math.abs(x - sx0) - 2.3) * 0.35 + rnd() * 0.2;
+    let best = null, onF = true;
+    for (let t = 0; t < 1400; t++) {
+      const x = sx0 - 5.5 + rnd() * 11, z = sz0 - 5.3 + rnd() * 3.1;
+      if (!ok(x, z, 1.8, false)) continue;
+      const k = score(x, z);
+      if (!best || k < best.k) best = { x, z, k };
+    }
+    if (!best) for (let t = 0; t < 1400; t++) {
+      const x = sx0 - 5.5 + rnd() * 11, z = sz0 - 5.3 + rnd() * 3.1;
+      if (!offOK(x, z)) continue;
+      const k = score(x, z);
+      if (!best || k < best.k) { best = { x, z, k }; onF = false; }
+    }
+    if (!best) for (let t = 0; t < 500; t++) {
+      const a = -Math.PI / 2 + (rnd() - 0.5) * 2.4, dd = S.r * (0.45 + rnd() * 0.75), x = S.x + Math.cos(a) * dd, z = S.z + Math.sin(a) * dd;
+      if (z > sz0 - 2.2 || !ok(x, z)) continue;
+      const k = hyp(x - sx0, z - sz0) * 0.25 + rnd() * 0.3;
+      if (!best || k < best.k) best = { x, z, k };
+    }
+    if (best) { townSign(L, B, best.x, best.z, 'Surlu Şehir', 0, onF); RS.sign = { x: +best.x.toFixed(1), z: +best.z.toFixed(1), on: onF }; occDisc(best.x, best.z, 1.2); }
+  }
+  // The squares: the fountain, the wells, the market stalls (their spots come from generate, see townData); lantern posts, benches,
+  // hay, carts, potted trees, flower beds and barrels on the garden side of the kerb all along the streets (low on the camera side,
+  // never hiding floor); in the rooms, against a wall, a few potted trees and benches (blocking, fixReach can take them out)
+  function townSquares(L, B, T) {
+    const { rnd, V, dF, cellOf, liqAt, nearLiq, gapAt, capAt, occAt, occDisc, RS } = T, TD = L.town || { wells: [], stalls: [] }, grid = L.grid, W = L.W, H = L.H;
+    if (TD.fountain) { townFountain(L, B, T, TD.fountain); occDisc(TD.fountain.x, TD.fountain.z, 1.6); }
+    for (const w of TD.wells) { townWell(L, B, T, w); occDisc(w.x, w.z, 1.2); }
+    TD.stalls.forEach((st, i) => {   // bunting from stall to stall along the market's rim
+      const q = TD.stalls[i + 1];
+      if (!q || hyp(q.x - st.x, q.z - st.z) > 9) return;
+      const f = (o, s2) => ({ x: o.x + Math.sin(o.yaw) * 0.4 + Math.cos(o.yaw) * 0.96 * s2, z: o.z + Math.cos(o.yaw) * 0.4 - Math.sin(o.yaw) * 0.96 * s2 });
+      const a = f(st, 1), b = f(q, -1);
+      bunting(B, a.x, 2.05, a.z, b.x, 2.05, b.z, i * 3);
+    });
+    for (const st of TD.stalls) {
+      putD(B, stallData(st.v % 4), mat4(st.x, 0, st.z, st.yaw));
+      occDisc(st.x, st.z, 1.4); RS.stalls = (RS.stalls || 0) + 1;
+      const sx = Math.cos(st.yaw), sz = -Math.sin(st.yaw);   // a crate or basket at its side
+      if (rnd() < 0.7) { const x = st.x + sx * 1.35, z = st.z + sz * 1.35, c = cellOf(x, z); if (c >= 0 && !grid[c] && !occAt(x, z)) putD(B, barrelsData(1), mat4(x, 0, z, st.yaw + 0.3, 0.75)); }   // (off the floor only: no solid needed)
+    }
+    // along the kerb, on the garden side: walk the edge loops, a piece every few metres where there is room
+    const path = L.path, pathD = (x, z) => { let d = 1e9; for (let s = 1; s < path.length; s++) d = Math.min(d, segDist(x, z, path[s - 1].x, path[s - 1].z, path[s].x, path[s].z)); return d; };
+    const houseNear = (x, z, r) => T.houses.some(h => hyp(h.x - x, h.z - z) < r);
+    // the way out of every front door (from its step 1.3 m out, 1.16 m wide): no lantern post or furniture on it
+    const doors = T.houses.map(h => { const cs = Math.cos(h.yaw), sn = Math.sin(h.yaw), at = lz => ({ x: h.x + cs * h.door + sn * lz, z: h.z - sn * h.door + cs * lz }); return [at(0.2), at(1.5)]; });
+    const atDoor = (x, z, r) => doors.some(([p, q]) => segDist(x, z, p.x, p.z, q.x, q.z) < 0.58 + r);
+    let sinceLamp = 3, sinceF = 2;
+    for (const pts of T.edgeLoops || []) for (let i = 0; i < pts.length - 2; i += 2) {
+      const a = pts[i], c = pts[i + 2], dx = c.x - a.x, dz = c.z - a.z, l = hyp(dx, dz) || 1, nx = -dz / l, nz = dx / l;   // (outward: the garden)
+      sinceLamp -= 0.5; sinceF -= 0.5;
+      const pd = pathD(a.x, a.z);
+      if (sinceLamp <= 0 && pd < 7) {   // lantern posts along the route
+        const x = a.x + nx * 0.5, z = a.z + nz * 0.5, cc = cellOf(x, z);
+        if (cc >= 0 && !grid[cc] && !occAt(x, z) && nearLiq(x, z, 0.4) < 0.1 && !atDoor(x, z, 0.7) && !hides(L, x, z, 0.2, 0, 3.1, 0.12) && 3.1 <= capAt(gapAt(x, z)) + 2.2) {
+          putFurn(B, 'lamp', x, z, 0, 0); occDisc(x, z, 0.4); RS.lampPosts = (RS.lampPosts || 0) + 1; sinceLamp = 8 + rnd() * 3; sinceF = Math.max(sinceF, 1.2); T.lamps.push({ x, z });
+          continue;
+        }
+      }
+      if (sinceF > 0) continue;
+      const roll = rnd(), id = roll < 0.24 ? 'bench' : roll < 0.38 ? 'hay' : roll < 0.5 ? 'cart' : roll < 0.7 ? 'tree' : roll < 0.84 ? 'bed' : 'barrels', F = TFURN[id];
+      const o = F.r + 0.35 + rnd() * 0.3, x = a.x + nx * o, z = a.z + nz * o, cc = cellOf(x, z);
+      if (cc < 0 || grid[cc] || dF[cc] < F.r * 0.6 || nearLiq(x, z, F.r + 0.2) > 0.1 || T.outAt(x, z) > 0.3 || T.reserve(x, z)) { sinceF = 0.5; continue; }
+      let hit = false;
+      for (let k = 0; k < 8 && !hit; k++) { const qx = x + Math.cos(k * 0.785) * F.r * 0.9, qz = z + Math.sin(k * 0.785) * F.r * 0.9, qc = cellOf(qx, qz); if (qc < 0 || grid[qc] || occAt(qx, qz)) hit = true; }
+      if (hit || occAt(x, z) || atDoor(x, z, F.r + 0.15) || F.h > capAt(gapAt(x, z)) + (id === 'tree' ? 0 : 0.35) || hides(L, x, z, F.r * 0.8, 0, F.h, 0.12)) { sinceF = 0.5; continue; }
+      if ((id === 'barrels' || id === 'cart') && !houseNear(x, z, 5)) { sinceF = 0.5; continue; }   // (barrels and carts stand by the houses)
+      putFurn(B, id, x, z, Math.atan2(-nx, -nz) + (id === 'bench' ? 0 : (rnd() - 0.5) * 1.2), Math.floor(rnd() * 3));
+      occDisc(x, z, F.r + 0.15); RS.furn = (RS.furn || 0) + 1;
+      sinceF = 3 + rnd() * 4.5;
+    }
+    // in the rooms, against a wall (never in a corridor, never hiding floor, a real gap or none): potted trees and benches, blocking
+    const roomSpot = (x, z, r, h) => !T.inArena(x, z, -1.5) && linkDist(L, x, z) >= 2.5 && gapOKL(L, x, z, r) && hiddenBehind(L, x, z, r, h) === 0 &&
+      !L.solids.some(q => hyp(q.x - x, q.z - z) < q.r + r + 1.1) && !L.spawns.some(q => hyp(q.x - x, q.z - z) < 1.6) &&
+      !L.chests.some(q => hyp(q.x - x, q.z - z) < 2.5) && !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < 3) && !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < 4) &&
+      !L.path.some(p => hyp(p.x - x, p.z - z) < 2.8) && hyp(x - L.start.x, z - L.start.z) > 2.5 && !occAt(x, z) && !atDoor(x, z, r + 0.2);
+    for (let n = 0, made = 0; n < W * H / 4 && made < 14; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || !grid[c] || L.dWall[c] > 1.4 || L.dWall[c] < 0.8) continue;
+      const tree = rnd() < 0.6, r = tree ? 0.6 : 0.5, h = tree ? 2.6 : 0.95;
+      if (!roomSpot(x, z, r, h)) continue;
+      let wx = 0, wz = 0;   // face away from the nearest wall
+      for (let k = 0; k < 8; k++) { const ax = Math.cos(k * 0.785), az = Math.sin(k * 0.785); if (!isFloor(L, x + ax * 1.6, z + az * 1.6)) { wx -= ax; wz -= az; } }
+      const yaw = Math.atan2(wx, wz), v = Math.floor(rnd() * 3), m = mat4(x, 0, z, yaw);
+      propSolid(L, x, z, r, 'town', putD(B, tree ? potTreeData(v) : benchData(), m));
+      occDisc(x, z, r + 0.2); made++; RS.inRoom = made;
+    }
+  }
+  // ── Surlu Şehir: walk-over decor on the squares (flat or tiny: it blocks nothing and hides nothing; never in Turnuva Meydanı, where
+  // the knight charges) ──
+  // A round mosaic inlay set into the pavers (local: flat on the ground, radius 1.25): 0 the town's smiling sun · 1 a compass star ·
+  // 2 a big flower. Layers 2 mm apart (no z-fighting), all 'decor' (merged)
+  const MUP = [-Math.PI / 2, 0, 0];
+  function starShape(n, r1, r2) {
+    const key = 'tStar' + n + '_' + r2;
+    if (R.geo[key]) return R.geo[key];
+    const sh = new THREE.Shape();
+    for (let i = 0; i <= n * 2; i++) { const a = i / (n * 2) * TAU + Math.PI / 2, r = i % 2 ? r2 : r1; if (i) sh.lineTo(Math.cos(a) * r, Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+    return (R.geo[key] = keep(new THREE.ShapeGeometry(sh)));
+  }
+  function mosaicGeo(v) {
+    const key = 'tMosaic' + (v % 3);
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), disc = R.geo.tMDisc || (R.geo.tMDisc = keep(new THREE.CircleGeometry(1, 32)));
+    const ring = [[0x4a8ae0, 0xfff4dc, 0xffc83a], [0xd8704a, 0xfff4dc, 0x3a8ad8], [0x3aa878, 0xfff8ee, 0xff8ac8]][v % 3];
+    k.add(disc, ring[0], [0, 0.012, 0], MUP, [1.25, 1.25, 1]);
+    for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; k.add(G.box(), i % 2 ? 0xffffff : ring[2], [Math.cos(a) * 1.13, 0.014, Math.sin(a) * 1.13], [0, -a, 0], [0.13, 0.004, 0.13]); }   // little tiles round the rim
+    k.add(disc, ring[1], [0, 0.014, 0], MUP, [1.0, 1.0, 1]);
+    if (v % 3 === 0) {   // the smiling sun: golden rays, the face, rosy cheeks, a smile
+      k.add(starShape(12, 0.92, 0.5), 0xffc83a, [0, 0.016, 0], MUP);
+      k.add(disc, 0xffe066, [0, 0.018, 0], MUP, [0.48, 0.48, 1]);
+      for (const sx of [-1, 1]) { k.add(disc, 0x5a3a20, [sx * 0.15, 0.02, -0.1], MUP, [0.05, 0.075, 1]); k.add(disc, 0xff9a8a, [sx * 0.28, 0.02, 0.08], MUP, [0.08, 0.05, 1]); }
+      for (let i = 0; i < 7; i++) { const a = 0.45 + i / 6 * (Math.PI - 0.9); k.add(G.box(), 0x8a4a2a, [Math.cos(a) * 0.2, 0.02, 0.04 + Math.sin(a) * 0.2], [0, -a + Math.PI / 2, 0], [0.07, 0.004, 0.035]); }
+    } else if (v % 3 === 1) {   // a compass star: a big 4-point star over a slim 8-point one, a round middle
+      k.add(starShape(8, 0.8, 0.36), 0x3a8ad8, [0, 0.016, 0], MUP);
+      k.add(starShape(4, 0.98, 0.26), 0xffc83a, [0, 0.018, 0], MUP);
+      k.add(disc, 0xfff4dc, [0, 0.02, 0], MUP, [0.16, 0.16, 1]);
+    } else {   // a big flower: six round pink petals, a golden middle with a smile
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.add(disc, i % 2 ? 0xff8ac8 : 0xffa8d8, [Math.cos(a) * 0.52, 0.016 + (i % 2) * 0.002, Math.sin(a) * 0.52], MUP, [0.4, 0.4, 1]); }
+      k.add(disc, 0xffd23a, [0, 0.02, 0], MUP, [0.34, 0.34, 1]);
+      for (const sx of [-1, 1]) k.add(disc, 0x5a3a20, [sx * 0.1, 0.022, -0.06], MUP, [0.035, 0.05, 1]);
+      k.add(G.box(), 0x8a4a2a, [0, 0.022, 0.1], 0, [0.16, 0.004, 0.035]);
+    }
+    return (R.geo[key] = keep(k.build()));
+  }
+  // Chalk hopscotch (local: flat, from z = 0 to -3.4, the "sky" arch at the far end) with a chalk sun beside it, pastel chalk lines
+  function hopscotchGeo() {
+    if (R.geo.tHop) return R.geo.tHop;
+    const k = new Kit(), s = 0.56, w = 0.035, cols = [0xfdfbf6, 0xffc8e0, 0xc8e4ff, 0xfff0a8];
+    const sq = (cx, cz, c) => { for (const [ox, oz, sx, sz] of [[0, -s / 2, s + w, w], [0, s / 2, s + w, w], [-s / 2, 0, w, s], [s / 2, 0, w, s]]) k.add(G.box(), c, [cx + ox, 0.013, cz + oz], 0, [sx, 0.004, sz]); };
+    let z = -s / 2, n = 0;
+    for (const row of [1, 1, 2, 1, 2, 1]) { if (row === 1) sq(0, z, cols[n++ % 4]); else { sq(-s / 2, z, cols[n++ % 4]); sq(s / 2, z, cols[n++ % 4]); } z -= s; }
+    k.add(G.torus(Math.PI, 0.05, 16), cols[0], [0, 0.013, z + s / 2], [Math.PI / 2, 0, Math.PI], [s * 0.75, s * 0.75, 0.1]);   // the arch
+    const sx = 0.95, sz = -1.2;   // the chalk sun
+    k.add(G.torus(TAU, 0.08, 20), cols[3], [sx, 0.013, sz], [Math.PI / 2, 0, 0], [0.26, 0.26, 0.08]);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; k.add(G.box(), cols[3], [sx + Math.cos(a) * 0.42, 0.013, sz + Math.sin(a) * 0.42], [0, -a, 0], [0.16, 0.004, w]); }
+    for (const ex of [-1, 1]) k.add(G.box(), cols[0], [sx + ex * 0.08, 0.013, sz - 0.05], 0, [0.04, 0.004, 0.04]);
+    k.add(G.torus(Math.PI * 0.8, 0.15, 10), cols[1], [sx, 0.013, sz + 0.02], [Math.PI / 2, 0, Math.PI * 0.1], [0.11, 0.11, 0.06]);
+    return (R.geo.tHop = keep(k.build()));
+  }
+  // A plump little pigeon pecking about (local: facing +z; uv 50: it bobs and shuffles like the ducks): 0 grey · 1 white · 2 lavender
+  function pigeonGeo(v) {
+    const key = 'tPigeon' + (v % 3);
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), body = [0xb8bcc8, 0xfaf8f4, 0xc8b8e0][v % 3], neck = [0x8ac0b0, 0xeae6f0, 0xa89ad0][v % 3];
+    k.add(G.sphere(10, 8), body, [0, 0.13, 0], 0, [0.1, 0.09, 0.15]);
+    k.add(G.cone(6), body, [0, 0.15, -0.17], [-1.3, 0, 0], [0.06, 0.12, 0.025]);   // the tail
+    k.add(G.sphere(10, 8), neck, [0, 0.2, 0.1], 0, [0.065, 0.07, 0.065]);
+    k.add(G.sphere(10, 8), body, [0, 0.26, 0.13], 0, 0.055);
+    k.add(G.cone(5), 0xffa040, [0, 0.25, 0.2], [Math.PI / 2, 0, 0], [0.015, 0.05, 0.015]);   // the beak
+    for (const sx of [-1, 1]) { k.add(G.sphere(6, 4), 0x2a2020, [sx * 0.035, 0.28, 0.165], 0, 0.013); k.add(G.sphere(6, 4), 0xff9ab0, [sx * 0.045, 0.25, 0.155], 0, [0.016, 0.01, 0.008]); }
+    for (const sx of [-1, 1]) { k.add(G.sphere(8, 6), body, [sx * 0.085, 0.14, -0.02], 0, [0.03, 0.06, 0.11]); k.add(G.cyl(1, 1, 5), 0xff8a8a, [sx * 0.035, 0.03, 0.01], 0, [0.01, 0.06, 0.01]); }
+    return (R.geo[key] = keep(markUV(k.build(), 50)));
+  }
+  // Per square (not Turnuva Meydanı): the inlay in the middle of its paver disc, a few petal scatters by its rim; pigeons pecking in
+  // two squares, chalk hopscotch in one (each where it touches no solid, on floor, clear of the checkpoints, chests and the start)
+  function townPlazas(L, B, T) {
+    const { rnd, RS } = T, path = L.path, TD = L.town || {};
+    const pathD = (x, z) => { let d = 1e9; for (let s = 1; s < path.length; s++) d = Math.min(d, segDist(x, z, path[s - 1].x, path[s - 1].z, path[s].x, path[s].z)); return d; };
+    const clear = (x, z, r) => !L.solids.some(q => q.alive !== false && hyp(q.x - x, q.z - z) < q.r + r) && !L.checkpoints.some(q => hyp(q.x - x, q.z - z) < r + 1.9) &&
+      !L.chests.some(q => hyp(q.x - x, q.z - z) < r + 1.1) && hyp(L.start.x - x, L.start.z - z) > r + 0.5 && !(L.exit && hyp(L.exit.x - x, L.exit.z - z) < r + 3);
+    let nMo = 0, nPet = 0, nPig = 0, hop = 0;
+    const rooms = L.rooms.filter(rm => rm.kind !== 'boss' && rm.r);
+    rooms.forEach((rm, i) => {
+      const dr = rm.r * (rm.kind === 'side' ? 0.5 : 0.6), R0 = Math.min(1.35, dr - 0.8);
+      if (R0 >= 0.85 && gridFree(L, rm.x, rm.z, R0 + 0.1) && clear(rm.x, rm.z, R0 + 0.15)) { dec(B, 'decor', mosaicGeo(i), mat4(rm.x, 0, rm.z, (rnd() - 0.5) * 0.3, R0 / 1.25), null); nMo++; }
+      for (let c = 0, made = 0; c < 10 && made < 2; c++) {   // petals blown onto the pavers
+        const a = rnd() * TAU, d = dr * (0.75 + rnd() * 0.2), x = rm.x + Math.cos(a) * d, z = rm.z + Math.sin(a) * d;
+        if (!gridFree(L, x, z, 0.7) || !clear(x, z, 0.5)) continue;
+        const col = [0xff8ac0, 0xfff0f6, 0xffb0d4][made % 3];
+        for (let p = 0, np = 14 + Math.floor(rnd() * 8); p < np; p++) { const pa = rnd() * TAU, pr = Math.sqrt(rnd()) * 0.7; dec(B, 'decor', G.octa(), mat4(x + Math.cos(pa) * pr, 0.012, z + Math.sin(pa) * pr, rnd() * TAU, 0.085, 0.004, 0.055), lin(p % 4 ? col : 0xffe070)); }
+        made++; nPet++;
+      }
+    });
+    // pigeons: a little flock of 3–4 in the market square and one more square, off the route
+    const flocks = rooms.filter(rm => rm.kind === 'main').sort((a, b) => (L.rooms.indexOf(b) === TD.market) - (L.rooms.indexOf(a) === TD.market) || b.r - a.r).slice(0, 2);
+    for (const rm of flocks) for (let t = 0; t < 30; t++) {
+      const a = rnd() * TAU, d = rm.r * (0.3 + rnd() * 0.45), x = rm.x + Math.cos(a) * d, z = rm.z + Math.sin(a) * d;
+      if (!gridFree(L, x, z, 1.0) || !clear(x, z, 0.9) || pathD(x, z) < 1.8) continue;
+      for (let p = 0, np = 3 + Math.floor(rnd() * 2); p < np; p++) { const pa = p * 2.1 + rnd(), pr = p ? 0.35 + rnd() * 0.3 : 0; dec(B, 'decor', pigeonGeo(p + nPig), mat4(x + Math.cos(pa) * pr, 0, z + Math.sin(pa) * pr, rnd() * TAU, 1.1), null).item.uy = rnd() * 60; }
+      nPig++;
+      break;
+    }
+    // chalk hopscotch in a quiet square (not the market or the fountain's), its "sky" end to the north
+    for (const rm of rooms.filter(r => r.kind === 'main' && L.rooms.indexOf(r) !== TD.market && !(TD.fountain && L.rooms[TD.fountain.room] === r)).sort((a, b) => b.r - a.r)) {
+      for (let t = 0; t < 40 && !hop; t++) {
+        const a = rnd() * TAU, d = rm.r * (0.2 + rnd() * 0.5), x = rm.x + Math.cos(a) * d, z = rm.z + Math.sin(a) * d + 1.7;
+        let ok = pathD(x, z - 1.7) >= 1.6;
+        for (let s = 0; s <= 4 && ok; s++) { const qz = z - s * 0.85, qx = x + 0.45; if (!gridFree(L, qx, qz, 0.75) || !clear(qx, qz, 0.7)) ok = false; }
+        if (!ok) continue;
+        dec(B, 'decor', hopscotchGeo(), mat4(x, 0, z, 0), null); hop = 1;
+      }
+      if (hop) break;
+    }
+    Object.assign(RS, { mosaics: nMo, petals: nPet, pigeons: nPig, hopscotch: hop });
+  }
+  // ── Surlu Şehir: Turnuva Meydanı, the dragon's castle, gardens, bunting, the water's ducks and lily pads ──
+  // A round striped tournament tent (local: the door toward +z): a striped wall, a striped cone, a scalloped valance, a pole with a
+  // pennant. v: the colours (blue / yellow · red / white · green / white · purple / yellow)
+  function tentData(v) {
+    const key = 'tTent' + v;
+    if (R.geo[key]) return R.geo[key];
+    const K = kits('decor', 'prop', 'shiny'), c = [[0x3a8ad8, 0xffd84a], [0xe04a4a, 0xfff8f0], [0x3aa878, 0xfff8f0], [0x9060c8, 0xffd84a]][v % 4], ns = 12;
+    for (let i = 0; i < ns; i++) {
+      const col = i % 2 ? c[1] : c[0], t0 = i / ns * TAU, tl = TAU / ns;
+      K.decor.add(R.geo['tTW' + i] || (R.geo['tTW' + i] = keep(new THREE.CylinderGeometry(1, 1.04, 1, 3, 1, true, t0, tl))), col, [0, 0.85, 0], 0, [1, 1.7, 1]);
+      K.decor.add(R.geo['tTR' + i] || (R.geo['tTR' + i] = keep(new THREE.CylinderGeometry(0.04, 1.16, 1, 3, 1, true, t0, tl))), col, [0, 1.7 + 0.95, 0], 0, [1, 1.9, 1]);
+      K.decor.add(G.sphere(8, 6), i % 2 ? c[0] : c[1], [Math.sin(t0 + tl / 2) * 1.12, 1.66, Math.cos(t0 + tl / 2) * 1.12], [0, t0 + tl / 2, 0], [0.3, 0.2, 0.04]);   // the scalloped valance
+    }
+    K.decor.add(G.box(), 0x5a3a2a, [0, 0.72, 1.02], 0, [0.62, 1.4, 0.04]);   // the dark door flap opening
+    K.prop.add(G.cyl(1, 1, 6), 0xc89a68, [0, 3.95, 0], 0, [0.035, 0.7, 0.035]);
+    K.shiny.add(G.sphere(8, 6), 0xffcf4a, [0, 4.32, 0], 0, 0.07);
+    return (R.geo[key] = buildKits(K));
+  }
+  // A string of bunting between two points (a gentle sag), triangle flags in the town's colours fluttering (decor, merged)
+  const BUNT = [0xe84a5a, 0xffd23a, 0x3a8ad8, 0x3aa878, 0xff8ac8, 0xff9a2a];
+  function bunting(B, ax, ay, az, bx, by, bz, ph = 0) {
+    const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz), sag = 0.35 + 0.05 * l, ya = Math.atan2(-dz, dx), n = Math.max(2, Math.round(l / 0.9));
+    const at = t => [lerp(ax, bx, t), lerp(ay, by, t) - sag * 4 * t * (1 - t), lerp(az, bz, t)];
+    for (let i = 0; i < n; i++) {   // the string: short straight pieces
+      const p = at(i / n), q = at((i + 1) / n), m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2], sl = Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+      dec(B, 'decor', G.cyl(1, 1, 4), mat4(m[0], m[1], m[2], ya, 0.012, sl, 0.012, 0, Math.PI / 2 + Math.atan2(q[1] - p[1], Math.hypot(q[0] - p[0], q[2] - p[2]))), lin(0xf8f0e4));
+    }
+    for (let s = 0.3, k = Math.floor(ph); s < l - 0.3; s += 0.46, k++) {
+      const t = s / l, p = at(t), t2 = (s + 0.38) / l, q = at(Math.min(1, t2)), tilt = Math.atan2(q[1] - p[1], 0.38);
+      dec(B, 'decor', flagGeo(0), mat4(p[0], p[1], p[2], ya, 0.8, 0.8, 1, 0, tilt), lin(BUNT[k % BUNT.length]));
+    }
+  }
+  // Turnuva Meydanı: striped tents round the rim (never hiding floor), tall pennant poles with bunting between them, low wooden
+  // stands with striped hangings on the camera side, a rack of soft jousting lances, an archery target, hay and barrels
+  function townArena(L, B, T) {
+    const { rnd, V, cellOf, occAt, occDisc, gapAt, capAt, RS } = T, ar = V.arena;
+    if (!ar) return;
+    const edge = a => arenaEdge(L, ar, a, 6);
+    const ex = L.exit;
+    // tents: east / west and the northern corners
+    const tents = [];
+    for (const a0 of [0.15, Math.PI - 0.15, -0.75, -Math.PI + 0.75, 0.75, Math.PI - 0.75]) {
+      if (tents.length >= 4) break;
+      for (const da of [0, 0.18, -0.18, 0.35, -0.35]) {
+        const e = edge(a0 + da);
+        if (!e) continue;
+        const s = 0.95 + rnd() * 0.2, x = e.x + e.dx * (1.5 * s + 0.6), z = e.z + e.dz * (1.5 * s + 0.6), c = cellOf(x, z);
+        if (c < 0 || L.grid[c] || occAt(x, z) || (ex && hyp(ex.x - x, ex.z - z) < 5.5) || T.nearLiq(x, z, 1.8 * s) > 0.1 || hides(L, x, z, 1.4 * s, 0, 4.1 * s, 0.25) || tents.some(t => hyp(t.x - x, t.z - z) < 4.5)) continue;
+        putD(B, tentData(tents.length), mat4(x, 0, z, Math.atan2(-e.dx, -e.dz), s));
+        dec(B, 'decor', flagGeo(1), mat4(x, 4.3 * s, z, rnd() * TAU, 0.8), lin(BUNT[(tents.length * 2 + 1) % BUNT.length]));
+        occDisc(x, z, 1.5 * s + 0.3); tents.push({ x, z, e }); RS.tents = tents.length;
+        break;
+      }
+    }
+    // pennant poles round the north, east and west rim (≈ every 0.36 rad; the stands keep the south), bunting from pole to pole
+    const poles = [], nearGate = (x, z) => !!ex && (hyp(ex.x - x, ex.z - z) < 3.5 || [-1, 1].some(sd => hyp(ex.x + sd * 2.85 - x, ex.z - 0.25 - z) < 1.9));
+    for (let a = -Math.PI / 2 + 0.3 + rnd() * 0.12; a < TAU - Math.PI / 2 - 0.3; a += 0.36) {
+      if (Math.abs(angDiff(a, Math.PI / 2)) < 1.05) { poles.push(null); continue; }   // (the stands' side)
+      let e = null, x = 0, z = 0, h = 0;   // (just off the rim, else a little closer to it or a step to a side: the ring wall and the tents stand close by)
+      for (const [da, o] of [[0, 0.55], [0.09, 0.55], [-0.09, 0.55], [0, 0.32], [0.09, 0.32], [-0.09, 0.32]]) {
+        const q = edge(a + da);
+        if (!q) continue;
+        const qx = q.x + q.dx * o, qz = q.z + q.dz * o, c = cellOf(qx, qz);
+        if (c < 0 || L.grid[c] || occAt(qx, qz) || T.nearLiq(qx, qz, 0.3) > 0.1 || nearGate(qx, qz)) continue;
+        let qh = q.dz > 0.6 ? 2.4 : 4.6;
+        while (qh > 1.8 && hides(L, qx, qz, 0.1, 0, qh + 0.3, 0.08)) qh -= 0.6;
+        if (qh > 1.8) { e = q; x = qx; z = qz; h = qh; break; }
+      }
+      if (!e) { poles.push(null); continue; }
+      const south = e.dz > 0.6;
+      dec(B, 'prop', G.cyl(0.8, 1, 8), mat4(x, h / 2, z, 0, 0.07, h, 0.07), lin(0xf8f0e4));
+      for (let y = 0.4; y < h - 0.3; y += 0.5) dec(B, 'decor', G.torus(TAU, 0.2, 10), mat4(x, y, z, 0, 0.075, 0.075, 0.075, Math.PI / 2), lin(0xe84a5a));   // red stripes wound round it
+      dec(B, 'shiny', G.sphere(8, 6), mat4(x, h + 0.06, z, 0, 0.1), lin(0xffcf4a));
+      {   // the pennant blows toward the arena, else away from it or along the rim: wherever it hides no floor (camera rule)
+        const fs = south ? 0.7 : 1.05, y0 = Math.atan2(e.dz, -e.dx) + (rnd() - 0.5) * 0.6;
+        for (const dy of [0, Math.PI, Math.PI / 2, -Math.PI / 2]) {
+          const fx = x + Math.cos(y0 + dy) * 0.5 * fs, fz = z - Math.sin(y0 + dy) * 0.5 * fs;   // (the flag's middle: local +x turned by the yaw)
+          if (hides(L, fx, fz, 0.55 * fs, h - 0.45, h + 0.1, 0.05)) continue;
+          dec(B, 'decor', flagGeo(1), mat4(x, h - 0.05, z, y0 + dy, fs), lin(BUNT[poles.length % BUNT.length]));
+          break;
+        }
+      }
+      occDisc(x, z, 0.3);
+      poles.push({ x, z, h });
+    }
+    for (let i = 1; i < poles.length; i++) { const p = poles[i - 1], q = poles[i]; if (p && q && hyp(p.x - q.x, p.z - q.z) < 8) bunting(B, p.x, p.h - 0.35, p.z, q.x, q.h - 0.35, q.z, i * 2); }
+    RS.poles = poles.filter(Boolean).length;
+    // the stands on the camera side: two long low wooden benches following the rim (planks on posts), a striped cloth hung along
+    // the front one, little round cushions, a small flag now and then on the back one
+    let nStand = 0;
+    const rows = [[1.05, 0.3], [1.85, 0.56]], sa = [];
+    for (let a = Math.PI / 2 - 0.85; a <= Math.PI / 2 + 0.95; a += 0.1) { const e = edge(a); sa.push(e ? { a, r: e.r } : null); }
+    const sr = sa.map((q, i) => { if (!q) return null; let t = 0, w = 0; for (let d = -2; d <= 2; d++) { const o = sa[i + d]; if (o) { t += o.r; w++; } } return t / w; });   // (the rim's radius, smoothed)
+    const sp = (i, o) => ({ x: ar.x + Math.cos(sa[i].a) * (sr[i] + o), z: ar.z + Math.sin(sa[i].a) * (sr[i] + o) });
+    for (let i = 0; i + 1 < sa.length; i++) {
+      if (!sa[i] || !sa[i + 1]) continue;
+      const e = { dx: Math.cos(sa[i].a + 0.05), dz: Math.sin(sa[i].a + 0.05) };
+      let ok = true;
+      const seg = rows.map(([o, y]) => {
+        const A = sp(i, o), Bq = sp(i + 1, o), ax = A.x, az = A.z, bx = Bq.x, bz = Bq.z, x = (ax + bx) / 2, z = (az + bz) / 2, c = cellOf(x, z);
+        if (c < 0 || L.grid[c] || occAt(x, z) || T.nearLiq(x, z, 0.4) > 0.1 || y + 0.1 > capAt(gapAt(x, z)) + 0.05) ok = false;
+        return { x, z, y, l: hyp(bx - ax, bz - az) + 0.04, ya: Math.atan2(bx - ax, bz - az) };
+      });
+      if (!ok) continue;
+      for (const q of seg) {
+        dec(B, 'prop', G.box(), mat4(q.x, q.y - 0.03, q.z, q.ya, 0.62, 0.07, q.l), lin(0xecc494));
+        dec(B, 'prop', G.box(), mat4(q.x, (q.y - 0.06) / 2, q.z, q.ya, 0.5, q.y - 0.06, 0.1), lin(0xb88a58));
+        if (nStand % 2) dec(B, 'gloss', G.sphere(10, 6), mat4(q.x, q.y + 0.04, q.z, 0, 0.2, 0.06, 0.2), lin(BUNT[(nStand + Math.round(q.y * 10)) % BUNT.length]));
+      }
+      const f = seg[0], q2 = seg[1];
+      dec(B, 'decor', G.box(), mat4(f.x - e.dx * 0.32, 0.15, f.z - e.dz * 0.32, f.ya, 0.02, 0.26, f.l), lin(nStand % 2 ? 0xfff8f0 : 0xe84a5a));   // the striped hangings: in front…
+      dec(B, 'decor', G.box(), mat4(q2.x + e.dx * 0.32, q2.y * 0.5, q2.z + e.dz * 0.32, q2.ya, 0.02, q2.y - 0.02, q2.l), lin(nStand % 2 ? 0x3a8ad8 : 0xffd23a));   // …and on the back (the camera's side)
+      if (nStand % 3 === 1) { const px = q2.x + e.dx * 0.34, pz = q2.z + e.dz * 0.34; dec(B, 'prop', G.cyl(1, 1, 6), mat4(px, 0.95, pz, 0, 0.025, 0.9, 0.025), lin(0xf8f0e4)); dec(B, 'decor', flagGeo(1), mat4(px, 1.38, pz, f.ya - Math.PI / 2 + (rnd() - 0.5) * 0.6, 0.55), lin(BUNT[(nStand / 3 | 0) % BUNT.length])); }
+      for (const q of seg) occDisc(q.x, q.z, 0.65);
+      nStand++;
+    }
+    RS.stands = nStand;
+    // beside a tent: a rack of soft jousting lances (striped poles, round padded tips), an archery target, hay and a barrel
+    const t0 = tents[0], t1 = tents[1];
+    if (t0) {
+      const bx = t0.x - t0.e.dz * 2.1, bz = t0.z + t0.e.dx * 2.1, c = cellOf(bx, bz);
+      if (c >= 0 && !L.grid[c] && !occAt(bx, bz) && !hides(L, bx, bz, 0.8, 0, 2.3, 0.15)) {
+        const M = mat4(bx, 0, bz, Math.atan2(-t0.e.dx, -t0.e.dz)), put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+        for (const sx of [-0.7, 0.7]) put('prop', G.box(), mat4(sx, 0.55, 0, 0, 0.08, 1.1, 0.08), lin(0xb88a58));
+        put('prop', G.box(), mat4(0, 1.05, 0, 0, 1.6, 0.08, 0.1), lin(0xb88a58));
+        for (let i = 0; i < 4; i++) {
+          const x = (i - 1.5) * 0.36;
+          put('decor', G.cyl(1, 1, 8), mat4(x, 1.1, -0.18, 0, 0.04, 2.2, 0.04, -0.2), lin(i % 2 ? 0x3a8ad8 : 0xe84a5a));
+          put('gloss', G.sphere(12, 8), mat4(x, 2.2, -0.4, 0, 0.13), lin(0xfff8f0));
+        }
+        occDisc(bx, bz, 1.0);
+      }
+    }
+    if (t1) {
+      const bx = t1.x + t1.e.dz * 2.2, bz = t1.z - t1.e.dx * 2.2, c = cellOf(bx, bz);
+      if (c >= 0 && !L.grid[c] && !occAt(bx, bz) && !hides(L, bx, bz, 0.6, 0, 1.8, 0.15)) {
+        const M = mat4(bx, 0, bz, Math.atan2(-t1.e.dx, -t1.e.dz)), put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(M, m), col);
+        for (const sx of [-0.35, 0.35]) put('prop', G.box(), mat4(sx, 0.7, -0.12, 0, 0.07, 1.4, 0.07, -0.18), lin(0xb88a58));
+        for (const [r, col] of [[0.58, 0xfff8f0], [0.46, 0xe84a5a], [0.34, 0xfff8f0], [0.22, 0xe84a5a], [0.1, 0xffd23a]]) put('decor', G.cyl(1, 1, 24), mat4(0, 1.2, 0.02 + (0.6 - r) * 0.02, 0, r, 0.05, r, Math.PI / 2 - 0.18), lin(col));
+        put('decor', G.cyl(1, 1, 24), mat4(0, 1.2, -0.02, 0, 0.62, 0.08, 0.62, Math.PI / 2 - 0.18), lin(0xe8c860));   // straw back
+        occDisc(bx, bz, 0.8);
+      }
+    }
+    for (const t of tents) {   // hay and a barrel at a tent's side
+      const x = t.x + t.e.dz * 2.0, z = t.z - t.e.dx * 2.0, c = cellOf(x, z);
+      if (c >= 0 && !L.grid[c] && !occAt(x, z) && !hides(L, x, z, 0.9, 0, 1.4, 0.15)) { putFurn(B, rnd() < 0.5 ? 'hay' : 'barrels', x, z, rnd() * TAU, 0, 0.85); occDisc(x, z, 1.0); }
+    }
+    glowAt(B, ar.x, ar.z, ar.r * 0.8, 0xfff0c8, 0.06);
+    // the town's crest painted big in the middle of the ground (flat: the knight rides over it)
+    const em = R.mat.tEmblem || (R.mat.tEmblem = keep(new THREE.MeshStandardMaterial({ map: arenaEmblemTex(), transparent: true, depthWrite: false, roughness: 0.6, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
+    const e = new THREE.Mesh(R.geo.tEmblem || (R.geo.tEmblem = keep(new THREE.PlaneGeometry(7.2, 7.2).rotateX(-Math.PI / 2))), em);
+    e.position.set(ar.x, 0.012, ar.z); e.receiveShadow = true; e.renderOrder = 1; e.name = 'arena-emblem';
+    B.g.add(e);
+  }
+  // Turnuva Meydanı's ground emblem: a ring of blue and yellow pennant segments round the town's smiling sun
+  function arenaEmblemTex() {
+    return R.tex.tEmblem || (R.tex.tEmblem = canvasTex(512, 512, (g, w) => {
+      const c = w / 2;
+      for (let k = 0; k < 16; k++) { g.fillStyle = k % 2 ? 'rgba(255,214,70,0.92)' : 'rgba(74,138,224,0.9)'; g.beginPath(); g.arc(c, c, 244, k / 16 * TAU, (k + 1) / 16 * TAU); g.arc(c, c, 170, (k + 1) / 16 * TAU, k / 16 * TAU, true); g.closePath(); g.fill(); }
+      g.strokeStyle = 'rgba(255,248,236,0.95)'; g.lineWidth = 8; g.beginPath(); g.arc(c, c, 246, 0, TAU); g.stroke(); g.beginPath(); g.arc(c, c, 168, 0, TAU); g.stroke();
+      g.fillStyle = 'rgba(255,248,236,0.55)'; g.beginPath(); g.arc(c, c, 164, 0, TAU); g.fill();
+      g.fillStyle = '#ffc83a';
+      for (let k = 0; k < 12; k++) { const a = k / 12 * TAU; g.beginPath(); g.moveTo(c + Math.cos(a - 0.17) * 84, c + Math.sin(a - 0.17) * 84); g.lineTo(c + Math.cos(a) * 146, c + Math.sin(a) * 146); g.lineTo(c + Math.cos(a + 0.17) * 84, c + Math.sin(a + 0.17) * 84); g.fill(); }
+      g.fillStyle = '#ffe066'; g.beginPath(); g.arc(c, c, 92, 0, TAU); g.fill();
+      g.fillStyle = '#5a3a20'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(c + sx * 30, c - 16, 10, 15, 0, 0, TAU); g.fill(); }
+      g.fillStyle = '#ff9a8a'; for (const sx of [-1, 1]) { g.beginPath(); g.ellipse(c + sx * 54, c + 16, 16, 10, 0, 0, TAU); g.fill(); }
+      g.strokeStyle = '#8a4a2a'; g.lineWidth = 10; g.lineCap = 'round'; g.beginPath(); g.arc(c, c + 10, 34, 0.35, Math.PI - 0.35, false); g.stroke();
+    }));
+  }
+  // The dragon's castle far to the north, beyond the city wall and the gate: a rocky hill with the castle on it — lavender brick
+  // towers with purple cones and golden tips, pennants, a keep with a big roof, warm windows (decor only; the fog tints it)
+  function townCastle(L, B, T) {
+    const { rnd, V } = T, ar = V.arena;
+    if (!ar) return;
+    const cx = ar.x + (rnd() - 0.5) * 6, cz = ar.z - ar.r - 20, hy = 4.2;
+    for (let i = 0; i < 7; i++) {   // the hill: big rounded rocks
+      const a = i / 7 * TAU + rnd() * 0.4, r = i ? 5 + rnd() * 3 : 0, s = 6 + rnd() * 3;
+      dec(B, 'rockN', rockGeo(i % 3), mat4(cx + Math.cos(a) * r, hy * 0.35, cz + Math.sin(a) * r * 0.8, rnd() * TAU, s, hy * (0.9 + rnd() * 0.3), s * 0.85), lin(pick3(rnd, 0xc8b8d0, 0xbcaec8, 0xd0c2d8)));
+    }
+    dec(B, 'rockN', rockGeo(1), mat4(cx, hy * 0.5, cz, 0.4, 9, hy * 1.1, 7.5), lin(0xc4b4cc));
+    const put = (mk, geo, m, col) => dec(B, mk, geo, new THREE.Matrix4().multiplyMatrices(mat4(cx, hy + 0.2, cz), m), col);
+    const tower = (x, z, r, h, roof) => {
+      put('roofC', G.cyl(1, 1, 16), mat4(x, h / 2, z, 0, r, h, r), lin(0xe4dcf4));
+      put('roofC', G.cyl(1, 0.9, 16), mat4(x, h + 0.2, z, 0, r + 0.25, 0.4, r + 0.25), lin(0xf0eaff));
+      put('roofNC', G.cone(16), mat4(x, h + 0.4 + r * 1.3, z, 0, r + 0.35, r * 2.6, r + 0.35), lin(roof));
+      put('shiny', G.sphere(8, 6), mat4(x, h + 0.4 + r * 2.6 + 0.12, z, 0, 0.18), lin(0xffcf4a));
+      put('decor', flagGeo(1), mat4(x, h + 0.4 + r * 2.6 + 0.9, z, 0.5, 1.6), lin(0xff7ad8));
+      put('prop', MK(G.cyl(1, 1, 6)), mat4(x, h + 0.4 + r * 2.6 + 0.5, z, 0, 0.04, 1.0, 0.04), lin(0x6a5a70));
+      for (let k = 0; k < 2; k++) put('window', G.box(), mat4(x + Math.sin(0.3 + k * 0.5) * (r + 0.01), h * (0.45 + k * 0.25), z + Math.cos(0.3 + k * 0.5) * (r + 0.01), 0.3 + k * 0.5, 0.35, 0.6, 0.05), lin(0xffffff));
+    };
+    // the curtain wall ring with merlons, four corner towers, the keep with two slender towers, the gatehouse facing the town
+    const cw = [[-6, -3], [6, -3], [6, 3.5], [-6, 3.5], [-6, -3]];
+    for (let i = 1; i < cw.length; i++) {
+      const [x0, z0] = cw[i - 1], [x1, z1] = cw[i], l = Math.hypot(x1 - x0, z1 - z0), ya = Math.atan2(x1 - x0, z1 - z0);
+      put('roofC', G.box(), mat4((x0 + x1) / 2, 1.7, (z0 + z1) / 2, ya, 1.0, 3.4, l), lin(0xdcd2ee));
+      for (let s = 0.5; s < l; s += 1.0) put('roofC', G.box(), mat4(lerp(x0, x1, s / l), 3.65, lerp(z0, z1, s / l), ya, 1.0, 0.5, 0.5), lin(0xece6fa));
+    }
+    for (const [x, z] of [[-6, -3], [6, -3], [6, 3.5], [-6, 3.5]]) tower(x, z, 1.5, 6 + rnd() * 1.5, pick3(rnd, 0x8a5ad0, 0xb05ad0, 0x7a6ae0));
+    put('roofC', G.box(), mat4(0, 4.2, -0.3, 0, 6.2, 8.4, 4.4), lin(0xe8e0f6));
+    const rs = boxUV(6.8, 0.2, 3.6, 2); B.tmpGeo.push(rs);
+    for (const sd of [-1, 1]) put('roofNC', rs, mat4(0, 9.35, -0.3 + sd * 1.25, 0, 1, 1, 1, sd * 0.78, 0), lin(0x9a5ad8));
+    for (let k = 0; k < 6; k++) put('window', G.box(), mat4(-2.2 + (k % 3) * 2.2, 3 + (k / 3 | 0) * 2.6, 1.93, 0, 0.55, 0.9, 0.05), lin(0xffffff));
+    tower(-2.4, -1.4, 1.05, 11.5, 0xb05ad0); tower(2.6, -1.0, 1.1, 13.5, 0x8a5ad0);
+    put('roofC', G.box(), mat4(0, 2.2, 3.9, 0, 3.0, 4.4, 1.6), lin(0xe4dcf4));
+    put('decor', halfCyl(), mat4(0, 1.6, 4.72, Math.PI / 2, 0.8, 0.05, 0.8, 0, Math.PI / 2), lin(0x5a4a70));
+    put('decor', G.box(), mat4(0, 0.8, 4.72, 0, 1.6, 1.6, 0.05), lin(0x5a4a70));
+    put('shiny', crestGeo(), mat4(0, 3.5, 4.73, 0, 1.1), null);
+    T.RS.castle = 1;
+  }
+  // Gardens on the grass: trees (round lollipop and blossom trees, now and then an oak; none on the camera side, never hiding floor),
+  // low hedges and flowering bushes along the kerb, flower patches and grass tufts; the meadow outside the walls with a few trees
+  function townGreen(L, B, T) {
+    const { rnd, dF, cellOf, liqAt, nearLiq, outAt, gapAt, occAt, occDisc, RS } = T, W = L.W, H = L.H, grid = L.grid;
+    const pal = { lolli: PAL.lolli, blossom: PAL.blossom, oak: PAL.green };
+    let nTree = 0;
+    for (let z0 = 0; z0 < H; z0 += 2.6) for (let x0 = 0; x0 < W; x0 += 2.6) {
+      const x = x0 + rnd() * 2.4, z = z0 + rnd() * 2.4, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] < 1.6 || nearLiq(x, z, 1.6) > 0.05 || T.reserve(x, z)) continue;
+      const out = outAt(x, z) > 0.5;
+      if (out ? rnd() < 0.72 : rnd() < 0.25) continue;
+      let blocked = false;
+      for (let k = 0; k < 6 && !blocked; k++) if (occAt(x + Math.cos(k * 1.05) * 1.3, z + Math.sin(k * 1.05) * 1.3)) blocked = true;
+      if (blocked || occAt(x, z)) continue;
+      const g = gapAt(x, z), tCap = southCap(g, 0, 0);
+      const sp = rnd() < 0.45 ? 'lolli' : rnd() < 0.6 ? 'blossom' : 'oak';
+      for (const k of [0.8 + rnd() * 0.3, 0.62, 0.5, 0.42]) {
+        const S = SPEC[sp], kk = out ? k * 1.25 : k;
+        if (S.yt * kk > tCap || hides(L, x, z, S.cr * kk, S.yb * kk, S.yt * kk)) continue;
+        inst(B, dF[c] > 4.5 ? sp + 'F' : sp, mat4(x, 0, z, rnd() * TAU, kk, kk * (0.92 + rnd() * 0.16), kk), lin(pick3(rnd, ...pal[sp].slice(0, 3)), 0.95 + rnd() * 0.1));   // (far from the streets: no shadow)
+        occDisc(x, z, 1.2 * kk); nTree++;
+        break;
+      }
+    }
+    RS.trees = nTree;
+    // along the kerb on the garden side: low hedges and flowering bushes, flower patches (not where the lanterns and benches stand)
+    let nB = 0, nF = 0;
+    for (const pts of T.edgeLoops || []) for (let i = 0; i < pts.length - 2; i += 3) {
+      const a = pts[i], c = pts[i + 2], dx = c.x - a.x, dz = c.z - a.z, l = hyp(dx, dz) || 1, nx = -dz / l, nz = dx / l;
+      const o = 0.75 + rnd() * 0.5, x = a.x + nx * o, z = a.z + nz * o, cc = cellOf(x, z), roll = rnd();
+      if (cc < 0 || grid[cc] || nearLiq(x, z, roll < 0.34 ? 0.8 : 0.35) > 0.05 || occAt(x, z) || B.noDec[cc]) continue;   // (flowers grow right down to the quays)
+      const g = gapAt(x, z);
+      if (roll < 0.34) {
+        const k = 0.6 + rnd() * 0.25, ky = Math.min(k, southCap(g, 0.55, 0.95) / 1.05);
+        if (ky < 0.35 || hides(L, x, z, 0.95 * k, 0, 1.05 * ky, 0.6) || [0, 1.57, 3.14, 4.71].some(a2 => occAt(x + Math.cos(a2) * 0.6 * k, z + Math.sin(a2) * 0.6 * k))) continue;
+        addBush(B, mat4(x, 0, z, rnd() * TAU, k, ky, k), lin(pick3(rnd, ...PAL.green.slice(0, 3)), 0.92 + rnd() * 0.12), rnd() < 0.55);
+        occDisc(x, z, 0.6 * k); nB++;
+      } else if (roll < 0.62) {
+        const ci = Math.floor(rnd() * FLOWER_COL.length);
+        for (let m = 0, cnt = 4 + Math.floor(rnd() * 5); m < cnt; m++) { const px = x + (rnd() - 0.5) * 1.2, pz = z + (rnd() - 0.5) * 1.2, pc = cellOf(px, pz); if (pc >= 0 && !grid[pc] && T.nearLiq(px, pz, 0.25) < 0.02 && !occAt(px, pz)) dec(B, 'decor', flowerGeo(rnd() < 0.7 ? ci : Math.floor(rnd() * FLOWER_COL.length)), mat4(px, 0, pz, rnd() * TAU, 0.9 + rnd() * 0.4), null); }
+        nF++;
+      }
+    }
+    // grass tufts and lone daisies scattered over the gardens and the meadow
+    for (let n = 0; n < W * H / 9; n++) {
+      const x = rnd() * W, z = rnd() * H, c = cellOf(x, z);
+      if (c < 0 || grid[c] || dF[c] < 0.6 || liqAt(x, z) > 0.02 || nearLiq(x, z, 0.5) > 0.05 || occAt(x, z) || B.noDec[c]) continue;
+      if (rnd() < 0.8) dec(B, 'decor', tuftGeo(Math.floor(rnd() * 3)), mat4(x, 0, z, rnd() * TAU, 0.9 + rnd() * 0.5), null);
+      else dec(B, 'decor', flowerGeo(rnd() < 0.6 ? 0 : 1), mat4(x, 0, z, rnd() * TAU, 0.7 + rnd() * 0.3), null);
+    }
+    RS.bushes = nB; RS.flowerBeds = nF;
+  }
+  for (const k of ['lolli', 'blossom', 'oak']) KIND[k + 'F'] = Object.assign({}, KIND[k], { shadow: false, proxy: null });   // the same trees, shadowless (the meadow, the back gardens)
+  // A little duck (local: facing +z; the decor shader bobs it, uv 50): 0 a white mother duck · 1 a yellow duckling
+  function duckGeo(v) {
+    const key = 'tDuck' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit(), body = v ? 0xffe04a : 0xfaf8f2;
+    k.add(G.sphere(12, 8), body, [0, 0.12, 0], 0, [0.2, 0.14, 0.27]);
+    k.add(G.cone(6), body, [0, 0.2, -0.26], [-1.1, 0, 0], [0.08, 0.14, 0.05]);   // the tail
+    k.add(G.sphere(12, 8), body, [0, 0.3, 0.17], 0, 0.12);
+    k.add(G.sphere(8, 6), 0xff9a2a, [0, 0.28, 0.3], 0, [0.06, 0.03, 0.07]);
+    for (const sx of [-1, 1]) { k.add(G.sphere(6, 4), 0x2a2020, [sx * 0.07, 0.33, 0.26], 0, 0.022); k.add(G.sphere(6, 4), 0xff9ab0, [sx * 0.09, 0.28, 0.24], 0, [0.025, 0.015, 0.012]); }
+    for (const sx of [-1, 1]) k.add(G.sphere(8, 6), v ? 0xffd030 : 0xf0ece4, [sx * 0.17, 0.15, -0.03], 0, [0.05, 0.08, 0.16]);   // wings
+    return (R.geo[key] = keep(markUV(k.build(), 50)));
+  }
+  function lilyGeo(v) {   // a round lily pad with a notch (and a pink blossom on some), uv 50: bobbing
+    const key = 'tLily' + v;
+    if (R.geo[key]) return R.geo[key];
+    const k = new Kit();
+    k.add(new THREE.CylinderGeometry(1, 1, 1, 14, 1, false, 0.35, TAU - 0.7), 0x5cb040, [0, 0, 0], 0, [0.32, 0.02, 0.32]);
+    if (v) { for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; k.add(G.sphere(6, 4), 0xff9ac8, [Math.cos(a) * 0.06, 0.06, Math.sin(a) * 0.06], [0, -a, 0.6], [0.06, 0.03, 0.035]); } k.add(G.sphere(6, 4), 0xffe060, [0, 0.07, 0], 0, 0.03); }
+    return (R.geo[key] = keep(markUV(k.build(), 50)));
+  }
+  // On the water: duck families paddling (a mother with 2–3 ducklings in a row), lily pads in the calmer shallows, sun glints
+  function townWaterLife(L, B, T) {
+    const { rnd, V, liqAt, RS } = T, W = L.W, H = L.H, wet = (x, z, r) => { if (liqAt(x, z) < 0.9) return false; for (let k = 0; k < 8; k++) if (liqAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r) < 0.8) return false; return true; };
+    const y = -WD + 0.01, spots = [];
+    for (let t = 0, fam = 0; t < 4000 && fam < 4; t++) {
+      const x = rnd() * W, z = rnd() * H;
+      if (!wet(x, z, 0.9) || spots.some(q => hyp(q.x - x, q.z - z) < 12)) continue;
+      const yaw = rnd() * TAU, fx = Math.sin(yaw), fz = Math.cos(yaw), n = 2 + Math.floor(rnd() * 2);
+      let ok = true;
+      for (let i = 1; i <= n && ok; i++) if (!wet(x - fx * i * 0.55, z - fz * i * 0.55, 0.3)) ok = false;
+      if (!ok) continue;
+      spots.push({ x, z }); fam++;
+      const ph = rnd() * 60;
+      dec(B, 'gloss', duckGeo(0), mat4(x, y, z, yaw, 1.3), null).item.uy = ph;
+      for (let i = 1; i <= n; i++) dec(B, 'gloss', duckGeo(1), mat4(x - fx * i * 0.55 + (rnd() - 0.5) * 0.1, y, z - fz * i * 0.55, yaw + (rnd() - 0.5) * 0.4, 0.75), null).item.uy = ph + i * 0.9;
+      RS.ducks = fam;
+    }
+    for (let t = 0, n = 0; t < 5000 && n < 40; t++) {
+      const x = rnd() * W, z = rnd() * H, lq = liqAt(x, z);
+      if (lq < 0.9 || !wet(x, z, 0.35) || wet(x, z, 1.6) || spots.some(q => hyp(q.x - x, q.z - z) < 1.2)) continue;   // (the shallows by the quays)
+      const cl = 1 + Math.floor(rnd() * 3);
+      for (let m = 0; m < cl; m++) { const px = x + (rnd() - 0.5) * 0.9, pz = z + (rnd() - 0.5) * 0.9; if (liqAt(px, pz) > 0.9) { dec(B, 'decor', lilyGeo(rnd() < 0.3 ? 1 : 0), mat4(px, y, pz, rnd() * TAU, 0.8 + rnd() * 0.5), null).item.uy = rnd() * 60; n++; } }
+      RS.lilies = n;
+    }
+    for (let t = 0, n = 0; t < 3000 && n < 70; t++) {   // sun glints dancing on the water
+      const x = rnd() * W, z = rnd() * H;
+      if (liqAt(x, z) < 0.9) continue;
+      B.pts.add.push({ x, y: y + 0.03, z, kind: 8, ph: rnd(), size: 0.2 + rnd() * 0.1, prm: 0.4 + rnd() * 0.5, col: lin(0xfff8e0, 1.5) });
+      n++;
+    }
+  }
+  // Bunting across the streets and squares: between the fronts of two houses facing each other over the floor (4.5–11 m apart), a
+  // few between lantern posts; crest banners on some fronts round the squares
+  function townBunting(L, B, T) {
+    const { rnd, RS } = T, hs = T.houses.filter(h => h.st > 1), used = new Set(), path = L.path;
+    const anchor = h => { const D = houseDims(h), y = D.top - 0.3, f = D.j + 0.08; return { x: h.x + Math.sin(h.yaw) * f, y, z: h.z + Math.cos(h.yaw) * f }; };
+    const pathD = (x, z) => { let d = 1e9; for (let s = 1; s < path.length; s++) d = Math.min(d, segDist(x, z, path[s - 1].x, path[s - 1].z, path[s].x, path[s].z)); return d; };
+    const byTower = (a, b) => (T.towers || []).some(t => segDist(t.x, t.z, a.x, a.z, b.x, b.z) < t.r + 0.45);   // (no string through a tower)
+    const cand = [];
+    for (let i = 0; i < hs.length; i++) for (let k = i + 1; k < hs.length; k++) {
+      const a = anchor(hs[i]), b = anchor(hs[k]), d = hyp(a.x - b.x, a.z - b.z);
+      if (d < 4.5 || d > 14) continue;
+      const fa = [Math.sin(hs[i].yaw), Math.cos(hs[i].yaw)], fb = [Math.sin(hs[k].yaw), Math.cos(hs[k].yaw)], ux = (b.x - a.x) / d, uz = (b.z - a.z) / d;
+      if (fa[0] * ux + fa[1] * uz < 0.35 || -(fb[0] * ux + fb[1] * uz) < 0.35) continue;   // (each front looks across at the other)
+      let over = 0; for (let s = 0.15; s < 0.9; s += 0.15) if (isFloor(L, lerp(a.x, b.x, s), lerp(a.z, b.z, s))) over++;
+      if (over < 3 || byTower(a, b)) continue;
+      cand.push({ i, k, a, b, sc: pathD((a.x + b.x) / 2, (a.z + b.z) / 2) + rnd() * 3 });
+    }
+    T.lamps.forEach((lp, li) => {   // …and from a lantern post to a front or another post across the street
+      const a = { x: lp.x, y: 2.5, z: lp.z };
+      for (let k = 0; k < hs.length + T.lamps.length; k++) {
+        const o = k < hs.length ? anchor(hs[k]) : T.lamps[k - hs.length], b = k < hs.length ? o : { x: o.x, y: 2.5, z: o.z }, d = hyp(a.x - b.x, a.z - b.z);
+        if (o === lp || d < 3.5 || d > 9) continue;
+        let over = 0; for (let s = 0.15; s < 0.9; s += 0.15) if (isFloor(L, lerp(a.x, b.x, s), lerp(a.z, b.z, s))) over++;
+        if (over < 4 || byTower(a, b)) continue;
+        cand.push({ i: 'L' + li, k: k < hs.length ? k : 'L' + (k - hs.length), a, b, sc: pathD((a.x + b.x) / 2, (a.z + b.z) / 2) + 1 + rnd() * 3 });
+      }
+    });
+    cand.sort((p, q) => p.sc - q.sc);
+    let n = 0;
+    for (const c of cand) {
+      if (n >= 22) break;
+      if ((used.has(c.i) && used.has(c.k)) || cand.slice(0, cand.indexOf(c)).some(q => q.done && hyp((q.a.x + q.b.x) / 2 - (c.a.x + c.b.x) / 2, (q.a.z + q.b.z) / 2 - (c.a.z + c.b.z) / 2) < 3)) continue;
+      bunting(B, c.a.x, c.a.y, c.a.z, c.b.x, c.b.y, c.b.z, n * 3); c.done = true; used.add(c.i); used.add(c.k); n++;
+    }
+    RS.bunting = n;
+    // crest banners on some fronts near the route (hung from the upper storey)
+    let nb = 0;
+    for (const h of hs) {
+      const D = houseDims(h), f = D.j + 0.07;
+      if (nb >= 10 || used.has(hs.indexOf(h)) || pathD(h.x, h.z) > 6 || Math.floor((D.W2 - 0.2) / 1.45) !== 2 || rnd() < 0.4) continue;   // (between the two upper windows)
+      B.banners.push({ x: h.x + Math.sin(h.yaw) * f, z: h.z + Math.cos(h.yaw) * f, y: D.top - 0.15, yaw: h.yaw, hue: 2 + (nb & 1), s: 0.72 });
+      nb++;
+    }
+    RS.banners = nb;
+  }
+  // ── LEVEL.build for Surlu Şehir ──
+  function buildTown(L, B) {
+    const rnd = B.rnd, W = L.W, H = L.H, grid = L.grid, V = L._town || townField(L);
+    const dF = L._dF = chamfer(W, H, grid, 1);
+    const pick = a => a[Math.floor(rnd() * a.length)];
+    const cellOf = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i < 0 || j < 0 || i >= W || j >= H ? -1 : j * W + i; };
+    const liqAt = (x, z) => V.lava[clamp(Math.floor(z * V.P), 0, V.MH - 1) * V.MW + clamp(Math.floor(x * V.P), 0, V.MW - 1)];
+    const nearLiq = (x, z, r) => { let m = liqAt(x, z); for (let k = 0; k < 8; k++) m = Math.max(m, liqAt(x + Math.cos(k * 0.785) * r, z + Math.sin(k * 0.785) * r)); return m; };
+    const outAt = (x, z) => { const F = V.outF, fx = clamp(x - 0.5, 0, W - 1.001), fz = clamp(z - 0.5, 0, H - 1.001), i = fx | 0, j = fz | 0, tx = fx - i, tz = fz - j, k = j * W + i; return (F[k] * (1 - tx) + F[k + 1] * tx) * (1 - tz) + (F[k + W] * (1 - tx) + F[k + W + 1] * tx) * tz; };
+    const gapAt = (x, z) => southGap(L, x, z), capAt = g => southCap(g, 0.62, 1.0);
+    const ar = V.arena, inArena = (x, z, pad = 0) => !!ar && inRoom(ar, x, z, pad);
+    const bridgeD = (x, z) => { let d = 1e9; for (const b of V.bridges) for (const q of b.pts) d = Math.min(d, hyp(q.x - x, q.z - z)); return d; };
+    // 0.25 m cells taken by the houses, walls, towers, tents… (nothing big may overlap another)
+    const OW = W * 4, OH = H * 4, occ = new Uint8Array(OW * OH);
+    const occAt = (x, z) => { const i = Math.floor(x * 4), j = Math.floor(z * 4); return i < 0 || j < 0 || i >= OW || j >= OH ? 1 : occ[j * OW + i]; };
+    const occDisc = (x, z, r) => { for (let j = Math.floor((z - r) * 4); j <= (z + r) * 4; j++) for (let i = Math.floor((x - r) * 4); i <= (x + r) * 4; i++) if (i >= 0 && j >= 0 && i < OW && j < OH && hyp((i + 0.5) / 4 - x, (j + 0.5) / 4 - z) < r) occ[j * OW + i] = 1; };
+    const occRect = (fx, fz, yaw, w, d, f = 0) => {   // a rectangle w wide from f in front of (fx, fz) to d behind it (local −z), turned by yaw
+      const cs = Math.cos(yaw), sn = Math.sin(yaw), R0 = Math.hypot(w / 2, Math.max(d, f)) + 0.3;
+      for (let j = Math.floor((fz - R0) * 4); j <= (fz + R0) * 4; j++) for (let i = Math.floor((fx - R0) * 4); i <= (fx + R0) * 4; i++) {
+        if (i < 0 || j < 0 || i >= OW || j >= OH) continue;
+        const dx = (i + 0.5) / 4 - fx, dz = (j + 0.5) / 4 - fz, lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+        if (Math.abs(lx) < w / 2 && lz < f && lz > -d) occ[j * OW + i] = 1;
+      }
+    };
+    // kept clear for later: the arena's rim (tents, stands, pennants), the bridges' ends, the gate and the road on through it (see buildMask)
+    const reserve = (x, z) => (ar && V.dA && V.dA[cellOf(x, z)] < 6.5) || bridgeD(x, z) < 2.4 || (L.exit && (hyp(L.exit.x - x, L.exit.z - z) < 6 || (Math.abs(x - L.exit.x) < 2.6 && z < L.exit.z && z > L.exit.z - 14.5)));
+    B.ck = 24;   // (bigger chunks: the town's decor is light but spread over many materials — fewer, fuller draw calls)
+    const RS = L.townDecor = { houses: 0, back: 0, shops: 0, lamps: 0, towers: 0, walls: 0, bridges: V.bridges.length, river: !!V.river, quaySegs: 0, spots: [] };   // for tests / debugging
+    const T = { rnd, V, dF, pick, cellOf, liqAt, nearLiq, outAt, gapAt, capAt, ar, inArena, bridgeD, occ, occAt, occDisc, occRect, reserve, RS, houses: [], lamps: [] };
+    // the water: one plane 0.8 m below the streets (only seen where the floor mesh leaves the canals open), the stone quays
+    const ft = new THREE.DataTexture(V.wflow.data, V.wflow.W, V.wflow.H, THREE.RGBAFormat, THREE.UnsignedByteType);
+    ft.minFilter = ft.magFilter = THREE.LinearFilter; ft.generateMipmaps = false; ft.wrapS = ft.wrapT = THREE.ClampToEdgeWrapping; ft.needsUpdate = true;
+    B.dispose.push(ft);
+    const wm = waterMat(false);
+    wm.userData.u.tFlow.value = ft; wm.userData.u.uMaskInv.value.set(1 / W, 1 / H);
+    const wg = new THREE.PlaneGeometry(W + 28, H + 28); wg.rotateX(-Math.PI / 2); wg.translate(W / 2, -WD, H / 2);
+    const water = new THREE.Mesh(wg, wm); water.receiveShadow = true; water.renderOrder = 1; water.name = 'water';   // (after the floor and the houses: hidden fragments are skipped)
+    B.g.add(water);
+    townQuays(L, B);
+    townBridges(L, B, T);
+    townWalls(L, B, T);
+    townArena(L, B, T);
+    townHouses(L, B, T);
+    townArrival(L, B, T);
+    townSquares(L, B, T);
+    townPlazas(L, B, T);
+    townBunting(L, B, T);
+    townGreen(L, B, T);
+    townWaterLife(L, B, T);
+    townCastle(L, B, T);
+  }
   // ── Castle: brick wall blocks (tall N/E/W, low caps on the camera side), pillars, banners, rose window ──
   KIND.wallT = { mat: 'brick', shadow: 'near', geo() { const k = new Kit(); k.add(G.box(), 0xf2eefa, [0, 1.3, 0], 0, [1, 2.6, 1]); k.add(G.box(), 0xffffff, [0, 2.68, 0], 0, [1.04, 0.16, 1.04]); return k.build(); } };
   KIND.wallTM = { mat: 'brick', shadow: 'near', geo() { const k = new Kit(); k.add(G.box(), 0xf2eefa, [0, 1.3, 0], 0, [1, 2.6, 1]); k.add(G.box(), 0xffffff, [0, 2.68, 0], 0, [1.04, 0.16, 1.04]); k.add(G.box(), 0xf6f2ff, [0, 3.0, 0], 0, [0.52, 0.5, 0.52]); return k.build(); } };
@@ -5640,15 +7719,16 @@ const LEVEL = (function () {
   function finishBanners(B) {
     if (!B.banners.length) return;
     const geo = R.geo.banner || (R.geo.banner = keep((() => { const g = new THREE.PlaneGeometry(0.9, 2.0, 1, 8); g.translate(0, -1.0, 0); return g; })()));
-    for (const hue of [0, 1]) {
+    for (const hue of [0, 1, 2, 3]) {   // (2, 3: Surlu Şehir's sun crest on sky blue / on sunny red; b.y, b.s, b.yaw: hung anywhere)
       const list = B.banners.filter(b => b.hue === hue);
       if (!list.length) continue;
       const mk = 'banner' + hue, m = R.mat[mk] || (R.mat[mk] = makeBannerMat(hue));
       const im = new THREE.InstancedMesh(geo, m, list.length);
-      list.forEach((b, i) => { const s = b.big ? 1.35 : 1; im.setMatrixAt(i, mat4(b.x, b.big ? 3.0 : 2.5, b.z, 0, s)); });
+      const yOf = b => b.y ?? (b.big ? 3.0 : 2.5), sOf = b => b.s ?? (b.big ? 1.35 : 1);
+      list.forEach((b, i) => im.setMatrixAt(i, mat4(b.x, yOf(b), b.z, b.yaw || 0, sOf(b))));
       im.computeBoundingSphere(); im.castShadow = false; im.receiveShadow = true; im.name = 'banners';
       B.g.add(im);
-      for (const b of list) dec(B, 'prop', marked(G.cyl(1, 1, 8), 10), mat4(b.x, (b.big ? 3.0 : 2.5) + 0.03, b.z + 0.03, 0, 0.035, b.big ? 1.4 : 1.05, 0.035, 0, Math.PI / 2), lin(0xffc94a));
+      for (const b of list) { const ya = b.yaw || 0; dec(B, 'prop', marked(G.cyl(1, 1, 8), 10), mat4(b.x + Math.sin(ya) * 0.03, yOf(b) + 0.03, b.z + Math.cos(ya) * 0.03, ya, 0.035, sOf(b) * 1.05, 0.035, 0, Math.PI / 2), lin(0xffc94a)); }
     }
   }
 
@@ -5813,7 +7893,8 @@ const LEVEL = (function () {
     k.add(G.torus(Math.PI, 0.12, 12), cu, [0.1, 0.48, 0], [0, 0, -Math.PI / 2], [0.19, 0.19, 0.19]);
     return k.build();
   } };
-  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], dairy: [0xfaf6ee, 0x9cc8f0, 0xf6b4c6, 0xf6dc8a], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], volcano: [0xe0875a, 0x6ab8c8, 0xf0b060, 0xd07aa0], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8] };
+  const VASE_COL = { forest: [0xe0875a, 0xd89a6a, 0x6ab8c8], dairy: [0xfaf6ee, 0x9cc8f0, 0xf6b4c6, 0xf6dc8a], cave: [0x8a9ae0, 0xb08ae0, 0x6ab8c8], volcano: [0xe0875a, 0x6ab8c8, 0xf0b060, 0xd07aa0], castle: [0x5a7ae0, 0xb08ae0, 0xe07a9a, 0x6ab8c8],
+    town: [0xe0875a, 0x5a9ae0, 0xf0c060, 0x6ab8a0, 0xd07aa0] };   // (town: terracotta and glazed pots)
   function makeBreakables(L, B) {
     const byKind = {}, dairy = L.theme === 'dairy';
     const vkOf = (b, i) => (dairy && b.kind === 'barrel' ? 'bCan' : dairy && b.kind === 'crate' ? (i % 2 ? 'dCrateM' : 'dCrateP') : b.kind);   // Kefir Vadisi's own looks
@@ -5866,7 +7947,7 @@ const LEVEL = (function () {
   function makeCheckpoints(L, B) {
     L.cpObjs = L.checkpoints.map(c => {
       const g = new THREE.Group(); g.position.set(c.x, 0, c.z); B.g.add(g);
-      const ped = L.theme === 'dairy' ? new THREE.Mesh(cheeseData(4).food, R.mat.food) : new THREE.Mesh(pedestalGeo(), R.mat.stone);   // Kefir Vadisi: two stacked cheese wheels
+      const ped = L.theme === 'dairy' ? new THREE.Mesh(cheeseData(4).food, R.mat.food) : new THREE.Mesh(pedestalGeo(), L.theme === 'town' ? R.mat.ramp : R.mat.stone);   // Kefir Vadisi: two stacked cheese wheels; Surlu Şehir: sandstone
       ped.castShadow = ped.receiveShadow = true; g.add(ped);
       const pi = L.cpObjsN = (L.cpObjsN || 0) + 1, pool = R.cpPool[pi] || (R.cpPool[pi] = {
         cm: keep(new THREE.MeshStandardMaterial({ color: 0xff9ad8, emissive: 0xff5ac0, emissiveIntensity: 0.35, roughness: 0.12, metalness: 0.05, flatShading: true })),
@@ -5930,7 +8011,7 @@ const LEVEL = (function () {
   function makePortal(L, B) {
     if (!L.exit) return;
     const ex = L.exit, g = new THREE.Group(); g.position.set(ex.x, 0, ex.z); B.g.add(g);
-    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : L.theme === 'volcano' ? [0x9a8a86, 0x8c7e7c] : L.theme === 'dairy' ? [0xfff2e2, 0xf8e6d2] : [0xd4ccbc, 0xc4bcae];
+    const rnd = mulberry32(L.seed + 77), k = new Kit(), tint = L.theme === 'cave' ? [0x9aa2c4, 0x8f98bc] : L.theme === 'volcano' ? [0x9a8a86, 0x8c7e7c] : L.theme === 'dairy' ? [0xfff2e2, 0xf8e6d2] : L.theme === 'town' ? [0xf4dcb8, 0xe8ceaa] : [0xd4ccbc, 0xc4bcae];
     const st = () => lin(tint[Math.floor(rnd() * 2)], 0.9 + rnd() * 0.2);
     for (const sx of [-1, 1]) {
       let y = 0;
@@ -5943,7 +8024,7 @@ const LEVEL = (function () {
     }
     k.add(G.rbox(), st(), [0, 0.07, 0.45], 0, [3.9, 0.14, 1.3]);
     k.add(G.rbox(), st(), [0, 0.05, 1.25], 0, [3.2, 0.1, 0.7]);
-    const arch = new THREE.Mesh(k.build(), L.theme === 'dairy' ? R.mat.food : R.mat.rock); arch.castShadow = arch.receiveShadow = true; g.add(arch);   // dairy: a white-chocolate arch
+    const arch = new THREE.Mesh(k.build(), L.theme === 'dairy' ? R.mat.food : L.theme === 'town' ? R.mat.ramp : R.mat.rock); arch.castShadow = arch.receiveShadow = true; g.add(arch);   // dairy: a white-chocolate arch; town: the gate's sandstone
     B.dispose.push(arch.geometry);
     const rune = new Kit();
     rune.add(G.torus(TAU, 0.12, 20), 0x9af0ff, [0, 3.9, 0.41], 0, [0.16, 0.16, 0.16]);
@@ -5973,6 +8054,7 @@ const LEVEL = (function () {
     B.lights.push(light);
     L.portalObj = { x: ex.x, z: ex.z, active: true, obj: g,
       setActive(v) { this.active = !!v; uOn.value = v ? 1 : 0; light.int = v ? 6 : 0; if (grp && B.ptOn) B.ptOn.value[grp] = v ? 1 : 0; } };
+    if (L.theme === 'town') L.portalObj.fit = { hw: 3.8, h: 6 };   // Kale Kapısı round it (towers at ±2.85 m, r 0.95; the bridge's merlons ≈ 5.8 m): UI's portal camera frames it all
     if (L.boss) L.portalObj.setActive(false);   // asleep until the boss is cheered up (GAME calls setActive(true))
   }
   // Torch holders (flames are added to the shared flame billboard)
@@ -6243,10 +8325,11 @@ const LEVEL = (function () {
     let tp = performance.now();
     L._volc = L.theme === 'volcano' ? volcanoField(L) : null;   // lava / milk + bridges first: the floor mask needs them
     L._dairy = L.theme === 'dairy' ? dairyField(L) : null;
+    L._town = L.theme === 'town' ? townField(L) : null;   // (Surlu Şehir: the river, canals, bridges and the city walls' line)
     tp = lap('field', tp);
     buildFloor(L, B);
     tp = lap('floor', tp);
-    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'dairy') buildDairy(L, B); else if (L.theme === 'cave') buildCave(L, B); else if (L.theme === 'volcano') buildVolcano(L, B); else buildCastle(L, B);
+    if (L.theme === 'forest') buildForest(L, B); else if (L.theme === 'dairy') buildDairy(L, B); else if (L.theme === 'cave') buildCave(L, B); else if (L.theme === 'volcano') buildVolcano(L, B); else if (L.theme === 'town') buildTown(L, B); else buildCastle(L, B);
     if (V) buildVillage(L, B);
     tp = lap('theme', tp);
     L.fixedProps = fixReach(L, unProp, dropUnreachable);   // build-time rocks / props must not cut off a room, chest or checkpoint

@@ -741,6 +741,9 @@ const { FEZA, ITEMS } = (function () {
   };
   SABER.lavkilic = { col: '#ff762b', L: 0.78, metal: 0x302d38, grip: 0x201f2b, shroud: 'round', core: 1.7, shell: 2.1, halo: 0.55, btn: '#ffbc49' };
   SABER.ejderkilic = { col: '#c77aff', L: 0.82, metal: 0xe7bd59, grip: 0x3d2355, shroud: 'crown', core: 1.7, shell: 2.1, halo: 0.55, btn: '#e4beff' };
+  // (Round 5) the Huysuz Şövalye's tournament sword: red / white jousting-lance spiral grip, golden crossguard (guard)
+  SABER.sovalyeikiz = { ...SABER.demir, col: '#ffc81e', haloCol: '#ffb62a', L: 0.8, metal: 0xeef1f6, grip: 0xfff4e6, shroud: 'round', btn: '#ff5b6b', guard: true };   // rich warm gold (more saturated than guniskilic / lavikiz), amber halo
+  const GUARD_Y = 0.085;
   for (const [id, col, shroud, metal, motif] of [
     ['buzkilic', '#7defff', 'round', 0xb1d9ed, 'ice'], ['guniskilic', '#ffd651', 'crown', 0xe4b95c, 'sun'],
     ['dalga', '#41e8cb', 'classic', 0x84d6c8, 'wave'], ['joleikiz', '#b0ff76', 'round', 0xdab750, 'jelly'],
@@ -818,7 +821,7 @@ const { FEZA, ITEMS } = (function () {
     return mat('sb:' + part + ':' + id + '|' + r, () => {
       const glow = part !== 'core', boost = 1 + 0.06 * r;
       const m = new THREE.ShaderMaterial({
-        uniforms: { uCol: { value: new THREE.Color(d.col) }, uI: { value: d[part] * boost }, uRb: { value: d.rainbow ? 1 : 0 }, uT: TIME.u,
+        uniforms: { uCol: { value: new THREE.Color(part === 'halo' && d.haloCol ? d.haloCol : d.col) }, uI: { value: d[part] * boost }, uRb: { value: d.rainbow ? 1 : 0 }, uT: TIME.u,
           uPow: { value: part === 'halo' ? 2.4 : 1.25 }, uOcc: { value: part === 'halo' ? 0.22 : 0.6 }, uK: SB_U.k, uGrad: SB_U.grad },
         vertexShader: SABER_VS, fragmentShader: SABER_FS, defines: glow ? {} : { SABER_CORE: 1 },
       });
@@ -852,12 +855,17 @@ const { FEZA, ITEMS } = (function () {
       k.add(G.sphere(20), M, [0, -0.093, 0], 0, [0.0195, 0.013, 0.0195]);
       kcyl(k, -0.094, -0.079, 0.0205, 0.0205, M);
       kcyl(k, -0.079, -0.075, 0.0185, 0.0185, M);
-      // collar, upper body with the control box, upper collar
-      kcyl(k, 0.049, 0.053, 0.0185, 0.0185, M);
-      kcyl(k, 0.053, 0.066, 0.0198, 0.0198, M);
-      kcyl(k, 0.066, 0.113, 0.0172, 0.0172, M);
-      for (const y of [0.074, 0.105]) kcyl(k, y - 0.0015, y + 0.0015, 0.0178, 0.0178, DK);
-      k.add(G.rbox(2), D, [0, 0.089, 0.0158], 0, [0.016, 0.028, 0.009]);
+      if (d.guard) {   // the knight's: the long spiral grip ends in a collar, a short neck through the crossguard
+        kcyl(k, 0.062, 0.07, 0.0196, 0.0196, M);
+        kcyl(k, 0.07, 0.121, 0.0166, 0.0176, M);
+        kcyl(k, 0.108, 0.111, 0.018, 0.018, DK);
+      } else {   // collar, upper body with the control box, upper collar
+        kcyl(k, 0.049, 0.053, 0.0185, 0.0185, M);
+        kcyl(k, 0.053, 0.066, 0.0198, 0.0198, M);
+        kcyl(k, 0.066, 0.113, 0.0172, 0.0172, M);
+        for (const y of [0.074, 0.105]) kcyl(k, y - 0.0015, y + 0.0015, 0.0178, 0.0178, DK);
+        k.add(G.rbox(2), D, [0, 0.089, 0.0158], 0, [0.016, 0.028, 0.009]);
+      }
       kcyl(k, 0.113, 0.121, 0.0196, 0.0196, M);
       // emitter shroud (the blade starts inside it) + dark emitter disc
       if (d.shroud === 'crown') {
@@ -881,15 +889,34 @@ const { FEZA, ITEMS } = (function () {
   }
   function gripGeo(id) {
     const c = saberDef(id).grip, ridge = mixCol(c, '#000000', 0.25);
+    if (saberDef(id).guard) return kitGeo(k => {   // white lance grip wound with two red ribbons (barber-pole spiral)
+      const rad = y => lerp(0.0164, 0.0178, (y + 0.075) / 0.137);
+      kcyl(k, -0.075, 0.062, rad(-0.075), rad(0.062), c, 28);
+      for (const a0 of [0, Math.PI]) {
+        const P = [], U = [];
+        for (let i = 0; i <= 48; i++) { const y = -0.073 + i / 48 * 0.133, a = a0 + i / 48 * 2.3 * TAU, rr = rad(y) + 0.0004; P.push(v3(Math.sin(a) * rr, y, Math.cos(a) * rr)); U.push(v3(Math.sin(a), 0, Math.cos(a))); }
+        k.add(sweep(P, U, () => 0.0085, () => 0.0016, 6, 0.2, () => {}, null), '#e8323c');
+      }
+    });
     return kitGeo(k => {
       kcyl(k, -0.075, 0.049, 0.0162, 0.0162, c, 20);
       for (let i = 0; i < 6; i++) { const y = -0.064 + i * 0.0205; kcyl(k, y - 0.0048, y + 0.0048, 0.0186, 0.0186, ridge, 20); }
     });
   }
-  function accentGeo(r) {   // gold rings (rarity ≥ 2), a gold pommel cap for legendaries
+  function accentGeo(r, guard) {   // gold rings (rarity ≥ 2), a gold pommel cap for legendaries; the knight's crossguard
     return kitGeo(k => {
-      for (const [y, rad] of [[-0.079, 0.0206], [0.059, 0.0201], [0.117, 0.0198], [0.1545, 0.0232]]) k.add(G.torus(TAU, 0.16, 32), 0xffffff, [0, y, 0], [Math.PI / 2, 0, 0], [rad, rad, rad]);
-      if (r >= 3) k.add(G.sphere(16), 0xffffff, [0, -0.104, 0], 0, [0.011, 0.006, 0.011]);
+      if (r >= 2) for (const [y, rad] of [[-0.079, 0.0206], [guard ? 0.066 : 0.059, 0.0201], [0.117, 0.0198], [0.1545, 0.0232]]) k.add(G.torus(TAU, 0.16, 32), 0xffffff, [0, y, 0], [Math.PI / 2, 0, 0], [rad, rad, rad]);
+      if (r >= 3 || guard) k.add(G.sphere(16), 0xffffff, [0, -0.104, 0], 0, [0.011, 0.006, 0.011]);
+      if (!guard) return;
+      // quillons curling up toward the blade with ball tips, and a sun medallion in the middle (its gem = the button)
+      const Y = GUARD_Y;
+      for (const s of [-1, 1]) {
+        k.seg([0, Y, 0], [s * 0.055, Y + 0.004, 0], 0.0115, 0xffffff, 0.0085, 12);
+        k.seg([s * 0.055, Y + 0.004, 0], [s * 0.08, Y + 0.02, 0], 0.0085, 0xffffff, 0.007, 12);
+        k.add(G.sphere(14), 0xffffff, [s * 0.083, Y + 0.024, 0], 0, 0.0118);
+      }
+      k.add(G.cyl(1, 1, 28), 0xffffff, [0, Y, 0], [Math.PI / 2, 0, 0], [0.027, 0.03, 0.027]);
+      for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; k.add(G.cone(8), 0xffffff, [Math.sin(a) * 0.033, Y + Math.cos(a) * 0.033, 0], [0, 0, -a], [0.0072, 0.014, 0.004]); }
     });
   }
   // Small wooden wands share the hand socket with sabers, but never grow a luminous blade.
@@ -954,9 +981,11 @@ const { FEZA, ITEMS } = (function () {
       return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.55 : 0.4, 2.4) : rimify(m, 0xffffff, 0.14);
     })));
     g.add(new THREE.Mesh(geoC('sbGrip:' + id, () => gripGeo(id)), vcM('sbGrip', { roughness: 0.62, metalness: 0.1 })));
-    if (r >= 2) g.add(new THREE.Mesh(geoC('sbGold:' + (r >= 3 ? 3 : 2), () => accentGeo(r)), goldM(r)));
+    const rk = r >= 3 ? 3 : r >= 2 ? 2 : 0;
+    if (rk || d.guard) g.add(new THREE.Mesh(geoC('sbGold:' + (d.guard ? 'guard' : '') + rk, () => accentGeo(r, d.guard)), goldM(r)));
     const btn = new THREE.Mesh(G.sphere(12), mat('sbBtn:' + d.btn, () => glowMat(d.btn, 2.6)));
     btn.scale.setScalar(0.0052); btn.position.set(0, 0.096, 0.0214); btn.userData.noShadow = true; g.add(btn);
+    if (d.guard) { btn.scale.set(0.0105, 0.0105, 0.005); btn.position.set(0, GUARD_Y, 0.0152); }
     // blade (ignited): core + glow shell + halo; the tip marker rides at the end of the blade
     const blade = new THREE.Group(), P = bladeParts(L);
     blade.name = 'fzBlade'; blade.position.y = HILT_TOP - 0.004;
@@ -1031,6 +1060,52 @@ const { FEZA, ITEMS } = (function () {
       })), goldM(0));
       add(geoC('helmPlume', () => plume([[0, 0.3, -0.02], [0, 0.42, -0.1], [0, 0.44, -0.26], [0, 0.34, -0.4]], 0.045, '#ff4a4a', '#ffd0d0', 5, 0.03, 11)),
         vcM('plume', { roughness: 0.75 }));
+    } else if (id === 'sovalyemigfer') {   // (Round 5) the Huysuz Şövalye's helmet: visor up, so Feza's face shows
+      h.position.set(0, 0.07, -0.03); h.rotation.x = -0.26;
+      const SV = '#dce3ee', GD = '#ffc94a', DK = '#39405a', lift = 0.98;
+      add(geoC('knightHelm', () => kitGeo(k => {
+        // dome: open over the face, reaching down over the ears and the nape like a real knight's helmet; a gold rolled rim
+        const HR = [0.345, 0.335, 0.355], edge = a => Math.PI * (0.57 + 0.13 * sstep(0.95, 1.5, a) - 0.06 * sstep(2.1, 2.9, a));
+        const hp = (ph, t, d, o) => o.set(Math.sin(ph) * Math.sin(t) * (HR[0] + d), Math.cos(t) * (HR[1] + d), Math.cos(ph) * Math.sin(t) * (HR[2] + d));
+        const tube = (pts, w, c) => k.add(sweep(pts, pts.map(p => p.clone().normalize()), () => w, () => w, 6, 1, () => {}, null), c);
+        k.add(paramGeo((u, v, o) => { const ph = u * TAU - Math.PI; return hp(ph, v * edge(Math.abs(ph)), 0, o); }, 56, 20, v3(0, 0, 0), true), SV);
+        const rimP = []; for (let i = 0; i <= 72; i++) { const ph = i / 72 * TAU - Math.PI; rimP.push(hp(ph, edge(Math.abs(ph)) - 0.012, 0.004, v3())); }
+        tube(rimP, 0.019, GD);
+        for (let i = 0; i < 16; i++) { const ph = (i + 0.5) / 16 * TAU - Math.PI; if (Math.abs(ph) > 0.6) { const p = hp(ph, edge(Math.abs(ph)) - 0.075, 0.004, v3()); k.add(G.sphere(6), GD, [p.x, p.y, p.z], 0, 0.011); } }
+        const combP = []; for (let i = 0; i <= 24; i++) combP.push(hp(Math.PI, lerp(0.62 * Math.PI, 0.1, i / 24), 0.003, v3()));
+        tube(combP, 0.021, GD);                                                                                     // comb: back → visor
+        for (const s of [-1, 1]) {   // visor hinges on the temples
+          k.add(G.cyl(1, 1, 20), GD, [s * 0.36, 0.0, 0.0], [0, 0, Math.PI / 2], [0.032, 0.022, 0.032]);
+          k.add(G.sphere(12), SV, [s * 0.373, 0.0, 0.0], 0, [0.01, 0.017, 0.017]);
+        }
+        // the raised visor: a lens-shaped plate from hinge to hinge (upper + lower part, a dark eye slit between, rolled
+        // edges) just outside the dome, turned up about the hinge axis (x) so it rests on the forehead
+        const VS = [0.366, 0.355, 0.376], th = (U, v) => Math.PI * lerp(0.5 - 0.04 * (1 - U * U), 0.5 + 0.25 * Math.pow(1 - U * U, 0.55), v);
+        const vp = (U, v, d, o) => { const ph = U * Math.PI / 2, t = th(U, v); return o.set(Math.sin(ph) * Math.sin(t) * (VS[0] + d), Math.cos(t) * (VS[1] + d), Math.cos(ph) * Math.sin(t) * (VS[2] + d)); };
+        const plate = (v0, v1, d, c) => k.add(paramGeo((u, v, o) => vp(u * 2 - 1, lerp(v0, v1, v), d, o), 40, 4, v3(0, 0, 0), false), c);
+        const rim = (v, d, w, c) => { const P = []; for (let i = 0; i <= 28; i++) P.push(vp(i / 14 - 1, v, d, v3())); tube(P, w, c); };
+        k.push([0, 0, 0], [-lift, 0, 0]);
+        plate(0, 0.4, 0, SV); plate(0.56, 1, 0, SV); plate(0.36, 0.6, -0.006, DK);
+        rim(1, 0.002, 0.0105, GD); rim(0, 0.001, 0.007, SV); rim(0.4, 0.001, 0.005, SV); rim(0.56, 0.001, 0.005, SV);
+        { const p = vp(0, 0.78, 0.004, v3()); k.add(G.sphere(16), GD, [p.x, p.y, p.z], [-0.62, 0, 0], [0.026, 0.026, 0.012]); }   // a gold stud under the slit
+        k.pop();
+        k.add(G.cyl(0.8, 1, 20), GD, [0, 0.335, -0.075], [-0.25, 0, 0], [0.036, 0.06, 0.036]);                  // plume holder
+      })), mat('knightSteel|' + (r >= 2 ? r : 0), () => {
+        const t = tex('metal'), m = vcMat({ metalness: 1, roughness: 0.34, map: t ? t.map : null, normalMap: t ? t.normalMap : null, normalScale: V2(0.3, 0.3), envMapIntensity: 0.95, side: THREE.DoubleSide });
+        return r >= 2 ? rimify(m, rarCol(r), r === 3 ? 0.6 : 0.42, 2.3) : rimify(m, 0xffffff, 0.14);
+      }));
+      // tall rainbow plume: six fluffy, round-tipped feathers rising out of the holder, fanning out and curling back
+      add(geoC('knightPlume', () => {
+        const RB = ['#ff4f6a', '#ff9a3c', '#ffd84a', '#5fd86a', '#48b6ff', '#9a6bff'], geos = [];
+        RB.forEach((c, i) => {
+          const f = (i - 2.5) / 2.5, dz = -(i & 1) * 0.016, lo = 0.08 * f * f, a = mixCol(c, '#ffffff', 0.02), b = mixCol(c, '#ffffff', 0.32);
+          const P = curvePts([v3(f * 0.01, 0.36, -0.08 + dz), v3(f * 0.06, 0.57, -0.07 + dz), v3(f * 0.14, 0.77 - lo, -0.1 + dz), v3(f * 0.2, 0.86 - lo * 1.4, -0.2 + dz), v3(f * 0.23, 0.82 - lo * 1.6, -0.32 + dz)], 28);
+          const U = P.map(() => v3(f * 0.3, 0.3, 1).normalize());
+          geos.push(sweep(P, U, t => 0.062 * (0.5 + 0.5 * sstep(0, 0.45, t)) * Math.sqrt(Math.max(0, 1 - sq(Math.max(0, t - 0.72) / 0.28))) * (1 + 0.07 * Math.sin(t * 26 + i)), t => 0.016 * (1 - 0.6 * t), 6, 0.6,
+            (t, cc) => cc.copy(a).lerp(b, sstep(0.45, 1, t)), null));
+        });
+        return concat(geos);
+      }), glowVC('knightPlume', 0.1, { roughness: 0.7 }));
     } else if (id === 'sihirbaz') {
       h.position.set(0, 0.19, 0); h.rotation.set(-0.16, 0, 0.1);
       const felt = feltMat('wiz', 0x3b5fe0, r);
@@ -1111,6 +1186,7 @@ const { FEZA, ITEMS } = (function () {
     }
     // inner volume (ellipsoid centre, radii, band height, fade — hat-local metres): hair above the band is kept inside it
     const IN = { kostebekfener: [[0, 0, 0], [0.33, 0.28, 0.34], -0.025, 0.08], migfer: [[0, 0, 0], [0.335, 0.31, 0.345], -0.035, 0.09], sihirbaz: [[0, -0.01, 0], [0.2, 0.24, 0.2], 0, 0.06],
+      sovalyemigfer: [[0, 0, 0], [0.345, 0.335, 0.355], -0.2, 0.08],
       kovboy: [[0, 0, 0], [0.195, 0.21, 0.21], 0, 0.06], korsan: [[0, 0, 0], [0.195, 0.15, 0.205], 0, 0.06] }[id];
     if (IN) g.fzHatIn = { h, c: IN[0], r: IN[1], y0: IN[2], fade: IN[3] };
     return g;
@@ -1129,6 +1205,7 @@ const { FEZA, ITEMS } = (function () {
     deniz: { base: '#43babc', dark: '#216292', trim: '#d1fff3', edge: 'wave', motif: 'wave' },
     gunes: { base: '#ffa348', dark: '#a74243', trim: '#ffe7a0', edge: 'points', motif: 'sun' },
     kefirsihir: { base: '#8b7bc9', dark: '#544790', trim: '#fff0bb', edge: 'wave', motif: 'foam' },
+    sovalyesihir: { base: '#3068ea', dark: '#1b2f96', trim: '#ffd24a', edge: 'scallop', check: '#fff4d2' },   // (Round 5) the knight's arms
   });
   const CAPE_TEX = {};
   function capeTex(id) {
@@ -1140,6 +1217,7 @@ const { FEZA, ITEMS } = (function () {
       if (d.edge === 'wave') return S * (0.92 + 0.035 * Math.sin(u * TAU * 3));
       if (d.edge === 'leaf') { const f = (u * 7) % 1; return S * (0.86 + 0.11 * Math.pow(Math.sin(f * Math.PI), 0.7)); }
       if (d.edge === 'points') { const f = (u * 5) % 1; return S * (0.85 + 0.13 * (1 - Math.abs(f * 2 - 1))); }
+      if (d.edge === 'scallop') { const f = (u * 6) % 1; return S * (0.875 + 0.085 * Math.sqrt(Math.max(0, 1 - sq(f * 2 - 1)))); }   // tournament-tent valance
       return S * 0.95;
     };
     const path = c => { c.beginPath(); c.moveTo(0, 0); c.lineTo(S, 0); for (let x = S; x >= 0; x -= 2) c.lineTo(x, edge(x)); c.closePath(); };
@@ -1186,15 +1264,52 @@ const { FEZA, ITEMS } = (function () {
           for (const c of [g, ge]) { c.strokeStyle = col; c.lineWidth = 2.2; c.beginPath(); c.arc(x, y, rr, 0, Math.PI * 1.5); c.stroke(); c.beginPath(); c.arc(x, y, rr * 0.45, Math.PI, TAU * 0.9); c.stroke(); }
         }
         for (let i = 0; i < 24; i++) { const x = R() * S, y = R() * S * 0.85, col = R() < 0.5 ? '#ffe3ff' : '#c8fbff'; g.fillStyle = col; star(g, x, y, 2 + R() * 4, 0); ge.fillStyle = col; star(ge, x, y, 2 + R() * 4, 0); }
+      } else if (id === 'sovalyesihir') {
+        // a faint diamond lattice with tiny stars, and the town's arms: a gold-edged shield with the smiling sun
+        g.strokeStyle = 'rgba(255,255,255,0.08)'; g.lineWidth = 2;
+        for (let i = -8; i <= 8; i++) { g.beginPath(); g.moveTo(i * 32, 0); g.lineTo(i * 32 + S, S); g.moveTo(i * 32 + S, 0); g.lineTo(i * 32, S); g.stroke(); }
+        for (let i = 0; i < 40; i++) {
+          const x = 10 + R() * 236, y = 8 + R() * 186, rr = 2.5 + R() * 3, a = R();
+          if (x > 56 && x < 200 && y > 34 && y < 194) continue;
+          const c = R() < 0.5 ? '#ffffff' : '#ffe89a'; g.fillStyle = c; star(g, x, y, rr, a); ge.fillStyle = c; star(ge, x, y, rr, a);
+        }
+        for (const c of [g, ge]) { c.save(); c.translate(128, 112); c.scale(1.1, 1.1); c.translate(-128, -114); }
+        const shield = (c, k) => { c.beginPath(); c.moveTo(128 - 52 * k, 48 + 6 * (1 - k)); c.lineTo(128 + 52 * k, 48 + 6 * (1 - k)); c.lineTo(128 + 52 * k, 118);
+          c.quadraticCurveTo(128 + 50 * k, 158 - 10 * (1 - k), 128, 178 - 12 * (1 - k)); c.quadraticCurveTo(128 - 50 * k, 158 - 10 * (1 - k), 128 - 52 * k, 118); c.closePath(); };
+        g.fillStyle = '#9a6a12'; shield(g, 1.06); g.fill(); g.fillStyle = '#ffd24a'; shield(g, 1); g.fill();
+        const sg = g.createLinearGradient(0, 56, 0, 170); sg.addColorStop(0, '#4f8cff'); sg.addColorStop(1, '#2a55cf'); g.fillStyle = sg; shield(g, 0.86); g.fill();
+        ge.fillStyle = '#5a4000'; shield(ge, 1); ge.fill(); ge.fillStyle = '#000'; shield(ge, 0.86); ge.fill();
+        const cx = 128, cy = 110;
+        for (const c of [g, ge]) {   // wavy rays + the sun disc
+          c.fillStyle = c === g ? '#ffc42e' : '#7a5500';
+          c.beginPath(); for (let i = 0; i <= 48; i++) { const a = i / 48 * TAU, rr = i & 1 ? 31 : 44 - (i & 2 ? 5 : 0); c.lineTo(cx + Math.sin(a) * rr, cy - Math.cos(a) * rr); } c.closePath(); c.fill();
+          const sd = c.createRadialGradient(cx - 7, cy - 8, 4, cx, cy, 29); sd.addColorStop(0, c === g ? '#fff3a8' : '#8a6a10'); sd.addColorStop(1, c === g ? '#ffcf3a' : '#6a4c00');
+          c.fillStyle = sd; c.beginPath(); c.arc(cx, cy, 28, 0, TAU); c.fill();
+        }
+        g.strokeStyle = '#d88a1c'; g.lineWidth = 2.5; g.beginPath(); g.arc(cx, cy, 28, 0, TAU); g.stroke();
+        g.fillStyle = 'rgba(255,120,130,0.55)'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 16, cy + 6, 6, 4, 0, 0, TAU); g.fill(); }
+        g.fillStyle = '#5a2f14'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(cx + s * 9, cy - 5, 3.4, 4.6, 0, 0, TAU); g.fill(); }
+        g.fillStyle = '#ffffff'; for (const s of [-1, 1]) { g.beginPath(); g.arc(cx + s * 9 + 1.2, cy - 6.6, 1.4, 0, TAU); g.fill(); }
+        g.strokeStyle = '#5a2f14'; g.lineWidth = 3; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy + 2, 10, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+        g.restore(); ge.restore();
       } else {   // kirmizi: golden star emblem
         g.fillStyle = '#ffcf4a'; star(g, S / 2, S * 0.3, 26, 0); g.fillStyle = '#ffe79a'; star(g, S / 2, S * 0.3, 14, 0);
         ge.fillStyle = '#6a4a00'; star(ge, S / 2, S * 0.3, 26, 0);
       }
     }
     // trim along the bottom edge and the sides
-    g.strokeStyle = d.trim; g.lineWidth = 18; edgeLine(g); g.stroke();
-    g.fillStyle = d.trim; g.fillRect(0, 0, 7, S); g.fillRect(S - 7, 0, 7, S);
-    g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 2; g.save(); g.translate(0, -9); edgeLine(g); g.stroke(); g.restore();
+    if (d.check) {   // checkered: gold scallops under two rows of gold / cream squares, one row down each side
+      const q = S / 24, y0 = S * 0.875 - 2 * q;
+      g.fillStyle = d.trim; g.fillRect(0, S * 0.875, S, S * 0.13); ge.fillStyle = '#302000'; ge.fillRect(0, S * 0.875, S, S * 0.13);
+      for (let j = 0; j < 2; j++) for (let i = 0; i < 24; i++) { g.fillStyle = (i + j) & 1 ? d.trim : d.check; g.fillRect(i * q, y0 + j * q, q + 0.5, q + 0.5); }
+      for (let j = 0; j * q < y0; j++) { g.fillStyle = j & 1 ? d.trim : d.check; g.fillRect(0, j * q, 8, q + 0.5); g.fillRect(S - 8, j * q, 8, q + 0.5); }
+      g.fillStyle = '#9a6a12'; g.fillRect(8, y0 - 2, S - 16, 2); g.fillRect(0, S * 0.875 - 1, S, 2);
+      g.strokeStyle = '#b77d16'; g.lineWidth = 3; edgeLine(g); g.stroke();
+    } else {
+      g.strokeStyle = d.trim; g.lineWidth = 18; edgeLine(g); g.stroke();
+      g.fillStyle = d.trim; g.fillRect(0, 0, 7, S); g.fillRect(S - 7, 0, 7, S);
+      g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 2; g.save(); g.translate(0, -9); edgeLine(g); g.stroke(); g.restore();
+    }
     if (d.trim === '#ffcf4a') { ge.strokeStyle = '#4a3200'; ge.lineWidth = 18; edgeLine(ge); ge.stroke(); }
     g.restore();
     const mk = c => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return keep(t); };
@@ -2150,6 +2265,9 @@ const { FEZA, ITEMS } = (function () {
     ['weapon', 'joleikiz', 'Jöle Kralının Neşe Kılıcı', 'hybrid'], ['weapon', 'kefirikiz', 'Kefir Devinin Köpük Dalı', 'hybrid'],
     ['weapon', 'magaraikiz', 'Köstebek Ustanın Kristal Dalı', 'hybrid'], ['weapon', 'lavikiz', 'Lav Kaplumbağasının Güneş Kılıcı', 'hybrid'],
     ['weapon', 'ejderikiz', 'Ejderhanın Dostluk Değneği', 'hybrid'],
+    // (Round 5) the Huysuz Şövalye's treasures
+    ['hat', 'sovalyemigfer', 'Şövalyenin Tüylü Miğferi', 'warrior'], ['cape', 'sovalyesihir', 'Şövalyenin Arma Pelerini', 'wizard'],
+    ['weapon', 'sovalyeikiz', 'Şövalyenin Turnuva Kılıcı', 'hybrid'],
   ]) BASES[slot].push({ id, ad, minLvl: 0, boss: true, classLock, ...(WAND[id] ? { heroClass: 'wizard' } : {}) });
   const MULT = [1, 1.35, 1.75, 2.3];
   let UID = (Date.now() % 1e9) * 10;
@@ -2173,10 +2291,11 @@ const { FEZA, ITEMS } = (function () {
   function bossReward(type, heroClass = 'warrior', ilvl = 1) {
     const wizard = heroClass === 'wizard', gift = heroClass === 'hybrid' ? {
       kraljole: ['weapon', 'joleikiz'], kefirdev: ['weapon', 'kefirikiz'], kostebekusta: ['weapon', 'magaraikiz'],
-      lavkaplumbaga: ['weapon', 'lavikiz'], ejderha: ['weapon', 'ejderikiz'],
+      lavkaplumbaga: ['weapon', 'lavikiz'], sovalye: ['weapon', 'sovalyeikiz'], ejderha: ['weapon', 'ejderikiz'],
     }[type] : {
       kraljole: wizard ? ['weapon', 'jolesihir'] : ['hat', 'joletac'], kefirdev: ['cape', wizard ? 'kefirsihir' : 'kefirkopuk'], kostebekusta: ['hat', wizard ? 'magarasihir' : 'kostebekfener'],
-      lavkaplumbaga: ['weapon', wizard ? 'lavdegnek' : 'lavkilic'], ejderha: ['weapon', wizard ? 'ejderdegnek' : 'ejderkilic'],
+      lavkaplumbaga: ['weapon', wizard ? 'lavdegnek' : 'lavkilic'], sovalye: wizard ? ['cape', 'sovalyesihir'] : ['hat', 'sovalyemigfer'],
+      ejderha: ['weapon', wizard ? 'ejderdegnek' : 'ejderkilic'],
     }[type];
     return gift ? make(gift[0], gift[1], 3, ilvl) : null;
   }
