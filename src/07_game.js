@@ -4758,7 +4758,10 @@ const GAME = (() => {
       const sf = C.swingFace !== null ? C.swingFace : P.face;
       if (Math.abs(angDiff(sf, Math.atan2(mx, mz))) > T.fleeArc) { C.swing = null; C.queued = false; C.lastSwingEnd = gt; C.fleeT = gt; }
     }
-    if (C.swing) want *= C.swing.magic ? 0.7 : 0.22;
+    // a wand shot while he backs off / dodges sideways (> fleeArc off its facing): full speed, the shot still flies
+    const wandFlee = C.swing && C.swing.magic && (C.drag || keyMove) && want > 0.01 &&
+      Math.abs(angDiff(C.swingFace !== null ? C.swingFace : P.face, Math.atan2(mx, mz))) > T.fleeArc;
+    if (C.swing && !wandFlee) want *= C.swing.magic ? 0.7 : 0.22;
     if (P.spin > 0) want *= 0.85;
     if (want > 0.01) { C.mdx = mx; C.mdz = mz; if (face === null && !C.swing) face = Math.atan2(mx, mz); }
     C.vel = damp(C.vel, want, want > C.vel ? 12 : 18, dt);

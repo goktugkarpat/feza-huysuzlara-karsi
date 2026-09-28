@@ -15,7 +15,8 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
 - attackButton while running away from the nearest creature (vel > 1.5, moving the other way): no lunge; a sword swing is skipped.
 - Follow-up (a sideways dodge past a big boss kept swinging): T.fleeArc 60° — back OR sideways (> 60° off the swing /
   creature) counts as leaving for all three rules; the held-finger auto-attack arc T.autoDragArc 80° → 45°.
-- test/r6_flee.html checks all of it (incl. a sideways dodge).
+- A wand shot while backing off / dodging (> fleeArc off its facing) no longer brakes to 0.7: full speed, the shot still flies.
+- test/r6_flee.html checks all of it (incl. a sideways dodge and the wizard backing off).
 
 ## Round 6 — boss polish: one optional "bonus" idea per boss + 14 new item looks (latest; read first, overrides older text)
 Plan: test/r6_PLAN.md (approved). Rules kept: nothing scary, cute; danger telegraphs ≥ 2 s; 3 skills per class; 60 FPS tablet
