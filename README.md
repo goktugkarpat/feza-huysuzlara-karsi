@@ -1,4 +1,4 @@
-# Feza Huysuzlara Karşı ⚔️✨
+# Feza ve Bilbo Huysuzlara Karşı ⚔️✨
 
 5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
 Gerçek Bilbo'dan esinlenen çikolata renkli Labrador Bilbo, maceranın başından sonuna kadar Feza'nın yanında koşar ve yakındaki huysuzlara havlayarak yardım eder.

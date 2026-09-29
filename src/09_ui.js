@@ -506,8 +506,10 @@ const UI = (() => {
     const t = D.title = el('div', 'u-screen u-title', root);
     el('div', 'u-tshade', t);
     const logo = D.logo = el('div', 'u-logo', t);
+    logo.setAttribute('role', 'img'); logo.setAttribute('aria-label', 'Feza ve Bilbo Huysuzlara Karşı');
     const word = el('div', 'u-word', logo);
     for (const ch of 'FEZA') el('span', 'u-let', word, `<b>${ch}</b><i>${ch}</i>`);
+    el('span', 'u-sidekick', word, `<span class="u-sidekick-ve">${ol('ve')}</span>${ol('Bilbo')}`);
     el('div', 'u-ribbon', logo, ol('Huysuzlara Karşı'));
     [[-8, 12, 0], [104, 6, 0.7], [96, 64, 1.4], [-4, 70, 1.9], [50, -8, 1.1]].forEach(([x, y, d]) => {
       const s = el('span', 'u-spark', logo, '✦'); s.style.left = x + '%'; s.style.top = y + '%'; s.style.animationDelay = d + 's';

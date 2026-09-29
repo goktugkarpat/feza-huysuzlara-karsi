@@ -487,7 +487,7 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   background: radial-gradient(ellipse at 50% 45%, rgba(255, 214, 110, 0.42), rgba(255, 150, 200, 0.16) 45%, rgba(255, 150, 200, 0) 70%); animation: u-glow 3.2s ease-in-out infinite; }
 @keyframes u-glow { 0%, 100% { opacity: 0.75; transform: scale(0.96); } 50% { opacity: 1; transform: scale(1.04); } }
 @keyframes u-logoin { from { transform: translateY(-40%) scale(0.6); opacity: 0; } }
-.u-word { display: flex; gap: calc(var(--k) * 2px); font-weight: 900; font-size: calc(var(--k) * 150px); line-height: 1; }
+.u-word { position: relative; display: flex; gap: calc(var(--k) * 2px); padding-bottom: 0.24em; font-weight: 900; font-size: calc(var(--k) * 150px); line-height: 1; }
 .u-let { position: relative; display: inline-block; animation: u-bob 2.6s ease-in-out infinite; --r: 0deg; }
 .u-let b, .u-let i { display: block; font-style: normal; padding: 0 0.04em; }
 .u-let b { color: #3a1470; -webkit-text-stroke: 0.2em #3a1470; text-shadow: 0 0.07em 0 #3a1470, 0 0.12em 0 #1e0a40, 0 0.2em 0.25em rgba(10, 0, 30, 0.55); }
@@ -502,6 +502,12 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-let:nth-child(4) { --r: 6deg; animation-delay: -1.2s; } .u-let:nth-child(4) i { animation-delay: 0.36s; }
 @keyframes u-bob { 0%, 100% { transform: translateY(0) rotate(var(--r)); } 50% { transform: translateY(-0.06em) rotate(var(--r)); } }
 @keyframes u-gleam { 0%, 55% { background-position: 150% 0, 0 0; } 85%, 100% { background-position: -50% 0, 0 0; } }
+.u-sidekick { position: absolute; z-index: 2; right: -0.07em; bottom: 0.16em; display: flex; align-items: baseline; gap: 0.1em;
+  font-family: "Avenir Next Rounded", "Arial Rounded MT Bold", ui-rounded, var(--f); font-weight: 900; font-size: 0.34em; line-height: 1;
+  letter-spacing: -0.025em; white-space: nowrap; transform: rotate(-7deg); transform-origin: 75% 50%; }
+.u-sidekick .u-ol { --ol: #fff2ce; --t1: #ff837d; --t2: #df2245; filter: drop-shadow(0 0.055em 0 #741331); }
+.u-sidekick .u-ol b { text-shadow: 0 0.05em 0 #fff2ce, 0 0.12em 0.15em rgba(70, 6, 29, 0.35); }
+.u-sidekick-ve { font-size: 0.48em; letter-spacing: 0; }
 .u-ribbon { position: relative; margin-top: calc(var(--k) * -8px); padding: calc(var(--k) * 10px) calc(var(--k) * 64px) calc(var(--k) * 16px);
   background: linear-gradient(180deg, #ff6f8e, #e8325a 60%, #c11f47); border-top: calc(var(--k) * 4px) solid #ffe38a; border-bottom: calc(var(--k) * 4px) solid #b5720f;
   clip-path: polygon(0 0, 100% 0, 95% 50%, 100% 100%, 0 100%, 5% 50%); filter: drop-shadow(0 8px 10px rgba(10, 0, 30, 0.5));
