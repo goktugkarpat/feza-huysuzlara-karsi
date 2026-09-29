@@ -1,6 +1,7 @@
 # Feza Huysuzlara Karşı ⚔️✨
 
 5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
+Gerçek Bilbo'dan esinlenen çikolata renkli Labrador Bilbo, maceranın başından sonuna kadar Feza'nın yanında koşar ve yakındaki huysuzlara havlayarak yardım eder.
 Huysuz Ejderha köyün neşe kristalini almış ve ormandaki herkesi haylaz yapmış. Feza ışın kılıcıyla ya da sihirli değneğiyle haylazları neşelendirince
 onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün yaratıklar sevimli ve güler yüzlü; kan yok, ölüm yok, korkutucu hiçbir şey yok.
 
@@ -16,6 +17,7 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 - **Karakter:** Oyna düğmesinden sonra Savaşçı Feza, Büyücü Feza veya **Büyülü Şövalye Feza** seçilir. Savaşçı ışın kılıcıyla yaklaşır; büyücü ahşap değneğiyle uzaktan vurur. Büyülü şövalye iki silahı birlikte taşır: yakında kılıç, uzakta değnek kullanır.
 - **Yürümek:** Parmağını ekranda gitmek istediğin yere bas. Feza parmağının altındaki yere koşar; parmağını kaydırdıkça peşinden gider.
+- **Bilbo:** Feza'yı kendiliğinden takip eder; küçük portresi Feza'nın yanındadır. Yakındaki huysuzlara gerçek bir erkek Labrador kaydından iki kez tok sesle havlar. Feza'nın canı %50'nin altına düşünce koruyucu havlaması 5,5 adımlık çevredeki görünür huysuzları 3 saniye, bölüm sonu huysuzlarını 1,5 saniye sersemletir. Tekrar kullanabilmesi için canın en az %50'ye çıkması ve 20 saniyenin geçmesi gerekir; onu ayrıca yönetmek gerekmez. Sesin kaynağı ve izni: [ses bilgileri](assets/audio/CREDITS.md).
 - **Vurmak:** Bir huysuza dokun: Feza yanına gidip vurur. Yakınına gelen huysuza kendiliğinden de vurur.
   Sağ alttaki büyük **ışın kılıcı** düğmesi de en yakındakine vurur.
 - **Yetenekler:** Feza seviye atladıkça kılıç düğmesinin etrafında yeni bir düğme çıkar (toplam 3):
@@ -137,7 +139,7 @@ Mola menüsünde **Devam Et**, **Zorluk**, **Kaydet** ve **Baştan Başla** bulu
 | Dosya | Ne işe yarar |
 |---|---|
 | `index.html` | Oyunu açan sayfa |
-| `src/*.js`, `src/ui.css` | Oyunun bölümleri: dokular, ses, efektler, Feza ve ışın kılıçları, yaratıklar, haritalar, oyun kuralları, yetenekler, ekran |
+| `src/*.js`, `src/ui.css` | Oyunun bölümleri: dokular, ses, efektler, Feza, Bilbo ve ışın kılıçları, yaratıklar, haritalar, oyun kuralları, yetenekler, ekran |
 | `vendor/three.js` | 3D kütüphanesi (three.js r170, MIT lisansı) |
 | `sesler.js` | Türkçe kadın sesiyle kaydedilmiş anlatıcı cümleleri (dosyaya gömülü) |
 | `gen_voice.py` | Cümle değişirse sesleri yeniden kaydeder |

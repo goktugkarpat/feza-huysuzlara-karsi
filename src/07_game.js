@@ -389,7 +389,13 @@ const GAME = (() => {
   let ZF = {};                      // per-zone flags (reset on every zone load)
   let finale = false;               // dragon defeated: only story lines from now on
   let pathS = 0, pathCum = null;    // Feza's progress along L.path (auto-lights checkpoints he walks past)
-  let L = null, H = null, gt = 0, hitstop = 0, inited = false;
+  let L = null, H = null, Bilbo = null, gt = 0, hitstop = 0, inited = false;
+  const bilboPos = { x: 0, z: 0 };
+  const BILBO_SCALE = 0.78;
+  let bilboFace = 0, bilboBark = 0, bilboNext = 0;
+  let bilboFollow = null, bilboTarget = null;
+  let bilboGuardArmed = true, bilboGuardAt = -99;
+  const BILBO_GUARD = { radius: 5.5, stun: 3, bossStun: 1.5, cooldown: 20 };
   let baseScale = 1;
   const enemies = [], dying = [], projectiles = [], coins = [], loot = [], timers = [];
   let sleepers = [], boss = null, crystal = null, storyUntil = -99;   // storyUntil: a mid-zone boss's happy lines play (no chatter)
@@ -772,8 +778,88 @@ const GAME = (() => {
   function placeHero(x, z, face) {
     P.pos.set(x, 0, z); P.face = face;
     if (H) { H.root.position.copy(P.pos); H.root.rotation.y = face; H.root.scale.setScalar(baseScale); }
+    placeBilbo();
     if (typeof cameraFollow === 'function') cameraFollow(x, CAM.target.y, z, 0, true);
     if (typeof lightsFollow === 'function') lightsFollow(x, z);
+  }
+  function bilboSpot() {
+    const c = Math.cos(P.face), s = Math.sin(P.face);
+    for (const side of [-1, 1, 0]) {
+      const x = P.pos.x + side * c * 1.45 - s * 0.65;
+      const z = P.pos.z - side * s * 1.45 - c * 0.65;
+      if (circleFree(x, z, 0.32)) return { x, z };
+    }
+    return { x: P.pos.x, z: P.pos.z };
+  }
+  function placeBilbo() {
+    if (!Bilbo) return;
+    const p = bilboSpot(); bilboPos.x = p.x; bilboPos.z = p.z;
+    bilboFace = P.face; bilboBark = 0; bilboNext = gt + 2; bilboTarget = null;
+    if (bilboFollow) bilboFollow.reset(P.pos, p.x, p.z, P.face);
+    Bilbo.root.position.set(p.x, 0, p.z); Bilbo.root.rotation.y = bilboFace;
+    Bilbo.root.scale.setScalar(BILBO_SCALE);
+    Bilbo.update(0, { speed: 0, bark: 0 });
+  }
+  function updateBilbo(dt) {
+    if (!Bilbo) return;
+    let speed = 0;
+    let face = bilboFace;
+    if (bilboFollow && GAME.state !== 'transition') {
+      const f = bilboFollow.step(dt, P.pos);
+      bilboPos.x = f.pos.x; bilboPos.z = f.pos.z; speed = f.speed; face = f.face;
+    }
+    bilboBark = Math.max(0, bilboBark - dt);
+    bilboProtect();
+    if (GAME.state === 'play' && !P.dead && !finale && !merchantNear() && !speaking() && gt >= storyUntil && gt >= bilboNext) {
+      const e = nearestEnemy(bilboPos.x, bilboPos.z, 4.8, true);
+      if (e && dist2(e.x, e.z, P.pos.x, P.pos.z) < 60) {
+        bilboTarget = e;
+        bilboBark = 1.30; bilboNext = gt + 6 + Math.random() * 3;
+        sfx('bilboBark', { x: bilboPos.x, z: bilboPos.z, vol: 1.05 });
+        emit('bilboBark');
+        damage(e, Math.max(1, Math.min(10, Math.round(P.meleeDmg * 0.12))), { kind: 'bilbo', silent: true });
+      }
+    }
+    if (bilboBark > 0 && bilboTarget) face = Math.atan2(bilboTarget.x - bilboPos.x, bilboTarget.z - bilboPos.z);
+    else bilboTarget = null;
+    bilboFace = dampAngle(bilboFace, face, 9, dt);
+    Bilbo.root.position.set(bilboPos.x, 0, bilboPos.z);
+    Bilbo.root.rotation.y = bilboFace;
+    Bilbo.root.scale.setScalar(BILBO_SCALE * (GAME.state === 'transition' ? Math.max(0.05, 1 - C.transT / 0.7) : 1));
+    Bilbo.update(dt, { speed, bark: bilboBark, sit: GAME.state === 'dead' });
+  }
+  // One rescue per low-health episode; healing to the threshold rearms it.
+  // After enemy updates: an interrupted boss cannot resume its old attack in this frame.
+  function bilboProtect() {
+    if (P.hp >= P.maxHp * 0.5) bilboGuardArmed = true;
+    if (!Bilbo || GAME.state !== 'play' || P.dead || P.hp <= 0 || finale || merchantNear() ||
+        P.hp >= P.maxHp * 0.5 || !bilboGuardArmed || gt < bilboGuardAt) return false;
+    bilboGuardArmed = false; bilboGuardAt = gt + BILBO_GUARD.cooldown;
+    bilboBark = 1.30; bilboNext = gt + 7; bilboTarget = null;
+    sfx('bilboGuard', { x: bilboPos.x, z: bilboPos.z, vol: 1.15 });
+    emit('bilboBark');
+    fx('ring', bilboPos.x, bilboPos.z, { r0: 0.3, r1: BILBO_GUARD.radius, dur: 0.6, color: '#ffe397', width: 0.35 });
+    burst('star', bilboPos.x, 1, bilboPos.z, { count: 12, color: '#fff0b3' });
+    ftext(bilboPos.x, 2.1, bilboPos.z, 'Bilbo yanında!', 'word');
+    const phases = { kraljole: 'blush', kefirdev: 'hiccup', kostebekusta: 'dizzy',
+      lavkaplumbaga: 'flip', sovalye: 'dizzy', ejderha: 'charmed' };
+    for (const e of enemies) {
+      if (e.dead || hidden(e) || dist2(e.x, e.z, bilboPos.x, bilboPos.z) > (BILBO_GUARD.radius + e.r) ** 2 ||
+          !los(bilboPos.x, bilboPos.z, e.x, e.z)) continue;
+      if (!bilboTarget) bilboTarget = e;
+      if (e.boss) {
+        // Preserve the puzzle's own longer stun and its progress.
+        if (!e.aggro || bonusHold(e.encounter) || !phases[e.type] || Object.values(phases).includes(e.ph)) continue;
+        e.bur = 0; e.kvx = e.kvz = 0;
+        bonusStun(e, phases[e.type], BILBO_GUARD.bossStun, false);
+        if (e.encounter) e.encounter.timer = Math.max(e.encounter.timer, BILBO_GUARD.bossStun + 1);
+      } else {
+        e.stun = Math.max(e.stun, BILBO_GUARD.stun);
+        e.kvx = e.kvz = 0; cancelWindup(e); setAggro(e, false);
+      }
+      fx('dizzy', e.x, e.y + e.height + 0.15, e.z, Math.max(0.4, e.r * 0.65), e.boss ? BILBO_GUARD.bossStun : BILBO_GUARD.stun);
+    }
+    return true;
   }
   function loadZone(i, o = {}) {
     if (!inited) init();
@@ -4588,12 +4674,12 @@ const GAME = (() => {
     for (let i = 1; i <= n; i++) { const k = i / n; if (!circleFree(x0 + (x1 - x0) * k, z0 + (z1 - z0) * k, T.heroR * 0.95)) return false; }
     return true;
   }
-  function routeTo(tx, tz) {
+  function routeTo(tx, tz, origin = P.pos) {
     if (!L || !L.grid || !L.W || !L.H) return null;
     const W = L.W, H = L.H;
     const cell = (x, z) => { const i = Math.floor(x), j = Math.floor(z); return i >= 0 && j >= 0 && i < W && j < H ? j * W + i : -1; };
     const fits = c => c >= 0 && L.grid[c] === 1 && circleFree((c % W) + 0.5, Math.floor(c / W) + 0.5, T.heroR);
-    const s = cell(P.pos.x, P.pos.z);
+    const s = cell(origin.x, origin.z);
     let g = cell(tx, tz);
     if (s < 0 || g < 0) return null;
     // Cells Feza fits in near the point, best first: closest to the finger, a little toward Feza's side (ring by ring out
@@ -4607,7 +4693,7 @@ const GAME = (() => {
         const i = gi + di, j = gj + dj;
         if (i < 0 || j < 0 || i >= W || j >= H) continue;
         const c = j * W + i;
-        if (fits(c)) out.push({ c, k: dist2(i + 0.5, j + 0.5, tx, tz) + 0.25 * dist2(i + 0.5, j + 0.5, P.pos.x, P.pos.z) });
+        if (fits(c)) out.push({ c, k: dist2(i + 0.5, j + 0.5, tx, tz) + 0.25 * dist2(i + 0.5, j + 0.5, origin.x, origin.z) });
       }
       return out.sort((a, b) => a.k - b.k);
     };
@@ -4640,7 +4726,7 @@ const GAME = (() => {
     if (pts.length > ROUTE.len) return null;
     pts.reverse();
     const out = [];
-    let cx = P.pos.x, cz = P.pos.z, k = 0;
+    let cx = origin.x, cz = origin.z, k = 0;
     while (k < pts.length) {   // string-pull: straight to the farthest cell he can walk to directly
       let far = k;
       for (let m = pts.length - 1; m > k; m--) if (walkable(cx, cz, pts[m].x, pts[m].z)) { far = m; break; }
@@ -6161,6 +6247,7 @@ const GAME = (() => {
   }
   function newGame(o = {}) {
     if (!inited) init();
+    bilboGuardArmed = true; bilboGuardAt = -99;
     const plus = o.plus !== undefined ? !!o.plus : GAME.state === 'end';
     hard = o.difficulty !== undefined ? o.difficulty === 'hard' : plus && hard;
     if (plus) {
@@ -6411,6 +6498,7 @@ const GAME = (() => {
     fbStep(dt);
     updateBars(dt);
     updateHero(dt);
+    updateBilbo(dt);
     moustacheStep(dt);
   }
   function titleUpdate(dt) {
@@ -6419,6 +6507,7 @@ const GAME = (() => {
     P.face = dampAngle(P.face, 0, 3, dt);
     if (L && L.npcObj && L.npcObj.model && L.npcObj.model.anim) { try { L.npcObj.model.anim(dt, owlTalking()); } catch (err) { warnOnce('owl.anim', err); } }
     updateHero(dt);
+    updateBilbo(dt);
   }
 
   function init() {
@@ -6430,6 +6519,14 @@ const GAME = (() => {
     GAME.H = H;
     baseScale = H.root.scale.x || 1;
     scene.add(H.root);
+    if (typeof BILBO !== 'undefined' && BILBO.create) {
+      try {
+        Bilbo = BILBO.create(); scene.add(Bilbo.root); GAME.Bilbo = Bilbo;
+        if (typeof BILBO_FOLLOW !== 'undefined') bilboFollow = BILBO_FOLLOW.create({ free: circleFree, move: moveXZ,
+          route: (x, z, tx, tz) => routeTo(tx, tz, { x, z }) });
+      }
+      catch (err) { warnOnce('BILBO.create', err); }
+    }
     if (H.setXray) { try { H.setXray(true); } catch (err) { warnOnce('setXray', err); } }
     buildSkills();
     resetPlayer();

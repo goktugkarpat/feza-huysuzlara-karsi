@@ -192,6 +192,16 @@ const AUD = (() => {
       crackle(m, o, t, 4, 0.07, 0.18, p); return 0.18;
     },
     hitSoft(m, o, t, p) { T(m, o, t, 600 * p, 0.08, 0.3, { f1: 260 * p, a: 0.002 }); N(m, o, t, 0.03, 0.09, { type: 'lowpass', f: 2500, a: 0.001 }); return 0.1; },
+    bilboBark(m, o, t, p) {
+      if (!m.bilboBark) return 0;
+      if (m.bilboVoice) { try { m.bilboVoice.stop(t); } catch (e) { /* finished */ } }
+      const s = m.c.createBufferSource(); s.buffer = m.bilboBark;
+      m.bilboVoice = s;
+      s.playbackRate.value = p; s.connect(o); s.start(t);
+      s.onended = () => s.disconnect();
+      return m.bilboBark.duration / p;
+    },
+    bilboGuard(m, o, t, p) { return SFX.bilboBark(m, o, t, p); },
     crit(m, o, t, p) {   // bigger zap, rounder thump, then a happy twinkle
       T(m, o, t, 250 * p, 0.24, 0.55, { f1: 70 * p, a: 0.002 });
       T(m, o, t, 500 * p, 0.07, 0.07, { f1: 160 * p, type: 'triangle', a: 0.001 });
@@ -649,7 +659,7 @@ const AUD = (() => {
     lava: 0.68, erupt: 0.58, drill: 0.5, roll: 1.43, bounce: 0.61, chirp: 2.14, splat: 0.91, rumble: 1.36,
     fizz: 2.55, cork: 1.04, slurp: 3.1, squish: 1.19, moo: 0.64,
     neigh: 0.49, gallop: 1.09, drum: 0.7, broom: 2.75, horn: 0.99, bell: 0.77, clank: 1.04,
-    bonk: 1.08, hiccup: 1.44, munch: 1.8, sigh: 1.27,
+    bonk: 1.08, hiccup: 1.44, munch: 1.8, sigh: 1.27, bilboBark: 0.95,
   };
   // Random pitch spread (semitones, default 0.45), min retrigger gap (s) and "droppable when busy".
   const SVAR = { levelup: 0.05, unlock: 0.05, checkpoint: 0.05, chest: 0.1, dropLegend: 0.05, dropRare: 0.15, portal: 0.1, click: 0.15, coin: 0.05, pop: 0.08,
@@ -660,7 +670,7 @@ const AUD = (() => {
     lava: 0.3, erupt: 0.18, drill: 0.35, roll: 0.3, bounce: 0.1, chirp: 0.14, splat: 0.06, rumble: 0.7,
     fizz: 0.12, cork: 0.12, slurp: 0.5, squish: 0.06, moo: 7,   // moo: a rare ambient, never twice within 7 s however often it is asked for
     neigh: 0.7, gallop: 0.12, drum: 0.2, broom: 0.12, horn: 0.6, bell: 0.5, clank: 0.07,
-    bonk: 0.08, hiccup: 0.2, munch: 0.3, sigh: 0.8 };   // munch: one per chew (GAME calls it every 0.5 s)   // gallop: one per hoof beat, strides ≥ 0.15 s apart all play
+    bonk: 0.08, hiccup: 0.2, munch: 0.3, sigh: 0.8, bilboBark: 1.5 };   // munch: one per chew (GAME calls it every 0.5 s)   // gallop: one per hoof beat, strides ≥ 0.15 s apart all play
   const LOW = { step: 1, hitSoft: 1, swing: 1, bat: 1, spit: 1, drop: 1, click: 1, whoosh: 1, dig: 1, bubblePop: 1, lava: 1, chirp: 1, splat: 1,
     fizz: 1, squish: 1, moo: 1, broom: 1, clank: 1, munch: 1 };
   const STREAK = [0, 2, 4, 7, 9, 12, 14, 16];   // coins picked up / enemies cheered up in a row climb a pentatonic scale
@@ -684,6 +694,7 @@ const AUD = (() => {
   const lastT = {}, streak = { coin: [0, -9], pop: [0, -9] }, warned = {};
   function sfx(name, o) {
     if (!unlocked || !M || !A.soundOn || document.hidden || pageAway) return false;
+    if ((name === 'bilboBark' || name === 'bilboGuard') && !M.bilboBark) return false;
     if (!SFX[name]) { if (!warned[name]) { warned[name] = 1; console.warn('AUD.sfx: unknown sound', name); } return false; }
     if (typeof o === 'number') o = { vol: o };
     o = o || {};
@@ -1196,6 +1207,11 @@ const AUD = (() => {
     return w + GAP + it.dur;
   }
   function prefetch() {
+    const mix = M;
+    if (mix && window.BILBO_BARK_MP3) decodeWith(ctx, window.BILBO_BARK_MP3).then(b => {
+      if (b && mix === M) mix.bilboBark = b;
+      else if (!b) console.warn('Bilbo havlama kaydı çözülemedi');
+    });
     const keys = ['basla', 'devam', 'giris1', 'giris2', 'hos_geldin', 'baykus'];
     let k = 0;
     const go = () => { if (k < keys.length) getBuf(keys[k++]).then(() => setTimeout(go, 40)); };

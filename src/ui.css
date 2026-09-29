@@ -93,6 +93,12 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 
 /* top-left: portrait, level star, xp, gold */
 .u-tl { position: absolute; left: var(--padL); top: var(--padT); display: flex; align-items: center; gap: calc(var(--k) * 12px); }
+.u-portraits { position: relative; flex: none; width: calc(var(--k) * 164px); height: calc(var(--k) * 106px); }
+.u-bilbo-face { position: absolute; right: 0; top: calc(var(--k) * 7px); width: calc(var(--k) * 62px); height: calc(var(--k) * 62px);
+  border-radius: 50%; overflow: hidden; pointer-events: none; border: calc(var(--k) * 3px) solid transparent;
+  background: radial-gradient(circle at 45% 30%, #f5e5c7, #9eb8b8 80%) padding-box, var(--gold) border-box;
+  box-shadow: 0 0 0 calc(var(--k) * 1.5px) #452711, 0 calc(var(--k) * 4px) calc(var(--k) * 9px) #160c2866; }
+.u-bilbo-face img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .u-face { position: relative; pointer-events: auto; cursor: pointer; touch-action: none; -webkit-touch-callout: none; transition: transform 0.1s; width: calc(var(--k) * 106px); height: calc(var(--k) * 106px); border-radius: 50%; flex: none;
   border: calc(var(--k) * 5px) solid transparent;
   background: radial-gradient(circle at 50% 38%, #bfe6ff, #6fb6f0 60%, #4a7fd0) padding-box, var(--gold) border-box;

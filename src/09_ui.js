@@ -430,10 +430,13 @@ const UI = (() => {
 
     // top-left: portrait + level star + xp + gold
     const tl = D.tl = el('div', 'u-tl', hud);
-    D.face = el('div', 'u-face', tl);
+    const portraits = el('div', 'u-portraits', tl);
+    D.face = el('div', 'u-face', portraits);
     D.faceIn = el('div', 'u-fimg', D.face, '<span class="u-femo">🧒</span>');
     D.lvl = el('div', 'u-lvl', D.face, '<span>1</span>');
     el('span', 'u-hold', D.face);   // hold the portrait 0.5 s → wardrobe
+    D.bilboFace = el('div', 'u-bilbo-face', portraits);
+    D.bilboFace.setAttribute('role', 'img'); D.bilboFace.setAttribute('aria-label', 'Bilbo'); D.bilboFace.title = 'Bilbo';
     const st = el('div', 'u-stats', tl);
     D.xp = el('div', 'u-xp', st);
     D.xpFill = el('div', 'u-xpfill', D.xp);
@@ -1502,6 +1505,10 @@ const UI = (() => {
   // ── Portrait ──
   function refreshPortrait() {
     const g = M.GAME, F = M.FEZA;
+    if (D.bilboFace && !D.bilboFace.firstChild && typeof BILBO !== 'undefined') {
+      const bilboUrl = safe('BILBO.portrait', () => BILBO.portrait());
+      if (bilboUrl) D.bilboFace.innerHTML = `<img src="${bilboUrl}" alt="">`;
+    }
     let url = null;
     if (F && F.portrait && g && g.H) url = safe('FEZA.portrait', () => F.portrait(g.H));
     if (url === S.portraitUrl) return;
@@ -2300,6 +2307,7 @@ const UI = (() => {
       if (S.menu === 'bag') renderBag();
     });
     on('equip', () => { portraitSoon(0.15); });
+    on('bilboBark', () => { if (D.bilboFace) bump(D.bilboFace, 1.08); });
     on('gold', () => {
       if (S.t - S.lastGoldBump > 0.12) { S.lastGoldBump = S.t; bump(D.gold.firstChild, 1.3); }
     });
