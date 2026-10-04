@@ -498,7 +498,7 @@ const UI = (() => {
       D.sk.push({ b, ico: b.firstChild, cd: b.children[1], cdn: b.children[2], shown: false, p: -1, n: -1 });
     }
 
-    buildTitle(root); buildChoice(root); buildPause(root); buildBag(root); buildWin(root); buildMerchant(root); buildDreamMap(root); buildDreamIntro(root); buildDreamTravel(root);
+    buildTitle(root); buildChoice(root); buildPause(root); buildBag(root); buildWin(root); buildMerchant(root); buildDreamMap(root); buildDreamTravel(root);
     // subtitles live above every screen (the victory line plays over the victory panel)
     D.sub = el('div', 'u-sub', root, '<div class="u-subico">✨</div><div class="u-subtxt"></div>');
     D.subIco = D.sub.firstChild; D.subTxt = D.sub.lastChild;
@@ -835,37 +835,6 @@ const UI = (() => {
     const g = M.GAME; if (!g || !playing() || !g.bone) return;
     if (safe('bone', () => g.bone())) bump(D.boneBtn, 1.15, true); else nope(D.boneBtn, true);
   }
-  function buildDreamIntro(root) {
-    D.dreamIntro = el('div', 'u-screen u-dim u-dream-intro', root);
-    D.dreamIntro.setAttribute('role', 'dialog'); D.dreamIntro.setAttribute('aria-modal', 'true'); D.dreamIntro.setAttribute('aria-labelledby', 'dreamIntroTitle');
-    const panel = el('div', 'u-dream-intro-panel', D.dreamIntro);
-    el('div', 'u-dream-kicker', panel, 'BİR VARMIŞ, BİR YOKMUŞ…');
-    const title = el('h2', 'u-dream-title', panel, 'Feza’nın Mutlu Hayali'); title.id = 'dreamIntroTitle';
-    el('div', 'u-dream-intro-art', panel, `<svg viewBox="0 0 760 350" aria-hidden="true">
-      <defs><linearGradient id="dreamBathroom" x2="0" y2="1"><stop stop-color="#bce7e1"/><stop offset="1" stop-color="#f5eac8"/></linearGradient></defs>
-      <path d="M20 75Q20 25 75 25H685Q740 25 740 75V310H20Z" fill="url(#dreamBathroom)"/>
-      <g stroke="#79b8b1" stroke-opacity=".25" fill="none"><path d="M20 130H740M20 215H740M115 25V310M225 25V310M335 25V310M445 25V310M555 25V310M665 25V310"/></g>
-      <ellipse cx="355" cy="316" rx="270" ry="18" fill="#7eb4aa" opacity=".35"/>
-      <rect x="113" y="163" width="80" height="96" rx="9" fill="#fff9ea" stroke="#99b8c3" stroke-width="4"/><rect x="109" y="159" width="87" height="14" rx="7" fill="#e3f3f4"/>
-      <path d="M173 237h146q0 38-53 44v29h-61v-29q-37-8-32-44" fill="#fffaf1" stroke="#99b8c3" stroke-width="4"/><ellipse cx="245" cy="237" rx="76" ry="16" fill="#d8e9eb" stroke="#99b8c3" stroke-width="4"/>
-      <path d="M221 184Q217 225 252 231L293 230L300 277" fill="none" stroke="#4287b4" stroke-width="32" stroke-linecap="round"/><path d="M300 274l2 24" stroke="#f3c29b" stroke-width="19" stroke-linecap="round"/><path d="M291 302h33" stroke="#f47767" stroke-width="14" stroke-linecap="round"/>
-      <path d="M200 148Q218 128 239 145l20 61-53 9Z" fill="#ffd474" stroke="#c7a052" stroke-width="3"/><path d="M220 172l38 21 29-31" fill="none" stroke="#f6caa1" stroke-width="18" stroke-linecap="round"/>
-      <g transform="translate(274 153) rotate(-12)"><path d="M-30-19Q-10-24 0-11Q15-24 36-18V23Q13 16 0 26Q-11 16-30 20Z" fill="#fff5cf" stroke="#688fad" stroke-width="4"/><path d="M0-11V26" stroke="#cfa66f" stroke-width="2"/><path d="M-24-10l15 2M-24-3l15 2M-24 4l15 2M9-6l18-3M9 1l18-3M9 8l18-3" stroke="#bea67a" stroke-width="2"/><path d="M15-10l4 5 5-6" fill="none" stroke="#7db9a3" stroke-width="2"/></g>
-      <circle cx="220" cy="114" r="37" fill="#ffd4ac" stroke="#b08063" stroke-width="2"/><path d="M184 114q-10-44 35-45q43-4 38 39l-13-17-17 9-14-8-20 14" fill="#83553b"/><path d="M202 117q6-9 13 0M229 117q6-9 12 0" stroke="#62443f" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M212 132q11 10 21-1" stroke="#bd766a" stroke-width="3" fill="none" stroke-linecap="round"/>
-      <g transform="translate(409 249)"><ellipse cx="20" cy="34" rx="45" ry="30" fill="#bd854e"/><path d="M-11 34l-8 34M37 36l8 33" stroke="#c48c53" stroke-width="15" stroke-linecap="round"/><path d="M52 25q27-21 16-35" stroke="#c48c53" stroke-width="13" stroke-linecap="round" fill="none"/><ellipse cx="-14" cy="8" rx="31" ry="32" fill="#dfac6d"/><ellipse cx="-40" cy="10" rx="13" ry="28" fill="#895d3e" transform="rotate(15 -40 10)"/><ellipse cx="9" cy="10" rx="12" ry="26" fill="#895d3e" transform="rotate(-12 9 10)"/><ellipse cx="-14" cy="22" rx="19" ry="13" fill="#f9dfb0"/><circle cx="-25" cy="7" r="4" fill="#433344"/><circle cx="-6" cy="7" r="4" fill="#433344"/><ellipse cx="-14" cy="17" rx="6" ry="4" fill="#493747"/><path d="M-20 26q6 9 12 0" fill="#dd8a89"/><path d="M-36 37q25 10 42 0" stroke="#4ab4b2" stroke-width="8" fill="none"/><circle cx="-13" cy="43" r="5" fill="#ffe193"/></g>
-      <circle cx="286" cy="104" r="6" fill="#fffdf4"/><circle cx="306" cy="87" r="10" fill="#fffdf4"/>
-      <path d="M333 65Q316 33 356 28Q370 5 404 24Q438 0 465 22Q506 3 531 28Q568 12 589 38Q636 24 642 61Q676 84 646 108Q657 141 614 145Q599 173 562 155Q530 177 504 158Q469 179 443 155Q403 172 385 146Q344 153 344 127Q316 116 333 95Z" fill="#fffef6" stroke="#e7d7ae" stroke-width="3"/>
-      <path d="M356 88Q414 45 470 89T620 90" fill="none" stroke="#d1bee7" stroke-width="2" stroke-dasharray="4 6"/>
-      <g font-size="33" text-anchor="middle"><text x="359" y="89">🫧</text><text x="401" y="58">🌙</text><text x="449" y="84">🌳</text><text x="496" y="65">🥛</text><text x="542" y="91">💎</text><text x="587" y="69">🌋</text><text x="614" y="117">🏘️</text><text x="562" y="142">🏰</text></g>
-      <path d="M660 194l5 12 14 2-11 9 3 14-11-7-12 7 3-14-11-9 14-2Z" fill="#eab567"/>
-    </svg>`);
-    el('p', 'u-dream-intro-copy', panel, 'Feza tuvalette kitabını okurken Bilbo’yla kocaman bir hayal kuruyor.<br>Köpüklerden Ay’a, ormandan kaleye… Her yer neşeyle dolsun!');
-    D.dreamIntroGo = el('button', 'u-btn g', panel, '<span>✨ Hayal Başlasın!</span>');
-    accessiblePress(D.dreamIntroGo, closeDreamIntro);
-    D.dreamIntro.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); D.dreamIntroGo.focus(); } });
-  }
-  function showDreamIntro() { S.menu = 'intro'; setPaused(true); showScreen(D.dreamIntro, true); D.dreamIntroGo.focus({ preventScroll: true }); }
-  function closeDreamIntro() { if (S.menu !== 'intro') return; showScreen(D.dreamIntro, false); S.menu = null; setPaused(false); startHint(); }
   function buildDreamTravel(root) {
     D.dreamTravel = el('div', 'u-screen u-dream-travel', root);
     D.dreamTravel.setAttribute('role', 'img');
@@ -1030,7 +999,6 @@ const UI = (() => {
       if (e.key === '.' || c === 'NumpadDecimal') { if (!e.repeat) toggleFps(); e.preventDefault(); return; }   // by character: '.' sits elsewhere on a Turkish keyboard
       if (S.menu === 'dream') return;
       if (S.menu === 'dream-travel') { e.preventDefault(); return; }
-      if (S.menu === 'intro') { if (!e.repeat && ['Escape', 'Enter', 'Space'].includes(c)) { e.preventDefault(); closeDreamIntro(); } return; }
       if (!e.repeat && c === 'KeyM' && mapUnlocked()) { e.preventDefault(); openDreamMap(); return; }
       if (S.mode === 'choose') {
         if (c === 'Escape') { e.preventDefault(); closeChoice(); }
@@ -2201,7 +2169,6 @@ const UI = (() => {
   function closeMenu() {
     if (!S.menu) return;
     if (S.menu === 'dream-travel') { finishDreamTravel(); return; }
-    if (S.menu === 'intro') { closeDreamIntro(); return; }
     if (S.menu === 'dream') { closeDreamMap(); return; }
     if (S.menu === 'merchant') aud('stopVoice');
     if (S.menu === 'bag') newItems.clear();
@@ -2261,7 +2228,7 @@ const UI = (() => {
         setMode('play'); refreshAllSkills(); portraitSoon(0);
         // Baştan Başla while Feza napped: the nap's dim layer takes the touches — lift it, or he could not walk at all
         if (D.fade.style.pointerEvents === 'auto' || parseFloat(D.fade.style.opacity) > 0) fade(0, 0.35, null);
-        showDreamIntro();   // Feza imagines every chapter; the child starts the dream with one big tap.
+        startHint();   // The recorded story and the dream begin without another confirmation screen.
       }
     } finally { S.busy = false; }
   }

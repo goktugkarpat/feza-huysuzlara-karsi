@@ -12,12 +12,50 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" href="icons/icon-192.png">
 <title>Feza ve Bilbo Huysuzlara Karşı</title>
+<script>
+// Update old cached scripts before accepting the first play tap.
+(async function () {
+  if (!/^https?:$/.test(location.protocol) || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+  const previous = navigator.serviceWorker.controller;
+  let reloading = false;
+  document.documentElement.setAttribute('data-updating', '');
+  const block = e => { if (!(e.ctrlKey || e.metaKey)) { e.preventDefault(); e.stopImmediatePropagation(); } };
+  const events = ['pointerdown', 'pointerup', 'click', 'touchstart', 'keydown'];
+  events.forEach(n => window.addEventListener(n, block, { capture: true, passive: false }));
+  const changed = () => {
+    if (!reloading && navigator.serviceWorker.controller && navigator.serviceWorker.controller !== previous) {
+      reloading = true; location.reload();
+    }
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', changed);
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+    try { await reg.update(); } catch (_) { /* An update may already be installing. */ }
+    const worker = reg.installing || reg.waiting;
+    if (worker && worker.state !== 'activated' && worker.state !== 'redundant') {
+      await new Promise(resolve => {
+        const done = () => { if (worker.state === 'activated' || worker.state === 'redundant') { worker.removeEventListener('statechange', done); resolve(); } };
+        worker.addEventListener('statechange', done); done();
+      });
+    }
+    changed();
+  } catch (_) { /* Offline: keep the installed game playable. */ }
+  finally {
+    if (!reloading) {
+      navigator.serviceWorker.removeEventListener('controllerchange', changed);
+      document.documentElement.removeAttribute('data-updating');
+      events.forEach(n => window.removeEventListener(n, block, true));
+    }
+  }
+})();
+</script>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #120b22; touch-action: none; overscroll-behavior: none; }
   canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
     background: radial-gradient(circle at 50% 45%, #3a2470, #120b22); color: #fff; font: 800 26px "Avenir Next", system-ui, sans-serif; z-index: 50; }
   #loading .ld { width: 64px; height: 64px; border-radius: 50%; border: 8px solid #ffffff33; border-top-color: #ffd66b; animation: ldspin 0.9s linear infinite; }
+  html[data-updating] #loading { display: flex !important; }
   @keyframes ldspin { to { transform: rotate(360deg); } }
 </style>
 <link rel="stylesheet" href="src/ui.css">
