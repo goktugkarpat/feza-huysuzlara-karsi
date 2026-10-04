@@ -21,7 +21,7 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - **Yürümek:** Parmağını ekranda gitmek istediğin yere bas. Feza parmağının altındaki yere koşar; parmağını kaydırdıkça peşinden gider.
 - **Bilbo:** Feza'yı kendiliğinden takip eder; küçük portresi Feza'nın yanındadır. Yakındaki huysuzlara gerçek bir erkek Labrador kaydından iki kez tok sesle havlar. Feza'nın canı %50'nin altına düşünce koruyucu havlaması 5,5 adımlık çevredeki görünür huysuzları 3 saniye, bölüm sonu huysuzlarını 1,5 saniye sersemletir. Tekrar kullanabilmesi için canın en az %50'ye çıkması ve 20 saniyenin geçmesi gerekir; onu ayrıca yönetmek gerekmez. Sesin kaynağı ve izni: [ses bilgileri](assets/audio/CREDITS.md).
 - **Bilbo’nun yeni oyunları:** Bazen yakındaki huysuza neşeyle sıçrayıp onu sakinleştirir. Sağdaki, yeteneklerin üzerindeki **kemik** düğmesi baştan açıktır:
-  Feza kemiği Bilbo’ya atar; Bilbo yakalayıp en fazla beş görünür arkadaşına minik lokmalar gönderir. Düğme 8 saniyede yeniden hazır olur.
+  Feza kemiği Bilbo’ya atar; Bilbo ağzını açıp yaklaşık bir saniyede yakalar, kemiği kısa süre ağzında tutup çiğner. Sonra huysuzlara dönerek ağzından sırayla küçük et lokmaları püskürtür; en fazla beş görünür hedefe ulaşırlar, duvarlardan geçmezler. Düğme 8 saniyede yeniden hazır olur.
 - **Vurmak:** Bir huysuza dokun: Feza yanına gidip vurur. Yakınına gelen huysuza kendiliğinden de vurur.
   Sağ alttaki büyük **ışın kılıcı** düğmesi de en yakındakine vurur.
 - **Yetenekler:** Feza seviye atladıkça kılıç düğmesinin etrafında yeni bir düğme çıkar (toplam 3):
@@ -72,10 +72,11 @@ ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yu
 Her bölgenin sonunda bir **bölüm sonu huysuzu** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. İlk iki bölüm Köpük Usta ve Ay Tavşanı'nın özel silahlarını verir. Ardından önceki altı bölümün bütün ödülleri korunur. Her karakterin her huysuzdan alacağı özel ödül farklıdır (toplam 24); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
 
 1. **Köpüklü Tuvalet Rüyası:** gülümseyen kakacıklar, süzülen çiş damlaları, sabun köpükleri; yollar boyunca köpüklü küvetler, aynalı dolaplar, havlular, diş fırçaları, sabunluklar ve ördekli köşeler.
-   **Köpük Usta** ile sabun toplama oyunu oynanır. Neşelenince Feza ve Bilbo köpük roketine binip Ay’a uçar; biniş ve uçuş görülür.
-2. **Zıp Zıp Ay:** gece tonlarında lavanta renkli Ay toprağı, çukur kraterler, kubbeli istasyonlar, paneller, antenler, bayraklar ve kristaller. Yıldızlı ufukta Dünya, halkalı uzak gezegen ve sürekli geçen zararsız kuyruklu yıldızlar ile meteorlar görülür; Güneş görünmez.
+   **Köpük Usta** ile sabun toplama oyunu oynanır. Açık döşeme yürünebilen alanı, koyu çevre ve bordürler sınırını gösterir.
+   Bölüm geçişinde Feza ve Bilbo kendiliğinden köpük roketine biner; anlatımlı uçuş animasyonu Ay’a götürür. Ek düğme veya pencere yoktur.
+2. **Zıp Zıp Ay:** gece tonlarında gümüş-mavi Ay tozu, gölgeli çukur kraterler, kubbeli istasyonlar, paneller, antenler, bayraklar ve kristaller. Açık toz alanının sınırında doğal alçak taşlar bulunur; koyu dış araziye yürünmez. Yıldızlı ufukta Dünya, halkalı uzak gezegen ve sürekli geçen zararsız kuyruklu yıldızlar ile meteorlar görülür; Güneş görünmez.
    Ay ponponları, ışık baloncuklu yıldızcıklar ve saklanan kratercikler; **Ponpon Ay Tavşanı** için üç yıldız toplanır.
-   Sonra yıldız yapraklı mekikle Orman Hayali’ne uçulur. İki yeni bossun da her karakter için özel bir silah ödülü vardır.
+   Sonra yıldız yapraklı mekikle Orman Hayali’ne otomatik, anlatımlı bir uçuşla geçilir. İki yeni bossun da her karakter için özel bir silah ödülü vardır.
 3. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
    Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
 4. **Kefir Vadisi:** akan süt ve kefir nehirleri, parlak yoğurt tepecikleri, delikli dev peynirler, güğümler, yayıklar ve bisküvi köprüler.

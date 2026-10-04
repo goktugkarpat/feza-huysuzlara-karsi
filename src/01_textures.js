@@ -1547,12 +1547,21 @@ const TEX = (function () {
   function genDreamSurface(moon) {
     const S = 512, n = S * S, A = new Uint8ClampedArray(n * 4), H = new Float32Array(n);
     const N = fbm(S, moon ? 12 : 8, 4, moon ? 1407 : 1408);
+    const basins = moon ? Array.from({ length: 14 }, (_, k) => ({ x: hash(k, 707) * S, y: hash(k, 709) * S, r: k % 4 === 0 ? 27 + hash(k, 711) * 13 : 6 + hash(k, 711) * 15 })) : [];
     for (let y = 0, i = 0; y < S; y++) for (let x = 0; x < S; x++, i++) {
       const p = i * 4, noise = N[i] - 0.5;
       if (moon) {
-        const v = 0.9 + noise * 0.2, glitter = hash(x, y) > 0.997 ? 17 : 0;
-        A[p] = 192 * v + glitter; A[p + 1] = 184 * v + glitter; A[p + 2] = 212 * v + glitter;
-        H[i] = 0.4 + noise * 0.2;
+        let basin = 0, rim = 0, litRim = 0;
+        for (const c of basins) {
+          const dx0 = Math.abs(x - c.x), dy0 = Math.abs(y - c.y), dx = Math.min(dx0, S - dx0), dy = Math.min(dy0, S - dy0), d = Math.hypot(dx, dy) / c.r;
+          const ring = Math.exp(-Math.pow((d - 1.02) / .17, 2));
+          const signedX = x - c.x > S / 2 ? x - c.x - S : x - c.x < -S / 2 ? x - c.x + S : x - c.x;
+          basin = Math.max(basin, 1 - ss(.18, .98, d)); rim = Math.max(rim, ring);
+          litRim = Math.max(litRim, ring * (.25 + .75 * Math.max(0, -signedX / Math.max(1, d * c.r))));
+        }
+        const v = .94 + noise * .14 - basin * .115 + litRim * .045, glitter = hash(x, y) > .999 ? 9 : 0;
+        A[p] = 199 * v + glitter; A[p + 1] = 207 * v + glitter; A[p + 2] = 213 * v + glitter;
+        H[i] = .45 + noise * .12 - basin * .15 + rim * .052;
       } else {
         const tx = x % 128, ty = y % 128, edge = Math.min(tx, 127 - tx, ty, 127 - ty);
         const grout = 1 - ss(1, 5, edge), alt = ((x / 128 | 0) + (y / 128 | 0)) & 1;

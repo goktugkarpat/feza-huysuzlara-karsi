@@ -867,20 +867,13 @@ const UI = (() => {
   function showDreamIntro() { S.menu = 'intro'; setPaused(true); showScreen(D.dreamIntro, true); D.dreamIntroGo.focus({ preventScroll: true }); }
   function closeDreamIntro() { if (S.menu !== 'intro') return; showScreen(D.dreamIntro, false); S.menu = null; setPaused(false); startHint(); }
   function buildDreamTravel(root) {
-    D.dreamTravel = el('div', 'u-screen u-dim u-dream-travel', root);
-    D.dreamTravel.setAttribute('role', 'dialog'); D.dreamTravel.setAttribute('aria-modal', 'true'); D.dreamTravel.setAttribute('aria-labelledby', 'dreamTravelTitle');
-    const panel = el('div', 'u-dream-intro-panel', D.dreamTravel);
-    el('div', 'u-dream-kicker', panel, 'HAYALİN YENİ BİR YOL AÇIYOR');
-    D.travelTitle = el('h2', 'u-dream-title', panel); D.travelTitle.id = 'dreamTravelTitle';
-    D.travelArt = el('div', 'u-dream-travel-art', panel);
-    D.travelCopy = el('p', 'u-dream-intro-copy', panel);
-    D.travelGo = el('button', 'u-btn g', panel, '<span>🚀 Uçalım!</span>');
-    accessiblePress(D.travelGo, launchDreamTravel);
-    D.dreamTravel.addEventListener('keydown', e => { if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); D.travelGo.focus(); } });
+    D.dreamTravel = el('div', 'u-screen u-dream-travel', root);
+    D.dreamTravel.setAttribute('role', 'img');
+    D.travelArt = el('div', 'u-dream-travel-art', D.dreamTravel);
   }
   function journeyArt(forest) {
     return `<svg viewBox="0 0 760 310" aria-hidden="true"><defs><linearGradient id="journeySky" x2="1" y2="1"><stop stop-color="${forest ? '#315768' : '#32677b'}"/><stop offset="1" stop-color="#453466"/></linearGradient><linearGradient id="rocketBody" x2="1" y2="0"><stop stop-color="#f5edd6"/><stop offset=".5" stop-color="#fffceb"/><stop offset="1" stop-color="#b4dcd6"/></linearGradient></defs>
-    <rect x="10" y="8" width="740" height="294" rx="35" fill="url(#journeySky)"/>
+    <g class="u-journey-distant-stars" fill="#eae4ff">${Array.from({ length: 35 }, (_, i) => `<circle cx="${(i * 113 + 27) % 750}" cy="${(i * 47 + 14) % 287}" r="${i % 4 === 0 ? 1.5 : .75}" opacity="${.25 + i % 5 * .12}"/>`).join('')}</g>
     <g fill="#ffedb0"><path d="M122 44l3 9 10 2-8 6 2 10-7-6-9 5 3-10-7-6 10-1Z"/><path d="M483 74l3 9 10 2-8 6 2 10-7-6-9 5 3-10-7-6 10-1Z"/><circle cx="571" cy="39" r="3"/><circle cx="203" cy="60" r="2"/><circle cx="68" cy="170" r="3"/><circle cx="520" cy="183" r="3"/><circle cx="707" cy="133" r="2"/></g>
     ${forest ? '<g transform="translate(607 127)"><circle r="64" fill="#8bcb9c"/><path d="M-38 37l15-63 18 63M-9 30l20-75 22 75M20 39l14-58 18 58" fill="#438d70"/><path d="M-53 45q52-24 107 0" fill="none" stroke="#e3d69a" stroke-width="5"/></g>' : '<g transform="translate(614 108)"><circle r="62" fill="#efebd3"/><ellipse cx="-23" cy="-20" rx="12" ry="9" fill="#c7c4b4"/><ellipse cx="21" cy="21" rx="19" ry="12" fill="#cfccba"/><circle cx="-16" cy="33" r="8" fill="#cfccba"/></g>'}
     <path class="u-journey-path" d="M257 225Q434 314 601 171" fill="none" stroke="#fff1b6" stroke-width="3" stroke-dasharray="5 10" opacity=".7"/>
@@ -898,33 +891,33 @@ const UI = (() => {
     </g>
     <g class="u-boarding-feza" transform="translate(160 214)"><path d="M-8 19l-5 25M9 19l6 25" stroke="#4f8eb1" stroke-width="12" stroke-linecap="round"/><path d="M-20 45h13M10 45h14" stroke="#f09380" stroke-width="7" stroke-linecap="round"/><path d="M-15-4Q0-13 14-4l3 28h-34Z" fill="#ffdc81" stroke="#bc9b67" stroke-width="2"/><path d="M-13 3l-10 12M12 2l16-12" stroke="#f8cba6" stroke-width="8" stroke-linecap="round"/><circle cy="-22" r="17" fill="#ffd3ac"/><path d="M-17-21q-4-24 16-24q21-1 18 23L7-32-5-27-10-33Z" fill="#83553b"/><circle cx="-5" cy="-22" r="2" fill="#473347"/><circle cx="6" cy="-22" r="2" fill="#473347"/><path d="M-5-13q6 6 12-1" stroke="#a96965" fill="none" stroke-width="2" stroke-linecap="round"/><path d="M-8 6h16l-2 11H-6Z" fill="#f5b96e"/></g>
     <g class="u-boarding-bilbo" transform="translate(207 246)"><ellipse cx="0" cy="1" rx="21" ry="15" fill="#bf8d57"/><path d="M-12 9l-2 13M12 9l3 13" stroke="#c18b51" stroke-width="7" stroke-linecap="round"/><path d="M-20 1q-18-9-13-19" fill="none" stroke="#c18b51" stroke-width="7" stroke-linecap="round"/><ellipse cx="11" cy="-13" rx="16" ry="17" fill="#e0b27c"/><ellipse cx="-1" cy="-10" rx="6" ry="15" fill="#91643f" transform="rotate(14 -1 -10)"/><ellipse cx="24" cy="-10" rx="6" ry="14" fill="#91643f"/><ellipse cx="12" cy="-4" rx="10" ry="7" fill="#f5dcac"/><circle cx="6" cy="-16" r="2" fill="#44313e"/><circle cx="17" cy="-16" r="2" fill="#44313e"/><ellipse cx="12" cy="-7" rx="3" ry="2" fill="#44313e"/><path d="M0 1q12 5 22-2" fill="none" stroke="#60bfc2" stroke-width="4"/></g>
-    <g class="u-journey-boarding"><path d="M216 224q20-20 34-22" fill="none" stroke="#f9df9f" stroke-width="3" stroke-dasharray="4 5"/><path d="M241 196l11 5-8 9" fill="none" stroke="#f9df9f" stroke-width="3"/><text x="165" y="291" font-size="15" text-anchor="middle" fill="#fff5d5" font-weight="bold">Feza + Bilbo</text></g></svg>`;
+    </svg>`;
   }
   function showDreamTravel(d) {
     if (!d || typeof d.proceed !== 'function') return;
+    if (S.dreamJourney) finishDreamTravel();
     if (S.menu) closeMenu();
-    S.dreamJourney = { proceed: d.proceed, forest: d.to === 'orman', flying: false, done: false };
-    const forest = S.dreamJourney.forest;
-    D.travelTitle.textContent = forest ? 'Ormana Bir Hayal Yolculuğu' : 'Köpük Roketi Ay’a Gidiyor!';
-    D.travelArt.innerHTML = journeyArt(forest); D.travelArt.classList.remove('flying');
-    D.travelCopy.textContent = forest ? 'Feza ve Bilbo yıldız yapraklı mekiğe binmeye hazır. Aşağıda yemyeşil orman görünüyor!' : 'Feza ve Bilbo köpüklerle süslü roketlerine binmeye hazır. Ay onları bekliyor!';
-    D.travelGo.innerHTML = forest ? '<span>🍃 Ormana Uçalım!</span>' : '<span>🚀 Uçalım!</span>';
-    S.menu = 'dream-travel'; setPaused(true); showScreen(D.dreamTravel, true); D.travelGo.focus({ preventScroll: true });
+    aud('stopVoice');
+    const trip = S.dreamJourney = { proceed: d.proceed, forest: d.to === 'orman', flying: false, done: false, timers: [] };
+    D.dreamTravel.setAttribute('aria-label', trip.forest ? 'Feza ve Bilbo yıldız yapraklı mekiğe binip ormana uçuyor.' : 'Feza ve Bilbo köpük roketine binip Ay’a uçuyor.');
+    D.dreamTravel.classList.toggle('forest', trip.forest);
+    D.travelArt.innerHTML = journeyArt(trip.forest); D.travelArt.classList.remove('flying');
+    S.menu = 'dream-travel'; setPaused(true); D.root.classList.add('journey-on'); showScreen(D.dreamTravel, true);
+    trip.timers.push(setTimeout(() => launchDreamTravel(trip), 900));
   }
-  function launchDreamTravel() {
-    const trip = S.dreamJourney; if (!trip || trip.done) return;
-    if (trip.flying) { finishDreamTravel(); return; }
+  function launchDreamTravel(expected) {
+    const trip = S.dreamJourney; if (!trip || trip.done || trip.flying || (expected && expected !== trip)) return;
     trip.flying = true; D.travelArt.classList.add('flying');
-    D.travelCopy.textContent = 'Feza önden gidiyor, Bilbo da hop diye yanına atlıyor!';
-    D.travelGo.innerHTML = '<span>✨ ' + (trip.forest ? 'Ormana İn!' : 'Ay’a İn!') + '</span>';
-    S.guardUntil = performance.now() + 1100;
-    trip.boardTimer = setTimeout(() => { if (S.dreamJourney === trip) D.travelCopy.textContent = trip.forest ? 'Yıldızlar bize yol gösteriyor… Merhaba, neşeli orman!' : 'Üç, iki, bir… Köpük roketi yıldızların arasına uçuyor!'; }, 850);
-    trip.timer = setTimeout(finishDreamTravel, 4600);
+    // The outgoing encounter can queue one last line on its transition frame.
+    aud('stopVoice');
+    aud('say', trip.forest ? 'mekik_yolculuk' : 'roket_yolculuk', { prio: 3, interrupt: true });
+    trip.timers.push(setTimeout(() => finishDreamTravel(trip), 6100));
   }
-  function finishDreamTravel() {
-    const trip = S.dreamJourney; if (!trip || trip.done) return;
-    trip.done = true; clearTimeout(trip.timer); clearTimeout(trip.boardTimer); S.dreamJourney = null;
-    showScreen(D.dreamTravel, false); S.menu = null; setPaused(false); trip.proceed();
+  function finishDreamTravel(expected) {
+    const trip = S.dreamJourney; if (!trip || trip.done || (expected && expected !== trip)) return;
+    trip.done = true; trip.timers.forEach(clearTimeout); S.dreamJourney = null;
+    aud('stopVoice');
+    showScreen(D.dreamTravel, false); D.root.classList.remove('journey-on'); S.menu = null; setPaused(false); trip.proceed();
   }
 
   function wireButtons() {
@@ -1036,7 +1029,7 @@ const UI = (() => {
       if (!D.root.classList.contains('kbd')) D.root.classList.add('kbd');   // a keyboard is in use: show 1 2 3 on the skills, Q on the potion
       if (e.key === '.' || c === 'NumpadDecimal') { if (!e.repeat) toggleFps(); e.preventDefault(); return; }   // by character: '.' sits elsewhere on a Turkish keyboard
       if (S.menu === 'dream') return;
-      if (S.menu === 'dream-travel') { if (!e.repeat && ['Enter', 'Space'].includes(c)) { e.preventDefault(); launchDreamTravel(); } return; }
+      if (S.menu === 'dream-travel') { e.preventDefault(); return; }
       if (S.menu === 'intro') { if (!e.repeat && ['Escape', 'Enter', 'Space'].includes(c)) { e.preventDefault(); closeDreamIntro(); } return; }
       if (!e.repeat && c === 'KeyM' && mapUnlocked()) { e.preventDefault(); openDreamMap(); return; }
       if (S.mode === 'choose') {
@@ -2236,7 +2229,7 @@ const UI = (() => {
   }
   // Spoken title prompt for a child who can't read: after a quiet moment, then every 25 s while idle (at most 3 times).
   function titleVoiceTick(dt) {
-    if (S.mode !== 'title' || S.busy || S.titleSaid >= 3) return;
+    if (S.mode !== 'title' || S.menu || S.busy || S.titleSaid >= 3) return;
     const A = M.AUD; if (!A) return;
     if (!SILENT && !(A.ready && A.ready())) return;   // before the first touch iOS can't play it yet
     S.titleIdle += dt;

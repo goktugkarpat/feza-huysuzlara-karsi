@@ -1713,7 +1713,7 @@ const LEVEL = (function () {
   const LIQ_TEX = [null, 'lava', 'milk'];   // FLOOR[theme].lava → the liquid's TEX surface
   const FLOOR = {
     bathroom: { a: 'bathTile', b: 'bathTile', c: 'bathTile', tA: 0xe0fff9, tB: 0xffd9ee, tC: 0xfff4c7, rough: [0.4, 0.4, 0.4], crispB: 1, crispC: 1, ao: 0.35, border: 0, out: 0x6599b1, outAmt: 0.65, anti: 0, macro: 0xe8ffff, trim: 0xffffff, trimM: 0 },
-    moon: { a: 'moonDust', b: 'moonDust', c: 'moonDust', tA: 0xd4d0fb, tB: 0xf8e8cf, tC: 0xd7f4ff, rough: [0.93, 0.93, 0.85], crispB: 0, crispC: 0, ao: 0.46, border: 0, out: 0x393552, outAmt: 0.7, anti: 1, macro: 0xcbd2ff, speck: [0x8deaff, 0.7] },
+    moon: { a: 'moonDust', b: 'moonDust', c: 'moonDust', tA: 0xe2edf3, tB: 0xeef4f6, tC: 0xd8eafa, rough: [0.93, 0.93, 0.85], crispB: 0, crispC: 0, ao: 0.32, border: 0, out: 0x263548, outAmt: 0.85, anti: 1, macro: 0xc3d8e8, speck: [0x8deaff, 0.25] },
     forest: { a: 'grass', b: 'dirt', c: 'cobble', tA: 0xdce6c8, tB: 0xf2e6da, tC: 0xf6ecdc, rough: [0.92, 0.96, 0.82], crispB: 0, crispC: 0, ao: 0.62, border: 0, out: 0x1e3a18, outAmt: 0.45, anti: 1, macro: 0xffe890 },
     cave: { a: 'caveFloor', b: 'caveSand', c: 'moss', lumC: 1.05, cScale: 1.6, tA: 0xb6b2c6, tB: 0xc8bec8, tC: 0x2a7a80, rough: [0.55, 0.95, 0.9], crispB: 0, crispC: 0, ao: 0.75, border: 0, out: 0x04050a, outAmt: 0.92, anti: 1, macro: 0x9cc0ff, speck: [0x7affe0, 2.6] },
     castle: { a: 'castleFloor', b: 'carpet', c: 'carpet', lumC: 1.5, tA: 0xe2dcf0, tB: 0xffffff, tC: 0x2e9aa4, tA2: 0xf8e4c8, tC2: 0xc8303e, rough: [0.3, 0.95, 0.95], crispB: 1, crispC: 1, ao: 0.62, border: 1, out: 0x2c2248, outAmt: 1, anti: 0, macro: 0xffffff },
@@ -1992,6 +1992,9 @@ const LEVEL = (function () {
     for (let py = 0; py < MH; py++) { const row = ((py / P) | 0) * L.W, o = py * MW; for (let px = 0; px < MW; px++) wall[o + px] = L.grid[row + ((px / P) | 0)] ? 0 : VL ? 1 - VL[o + px] : 1; }   // volcano / dairy: the liquid is no wall (no AO, no dark ground)
     let g = boxBlur(wall, MW, MH, 3); g = boxBlur(g, MW, MH, 2);
     let a = boxBlur(g, MW, MH, 7); a = boxBlur(a, MW, MH, 7);
+    // The dream worlds use the actual collision silhouette, with only a quarter-metre antialiased edge.
+    // No broad soft mask may make several metres of blocked scenery resemble playable floor.
+    if (!L._title && (L.theme === 'bathroom' || L.theme === 'moon')) { g = boxBlur(wall, MW, MH, 1); a = g; }
     if (L.theme === 'dairy') {   // the yogurt valley: G = a smooth floor coverage (0.5 = the walkable edge, in soft curves instead of the
       // cells' staircase); the shader outlines the walkable yogurt with it (a thin golden lip and a soft band inside), no dark AO
       const fc = new Float32Array(n);
@@ -2128,9 +2131,22 @@ const LEVEL = (function () {
     B.dispose.push(mask);
     const m = floorMat(L.theme);
     m.userData.u.tMask.value = mask; m.userData.u.uMaskInv.value.set(1 / L.W, 1 / L.H);
+    m.userData.u.uDream.value = !L._title ? L.theme === 'moon' ? 2 : L.theme === 'bathroom' ? 1 : 0 : 0;
     let fg;
     if (L._town) fg = townFloorGeo(L);   // Surlu Şehir: the streets end at the quays (the canals lie lower)
-    else { fg = new THREE.PlaneGeometry(L.W + 28, L.H + 28); fg.rotateX(-Math.PI / 2); fg.translate(L.W / 2, 0, L.H / 2); }
+    else {
+      const lunar = !L._title && L.theme === 'moon';
+      fg = new THREE.PlaneGeometry(L.W + 28, L.H + 28, lunar ? Math.ceil((L.W + 28) / 2) : 1, lunar ? Math.ceil((L.H + 28) / 2) : 1); fg.rotateX(-Math.PI / 2); fg.translate(L.W / 2, 0, L.H / 2);
+      if (lunar) {
+        const p = fg.attributes.position, d = chamfer(L.W, L.H, L.grid, 1);
+        for (let k = 0; k < p.count; k++) {
+          const x = p.getX(k), z = p.getZ(k), i = Math.floor(x), j = Math.floor(z), c = j * L.W + i;
+          const distance = i < 0 || j < 0 || i >= L.W || j >= L.H ? 8 : d[c];
+          p.setY(k, smooth01((distance - 2) / 3) * (.18 + .42 * (vnoise(x / 4, z / 4, L.seed + 84) * .5 + .5)));
+        }
+        fg.computeVertexNormals();
+      }
+    }
     const floor = new THREE.Mesh(fg, m);
     floor.receiveShadow = true; floor.name = 'floor';
     B.g.add(floor);
@@ -2209,7 +2225,7 @@ const LEVEL = (function () {
         uTintA2: { value: lin(th.tA2 ?? th.tA, th.tAk ?? 1) }, uTintC2: { value: lin(th.tC2 ?? th.tC, th.tCk ?? 1) },
         uMode: { value: new THREE.Vector4(th.crispB, th.crispC, th.ao, th.border) }, uOut: { value: new THREE.Vector4(oc.r, oc.g, oc.b, th.outAmt) },
         uTrim: { value: lin(th.trim ?? 0xffcf5a, 0.9) }, uTrimM: { value: th.trimM ?? 0.9 },   // (trim: the gold inlay / curb line and how metallic it is)
-        uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 },
+        uMacro: { value: lin(th.macro) }, uLumC: { value: th.lumC || 0 }, uDream: { value: 0 },
         tGlow: { value: blackTex() }, uTime: TIME.u, uSpeck: { value: th.speck ? lin(th.speck[0], th.speck[1]) : new THREE.Color(0, 0, 0) },
         // liquid: lava (volcano, x = 1): TEX.lava scrolled + wobbled · milk / kefir (dairy, x = 2): TEX.milk moved along tFlow (a flow
         // map), lit and glossy. tGlow.a = 1 - liquid there. x mode · y 1/tile · z shore rim · w emissive gain
@@ -2230,7 +2246,7 @@ const LEVEL = (function () {
       vDecl: 'varying vec3 vLvW;',
       vBegin: 'vLvW = (modelMatrix * vec4(transformed, 1.0)).xyz;',
       fDecl: `uniform sampler2D tMask, tNoise, tA, tAn, tB, tBn, tC, tCn, tGlow, tLava, tLavaN, tFlow; uniform vec4 uSc, uMode, uOut, uLava; uniform vec2 uMaskInv;
-        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT, uLiqA, uLiqB, uLiqC, uEdge; uniform vec4 uRip[4]; uniform float uLumC, uTime, uLiqR, uTrimM; varying vec3 vLvW;
+        uniform vec3 uTintA, uTintB, uTintC, uTintA2, uTintC2, uRough, uTrim, uMacro, uSpeck, uLavaT, uLiqA, uLiqB, uLiqC, uEdge; uniform vec4 uRip[4]; uniform float uLumC, uTime, uLiqR, uTrimM, uDream; varying vec3 vLvW;
         ${GLSL_NOISE}
         float lvHB(float h1, float h2, float t) {   // height-aware blend weight of layer 2
           t = clamp(t, 0.0, 1.0);
@@ -2302,6 +2318,14 @@ const LEVEL = (function () {
           lvCol = mix(lvCol, uTrim, ln * 0.85); lvTrim = max(lvTrim, ln);
         }
         lvCol = mix(lvCol, uOut.rgb, smoothstep(0.25, 0.95, lvM.a) * uOut.a);
+        if (uDream > .5) {
+          float outside = smoothstep(.43, .57, lvM.g);
+          vec3 ground = uDream > 1.5 ? vec3(.045,.072,.108) : vec3(.055,.17,.18);
+          float grain = .76 + .34 * cA.r + .16 * lvN.r;
+          lvCol = mix(lvCol * 1.12, ground * grain, outside);
+          float lip = (1.0 - smoothstep(.05,.28,abs(lvM.g-.5))) * .65;
+          lvCol = mix(lvCol, uDream > 1.5 ? vec3(.36,.48,.57) : vec3(.61,.86,.81), lip);
+        }
         float lvLv = 0.0, lvLqSh = 0.0; vec3 lvLvE = vec3(0.0), lvLqN = vec3(0.0, 0.0, 1.0);
         if (uLava.x > 1.5) {   // Kefir Vadisi: flowing milk, kefir and strawberry milk (lit and glossy), fizzy bubbles popping, a foamy lip on the shore
           float lq = 1.0 - lvGs.a;
@@ -8431,6 +8455,7 @@ const LEVEL = (function () {
       put(sp, x + 0.4, s * 0.6, z + 0.4, s, s * 0.65, s, moon ? 0xd9d0f5 : 0xd4ffff);
     }
     buildDreamDressing(L, B);
+    buildDreamBoundary(L, B);
     if (moon) {
       buildDreamSky(L, B);
       // Constellations are low, flat jewels beyond the paths, so Feza stays easy to see.
@@ -8447,6 +8472,26 @@ const LEVEL = (function () {
 
   // Compact, reusable prop clusters: rooms and every connecting route get visible details.
   // Low-poly geometry is merged with the existing chunk batches, rather than adding a draw call per prop.
+  function buildDreamBoundary(L, B) {
+    const moon = L.theme === 'moon', box = moon ? G.ico(0) : G.box(), grid = L.grid, W = L.W, H = L.H;
+    const info = L.dreamBoundary = { segments: 0, source: 'grid', outerWidth: moon ? .36 : .22 };
+    const put = (x, z, yaw, k) => {
+      const h = moon ? .13 + .025 * (k % 3) : .10;
+      dec(B, 'shiny', box, mat4(x, h * .45, z, yaw, moon ? .58 : 1, moon ? h * .8 : h, moon ? .17 : info.outerWidth), lin(moon ? [0x899eae, 0x74899a, 0x9aabb8][k % 3] : [0xb3e2db, 0xf2e7d4, 0xc4e3eb][k % 3]));
+      info.segments++;
+    };
+    // Every segment is on the blocked side of a true 1→0 grid edge. Connected doors have no edge and no curb.
+    // These are visual lips, never additional collision shapes or guessed circles around the rooms.
+    const off = info.outerWidth * .5;
+    for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+      const c = j * W + i; if (!grid[c]) continue;
+      if (!j || !grid[c - W]) put(i + .5, j - off, 0, c);
+      if (j === H - 1 || !grid[c + W]) put(i + .5, j + 1 + off, 0, c + 1);
+      if (!i || !grid[c - 1]) put(i - off, j + .5, Math.PI / 2, c + 2);
+      if (i === W - 1 || !grid[c + 1]) put(i + 1 + off, j + .5, Math.PI / 2, c + 3);
+    }
+  }
+
   function buildDreamDressing(L, B) {
     const moon = L.theme === 'moon', rnd = B.rnd;
     const sph = R.geo.ddSphere || (R.geo.ddSphere = keep(new THREE.SphereGeometry(1, 8, 5)));
@@ -8539,7 +8584,7 @@ const LEVEL = (function () {
     // Its transparent lower edge ends well above Feza and leaves the playable floor unobscured.
     const skyGeo = new THREE.PlaneGeometry(1, 1), skyMat = new THREE.ShaderMaterial({ transparent: true, depthTest: false, depthWrite: false,
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-      fragmentShader: 'varying vec2 vUv; float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);} void main(){float edge=smoothstep(0.0,.45,vUv.y); vec2 cell=floor(vUv*vec2(100.,22.));vec2 q=fract(vUv*vec2(100.,22.))-.5;float star=(1.-smoothstep(.025,.07,length(q)))*step(.982,hash(cell));vec3 c=mix(vec3(.045,.057,.14),vec3(.019,.028,.085),vUv.y)+star*vec3(.6,.75,1.);gl_FragColor=vec4(c,edge*.97);}' });
+      fragmentShader: 'varying vec2 vUv; float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);} void main(){float edge=smoothstep(0.0,.68,vUv.y); vec2 cell=floor(vUv*vec2(100.,22.));vec2 q=fract(vUv*vec2(100.,22.))-.5;float star=(1.-smoothstep(.025,.07,length(q)))*step(.982,hash(cell));vec3 c=mix(vec3(.045,.057,.14),vec3(.019,.028,.085),vUv.y)+star*vec3(.6,.75,1.);gl_FragColor=vec4(c,edge*.82);}' });
     const sky = new THREE.Mesh(skyGeo, skyMat); sky.name = 'hayal_yildizli_ufuk'; sky.renderOrder = 28; sky.frustumCulled = false; B.g.add(sky); B.dispose.push(skyGeo, skyMat);
     const sp = R.geo.ddSkySphere || (R.geo.ddSkySphere = keep(new THREE.SphereGeometry(1, 20, 12)));
     const tailSphere = R.geo.ddSkyTail || (R.geo.ddSkyTail = keep(new THREE.SphereGeometry(1, 10, 6)));
@@ -8564,7 +8609,7 @@ const LEVEL = (function () {
       o.position.copy(camera.position).addScaledVector(forward, depth).addScaledVector(right, (sx * 2 - 1) * hh * camera.aspect).addScaledVector(up, (1 - sy * 2) * hh);
       o.quaternion.copy(camera.quaternion); o.scale.setScalar(hh * 2 * radiusFraction);
     };
-    let t = 0; B.anim.push(dt => { t += dt; anchor(sky, .5, .12, .27, 30); sky.scale.x *= camera.aspect / .27; anchor(earth, .46, .21, .032, 22); earth.rotateY(Math.sin(t * .06) * .14); anchor(saturn, .67, .205, .019, 26); saturn.rotateZ(-.2); comets.forEach((o, k) => { const u = (t * (.095 + k * .012) + k * .34) % 1; anchor(o, .16 + .68 * u, .17 + k * .026 + Math.sin(u * Math.PI) * .01, k === 0 ? .026 : .019, 19); o.rotateZ(.06 + k * .035); }); });
+    let t = 0; B.anim.push(dt => { t += dt; anchor(sky, .5, .06, .23, 30); sky.scale.x *= camera.aspect / .23; anchor(earth, .46, .18, .028, 22); earth.rotateY(Math.sin(t * .06) * .14); anchor(saturn, .67, .175, .017, 26); saturn.rotateZ(-.2); comets.forEach((o, k) => { const u = (t * (.095 + k * .012) + k * .34) % 1; anchor(o, .16 + .68 * u, .145 + k * .025 + Math.sin(u * Math.PI) * .01, k === 0 ? .023 : .017, 19); o.rotateZ(.06 + k * .035); }); });
   }
 
   // A close, fully three-dimensional storybook bathroom for the first screen.

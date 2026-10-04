@@ -839,6 +839,8 @@ const GAME = (() => {
     }
     if (bilboBark > 0 && bilboTarget) face = Math.atan2(bilboTarget.x - bilboPos.x, bilboTarget.z - bilboPos.z);
     else bilboTarget = null;
+    const fetchFace = Bilbo.fetchFacing ? Bilbo.fetchFacing() : null;
+    if (fetchFace !== null && Number.isFinite(fetchFace)) face = fetchFace;
     bilboFace = dampAngle(bilboFace, face, 9, dt);
     Bilbo.root.position.set(bilboPos.x, hop, bilboPos.z);
     Bilbo.root.rotation.y = bilboFace;
@@ -853,7 +855,7 @@ const GAME = (() => {
       if(L!==heldLevel || GAME.state!=='play' || P.dead || e.dead || hidden(e) || !enemies.includes(e) || merchantNear() || gt<storyUntil || !los(bilboPos.x,bilboPos.z,e.x,e.z))return;
       damage(e,Math.max(8,Math.round(heroDamageNow()*1.5)),{kind:'bilbo',silent:true});
       if(!e.boss){e.stun=Math.max(e.stun||0,1.2);cancelWindup(e);}burst('hearts',e.x,1,e.z,{count:10});sfx('pop',{vol:.4});
-    });
+    }, {canLaunch:()=>L===heldLevel && GAME.state==='play' && !P.dead, routeClear:los});
     if(!ok)return false;boneAt=gt+BONE_CD;C.cheerT=Math.max(C.cheerT,.5);sfx('whoosh',{vol:.5});emit('bone');return true;
   }
   // One rescue per low-health episode; healing to the threshold rearms it.

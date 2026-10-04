@@ -825,6 +825,12 @@ Snapshots retain sanitized stock/ward/item fields; old saves default to no purch
 Events: merchant opens UI, purchase carries `{name,price}`, gold carries negative amount. Audio: tuccar_merhaba, tuccar_iksir, tuccar_bulut, tuccar_parilti.
 
 
+## Dream-world polish
+
+Dream-world polish: bathroom/moon floor-mask G is sampled from the exact collision grid rather than the broad blurred scenery alpha. Bright floor, dark blocked surroundings and low boundary geometry encode every 1-to-0 edge; the boundary pieces stay on the blocked side. Moon uses silver-blue dust with shaded craters and low faceted stones. Dream travel uses a passive full-screen animation with automatic boarding, recorded roket_yolculuk/mekik_yolculuk narration and single guarded completion; no modal dialog or travel buttons. Offline cache v51.
+
+Bilbo's fetch uses a jaw-attached mouth anchor: .85 s bone flight, .60 s catch hold, .40 s chew, then sequential treats every .15 s. Body facing follows the current target during chew/spray; each treat starts from the posed mouth, follows the moving target and checks LOS along its route. canLaunch cancels on death/zone changes; each surviving target receives at most one callback. Bone cooldown remains 8 s.
+
 ## Repeat-adventure difficulty reference
 
 First adventure (`P.ng===0`) retains its existing Normal/Zor formulas. `newGame({plus:true})` captures `P.roundPower={ng,damage,magic,health}` after recalculating player stats and before spawning zone 0. Health is effective HP: maxHp/(1-armor/100), excluding transient shields/merchant ward.
