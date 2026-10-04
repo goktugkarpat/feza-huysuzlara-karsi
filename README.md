@@ -2,7 +2,9 @@
 
 5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
 Gerçek Bilbo'dan esinlenen çikolata renkli Labrador Bilbo, maceranın başından sonuna kadar Feza'nın yanında koşar ve yakındaki huysuzlara havlayarak yardım eder.
-Huysuz Ejderha köyün neşe kristalini almış ve ormandaki herkesi haylaz yapmış. Feza ışın kılıcıyla ya da sihirli değneğiyle haylazları neşelendirince
+Feza tuvalette kitabını okurken Bilbo’yla neşeli bir hayal kuruyor. Başlangıç ekranındaki gerçek Feza modeli klozette oturup kitabını okur;
+özel masal banyosunda oyuncaklar, kitaplar ve içinde dünyalar olan hayal baloncukları bulunur. Her kapı yeni bir hayale açılır.
+Feza ışın kılıcıyla ya da sihirli değneğiyle oyun arkadaşlarını neşelendirince
 onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün yaratıklar sevimli ve güler yüzlü; kan yok, ölüm yok, korkutucu hiçbir şey yok.
 
 ## Nasıl açılır
@@ -18,6 +20,8 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - **Karakter:** Oyna düğmesinden sonra Savaşçı Feza, Büyücü Feza veya **Büyülü Şövalye Feza** seçilir. Savaşçı ışın kılıcıyla yaklaşır; büyücü ahşap değneğiyle uzaktan vurur. Büyülü şövalye iki silahı birlikte taşır: yakında kılıç, uzakta değnek kullanır.
 - **Yürümek:** Parmağını ekranda gitmek istediğin yere bas. Feza parmağının altındaki yere koşar; parmağını kaydırdıkça peşinden gider.
 - **Bilbo:** Feza'yı kendiliğinden takip eder; küçük portresi Feza'nın yanındadır. Yakındaki huysuzlara gerçek bir erkek Labrador kaydından iki kez tok sesle havlar. Feza'nın canı %50'nin altına düşünce koruyucu havlaması 5,5 adımlık çevredeki görünür huysuzları 3 saniye, bölüm sonu huysuzlarını 1,5 saniye sersemletir. Tekrar kullanabilmesi için canın en az %50'ye çıkması ve 20 saniyenin geçmesi gerekir; onu ayrıca yönetmek gerekmez. Sesin kaynağı ve izni: [ses bilgileri](assets/audio/CREDITS.md).
+- **Bilbo’nun yeni oyunları:** Bazen yakındaki huysuza neşeyle sıçrayıp onu sakinleştirir. Sağdaki, yeteneklerin üzerindeki **kemik** düğmesi baştan açıktır:
+  Feza kemiği Bilbo’ya atar; Bilbo yakalayıp en fazla beş görünür arkadaşına minik lokmalar gönderir. Düğme 8 saniyede yeniden hazır olur.
 - **Vurmak:** Bir huysuza dokun: Feza yanına gidip vurur. Yakınına gelen huysuza kendiliğinden de vurur.
   Sağ alttaki büyük **ışın kılıcı** düğmesi de en yakındakine vurur.
 - **Yetenekler:** Feza seviye atladıkça kılıç düğmesinin etrafında yeni bir düğme çıkar (toplam 3):
@@ -31,9 +35,12 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   Eşyanın altındaki **yıldızlar** yalnızca ne kadar güçlü olduğunu gösterir (1–5 ★): daha güçlü eşyanın yıldızı hiçbir zaman daha az olmaz.
   Eşyanın rengi ve parıltısı (beyaz, mavi, sarı, turuncu) ise ne kadar özel ve nadir olduğunu gösterir.
 - **Harita:** Sağ üstteki yuvarlak harita gidilecek yönü altın okla gösterir. Mor **sihirli kapıdan** geçince yeni bölgeye gidilir.
+- **Hayal Haritası:** Macera bir kez bitince sağ üstte **Harita** düğmesi açılır. Başlangıç, mola ve bitiş ekranlarından da açılabilir.
+  Sekiz resimli adadan birine dokununca oraya gidilir; seviye, çanta ve eşyalar korunur. Haritanın açılması cihazda hatırlanır;
+  maceradaki ilerleme yine yalnızca **Kaydet** ile saklanır. Klavyede **M** harita, **K** kemik düğmesidir.
 - ⏸ düğmesini kısa bir an basılı tutunca oyun durur (efektler, müzik, **Kaydet**, **Baştan Başla**). Oyun kendiliğinden kaydedilmez.
   Kalınan yerden sürmek isterseniz ⏸ › **Kaydet**'e basın; oyunu yeniden açınca **Devam Et** ve **Baştan Başla** düğmeleri çıkar.
-  **Baştan Başla** oyunu ormandan, 1. seviyeden yeniden başlatır; kayıt silinmez (yeniden **Kaydet**'e basılana kadar durur).
+  **Baştan Başla** oyunu tuvalet hayalinden, 1. seviyeden yeniden başlatır; kayıt silinmez (yeniden **Kaydet**'e basılana kadar durur).
 - **Bilgisayarda klavye:** ok tuşları / WASD yürür, Boşluk vurur, **1 2 3** yetenekleri kullanır, **Q** iksir içer (tuşlar düğmelerin üstünde
   beyaz etiketle yazar; iksir düğmesinin altındaki kırmızı **×3** ise kalan iksir sayısıdır), B çanta, Esc mola.
 - **FPS göstergesi:** klavyede **.** (nokta) tuşu açıp kapatır; iPad'de adresin sonuna `?fps` eklenirse açık başlar.
@@ -45,13 +52,15 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 
 Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
 
-Eşya görünüşleri toplam 64 çeşittir; buz, güneş ve dalga kılıçları, mercan, bulut ve çiçek değnekleri ile yeni başlık ve pelerinler de bulunabilir.
-Son eklenen 14 eşya: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
+Tuvalet ve Ay bölümlerine sabun, damla, Ay ışığı ve yıldız tozu silahları; köpük ve Ay pelerinleri ile altı özel bölüm sonu silahı eklendi.
+Önceki 14 yeni eşya da korunur: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
 ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yunikorn Tacı** ve **Astronot Kaskı**; **Şeker**, **Panda** ve
 **Galaksi** pelerinleri. Bazıları ancak ilerideki bölgelerde çıkar (Uzay Roketi, Gezegen ve Galaksi gibi).
 
 ## Normal modun dengesi
 
+- Bölüm sonu huysuzlarının canı **Normal** zorlukta önceki ayarın %57’sidir; karşılaşmalar belirgin biçimde kısalır.
+  **Zor** seçeneğinde önceki dayanıklılık korunur. Zorluk değişince kalan canın yüzdesi korunur.
 - Daha güçlü silah bulunca huysuzların canı daha yavaş artar; yükseltmeler dövüşü daha belirgin kısaltır.
 - Büyücü Feza'nın normal değnek atışı biraz daha hızlıdır.
 - Bossun kendi küçük oyununu başarıp onu sersemletince, sersemleme boyunca saldırıların **%25 daha fazla hasar** verir.
@@ -60,25 +69,30 @@ ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yu
 
 ## Bölgeler
 
-Her bölgenin sonunda bir **bölüm sonu canavarı** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. Savaşçıya sırayla Jöle Kralının Tacı, Kefir Köpüğü Pelerini, Köstebek Ustanın Feneri, Lav Kabuğu silahı, Şövalyenin Tüylü Miğferi ve Ejderha Kanadı silahı düşer. Her karakterin her canavardan alacağı özel ödül farklıdır (toplam 18); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
+Her bölgenin sonunda bir **bölüm sonu huysuzu** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. İlk iki bölüm Köpük Usta ve Ay Tavşanı'nın özel silahlarını verir. Ardından önceki altı bölümün bütün ödülleri korunur. Her karakterin her huysuzdan alacağı özel ödül farklıdır (toplam 24); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
 
-1. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
+1. **Köpüklü Tuvalet Rüyası:** gülümseyen kakacıklar, süzülen çiş damlaları, sabun köpükleri; yollar boyunca köpüklü küvetler, aynalı dolaplar, havlular, diş fırçaları, sabunluklar ve ördekli köşeler.
+   **Köpük Usta** ile sabun toplama oyunu oynanır. Neşelenince Feza ve Bilbo köpük roketine binip Ay’a uçar; biniş ve uçuş görülür.
+2. **Zıp Zıp Ay:** gece tonlarında lavanta renkli Ay toprağı, çukur kraterler, kubbeli istasyonlar, paneller, antenler, bayraklar ve kristaller. Yıldızlı ufukta Dünya, halkalı uzak gezegen ve sürekli geçen zararsız kuyruklu yıldızlar ile meteorlar görülür; Güneş görünmez.
+   Ay ponponları, ışık baloncuklu yıldızcıklar ve saklanan kratercikler; **Ponpon Ay Tavşanı** için üç yıldız toplanır.
+   Sonra yıldız yapraklı mekikle Orman Hayali’ne uçulur. İki yeni bossun da her karakter için özel bir silah ödülü vardır.
+3. **Huysuz Orman:** köyün kenarından başlar. Bilge Baykuş yol gösterir. Jöleler, mantarlar, yarasalar ve haylaz goblinler.
    Sonunda **Kral Jöle**: taçlı dev jöle; zıplayıp yere konunca halka dalga yapar, minik jöleler çağırır.
-2. **Kefir Vadisi:** akan süt ve kefir nehirleri, parlak yoğurt tepecikleri, delikli dev peynirler, güğümler, yayıklar ve bisküvi köprüler.
-   Ejderhanın büyüsüyle yoğurtlar ekşimiş, kaymaklar kesilmiş: ekşi yoğurtlar, kayan kaymaklar, uçan kefir köpükleri, peynir dilimleri ve muhallebi jöleler.
+4. **Kefir Vadisi:** akan süt ve kefir nehirleri, parlak yoğurt tepecikleri, delikli dev peynirler, güğümler, yayıklar ve bisküvi köprüler.
+   Jöle Kralı’nın kapısından yeni bir hayal: yoğurtlar, kayan kaymaklar, uçan kefir köpükleri, peynir dilimleri ve muhallebi jöleler şenlik yapar.
    Sonunda **Köpüklü Kefir Devi**: dev bir kefir şişesi; neşelenince Feza'ya en güzel kefirinden ikram eder.
-3. **Köstebek ve Salyangoz Mağarası:** parlayan kristallerle aydınlanan mağara. Toprağın altından "pıt" diye çıkan madenci köstebekler,
+5. **Köstebek ve Salyangoz Mağarası:** kefir köpükleri parlayan kristallere dönüşür. Toprağın altından "pıt" diye çıkan madenci köstebekler,
    baloncuk üfleyen salyangozlar, yarasalar ve kocaman ama sevimli kaya devleri. Sonunda **Usta Köstebek**: matkap baretli dev köstebek.
-4. **Lav Yanardağı:** parlak lav gölleri, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
+6. **Lav Yanardağı:** kristaller turuncu ışık nehirlerine dönüşür. Parlak göller, taş köprüler ve kıvılcımlar. Minik lav kaplumbağaları, ateş kuşları, lav jöleleri ve magma devi.
    Sonunda **Koca Lav Kaplumbağası**: kabuğu küçük bir yanardağ; lav topları fışkırtır (düşecekleri yer kırmızı daireyle görünür).
-5. **Surlu Şehir (Feza'nın isteği):** ejderhanın kalesinin önündeki, surlarla çevrili şehir. Arnavut kaldırımlı sokaklar, içinden akan
+7. **Surlu Şehir (Feza'nın isteği):** dağın ışıkları şehrin fenerleri olur. Arnavut kaldırımlı sokaklar, içinden akan
    nehir ve taş köprüler, renkli ahşap evler, pazar tezgâhları, çeşme, bayraklar; surlar ve kuleler, uzakta ejderhanın kalesi.
-   Buradaki huysuzlar insanlar: ejderha onları kandırmış, kimse kaleye gitmesin istiyorlar. Ponpon uçlu mızraklı nöbetçiler,
+   Buradaki arkadaşlar bir şenlik oyunu oynar. Ponpon uçlu mızraklı nöbetçiler,
    simit fırlatan simitçiler, tozu savurarak gelen süpürgeciler ve davuluyla "güm" diye vuran kocaman tellal. Neşelenince hepsi
    yeniden güler yüzlü şehirliler olur. Sonunda turnuva meydanında **Huysuz Şövalye** ve kocaman atı: yolunu gösterip dörtnala
    koşar, atı şaha kalkıp yere basar, mızrağını savurur, at nalı fırlatır ve nöbetçi çağırır.
-6. **Ejderhanın Kalesi:** oyuncak askerler, ateşçikler, hayaletler ve en sonda **Huysuz Ejderha**. Ejderha neşelenip ışıltılar içinde
-   kaybolur, neşe kristali köye döner. İstenirse macera en baştan yeniden başlar.
+8. **Ejderhanın Kalesi:** şehrin bayrakları gökkuşağına dönüşüp dost ejderhanın kalesine uzanır. Oyuncak askerler, ateşçikler, hayaletler
+   ve en sonda **Huysuz Ejderha**. Ejderha neşelenince neşe kristalini paylaşır; arkadaşların kahkahaları yıldızlara dönüşür ve Hayal Haritası açılır.
 
 Boss savaşlarında küçük sürprizler de var: Kral Jöle küçük parçalara ayrılır, Kefir Devi köpük dansı yaptırır,
 Usta Köstebek sıralı toprak dalgaları gönderir, Lav Kaplumbağası yeşil geçit bırakan bir lav dalgası çıkarır,
@@ -161,7 +175,7 @@ Baştan Başla, ilk maceraya ve onun mevcut dengesine döner.
 
 ## Gezgin tüccar: Mırmır Ayışığı
 
-Mırmır, 2., 4. ve 6. bölümlerin başındaki güvenli alanda bekleyen, yıldızlı pelerinli ve fenerli bir kedi tüccardır.
+Mırmır, 4., 6. ve 8. bölümlerin başındaki güvenli alanda bekleyen, yıldızlı pelerinli ve fenerli bir kedi tüccardır.
 Yanına yaklaşınca **Alışveriş** düğmesine dokun veya **E** tuşuna bas. Seçim sırasında oyun durur.
 
 - **Pofuduk Yudum:** çantaya bir can iksiri ekler; her tezgahta en fazla 3 adet, çanta doluyken alınamaz.

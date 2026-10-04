@@ -1,11 +1,11 @@
 // İnternetsiz çalışma: ilk açılıştan sonra oyun (kod, 3D kütüphanesi, gömülü sesler) cihazda saklanır.
 // Dosya eklenirse CORE listesine ekle; önemli değişiklikte CACHE sürümünü artır.
-const CACHE = 'feza-huysuzlara-karsi-v49';
+const CACHE = 'feza-huysuzlara-karsi-v50';
 const SRC = ['00_core', '01_textures', '02_audio', '03_fx', '04_feza', '04_bilbo', '04_bilbo_follow', '05_enemies', '06_level', '07_game', '08_skills', '09_ui'];
 const CORE = ['./', './index.html', './vendor/three.js', './sesler.js', './bilbo-ses.js', './assets/audio/bilbo-hav-hav.mp3', './manifest.webmanifest', './src/ui.css',
   ...SRC.map(n => './src/' + n + '.js')];
 const ICONS = ['./icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];   // optional: a missing icon must not stop the install
-const FRESH = /(\/|index\.html|sesler\.js|bilbo-ses\.js|manifest\.webmanifest|src\/[\w.]+\.(js|css))$/;   // önce ağ (güncel sürüm), yoksa kayıtlı kopya
+const FRESH = /(\/|index\.html)$/;   // sayfa önce ağ, diğer dosyalar önce önbellek
 
 self.addEventListener('install', e => e.waitUntil((async () => {
   const c = await caches.open(CACHE);

@@ -3,4 +3,5 @@
 __pycache__/
 .ses_onbellek/
 tools/
+.tools-python/
 test/

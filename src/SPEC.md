@@ -1,5 +1,16 @@
 # Feza Huysuzlara Karşı — teknik sözleşme (SPEC)
 
+## Dream adventure update (latest; overrides older story and chapter counts)
+
+- All eight chapters happen inside Feza's happy storybook imagination. New order: tuvalet, ay, orman, kefir, magara, yanardag, sehir, kale. Save layout sv6 maps earlier numbered saves by their earlier order; zid remains authoritative.
+- Initial title uses the actual animated FEZA model seated on the physical toilet reading an open 3D book. LEVEL receives _title before build, supplies readingSpot; title scene is rebuilt as ordinary gameplay when a new game starts.
+- New boss IDs kopukusta / aytavsan, optional three-soap / three-star collection games, gentle warned hop and bubble fan, class-specific weapon rewards. Moon craters, Earth and harmless moving comets are scenery.
+- Normal boss HP × .57 in first and repeat adventures; Hard uses exactly the prior HP calculation. Current difficulty changes preserve remaining HP percentage.
+- Bilbo follows, periodically pounces along a collision-safe path and retains the low-health bark. Always unlocked bone action (8 second cooldown) throws a visible bone to Bilbo, then up to five small treats to visible enemies. Impact callbacks reject stale levels, dead/hidden enemies and blocked sight lines.
+- Completed adventure unlocks persistent fezaHuysuz.hayalHaritasi.v1 map access. Progress still saves manually. Eight decorated SVG islands allow travel with current gear/level; title, pause, victory and HUD provide map buttons. M map, K bone, B bag.
+- First two portal transitions show Feza/Bilbo boarding a bubble rocket / star-leaf shuttle, then a short flight. UI owns the portal cinematic and resumes exactly once.
+- All 112 narrator lines are embedded trimmed tr-TR-EmelNeural recordings. sw.js v50 precaches every runtime file; HTML network-first, other resources cache-first; unrelated game caches preserved.
+
 A kid-friendly (5-year-old) **Diablo-like** action RPG in three.js r170, for an **M1 iPad** (Safari, touch), also runs by
 double-clicking `index.html` (file://). Hero: **Feza**, a 5-year-old boy (see "Feza's look"). Enemies are *grumpy* ("huysuz")
 creatures cursed by the Huysuz Ejderha (grumpy dragon) — but (Feza's request) every creature looks CUTE and SMILING, mischievous rather than angry:

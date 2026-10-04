@@ -148,13 +148,62 @@ const BILBO = (() => {
       mesh.frustumCulled = false; root.add(mesh); mesh.bind(skel); meshes.push(mesh);
     }
     owned.forEach(g => g.dispose());
-    let t = 0, stride = 0, run = 0, rest = 0, sit = 0, blinkAt = 2.8, blink = 0;
+    let t = 0, stride = 0, run = 0, rest = 0, sit = 0, blinkAt = 2.8, blink = 0, fetch = null, chew = 0;
+    const snacks = [], snackGeo = new THREE.SphereGeometry(1, 10, 8);
+    const snackMat = new THREE.MeshStandardMaterial({ color: 0xe5a17d, roughness: .8 });
+    const boneGeo = new THREE.CylinderGeometry(.045, .045, .38, 10);
+    const boneMat = new THREE.MeshStandardMaterial({ color: 0xfff2d4, roughness: .65 });
+    function mouthWorld() { return root.localToWorld(new THREE.Vector3(0, 1.03, 1.10)); }
+    function removeSnack(s) { if (s.mesh.parent) s.mesh.parent.remove(s.mesh); }
+    function fetchBone(hero, targets = [], onHit) {
+      if (fetch || !root.parent || !hero) return false;
+      const bone = new THREE.Group();
+      const shaft = new THREE.Mesh(boneGeo, boneMat); shaft.rotation.z = Math.PI / 2; bone.add(shaft);
+      for (const side of [-1, 1]) for (const up of [-1, 1]) {
+        const knob = new THREE.Mesh(snackGeo, boneMat); knob.scale.set(.072, .067, .058); knob.position.set(side * .19, up * .045, 0); bone.add(knob);
+      }
+      root.parent.add(bone);
+      fetch = { age: 0, bone, from: new THREE.Vector3(hero.x, (hero.y || 0) + 1.1, hero.z), targets: targets.slice(0, 5), onHit };
+      return true;
+    }
+    function updateSnacks(dt) {
+      chew = Math.max(0, chew - dt);
+      if (fetch) {
+        const f = fetch; f.age += dt;
+        const u = Math.min(1, f.age / .48), to = mouthWorld();
+        f.bone.position.lerpVectors(f.from, to, u); f.bone.position.y += Math.sin(Math.PI * u) * .85;
+        f.bone.rotation.set(f.age * 5, f.age * 7, f.age * 9);
+        if (u >= 1) {
+          f.bone.parent.remove(f.bone); chew = .65;
+          const origin = mouthWorld();
+          for (let i = 0; i < Math.max(3, f.targets.length); i++) {
+            const target = f.targets[i], angle = root.rotation.y + (i - 1) * .22;
+            const mesh = new THREE.Mesh(snackGeo, snackMat); mesh.scale.set(.09, .066, .11); root.parent.add(mesh);
+            const end = target ? new THREE.Vector3(target.x, (target.y || 0) + Math.max(.4, (target.height || 1) * .5), target.z) : origin.clone().add(new THREE.Vector3(Math.sin(angle) * 3, -.6, Math.cos(angle) * 3));
+            snacks.push({ mesh, from: origin.clone(), end, target, onHit: f.onHit, age: -i * .055, duration: .32 + origin.distanceTo(end) * .035 });
+          }
+          fetch = null;
+        }
+      }
+      for (let i = snacks.length - 1; i >= 0; i--) {
+        const s = snacks[i]; s.age += dt; s.mesh.visible = s.age >= 0;
+        if (s.target && !s.target.dead) s.end.set(s.target.x, (s.target.y || 0) + Math.max(.4, (s.target.height || 1) * .5), s.target.z);
+        const u = clamp01(s.age / s.duration); s.mesh.position.lerpVectors(s.from, s.end, u); s.mesh.position.y += Math.sin(Math.PI * u) * .3;
+        s.mesh.rotation.set(s.age * 7, s.age * 4, s.age * 8);
+        if (u >= 1) { removeSnack(s); snacks.splice(i, 1); if (s.target && !s.target.dead && s.onHit) s.onHit(s.target); }
+      }
+    }
+    function clearActions() {
+      if (fetch) { if (fetch.bone.parent) fetch.bone.parent.remove(fetch.bone); fetch = null; }
+      snacks.forEach(removeSnack); snacks.length = 0; chew = 0;
+    }
     function update(dt, state = {}) {
       dt = Math.min(Math.max(dt || 0, 0), .1); t += dt;
+      updateSnacks(dt);
       const speed = Math.max(0, state.speed || 0), moving = speed > .10;
       run = smooth(run, clamp01(speed / 5.2), 10, dt);
       stride += speed * dt * 3.8;
-      rest = moving || state.bark > 0 ? 0 : rest + dt;
+      rest = moving || state.bark > 0 || state.pounce > 0 || fetch || chew > 0 ? 0 : rest + dt;
       sit = smooth(sit, state.sit || rest > 7 ? 1 : 0, 4, dt);
       const age = 1.30 - (state.bark || 0);
       const bark = state.bark > 0 ? Math.exp(-Math.pow((age - .13) / .11, 2)) + Math.exp(-Math.pow((age - .85) / .12, 2)) : 0;
@@ -181,10 +230,23 @@ const BILBO = (() => {
       blink = Math.max(0, blink - dt);
       const lid = state.portrait ? 1 : 1 - .92 * Math.sin(Math.PI * clamp01(blink / .18));
       eyes.forEach(b => { b.scale.y = lid; });
+      // Anticipation, tucked paws, floppy ears and a soft landing make the playful leap readable.
+      const leap = clamp01(state.pounce || 0), nibble = chew > 0 ? Math.sin(t * 25) * .07 + .12 : 0;
+      body.rotation.x -= .16 * leap;
+      for (const { b, shin, foot, front } of legs) {
+        b.rotation.x += (front ? -.9 : .55) * leap;
+        shin.rotation.x += (front ? .8 : -.6) * leap; foot.rotation.x -= .22 * leap;
+      }
+      ears.forEach(({ b, side }) => { b.rotation.x = -.22 * leap + .035 * run * Math.sin(stride + side); });
+      head.rotation.x += (fetch ? -.15 : 0) + .09 * nibble - .10 * leap;
+      head.rotation.z += .055 * (1 - run) * Math.sin(t * .91) + .02 * nibble;
+      jaw.rotation.x += nibble + (run > .45 ? .065 + .025 * Math.sin(t * 8) : 0);
+      tongue.scale.setScalar(Math.max(state.portrait ? .72 : .1, run * .55, nibble > 0 ? .6 : 0, bark > .1 ? .8 : 0));
+      tail.rotation.y += (fetch || chew > 0 ? .18 * Math.sin(t * 13) : 0);
     }
     update(0);
-    function dispose() { meshes.forEach(m => m.geometry.dispose()); skel.dispose(); }
-    return { root, update, dispose, bones, meshes };
+    function dispose() { clearActions(); meshes.forEach(m => m.geometry.dispose()); snackGeo.dispose(); snackMat.dispose(); boneGeo.dispose(); boneMat.dispose(); skel.dispose(); }
+    return { root, update, dispose, bones, meshes, fetchBone, clearActions, isFetching: () => !!fetch || snacks.length > 0 };
   }
 
   let portraitUrl = null;

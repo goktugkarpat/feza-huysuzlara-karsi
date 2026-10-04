@@ -36,7 +36,19 @@ PRONOUNCE = [
 ROOT = os.path.dirname(os.path.abspath(__file__))
 CACHE = os.path.join(ROOT, ".ses_onbellek")
 OUT = os.path.join(ROOT, "sesler.js")
+
+def remove_temp(path):
+    try:
+        os.remove(path)
+    except (FileNotFoundError, PermissionError):
+        pass  # A synced Windows folder may briefly hold a finished temporary file.
 FFMPEG = "/opt/homebrew/bin/ffmpeg" if os.path.exists("/opt/homebrew/bin/ffmpeg") else shutil.which("ffmpeg")
+if not FFMPEG:
+    try:
+        import imageio_ffmpeg
+        FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
 FFPROBE = "/opt/homebrew/bin/ffprobe" if os.path.exists("/opt/homebrew/bin/ffprobe") else shutil.which("ffprobe")
 # 1) shorten long pauses between sentences to ~0.48 s (edge-tts leaves ~1 s), 2) keep ~40 ms before the first sound
 # and 3) ~120 ms after the last one (reverse trick trims the tail), 4) tiny fade-in against clicks.
@@ -70,6 +82,12 @@ def cache_path(text):
 
 
 def duration(path):
+    if not FFPROBE:
+        try:
+            from mutagen.mp3 import MP3
+            return MP3(path).info.length
+        except Exception:
+            return 0.0
     try:
         r = subprocess.run([FFPROBE, "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
                            capture_output=True, text=True, timeout=20)
@@ -88,10 +106,10 @@ def trim(raw, final):
                         "-ac", "1", "-ar", "24000", "-c:a", "libmp3lame", "-b:a", "48k", tmp])
     if r.returncode == 0 and os.path.exists(tmp) and os.path.getsize(tmp) > 800:
         os.replace(tmp, final)
-        os.remove(raw)
+        remove_temp(raw)
     else:
         if os.path.exists(tmp):
-            os.remove(tmp)
+            remove_temp(tmp)
         shutil.move(raw, final)
 
 
@@ -108,7 +126,7 @@ async def record(key, text, sem):
                 return True
             except Exception as e:  # network hiccup / rate limit: back off and retry
                 if os.path.exists(raw):
-                    os.remove(raw)
+                    remove_temp(raw)
                 if attempt == 5:
                     print(f"  FAILED {key}: {e}")
                     return False
@@ -150,7 +168,7 @@ async def main():
     keep = {os.path.basename(cache_path(t)) for t in lines.values()}
     for f in os.listdir(CACHE):  # drop recordings of lines that no longer exist and temp leftovers
         if f.endswith(".mp3") and f not in keep:
-            os.remove(os.path.join(CACHE, f))
+            remove_temp(os.path.join(CACHE, f))
 
     size = os.path.getsize(OUT) / 1024
     print(f"wrote sesler.js: {len(mp3)} lines, {sum(dur.values()):.1f} s audio, {size:.0f} KB")
