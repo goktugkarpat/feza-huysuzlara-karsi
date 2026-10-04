@@ -827,7 +827,7 @@ Events: merchant opens UI, purchase carries `{name,price}`, gold carries negativ
 
 ## Dream-world polish
 
-Dream-world polish: bathroom/moon floor-mask G is sampled from the exact collision grid rather than the broad blurred scenery alpha. Bright floor, dark blocked surroundings and low boundary geometry encode every 1-to-0 edge; the boundary pieces stay on the blocked side. Moon uses silver-blue dust with shaded craters and low faceted stones. Dream travel uses a passive full-screen animation with automatic boarding, recorded roket_yolculuk/mekik_yolculuk narration and single guarded completion; no modal dialog or travel buttons. Starting a new game begins the recorded story immediately: the static dream-intro dialog and its confirmation button are removed. On existing installations, the page waits for a service-worker update and reloads before accepting play input so old cached travel dialogs cannot carry into the new session. Offline cache v52.
+Dream-world polish: bathroom/moon floor-mask G is sampled from the exact collision grid rather than the broad blurred scenery alpha. Bright floor, dark blocked surroundings and low boundary geometry encode every 1-to-0 edge; the boundary pieces stay on the blocked side. Moon uses silver-blue dust with shaded craters and low faceted stones. Dream travel uses a passive full-screen animation with automatic boarding, recorded roket_yolculuk/mekik_yolculuk narration and single guarded completion; no modal dialog or travel buttons. Starting a new game begins the recorded story immediately: the static dream-intro dialog and its confirmation button are removed. On existing installations, the page waits for a service-worker update and reloads before accepting play input so old cached travel dialogs cannot carry into the new session. Offline cache v53.
 
 Bilbo's fetch uses a jaw-attached mouth anchor: .85 s bone flight, .60 s catch hold, .40 s chew, then sequential treats every .15 s. Body facing follows the current target during chew/spray; each treat starts from the posed mouth, follows the moving target and checks LOS along its route. canLaunch cancels on death/zone changes; each surviving target receives at most one callback. Bone cooldown remains 8 s.
 
@@ -839,3 +839,7 @@ The reference is saved, validated and restored; old NG saves infer it once from 
 NG mob HP uses max(1,expectedDamage/usualZoneDamage) times pressure; outgoing damage uses max(1,expectedHealth/usualZoneHealth) times pressure. Pressure is 1+.06*min(ng,5). These replace the old NG multipliers, not stack on top.
 NG boss HP is per*max(lo,expectedDamage)*pressure, without the first-run cap or live equipment scaling. The dragon retains its hybrid-wand correction. Summoned enemies/whelps use the same frozen reference.
 Cooldowns shorten 6% on NG1, then 1.5% per round up to 12%; telegraph duration is unchanged. Movement bonus caps at 12%. Normal/Zor multipliers remain separate and live-switchable.
+
+## Compact chapters
+
+All eight zones use 6 main rooms and at most 2 side rooms, matching the bathroom and Moon chapters. Castle hall generation favors direct links (75 percent, final link 80 percent), keeping average walking length close to the first two chapters while retaining occasional bends and the full dragon hall. Bosses, exit/finale, checkpoints, merchants and chest placement retain their existing rules.

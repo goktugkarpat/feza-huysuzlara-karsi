@@ -9,20 +9,20 @@ const ZONES = [
     enemies: { kakacik: 4, cisdamlasi: 3, sabunkopugu: 2 }, elites: ['kakacik', 'sabunkopugu'], hpMult: 0.78, dmgMult: 0.65, xpMult: 0.85, gold: 1, ilvl: 1, boss: 'kopukusta' },
   { id: 'ay', ad: 'Zıp Zıp Ay', theme: 'moon', line: 'ay', music: 'ay', size: 96, rooms: 6, side: 2,
     enemies: { ayponpon: 4, yildizcik: 3, kratercik: 2 }, elites: ['ayponpon', 'yildizcik'], hpMult: 0.9, dmgMult: 0.8, xpMult: 0.95, gold: 1.15, ilvl: 1, boss: 'aytavsan' },
-  { id: 'orman', ad: 'Huysuz Orman', theme: 'forest', line: 'orman', music: 'orman', size: 100, rooms: 8, side: 3,
+  { id: 'orman', ad: 'Huysuz Orman', theme: 'forest', line: 'orman', music: 'orman', size: 100, rooms: 6, side: 2,
     enemies: { jole: 4, mantar: 2, yarasa: 2, goblin: 3 }, elites: ['jole', 'goblin'], hpMult: 1, dmgMult: 1, xpMult: 1, gold: 1, ilvl: 1, boss: 'kraljole' },
-  { id: 'kefir', ad: 'Kefir Vadisi', theme: 'dairy', line: 'kefir', music: 'kefir', size: 100, rooms: 8, side: 3,
+  { id: 'kefir', ad: 'Kefir Vadisi', theme: 'dairy', line: 'kefir', music: 'kefir', size: 100, rooms: 6, side: 2,
     enemies: { yogurt: 4, kaymak: 3, kopuk: 3, peynir: 1, jole: 2 }, variants: { jole: ['muhallebi'] }, elites: ['yogurt', 'kaymak'],
     hpMult: 1.4, dmgMult: 1.2, xpMult: 1.35, gold: 1.5, ilvl: 2, boss: 'kefirdev' },
-  { id: 'magara', ad: 'Köstebek ve Salyangoz Mağarası', theme: 'cave', line: 'magara', music: 'magara', size: 100, rooms: 9, side: 3,
+  { id: 'magara', ad: 'Köstebek ve Salyangoz Mağarası', theme: 'cave', line: 'magara', music: 'magara', size: 100, rooms: 6, side: 2,
     enemies: { kostebek: 4, salyangoz: 3, yarasa: 2, golem: 1 }, elites: ['kostebek', 'salyangoz'], hpMult: 1.8, dmgMult: 1.4, xpMult: 1.7, gold: 2, ilvl: 4, boss: 'kostebekusta' },
-  { id: 'yanardag', ad: 'Lav Yanardağı', theme: 'volcano', line: 'yanardag', music: 'yanardag', size: 100, rooms: 8, side: 3,
+  { id: 'yanardag', ad: 'Lav Yanardağı', theme: 'volcano', line: 'yanardag', music: 'yanardag', size: 100, rooms: 6, side: 2,
     enemies: { jole: 3, kaplumbaga: 4, ateskusu: 3, atescik: 2, golem: 1 }, variants: { jole: ['lava'], golem: ['magma'] }, elites: ['kaplumbaga', 'ateskusu'],
     hpMult: 2.3, dmgMult: 1.65, xpMult: 2.1, gold: 2.5, ilvl: 6, boss: 'lavkaplumbaga' },
-  { id: 'sehir', ad: 'Surlu Şehir', theme: 'town', line: 'sehir', music: 'sehir', size: 100, rooms: 8, side: 3,
+  { id: 'sehir', ad: 'Surlu Şehir', theme: 'town', line: 'sehir', music: 'sehir', size: 100, rooms: 6, side: 2,
     enemies: { nobetci: 4, simitci: 3, supurgeci: 3, tellal: 1 }, elites: ['nobetci', 'simitci'],
     hpMult: 2.55, dmgMult: 1.8, xpMult: 2.3, gold: 2.8, ilvl: 7, boss: 'sovalye' },
-  { id: 'kale', ad: 'Ejderhanın Kalesi', theme: 'castle', line: 'kale', music: 'kale', size: 104, rooms: 8, side: 2,
+  { id: 'kale', ad: 'Ejderhanın Kalesi', theme: 'castle', line: 'kale', music: 'kale', size: 104, rooms: 6, side: 2,
     enemies: { asker: 4, atescik: 3, hayalet: 2, golem: 1 }, elites: ['asker', 'atescik'], hpMult: 3.0, dmgMult: 2.0, xpMult: 2.7, gold: 3.2, ilvl: 8, boss: 'ejderha', final: true },
 ];
 
@@ -174,7 +174,8 @@ const LEVEL = (function () {
     for (let k = 1; k < N; k++) {
       const A = rooms[k - 1], last = k === N - 1;
       const hw = last ? 13 : RNG.int(6, 9), hh = last ? 11 : RNG.int(5, 7);
-      let type = RNG.r() < (last ? 0.55 : 0.3) ? 'S' : (RNG.chance(0.5) ? 'L1' : 'L2');
+      // More direct halls keep the castle walk as short as the first two dream chapters.
+      let type = RNG.r() < (last ? 0.8 : 0.75) ? 'S' : (RNG.chance(0.5) ? 'L1' : 'L2');
       if (type === 'L2' && A.entry === side) type = 'L1';
       let B, segs, pts, exit = 0, entry = 0;
       if (type === 'S') {

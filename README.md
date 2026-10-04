@@ -69,6 +69,8 @@ ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yu
 
 ## Bölgeler
 
+Bütün bölümler ilk iki bölümün kısa temposundadır: 6 ana alan ve en fazla 2 yan alan. Kale koridorları da daha doğrudan ilerler; her bölümün özel huysuzları, hazineleri ve son bossu korunur.
+
 Her bölgenin sonunda bir **bölüm sonu huysuzu** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. İlk iki bölüm Köpük Usta ve Ay Tavşanı'nın özel silahlarını verir. Ardından önceki altı bölümün bütün ödülleri korunur. Her karakterin her huysuzdan alacağı özel ödül farklıdır (toplam 24); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
 
 1. **Köpüklü Tuvalet Rüyası:** gülümseyen kakacıklar, süzülen çiş damlaları, sabun köpükleri; yollar boyunca köpüklü küvetler, aynalı dolaplar, havlular, diş fırçaları, sabunluklar ve ördekli köşeler.
