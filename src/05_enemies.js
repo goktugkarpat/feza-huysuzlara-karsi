@@ -5539,7 +5539,7 @@ const EMODEL = (function (G0) {
     r.bone('tip', 'body', [0, 0.8 * scale, 0]);
     for (const sd of [-1, 1]) r.bone(sd < 0 ? 'earL' : 'earR', 'body', [sd * 0.22 * scale, 0.75 * scale, 0]);
     r.push([0, 0, 0], null, scale);
-    const base = poop ? '#af7750' : drop ? '#ffe38a' : star ? '#ffe5a0' : rabbit ? '#f0d9f4' : foam ? '#d4f5ff' : '#c0b4df';
+    const base = poop ? '#af7750' : drop ? '#ffe38a' : star ? '#ffe5a0' : rabbit ? '#f0d9f4' : foam ? '#62b9df' : '#c0b4df';
     r.on('body').fx(0, foam || drop ? 0.8 : 0.1);
     if (poop) {
       // Soft spiral tiers, with a rounded tip, never realistic or dirty.
@@ -5553,7 +5553,7 @@ const EMODEL = (function (G0) {
     } else if (foam) {
       r.add(G.sphere(28, 18), base, [0, cy, 0], null, 0.42);
       const bubbles = [[-0.31, 0.32, -0.1, 0.23], [0.32, 0.4, -0.08, 0.24], [0.12, 0.79, -0.1, 0.24], [-0.18, 0.73, -0.11, 0.2]];
-      for (const [x, y, z, s2] of bubbles) r.on(y > 0.6 ? 'tip' : x < 0 ? 'earL' : 'earR').add(G.sphere(22, 14), y > 0.6 ? '#f7fdff' : '#b9e5ed', [x, y, z], null, s2);
+      for (const [x, y, z, s2] of bubbles) r.on(y > 0.6 ? 'tip' : x < 0 ? 'earL' : 'earR').add(G.sphere(22, 14), y > 0.6 ? '#b5a4ef' : '#499bbd', [x, y, z], null, s2);
       if (boss) {
         r.on('tip').fx(0, 0.5).add(G.sphere(18, 12), '#ffda58', [0, 1.0, 0], null, [0.2, 0.13, 0.15]);
         r.add(G.sphere(16, 10), '#ffe676', [0, 1.16, 0.08], null, 0.1);

@@ -8587,15 +8587,7 @@ const LEVEL = (function () {
       vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
       fragmentShader: 'varying vec2 vUv; float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);} void main(){float edge=smoothstep(0.0,.68,vUv.y); vec2 cell=floor(vUv*vec2(100.,22.));vec2 q=fract(vUv*vec2(100.,22.))-.5;float star=(1.-smoothstep(.025,.07,length(q)))*step(.982,hash(cell));vec3 c=mix(vec3(.045,.057,.14),vec3(.019,.028,.085),vUv.y)+star*vec3(.6,.75,1.);gl_FragColor=vec4(c,edge*.82);}' });
     const sky = new THREE.Mesh(skyGeo, skyMat); sky.name = 'hayal_yildizli_ufuk'; sky.renderOrder = 28; sky.frustumCulled = false; B.g.add(sky); B.dispose.push(skyGeo, skyMat);
-    const sp = R.geo.ddSkySphere || (R.geo.ddSkySphere = keep(new THREE.SphereGeometry(1, 20, 12)));
     const tailSphere = R.geo.ddSkyTail || (R.geo.ddSkyTail = keep(new THREE.SphereGeometry(1, 10, 6)));
-    const planet = new Kit(); planet.add(sp, 0x5aaadb, [0, 0, 0]);
-    for (let k = 0; k < 8; k++) { const a = k * 1.4; planet.add(tailSphere, k & 1 ? 0xa7d6ad : 0x82c3a5, [Math.sin(a) * .72, Math.cos(a) * .55, .64], null, [.28, .16, .05]); }
-    const pg = planet.build(), pm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .7, emissive: 0x193249, emissiveIntensity: .4, depthTest: false, depthWrite: false, fog: false });
-    const earth = new THREE.Mesh(pg, pm); earth.name = 'hayal_dunya'; earth.renderOrder = 30; earth.frustumCulled = false; B.g.add(earth); B.dispose.push(pg, pm);
-    const saturnKit = new Kit(); saturnKit.add(sp, 0xc5b5e0, [0, 0, 0]); saturnKit.add(R.geo.ddSkyRing || (R.geo.ddSkyRing = keep(new THREE.TorusGeometry(1, .075, 6, 28))), 0xe7cfab, [0, 0, 0], [.8, .1, .2], [1.65, 1.65, 1.65]);
-    const sg = saturnKit.build(), sm = new THREE.MeshBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false, fog: false });
-    const saturn = new THREE.Mesh(sg, sm); saturn.name = 'hayal_uzak_gezegen'; saturn.renderOrder = 30; saturn.frustumCulled = false; B.g.add(saturn); B.dispose.push(sg, sm);
     const ck = new Kit();
     ck.add(tailSphere, 0xffecc3, [0, 0, 0], null, [.24, .17, .17]);
     for (let q = 1; q < 5; q++) ck.add(tailSphere, q & 1 ? 0x9ad5eb : 0xc9b5ec, [-.5 - q * .25, 0, 0], null, [.8, Math.max(.025, .12 - q * .021), .03]);
@@ -8610,7 +8602,7 @@ const LEVEL = (function () {
       o.position.copy(camera.position).addScaledVector(forward, depth).addScaledVector(right, (sx * 2 - 1) * hh * camera.aspect).addScaledVector(up, (1 - sy * 2) * hh);
       o.quaternion.copy(camera.quaternion); o.scale.setScalar(hh * 2 * radiusFraction);
     };
-    let t = 0; B.anim.push(dt => { t += dt; anchor(sky, .5, .06, .23, 30); sky.scale.x *= camera.aspect / .23; anchor(earth, .46, .18, .028, 22); earth.rotateY(Math.sin(t * .06) * .14); anchor(saturn, .67, .175, .017, 26); saturn.rotateZ(-.2); comets.forEach((o, k) => { const u = (t * (.095 + k * .012) + k * .34) % 1; anchor(o, .16 + .68 * u, .145 + k * .025 + Math.sin(u * Math.PI) * .01, k === 0 ? .023 : .017, 19); o.rotateZ(.06 + k * .035); }); });
+    let t = 0; B.anim.push(dt => { t += dt; anchor(sky, .5, .06, .23, 30); sky.scale.x *= camera.aspect / .23; comets.forEach((o, k) => { const u = (t * (.095 + k * .012) + k * .34) % 1; anchor(o, .16 + .68 * u, .145 + k * .025 + Math.sin(u * Math.PI) * .01, k === 0 ? .023 : .017, 19); o.rotateZ(.06 + k * .035); }); });
   }
 
   // A close, fully three-dimensional storybook bathroom for the first screen.
