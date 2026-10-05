@@ -3115,7 +3115,14 @@ const UI = (() => {
     }
     portraitSoon(0);
     const ld = document.getElementById('loading');
-    if (ld) { ld.style.transition = 'opacity 0.6s'; ld.style.opacity = '0'; setTimeout(() => ld.remove(), 700); }
+    // While the page is still updating itself (it reloads once when a new version was installed), the loading screen stays up,
+    // so the first game scene never shows between the two loads.
+    const hideLoading = () => {
+      if (!ld) return;
+      if (document.documentElement.hasAttribute('data-updating')) { setTimeout(hideLoading, 80); return; }
+      ld.style.transition = 'opacity 0.6s'; ld.style.opacity = '0'; setTimeout(() => ld.remove(), 700);
+    };
+    hideLoading();
     if (ICON) { S.mode = 'ikon'; if (g && g.P) g.P.face = 0; }
     else showTitle();
     renderNow();
