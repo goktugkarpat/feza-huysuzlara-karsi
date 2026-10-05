@@ -257,7 +257,7 @@ subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci
 - If no usable ordinary save exists, `readSave` reads `fezaKotulereKarsi.hardcore.v1` as Zor. The raw legacy record is never
   deleted/rewritten; reading does not write the common slot. Explicit Kaydet writes the common slot. `clearSave()` marks
   `fezaKotulereKarsi.legacyHardcoreIgnored` so intentionally clearing a save cannot resurrect the old fallback.
-- Incoming damage (5 October 2026): DIFF.damageTaken is normal1.15 / hard1.60 relative to each mode's previous damage.
+- Incoming damage (5 October 2026): DIFF.damageTaken is normal1.5 / hard3.0 relative to each mode's previous damage.
   hurtPlayer applies it exactly once, before armour, merchant ward and the final rounding. This covers mob/boss melee,
   projectiles, mortars, special/area attacks and summoned foes. Keep actor/projectile damage baselines and HC unchanged:
   live difficulty switches, fatigue, NG scaling and saved games must not accumulate the new factor.
