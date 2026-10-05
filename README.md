@@ -139,7 +139,7 @@ yapılmazsa hiçbir şey kaybedilmez. Gidilecek yeri altın (ejderhada pembe) pa
 
 Mola menüsünde **Devam Et**, **Zorluk**, **Kaydet** ve **Baştan Başla** bulunur. Müzik düğmesi açılış ekranındadır.
 
-- **Hasar çarpanı:** Normal zorlukta bütün huysuz ve boss saldırıları eski Normal değerlere göre **%50**, Zor zorlukta eski Zor değerlere göre **%200** (üç katı) daha güçlüdür. Yakın vuruşlar, uzaktan atışlar ve bossların alan/özel saldırıları buna dahildir.
+- **Hasar çarpanı:** Normal zorlukta bütün huysuz ve boss saldırıları eski Normal değerlere göre **%160** (2,6 katı), Zor zorlukta eski Zor değerlere göre **%350** (4,5 katı) daha güçlüdür. Yakın vuruşlar, uzaktan atışlar ve bossların alan/özel saldırıları buna dahildir.
   Artış zırh ve Bulut Örtüsü azaltmasından önce, tek kez uygulanır; küçük hasarlarda tam sayıya yuvarlama vardır. Düşman canı, hız, saldırı sıklığı ve ödüller korunmuştur.
 - **Mola → Zorluk** içinde **Normal** veya **Zor** seçilir. Seçim hemen uygulanır; devam edince yeni ayarla oynarsın.
   Bölüm, karakter, eşyalar ve ilerleme korunur. Mevcut düşmanların kalan can yüzdesi değişmez; dövüş yeniden başlamaz.
