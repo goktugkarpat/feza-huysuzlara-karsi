@@ -50,10 +50,8 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   üst sınırı ve en fazla **1.25×** başlangıç çözünürlüğü korunur. `.` tuşu anlık FPS, hedef ve çizim çözünürlüğünü gösterir.
 - Adresin sonuna `?sessiz` eklersen oyun tamamen sessiz açılır (test için).
 
-Karakter seçimi güncellemesinden önceki kayıtlar ilk açılışta temizlenir. Yeni kayıtlar seçilen karakterle birlikte korunur.
-
-Tuvalet ve Ay bölümlerine sabun, damla, Ay ışığı ve yıldız tozu silahları; köpük ve Ay pelerinleri ile altı özel bölüm sonu silahı eklendi.
-Önceki 14 yeni eşya da korunur: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
+Tuvalet ve Ay bölümlerinde sabun, damla, Ay ışığı ve yıldız tozu silahları; köpük ve Ay pelerinleri ile altı özel bölüm sonu silahı bulunur.
+Başka eşyalar da vardır: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
 ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yunikorn Tacı** ve **Astronot Kaskı**; **Şeker**, **Panda** ve
 **Galaksi** pelerinleri. Bazıları ancak ilerideki bölgelerde çıkar (Uzay Roketi, Gezegen ve Galaksi gibi).
 
@@ -150,8 +148,6 @@ Mola menüsünde **Devam Et**, **Zorluk**, **Kaydet** ve **Baştan Başla** bulu
   sonraki macera, karakterle birlikte seçili zorluğu da korur.
 - **Zor** seçeneğinde yaratıklar daha dayanıklı, hızlı ve sık saldırır; bossların özel saldırıları daha sert vurur.
   Savaşta kendiliğinden can yenilenmez, sakin anlarda daha yavaş yenilenir. Yenilgilere bağlı düşman zayıflaması uygulanmaz.
-- Önceki sürümden yalnızca bir Hardcore kaydı kaldıysa **Devam Et** onu Zor olarak açabilir. Normal kayıt varsa önceliklidir.
-  Eski kayıt kendiliğinden silinmez; yeni ortak kayıt ancak **Kaydet** denince yazılır.
 
 ## Dosyalar
 
