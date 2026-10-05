@@ -172,6 +172,8 @@ const GAME = (() => {
     },
     bossNap: { dmg: 0.75, dmgMin: 0.55, hp: 0.08 },   // each nap in a boss fight tires the boss: damage ×0.75 (down to ×0.55), −8 % hp
     dmg: 1.8,           // enemy damage (was 1.5)
+    // Final incoming damage: applied once to melee, shots and boss/area attacks, before armour and rounding.
+    damageTaken: { normal: 1.15, hard: 1.60 },
     // × per zone: the forest must bite a little too (a potion now and then); the volcano's rolling turtles and ember chicks
     // come in crowds. Round 3 QA (10 naive kid runs: forest/cave hit as hard as each other while Feza is much weaker in the
     // forest, level-1 naps in the first 20 s; the castle was the easiest): was [1.7, 1.2, 1, 1]. Round 4: the kefir valley
@@ -4516,7 +4518,7 @@ const GAME = (() => {
     if (P.dead || GAME.state !== 'play' || C.invuln > 0) return false;
     if (merchantNear()) return false;
     if (P.shield > 0) { burst('sparkle', P.pos.x, 1, P.pos.z, { color: '#ff8fd8', count: 10 }); sfx('shield', { vol: 0.5 }); return false; }
-    const a = Math.max(1, Math.round(amount * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
+    const a = Math.max(1, Math.round(amount * DIFF.damageTaken[hard ? 'hard' : 'normal'] * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
     P.hp -= a; C.lastHurt = gt; C.hurtT = 1; C.invuln = T.iframes;
     fx('flash', '#ff2a4a', 0.45, 0.4); shake(0.16);
     sfx('hurt', { pitch: frand(0.95, 1.1) });

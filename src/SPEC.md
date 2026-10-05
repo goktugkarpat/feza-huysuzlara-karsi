@@ -257,9 +257,13 @@ subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci
 - If no usable ordinary save exists, `readSave` reads `fezaKotulereKarsi.hardcore.v1` as Zor. The raw legacy record is never
   deleted/rewritten; reading does not write the common slot. Explicit Kaydet writes the common slot. `clearSave()` marks
   `fezaKotulereKarsi.legacyHardcoreIgnored` so intentionally clearing a save cannot resurrect the old fallback.
+- Incoming damage (5 October 2026): DIFF.damageTaken is normal1.15 / hard1.60 relative to each mode's previous damage.
+  hurtPlayer applies it exactly once, before armour, merchant ward and the final rounding. This covers mob/boss melee,
+  projectiles, mortars, special/area attacks and summoned foes. Keep actor/projectile damage baselines and HC unchanged:
+  live difficulty switches, fatigue, NG scaling and saved games must not accumulate the new factor.
 - Hard combat multipliers (HC table): mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
   ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; readable boss windups remain.
-  Raid special damage has another1.55 multiplier (2.2475 total). TBC warnings remain2s. No combat regen, calm regen halved;
+  Raid special damage has another1.55 multiplier (2.2475 before the final damageTaken multiplier). TBC warnings remain2s. No combat regen, calm regen halved;
   a stone heals only on its first activation; no new death-based enemy weakening or retained boss damage in Zor.
 
 ## Character classes and boss treasures (latest; overrides older notes below)
