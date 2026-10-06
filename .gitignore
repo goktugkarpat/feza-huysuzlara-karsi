@@ -2,6 +2,9 @@
 .claude/
 __pycache__/
 .ses_onbellek/
-tools/
+tools/*
+!tools/gen_english_voices.py
 .tools-python/
 test/
+
+.english-voice-cache/

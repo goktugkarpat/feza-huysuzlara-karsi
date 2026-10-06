@@ -40,12 +40,12 @@ const UI = (() => {
   function safe(k, f) { try { return f(); } catch (e) { warn(k, e); return undefined; } }
   function aud(fn, a, b) { const A = M.AUD; if (A && typeof A[fn] === 'function') return safe('AUD.' + fn, () => A[fn](a, b)); return undefined; }
   const sfx = (n, o) => { if (!SILENT) aud('sfx', n, o); };
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const esc = s => FEZA_LANG.t(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const ol = (t, cls = '') => `<span class="u-ol ${cls}"><b>${esc(t)}</b><i>${esc(t)}</i></span>`;
   function el(tag, cls, parent, html) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
-    if (html != null) e.innerHTML = html;
+    if (html != null) e.innerHTML = FEZA_LANG.html(html);
     if (parent) parent.appendChild(e);
     return e;
   }
@@ -279,7 +279,7 @@ const UI = (() => {
       const k = b.dataset.tog, on = S.prefs[k];
       b.classList.toggle('off', !on);
       const lab = b.querySelector('.u-lab');
-      if (lab) lab.textContent = (k === 'music' ? 'Müzik' : 'Efektler') + (on ? ' Açık' : ' Kapalı');   // effects only: the narrator stays on
+      if (lab) lab.textContent = FEZA_LANG.t((k === 'music' ? 'Müzik' : 'Efektler') + (on ? ' Açık' : ' Kapalı'));   // effects only: the narrator stays on
     });
   }
 
@@ -436,7 +436,7 @@ const UI = (() => {
     D.lvl = el('div', 'u-lvl', D.face, '<span>1</span>');
     el('span', 'u-hold', D.face);   // hold the portrait 0.5 s → wardrobe
     D.bilboFace = el('div', 'u-bilbo-face', portraits);
-    D.bilboFace.setAttribute('role', 'img'); D.bilboFace.setAttribute('aria-label', 'Bilbo'); D.bilboFace.title = 'Bilbo';
+    D.bilboFace.setAttribute('role', 'img'); D.bilboFace.setAttribute('aria-label', FEZA_LANG.t('Bilbo')); D.bilboFace.title = FEZA_LANG.t('Bilbo');
     const st = el('div', 'u-stats', tl);
     D.xp = el('div', 'u-xp', st);
     D.xpFill = el('div', 'u-xpfill', D.xp);
@@ -451,7 +451,7 @@ const UI = (() => {
     D.bagBtn = el('button', 'u-rbtn', sb, '<span class="u-emo">🎒</span><span class="u-dot"></span>');
     D.pauseBtn = el('button', 'u-rbtn', sb, SVG.pause + '<span class="u-hold"></span>');   // 0.5 s hold
     D.dreamBtn = el('button', 'u-rbtn u-dream-open u-hide', sb, '<span class="u-emo">🗺️</span><span class="u-dream-label">Harita</span>');
-    D.dreamBtn.setAttribute('aria-label', 'Hayal haritasını aç');
+    D.dreamBtn.setAttribute('aria-label', FEZA_LANG.t('Hayal haritasını aç'));
     const mini = D.mini = el('div', 'u-mini', tr);
     D.map = el('canvas', '', mini);
 
@@ -489,7 +489,7 @@ const UI = (() => {
     D.sk = [];
     D.boneBtn = el('button', 'u-skill u-bone', pad, '<span class="u-ico">🦴</span><span class="u-cd"></span><span class="u-cdn"></span><span class="u-key">K</span><span class="u-bone-label">Bilbo</span>');
     D.boneBtn.style.setProperty('--x', 0); D.boneBtn.style.setProperty('--y', -265);
-    D.boneBtn.setAttribute('aria-label', 'Bilbo’ya kemik at');
+    D.boneBtn.setAttribute('aria-label', FEZA_LANG.t('Bilbo’ya kemik at'));
     const nSk = clamp((M.SKILLS && M.SKILLS.length) || 3, 1, ARC.length);
     for (let i = 0; i < nSk; i++) {
       const b = el('button', 'u-skill u-hide', pad, `<span class="u-ico"></span><span class="u-cd"></span><span class="u-cdn"></span><span class="u-key">${i + 1}</span>`);
@@ -511,7 +511,7 @@ const UI = (() => {
     const t = D.title = el('div', 'u-screen u-title', root);
     el('div', 'u-tshade', t);
     const logo = D.logo = el('div', 'u-logo', t);
-    logo.setAttribute('role', 'img'); logo.setAttribute('aria-label', 'Feza ve Bilbo Huysuzlara Karşı');
+    logo.setAttribute('role', 'img'); logo.setAttribute('aria-label', FEZA_LANG.t('Feza ve Bilbo Huysuzlara Karşı'));
     const word = el('div', 'u-word', logo);
     for (const ch of 'FEZA') el('span', 'u-let', word, `<b>${ch}</b><i>${ch}</i>`);
     el('span', 'u-sidekick', word, `<span class="u-sidekick-ve">${ol('ve')}</span>${ol('Bilbo')}`);
@@ -523,6 +523,9 @@ const UI = (() => {
     D.playBtn = el('button', 'u-btn g', bt, SVG.play + '<span>Oyna</span>');   // always: a new game (a saved game is never touched)
     D.contBtn = el('button', 'u-btn b', bt, SVG.cont + '<span>Devam Et</span>');   // only with a save (Mola › Kaydet)
     D.titleMap = el('button', 'u-btn p u-hide', bt, '<span>🗺️ Hayal Haritası</span>');
+    const langBtn = el('button', 'u-lang-btn', t, '🌐 ' + (FEZA_LANG.language() === 'en' ? 'English' : 'Türkçe'));
+    langBtn.setAttribute('aria-label', FEZA_LANG.language() === 'en' ? 'Change language' : 'Dil değiştir');
+    onPress(langBtn, () => { aud('stopVoice'); FEZA_LANG.reopen(); }, { menu: true });
     const tg = el('div', 'u-ttog', t);
     D.tMus = el('button', 'u-rbtn', tg, SVG.note + '<span class="u-slash"></span>'); D.tMus.dataset.tog = 'music';   // sound effects: pause menu only
   }
@@ -617,24 +620,24 @@ const UI = (() => {
   function syncDifficulty() {
     const hard = M.GAME && M.GAME.difficulty === 'hard', name = hard ? 'Zor' : 'Normal';
     if (D.difficultyTag) {
-      D.difficultyTag.textContent = name;
+      D.difficultyTag.textContent = FEZA_LANG.t(name);
       D.difficultyTag.classList.toggle('hard', !!hard);
     }
-    if (D.difficultyBtn) D.difficultyBtn.textContent = 'Zorluk: ' + name;
+    if (D.difficultyBtn) D.difficultyBtn.textContent = FEZA_LANG.t('Zorluk: ' + name);
     if (D.difficultyChoices) D.difficultyChoices.forEach(b => {
       const selected = b.dataset.difficulty === (hard ? 'hard' : 'normal');
       b.setAttribute('aria-pressed', String(selected));
-      b.querySelector('small').textContent = selected ? '✓ Seçili' : 'Seç';
+      b.querySelector('small').textContent = FEZA_LANG.t(selected ? '✓ Seçili' : 'Seç');
     });
   }
   function openDifficulty() {
     closeAsk(); syncDifficulty();
     D.pausePanel.classList.add('choosing-difficulty');
-    D.pauseTitle.innerHTML = ol('Zorluk', 'u-gold-t');
+    D.pauseTitle.innerHTML = FEZA_LANG.html(ol('Zorluk', 'u-gold-t'));
   }
   function closeDifficulty() {
     D.pausePanel.classList.remove('choosing-difficulty');
-    D.pauseTitle.innerHTML = ol('Mola', 'u-gold-t');
+    D.pauseTitle.innerHTML = FEZA_LANG.html(ol('Mola', 'u-gold-t'));
     syncDifficulty();
   }
   function buildMerchant(root) {
@@ -661,8 +664,8 @@ const UI = (() => {
   }
   function renderMerchant() {
     const g = M.GAME, info = g && g.merchantInfo(); if (!info) return;
-    D.shopGold.innerHTML = '<span class="u-coin"></span> ' + info.gold + ' altın <small>· Bu bölümün tezgâhı</small>';
-    D.shopOffers.innerHTML = '';
+    D.shopGold.innerHTML = FEZA_LANG.html('<span class="u-coin"></span> ' + info.gold + ' altın <small>· Bu bölümün tezgâhı</small>');
+    D.shopOffers.innerHTML = FEZA_LANG.html('');
     for (const o of info.offers) {
       const card = el('div', 'u-shop-card' + (!o.left ? ' sold' : ''), D.shopOffers);
       el('div', 'u-shop-icon', card, o.icon);
@@ -672,14 +675,14 @@ const UI = (() => {
       el('small', '', text, (o.id === 'weapon' || o.id === 'offhand' ? 'Ortak hak: ' : 'Kalan: ') + o.left);
       const b = el('button', 'u-shop-buy', card, `<b>${o.price} <span class="u-coin"></span></b><span>${esc(o.reason || 'Satın Al')}</span>`);
       b.disabled = !o.enabled; b.dataset.offer = o.id;
-      b.setAttribute('aria-label', `${o.name}, ${o.price} altın, ${o.reason || 'satın al'}`);
+      b.setAttribute('aria-label', FEZA_LANG.t(`${o.name}, ${o.price} altın, ${o.reason || 'satın al'}`));
       const buy = () => {
         if (b.disabled || performance.now() < S.guardUntil) return;
         if (g.buyMerchant(o.id)) {
           S.guardUntil = performance.now() + 450;
-          renderMerchant(); D.shopStatus.textContent = '✨ ' + o.name + ' alındı!';
+          renderMerchant(); D.shopStatus.textContent = FEZA_LANG.t('✨ ' + o.name + ' alındı!');
           portraitSoon(0); bump(D.shopGold, 1.06);
-        } else { renderMerchant(); D.shopStatus.textContent = 'Bu alışveriş şu an yapılamıyor.'; }
+        } else { renderMerchant(); D.shopStatus.textContent = FEZA_LANG.t('Bu alışveriş şu an yapılamıyor.'); }
       };
       onPress(b, buy, { menu: true });
       b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); buy(); } });
@@ -688,7 +691,7 @@ const UI = (() => {
   function openMerchant() {
     if (!canMenu() || !M.GAME.merchantNear()) return;
     S.menu = 'merchant'; setPaused(true); renderMerchant();
-    D.shopStatus.textContent = 'Her silah en fazla 2 kez güçlenir. Her tezgâhta ortak 2 güçlendirme hakkı vardır.';
+    D.shopStatus.textContent = FEZA_LANG.t('Her silah en fazla 2 kez güçlenir. Her tezgâhta ortak 2 güçlendirme hakkı vardır.');
     showScreen(D.shop, true);
   }
 
@@ -782,7 +785,7 @@ const UI = (() => {
       const b = el('button', 'u-dream-island', board, dreamArt(id, color) + `<span class="u-island-sparkles" aria-hidden="true"><i>✧</i><i>✦</i><i>✧</i></span><span class="u-island-name">${esc(name)}</span><span class="u-island-number">${i + 1}</span><span class="u-island-current">Buradasın</span>`);
       b.style.setProperty('--spark-delay', (-i * .7) + 's');
       b.style.setProperty('--ix', x + '%'); b.style.setProperty('--iy', y + '%'); b.style.setProperty('--island-color', color);
-      b.dataset.zone = id; b.setAttribute('aria-label', name + ': ' + detail); b.title = detail;
+      b.dataset.zone = id; b.setAttribute('aria-label', FEZA_LANG.t(name + ': ' + detail)); b.title = FEZA_LANG.t(detail);
       accessiblePress(b, () => travelTo(i));
       return b;
     });
@@ -826,7 +829,7 @@ const UI = (() => {
       if (ok === false) { fade(0, 0.4, null); return; }
       showScreen(D.dreamScreen, false); showScreen(D.win, false); showScreen(D.pause, false); showScreen(D.shop, false); showScreen(D.bagS, false);
       S.menu = null; S.dreamReturn = null; setPaused(false); setMode('play');
-      D.conf.innerHTML = '';
+      D.conf.innerHTML = FEZA_LANG.html('');
       refreshAllSkills(); portraitSoon(0); renderNow(); await frames(2); fade(0, 0.6, null);
     } catch (e) { warn('dream travel', e); fade(0, 0.4, null); }
     finally { S.busy = false; }
@@ -868,9 +871,9 @@ const UI = (() => {
     if (S.menu) closeMenu();
     aud('stopVoice');
     const trip = S.dreamJourney = { proceed: d.proceed, forest: d.to === 'orman', flying: false, done: false, timers: [] };
-    D.dreamTravel.setAttribute('aria-label', trip.forest ? 'Feza ve Bilbo yıldız yapraklı mekiğe binip ormana uçuyor.' : 'Feza ve Bilbo köpük roketine binip Ay’a uçuyor.');
+    D.dreamTravel.setAttribute('aria-label', FEZA_LANG.t(trip.forest ? 'Feza ve Bilbo yıldız yapraklı mekiğe binip ormana uçuyor.' : 'Feza ve Bilbo köpük roketine binip Ay’a uçuyor.'));
     D.dreamTravel.classList.toggle('forest', trip.forest);
-    D.travelArt.innerHTML = journeyArt(trip.forest); D.travelArt.classList.remove('flying');
+    D.travelArt.innerHTML = FEZA_LANG.html(journeyArt(trip.forest)); D.travelArt.classList.remove('flying');
     S.menu = 'dream-travel'; setPaused(true); D.root.classList.add('journey-on'); showScreen(D.dreamTravel, true);
     trip.timers.push(setTimeout(() => launchDreamTravel(trip), 900));
   }
@@ -929,7 +932,7 @@ const UI = (() => {
     }));
   }
   function askRestart() {
-    D.askText.innerHTML = 'Yeniden en baştan<br>başlansın mı?<small>Karakter seçimine dönülür.<br>Yeni oyun Normal zorlukta başlar.</small>';
+    D.askText.innerHTML = FEZA_LANG.html('Yeniden en baştan<br>başlansın mı?<small>Karakter seçimine dönülür.<br>Yeni oyun Normal zorlukta başlar.</small>');
     D.pausePanel.classList.add('asking'); S.askT = S.t; S.guardUntil = performance.now() + 800;
   }
   function closeAsk() {
@@ -1511,15 +1514,15 @@ const UI = (() => {
         D.xpFill.style.transition = 'none'; D.xpFill.style.transform = 'scaleX(0)'; void D.xpFill.offsetWidth; D.xpFill.style.transition = '';
         last.xp = 0;
       }
-      last.lvl = P.lvl; D.lvl.firstChild.textContent = P.lvl;
+      last.lvl = P.lvl; D.lvl.firstChild.textContent = FEZA_LANG.t(P.lvl);
     }
     if (Math.abs(xf - last.xp) > 0.002) { last.xp = xf; D.xpFill.style.transform = `scaleX(${xf.toFixed(4)})`; }
     // gold counts up smoothly
     if (P.gold < goldShown) goldShown = P.gold;
     goldShown = P.gold - goldShown < 1 ? P.gold : damp(goldShown, P.gold, 9, dt);
     const gi = Math.floor(goldShown);
-    if (gi !== last.gold) { last.gold = gi; D.goldB.textContent = D.goldI.textContent = gi; }
-    if (P.potions !== last.pot) { last.pot = P.potions; D.potN.textContent = '×' + P.potions; }
+    if (gi !== last.gold) { last.gold = gi; D.goldB.textContent = FEZA_LANG.t(D.goldI.textContent = gi); }
+    if (P.potions !== last.pot) { last.pot = P.potions; D.potN.textContent = FEZA_LANG.t('×' + P.potions); }
     const empty = P.potions <= 0;
     if (empty !== last.empty) { last.empty = empty; D.pot.classList.toggle('empty', empty); }
     const hint = low && !empty;
@@ -1528,7 +1531,7 @@ const UI = (() => {
     const boneCd = Math.max(0, Number(g.boneCooldown) || 0), boneMax = Math.max(1, Number(g.boneCooldownMax) || 1);
     D.boneBtn.classList.toggle('cool', boneCd > 0);
     D.boneBtn.querySelector('.u-cd').style.setProperty('--p', clamp(boneCd / boneMax, 0, 1).toFixed(3));
-    D.boneBtn.querySelector('.u-cdn').textContent = boneCd > 0.05 ? Math.ceil(boneCd) : '';
+    D.boneBtn.querySelector('.u-cdn').textContent = FEZA_LANG.t(boneCd > 0.05 ? Math.ceil(boneCd) : '');
     const list = g.skills || [];
     for (let i = 0; i < D.sk.length; i++) {
       const s = list[i], v = D.sk[i];
@@ -1540,7 +1543,7 @@ const UI = (() => {
         v.p = p; v.cd.style.setProperty('--p', p.toFixed(3)); v.b.classList.toggle('cool', p > 0);
       }
       const n = s.cd > 0.05 && (s.cdMax || 0) >= 3 ? Math.ceil(s.cd) : 0;
-      if (n !== v.n) { v.n = n; v.cdn.textContent = n ? n : ''; }
+      if (n !== v.n) { v.n = n; v.cdn.textContent = FEZA_LANG.t(n ? n : ''); }
     }
     if (S.frame % 3 === 0) bladeTick(P);
     if (S.frame % 2 === 0) mapDraw();
@@ -1557,9 +1560,9 @@ const UI = (() => {
   function bladeTick(P) {
     const wizard = P.heroClass === 'wizard', hybrid = P.heroClass === 'hybrid';
     if (last.heroClass !== P.heroClass) {
-      last.heroClass = P.heroClass; D.atk.innerHTML = wizard ? '<span class="u-wandico">🪄</span>' : hybrid ? SVG.sword + '<span class="u-offhandico">🪄</span>' : SVG.sword;
+      last.heroClass = P.heroClass; D.atk.innerHTML = FEZA_LANG.html(wizard ? '<span class="u-wandico">🪄</span>' : hybrid ? SVG.sword + '<span class="u-offhandico">🪄</span>' : SVG.sword);
       D.atkBlade = D.atk.querySelector('.u-blade');
-      D.atk.setAttribute('aria-label', wizard ? 'Büyü at' : hybrid ? 'Yakında kılıçla vur, uzakta büyü at' : 'Kılıçla vur');
+      D.atk.setAttribute('aria-label', FEZA_LANG.t(wizard ? 'Büyü at' : hybrid ? 'Yakında kılıçla vur, uzakta büyü at' : 'Kılıçla vur'));
     }
     const w = P.equip && P.equip.weapon, I = M.ITEMS;
     let col = null;
@@ -1579,8 +1582,8 @@ const UI = (() => {
     const g = M.GAME, s = g && g.skills && g.skills[i], v = D.sk[i];
     if (!s || !v) return;
     const def = s.def || {};
-    v.ico.textContent = def.icon || '✨';
-    v.b.setAttribute('aria-label', def.ad || def.name || ('Yetenek ' + (i + 1)));
+    v.ico.textContent = FEZA_LANG.t(def.icon || '✨');
+    v.b.setAttribute('aria-label', FEZA_LANG.t(def.ad || def.name || ('Yetenek ' + (i + 1))));
     v.b.style.setProperty('--c', def.color || '#ffd23f');
     v.b.style.setProperty('--cd', shade(def.color || '#ffd23f', -0.45));
     v.b.classList.remove('u-hide');
@@ -1691,14 +1694,14 @@ const UI = (() => {
     const g = M.GAME, F = M.FEZA;
     if (D.bilboFace && !D.bilboFace.firstChild && typeof BILBO !== 'undefined') {
       const bilboUrl = safe('BILBO.portrait', () => BILBO.portrait());
-      if (bilboUrl) D.bilboFace.innerHTML = `<img src="${bilboUrl}" alt="">`;
+      if (bilboUrl) D.bilboFace.innerHTML = FEZA_LANG.html(`<img src="${bilboUrl}" alt="">`);
     }
     let url = null;
     if (F && F.portrait && g && g.H) url = safe('FEZA.portrait', () => F.portrait(g.H));
     if (url === S.portraitUrl) return;
     S.portraitUrl = url || null;
     const html = url ? `<img src="${url}" alt="">` : '<span class="u-femo">🧒</span>';
-    D.faceIn.innerHTML = html; D.bagFace.innerHTML = html;
+    D.faceIn.innerHTML = FEZA_LANG.html(html); D.bagFace.innerHTML = FEZA_LANG.html(html);
   }
   const portraitSoon = (delay = 0.25) => { S.portraitDirty = true; S.portraitAt = S.t + delay; };
 
@@ -1859,10 +1862,10 @@ const UI = (() => {
   }
   const dragonPortrait = () => bossPortrait('ejderha');
   function bossApply(t) {   // swap the SVG stand-in for the portrait wherever this boss is on screen
-    if (D.bossIco && D.boss.dataset.b === t) D.bossIco.innerHTML = bossHTML(t);
+    if (D.bossIco && D.boss.dataset.b === t) D.bossIco.innerHTML = FEZA_LANG.html(bossHTML(t));
     if (MM.spr['b:' + t]) MM.spr['b:' + t] = bossSprite(t);
-    if (D.subIco && D.subIco.dataset.b === t) D.subIco.innerHTML = bossHTML(t) + subBadge(D.subIco.dataset.badge);
-    if (D.winBoss) D.winBoss.querySelectorAll('.u-wb[data-b="' + t + '"]').forEach(e => { e.innerHTML = bossHTML(t); });
+    if (D.subIco && D.subIco.dataset.b === t) D.subIco.innerHTML = FEZA_LANG.html(bossHTML(t) + subBadge(D.subIco.dataset.badge));
+    if (D.winBoss) D.winBoss.querySelectorAll('.u-wb[data-b="' + t + '"]').forEach(e => { e.innerHTML = FEZA_LANG.html(bossHTML(t)); });
   }
   // Voice line → boss (its portrait sits next to the subtitle): EDEF[type].lines {giris, bitti, yarim}, else the key prefixes.
   function lineBoss(key) {
@@ -1944,7 +1947,7 @@ const UI = (() => {
       if (o.title) h += `<div class="u-btitle">${ol(o.title, 'u-gold-t')}</div>`;
       if (o.sub) h += `<div class="u-bsub">${ol(o.sub)}</div>`;
     }
-    b.innerHTML = h;
+    b.innerHTML = FEZA_LANG.html(h);
     b.style.removeProperty('--zs');
     if (o.kind === 'zone') {   // a long name ("Köstebek ve Salyangoz Mağarası") on a narrow portrait screen: the ribbon shrinks to fit
       const rib = b.querySelector('.u-zrib'), w = rib ? rib.offsetWidth : 0, max = (innerWidth || 1024) * 0.94;
@@ -1965,7 +1968,7 @@ const UI = (() => {
   let tTimer = 0;
   function toast(text, info) {
     const t = D.toast;
-    t.textContent = text; t.classList.toggle('info', !!info);
+    t.textContent = FEZA_LANG.t(text); t.classList.toggle('info', !!info);
     t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
     clearTimeout(tTimer); if (!S.hold) tTimer = setTimeout(() => t.classList.remove('on'), 2600);
   }
@@ -2003,11 +2006,11 @@ const UI = (() => {
     c.classList.toggle('leg', r >= 3);
     const name = (it.ad || (typeof it.base === 'string' ? it.base : 'Hazine')).replace(/ ✦$/, '\u00a0✦');   // (a long name wraps before its ✦, never leaves it alone)
     const slotWord = it.slot === 'weapon' ? (M.ITEMS && M.ITEMS.isWand(it) ? 'BÜYÜ DEĞNEĞİ' : 'IŞIN KILICI') : it.slot === 'hat' ? 'ŞAPKA' : 'PELERİN';
-    c.innerHTML = `<div class="u-cthumb">${itemThumb(it)}</div><div class="u-ctext">
-      <div class="u-cnew">YENİ ${slotWord} · ${esc(rarAd(r).toLocaleUpperCase('tr'))}</div>
+    c.innerHTML = FEZA_LANG.html(`<div class="u-cthumb">${itemThumb(it)}</div><div class="u-ctext">
+      <div class="u-cnew">YENİ ${slotWord} · ${esc(FEZA_LANG.t(rarAd(r)).toLocaleUpperCase(FEZA_LANG.language()))}</div>
       <div class="u-cname${name.length > 17 ? ' long' : ''}">${ol(name)}</div>
       <div class="u-stars">${stars(it)}</div>
-      <div class="u-cstat${o.equipped ? ' eq' : ''}">${o.equipped ? '✔ Giydin!' : '🎒 Çantada'}</div></div>`;
+      <div class="u-cstat${o.equipped ? ' eq' : ''}">${o.equipped ? '✔ Giydin!' : '🎒 Çantada'}</div></div>`);
     c.classList.remove('on'); void c.offsetWidth; c.classList.add('on');
     clearTimeout(cTimer);
     if (S.hold) return;
@@ -2051,20 +2054,20 @@ const UI = (() => {
     S.subTop = on ? D.sub.offsetTop : -1; S.subBot = on ? D.sub.offsetTop + D.sub.offsetHeight : -1;
     S.logoBot = on && S.mode === 'title' && D.logo ? layBox(D.logo, _lb).b : -1;   // (the title lift keeps Feza's head under it)
   }
-  function subtitle(text) {
+  function subtitle(text, spokenKey) {
     clearTimeout(subHide);
     if (text) {
       // a boss's lines: that boss's friendly portrait (cached at its zone load); a line with its own icon keeps it (the
       // glass of kefir while Feza drinks, even if EDEF lists that line with the Kefir Devi)
-      const key = lineKey(text), emo = SUB_EMO[key], bt = emo ? null : lineBoss(key);
+      const key = spokenKey || lineKey(text), emo = SUB_EMO[key], bt = emo ? null : lineBoss(key);
       const badge = bt && SUB_BADGE[key] || '';
-      if (bt) D.subIco.innerHTML = bossHTML(bt) + subBadge(badge);
-      else D.subIco.textContent = emo || '✨';
+      if (bt) D.subIco.innerHTML = FEZA_LANG.html(bossHTML(bt) + subBadge(badge));
+      else D.subIco.textContent = FEZA_LANG.t(emo || '✨');
       D.subIco.dataset.badge = badge;
       D.subIco.classList.toggle('drg', !!bt); D.subIco.classList.toggle('milk', !bt && !!SUB_MILK[key]); D.subIco.classList.toggle('town', !bt && !!SUB_TOWN[key]);
       D.subIco.dataset.b = bt || '';
       subPlace();
-      D.subTxt.textContent = text;
+      D.subTxt.textContent = FEZA_LANG.t(text);
       D.sub.classList.add('on');
       subMeasure();   // (after the text: one or two lines)
     } else subHide = setTimeout(() => { D.sub.classList.remove('on'); S.subTop = S.subBot = -1; }, 380);   // queued lines follow ~0.3 s later: no flicker
@@ -2185,7 +2188,7 @@ const UI = (() => {
     D.contBtn.classList.toggle('u-hide', !has); D.playBtn.classList.remove('u-hide');
     // With a save (parent's wish): a big green "Devam Et" first and an orange "Baştan Başla" beside it (a new game from the
     // forest; the save itself stays until the next Kaydet). Without a save: just "Oyna".
-    D.playBtn.innerHTML = has ? SVG.again + '<span>Baştan Başla</span>' : SVG.play + '<span>Oyna</span>';
+    D.playBtn.innerHTML = FEZA_LANG.html(has ? SVG.again + '<span>Baştan Başla</span>' : SVG.play + '<span>Oyna</span>');
     D.playBtn.classList.toggle('g', !has); D.playBtn.classList.toggle('o', has);
     D.contBtn.classList.toggle('g', has); D.contBtn.classList.toggle('b', !has);
     D.contBtn.style.order = has ? '-1' : '';
@@ -2253,10 +2256,10 @@ const UI = (() => {
     if (!g || !g.save || S.saveT) return;
     const ok = !!safe('save', () => g.save());
     b.classList.toggle('g', ok); b.classList.toggle('r', !ok); b.classList.remove('b');
-    b.innerHTML = ok ? SVG.check + '<span>Kaydedildi!</span>' : SVG.close + '<span>Kaydedilemedi</span>';
+    b.innerHTML = FEZA_LANG.html(ok ? SVG.check + '<span>Kaydedildi!</span>' : SVG.close + '<span>Kaydedilemedi</span>');
     if (ok) { sfx('checkpoint', { vol: 0.7 }); bump(b, 1.08); } else nope(b);
     S.saveT = setTimeout(() => {
-      S.saveT = 0; b.classList.remove('g', 'r'); b.classList.add('b'); b.innerHTML = SVG.save + '<span>Kaydet</span>';
+      S.saveT = 0; b.classList.remove('g', 'r'); b.classList.add('b'); b.innerHTML = FEZA_LANG.html(SVG.save + '<span>Kaydet</span>');
     }, 1800);
   }
   function showVictory() {
@@ -2269,12 +2272,12 @@ const UI = (() => {
       chips.push(`<span class="u-chip">⭐ Seviye ${P.lvl}</span>`, `<span class="u-chip"><span class="u-coin"></span> ${P.gold}</span>`);
       if (S.cheered) chips.push(`<span class="u-chip">😊 ${S.cheered} huysuz neşelendi</span>`);
     }
-    D.winChips.innerHTML = chips.join('');
+    D.winChips.innerHTML = FEZA_LANG.html(chips.join(''));
     // every zone's boss, happy now: portraits cached this session, else their SVG stand-ins — the missing ones (a game
     // continued from a save) are rendered one by one once the panel is up (S.bpq in step), behind the blur, and swapped in
     const bosses = [];
     for (let i = 0; i < zoneCount(); i++) { const t = M.ZONES ? zoneBossOf(i) : BOSS_ORDER[i]; if (t && bosses.indexOf(t) < 0) bosses.push(t); }
-    D.winBoss.innerHTML = bosses.map((t, i) => `<span class="u-wb" data-b="${esc(t)}" style="animation-delay:${(-i * 0.35).toFixed(2)}s">${bossHTML(t)}</span>`).join('');
+    D.winBoss.innerHTML = FEZA_LANG.html(bosses.map((t, i) => `<span class="u-wb" data-b="${esc(t)}" style="animation-delay:${(-i * 0.35).toFixed(2)}s">${bossHTML(t)}</span>`).join(''));
     D.winBoss.classList.toggle('u-hide', bosses.length < 2);
     S.bpq = bosses.length > 1 ? bosses.filter(t => !bpRec(t).tried) : []; S.bpqT = S.t + 0.8;
     confetti();
@@ -2287,7 +2290,7 @@ const UI = (() => {
       const dur = frand(3.2, 6.5), del = -frand(0, dur);
       h += `<i class="${i % 4 === 0 ? 'c' : ''}" style="left:${frand(0, 100).toFixed(1)}%;background:${fpick(cols)};animation-duration:${dur.toFixed(2)}s;animation-delay:${del.toFixed(2)}s;--dx:${frand(-80, 80).toFixed(0)}px;--rot:${frand(360, 1080).toFixed(0)}deg"></i>`;
     }
-    D.conf.innerHTML = h;
+    D.conf.innerHTML = FEZA_LANG.html(h);
   }
   async function playAgain() {
     const g = M.GAME;
@@ -2297,7 +2300,7 @@ const UI = (() => {
       if (S.menu) closeMenu();
       showScreen(D.win, false);
       await fade(1, 0.5, 'load');
-      D.conf.innerHTML = '';
+      D.conf.innerHTML = FEZA_LANG.html('');
       clearBanners(); clearCards(); hideBoss(); S.cine = null;
       // lines from the old run must not play into the new one — except the ending line itself, if a quick tap came before
       // it was over ("…Sen gerçek bir kahramansın!"): it finishes and 'tekrar' simply follows it
@@ -2320,13 +2323,13 @@ const UI = (() => {
       chips.push(`<span class="u-chip">${SVG.saber} ${Math.round(P.meleeDmg)}</span>`, `<span class="u-chip">🪄 ${Math.round(P.magicDmg)}</span>`);
     } else chips.push(`<span class="u-chip">${P.heroClass === 'wizard' ? '🪄' : SVG.saber} ${Math.round(P.dmg)}</span>`);
     if (P.armor > 0) chips.push(`<span class="u-chip">🛡️ %${Math.round(P.armor)}</span>`);
-    D.bagChips.innerHTML = chips.join('');
+    D.bagChips.innerHTML = FEZA_LANG.html(chips.join(''));
     for (const sl of SLOTS) {
       const box = D.slots[sl], cur = P.equip[sl];
-      if (sl === 'weapon') box.label.innerHTML = P.heroClass === 'wizard' ? '🪄 Büyü Değnekleri' : P.heroClass === 'hybrid' ? `${SVG.saber} Kılıçlar ve 🪄 Değnekler` : `${SVG.saber} Işın Kılıçları`;
+      if (sl === 'weapon') box.label.innerHTML = FEZA_LANG.html(P.heroClass === 'wizard' ? '🪄 Büyü Değnekleri' : P.heroClass === 'hybrid' ? `${SVG.saber} Kılıçlar ve 🪄 Değnekler` : `${SVG.saber} Işın Kılıçları`);
       const worn = sl === 'weapon' && P.heroClass === 'hybrid' ? [cur, P.equip.offhand].filter(Boolean) : [cur].filter(Boolean);
-      box.hdName.innerHTML = worn.length ? '· ' + worn.map(it => esc(it.ad || '')).join(' + ') : '';
-      box.tiles.innerHTML = '';
+      box.hdName.innerHTML = FEZA_LANG.html(worn.length ? '· ' + worn.map(it => esc(it.ad || '')).join(' + ') : '');
+      box.tiles.innerHTML = FEZA_LANG.html('');
       const items = (P.bag || []).filter(it => it && it.slot === sl).sort((a, b) => (b.power || 0) - (a.power || 0) || (b.rarity || 0) - (a.rarity || 0));
       if (sl !== 'weapon') {
         const t = el('button', 'u-tile none' + (!cur ? ' on' : ''), box.tiles, `<span class="u-temo">🙂</span><span class="u-stars" style="color:#fff;text-shadow:none">Yok</span><span class="u-chk">✓</span>`);
@@ -2337,8 +2340,8 @@ const UI = (() => {
         const t = el('button', 'u-tile' + (it === equipped ? ' on' : '') + (newItems.has(it) ? ' fresh' : ''), box.tiles,
           `${itemThumb(it)}<span class="u-stars">${stars(it)}</span>${it.polish ? '<span class="u-polish" aria-hidden="true">✨' + it.polish + '</span>' : ''}<span class="u-chk">✓</span><span class="u-new">YENİ</span>`);
         const diff = (it.power || 0) - (equipped ? equipped.power || 0 : 0);
-        t.setAttribute('aria-label', `${it.ad || 'Eşya'}${it.polish ? ', ' + it.polish + ' kez güçlendirildi' : ''}${it === equipped ? ', kuşanıldı' : ', güç farkı ' + (diff > 0 ? '+' : '') + diff}`);
-        t.title = t.getAttribute('aria-label');
+        t.setAttribute('aria-label', FEZA_LANG.t(`${it.ad || 'Eşya'}${it.polish ? ', ' + it.polish + ' kez güçlendirildi' : ''}${it === equipped ? ', kuşanıldı' : ', güç farkı ' + (diff > 0 ? '+' : '') + diff}`));
+        t.title = FEZA_LANG.t(t.getAttribute('aria-label'));
         t.style.setProperty('--rc', col); t.style.setProperty('--rl', shade(col, 0.5)); t.style.setProperty('--rd', shade(col, -0.6));
         onTap(t, () => {
           if (P.equip[slot] === it) { wiggle(t); return; }
@@ -2362,8 +2365,8 @@ const UI = (() => {
     S.boss = true; S.bossFrac = S.bossTrail = d && d.maxHp ? clamp(d.hp / d.maxHp, 0, 1) : 1;
     const ED = M.EDEF, ad = (d && d.name) || (ED && ED[t] && ED[t].ad) || bossUi(t).ad;
     D.boss.dataset.b = t;   // per-boss bar colours (ui.css .u-boss[data-b])
-    D.bossName.innerHTML = ol(ad);
-    D.bossIco.innerHTML = bossHTML(t);
+    D.bossName.innerHTML = FEZA_LANG.html(ol(ad));
+    D.bossIco.innerHTML = FEZA_LANG.html(bossHTML(t));
     measureBossBar();
     if (BN.on) pipsPlace();
     bossFill(S.bossFrac); D.bossTrail.style.transform = `scaleX(${S.bossFrac})`;
@@ -2428,7 +2431,7 @@ const UI = (() => {
     clearTimeout(pipHide);
     if (fresh) {
       let h = ''; for (let i = 0; i < need; i++) h += '<i class="u-bpip">' + PIP_SVG[shape] + '</i>';
-      E.innerHTML = h; E.dataset.k = shape; E.classList.remove('done');
+      E.innerHTML = FEZA_LANG.html(h); E.dataset.k = shape; E.classList.remove('done');
       BN.done = false; BN.have = 0;
       BN.on = true; BN.kind = kind; BN.need = need;
       pipsPlace();
@@ -3011,20 +3014,20 @@ const UI = (() => {
   function toggleFps(on = !FPSM.el) {
     if (!on) { if (FPSM.el) FPSM.el.remove(); FPSM.el = null; return; }
     if (FPSM.el) return;
-    FPSM.el = document.createElement('div'); FPSM.el.className = 'u-fps'; FPSM.el.textContent = 'FPS ölçülüyor…';
+    FPSM.el = document.createElement('div'); FPSM.el.className = 'u-fps'; FPSM.el.textContent = FEZA_LANG.t('FPS ölçülüyor…');
     document.body.appendChild(FPSM.el); FPSM.t0 = 0; FPSM.n = 0; FPSM.worst = 0;
   }
   function fpsTick(ts, raw) {
     const m = FPSM; if (!m.el) return;
-    if (S.paused || S.menu) { m.el.textContent = 'FPS · mola'; m.t0 = 0; return; }   // nothing is drawn while a menu is open
+    if (S.paused || S.menu) { m.el.textContent = FEZA_LANG.t('FPS · mola'); m.t0 = 0; return; }   // nothing is drawn while a menu is open
     if (!m.t0) { m.t0 = ts; m.n = 0; m.worst = 0; return; }
     m.n++; if (raw > m.worst) m.worst = raw;
     const span = ts - m.t0;
     if (span < 500) return;
     const q = typeof QUALITY !== 'undefined' ? QUALITY : null;
-    m.el.textContent = Math.round(m.n * 1000 / span) + ' FPS · hedef ' + Math.round(PERF.target) + '\n' + (span / m.n).toFixed(1) + ' ms'   // short lines also fit a phone
+    m.el.textContent = FEZA_LANG.t(Math.round(m.n * 1000 / span) + ' FPS · hedef ' + Math.round(PERF.target) + '\n' + (span / m.n).toFixed(1) + ' ms'   // short lines also fit a phone
       + (m.worst > 0.034 ? ' · en uzun ' + Math.round(m.worst * 1000) + ' ms' : '')
-      + (q ? '\nçözünürlük ' + (+q.dpr.toFixed(2)) + '× · MSAA ' + q.msaa + '×' : '');
+      + (q ? '\nçözünürlük ' + (+q.dpr.toFixed(2)) + '× · MSAA ' + q.msaa + '×' : ''));
     m.t0 = ts; m.n = 0; m.worst = 0;
   }
   function frame(ts) {
@@ -3080,6 +3083,12 @@ const UI = (() => {
   function boot() {
     if (S.booted) return readyP;
     S.booted = true;
+    FEZA_LANG.choose().then(prepareBoot);
+    return readyP;
+  }
+  function prepareBoot() {
+    const loadingText = document.querySelector('#loading > div:last-child');
+    if (loadingText) loadingText.textContent = FEZA_LANG.t('Yükleniyor…');
     resolve();
     S.playPitch = CAM.pitch;
     build();

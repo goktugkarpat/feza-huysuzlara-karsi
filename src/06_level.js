@@ -4549,6 +4549,7 @@ const LEVEL = (function () {
   }
   // The "Kefir Vadisi" / "Kefir Pınarı" sign board: cream wood with a cow-spotted frame, the name in round letters, a milk bottle
   function signTex(text) {
+    text = FEZA_LANG.t(text);
     const key = 'sign' + text;
     return R.tex[key] || (R.tex[key] = canvasTex(512, 256, (g, w, h) => {
       const rr = (x, y, ww, hh, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + ww, y, x + ww, y + hh, r); g.arcTo(x + ww, y + hh, x, y + hh, r); g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + ww, y, r); g.closePath(); };
@@ -4571,9 +4572,9 @@ const LEVEL = (function () {
       g.fillStyle = '#3a2418'; g.textAlign = 'center'; g.textBaseline = 'middle';
       const words = text.split(' ');
       g.font = 'bold 68px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
-      g.fillText(words[0], w / 2 + 38, h / 2 - 34);
+      g.fillText(words[0], w / 2 + 38, h / 2 - 34, 340);
       g.font = 'bold 60px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
-      g.fillText(words.slice(1).join(' '), w / 2 + 38, h / 2 + 36);
+      g.fillText(words.slice(1).join(' '), w / 2 + 38, h / 2 + 36, 340);
       g.fillStyle = '#f28aa8';
       for (const [x, y] of [[430, 60], [455, 200], [140, 205]]) { g.beginPath(); g.arc(x, y, 7, 0, TAU); g.fill(); }
     }));
@@ -6772,6 +6773,7 @@ const LEVEL = (function () {
   }
   // "Surlu Şehir" board: cream with a blue frame and a golden line, the smiling sun of the crest, the name in round letters, bunting
   function townSignTex(text) {
+    text = FEZA_LANG.t(text);
     const key = 'tsign' + text;
     return R.tex[key] || (R.tex[key] = canvasTex(512, 256, (g, w, h) => {
       const rr = (x, y, ww, hh, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + ww, y, x + ww, y + hh, r); g.arcTo(x + ww, y + hh, x, y + hh, r); g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + ww, y, r); g.closePath(); };
@@ -6790,9 +6792,9 @@ const LEVEL = (function () {
       g.fillStyle = '#2e4a8a'; g.textAlign = 'center'; g.textBaseline = 'middle';
       const words = text.split(' ');
       g.font = 'bold 62px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
-      g.fillText(words[0], w / 2 + 58, h / 2 - 12);
+      g.fillText(words[0], w / 2 + 58, h / 2 - 12, 310);
       g.font = 'bold 58px "Trebuchet MS", "Avenir Next", system-ui, sans-serif';
-      g.fillText(words.slice(1).join(' '), w / 2 + 58, h / 2 + 50);
+      g.fillText(words.slice(1).join(' '), w / 2 + 58, h / 2 + 50, 310);
     }));
   }
   // The town's sign: a low welcome board (kid height: the board 0.34–1.15 m, the roof's ridge ≈ 1.55 m, so what it could hide behind
@@ -8211,9 +8213,9 @@ const LEVEL = (function () {
     halo.rotation.x = -Math.PI / 2; halo.position.set(m.x, 0.065, m.z); B.g.add(halo);
     const c = document.createElement('canvas'); c.width = 640; c.height = 150;
     const x = c.getContext('2d'); x.textAlign = 'center'; x.lineJoin = 'round';
-    x.font = '900 49px sans-serif'; x.lineWidth = 10; x.strokeStyle = '#382546'; x.strokeText('Mırmır Ayışığı', 320, 61);
-    x.fillStyle = '#fff0b6'; x.fillText('Mırmır Ayışığı', 320, 61);
-    x.font = 'bold 27px sans-serif'; x.lineWidth = 6; x.strokeText('GEZGİN TÜCCAR', 320, 105); x.fillStyle = '#b6f0e2'; x.fillText('GEZGİN TÜCCAR', 320, 105);
+    x.font = '900 49px sans-serif'; x.lineWidth = 10; x.strokeStyle = '#382546'; x.strokeText(FEZA_LANG.t('Mırmır Ayışığı'), 320, 61, 590);
+    x.fillStyle = '#fff0b6'; x.fillText(FEZA_LANG.t('Mırmır Ayışığı'), 320, 61, 590);
+    x.font = 'bold 27px sans-serif'; x.lineWidth = 6; x.strokeText(FEZA_LANG.t('GEZGİN TÜCCAR'), 320, 105, 600); x.fillStyle = '#b6f0e2'; x.fillText(FEZA_LANG.t('GEZGİN TÜCCAR'), 320, 105, 600);
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     label.position.set(m.x, 3.2, m.z); label.scale.set(3.7, 0.87, 1); B.g.add(label); B.dispose.push(tex);

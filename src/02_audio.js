@@ -1124,13 +1124,17 @@ const AUD = (() => {
   // ───────────────────────── narrator ─────────────────────────
   const GAP = 0.3, vbufs = {}, vpend = {}, VQ = [];
   let vcur = null, vgap = null, ducked = false;
-  const mp3 = key => (typeof window !== 'undefined' && window.VOICE_MP3 && window.VOICE_MP3[key]) || null;
+  const voiceLanguage = () => window.FEZA_LANG && window.FEZA_LANG.language() === 'en' ? 'en' : 'tr';
+  const voiceKey = key => voiceLanguage() + ':' + key;
+  const voiceText = key => voiceLanguage() === 'en' ? (window.FEZA_VOICE_EN_TEXT && window.FEZA_VOICE_EN_TEXT[key] || '') : (A.LINES[key] || '');
+  const mp3 = key => { const bank = voiceLanguage() === 'en' ? window.FEZA_VOICE_EN_MP3 : window.VOICE_MP3; return bank && bank[key] || null; };
   // Recorded length if known (sesler.js also writes VOICE_DUR), otherwise ~14 characters per second.
   function lineDur(key) {
-    const d = window.VOICE_DUR && window.VOICE_DUR[key];
+    const bank = voiceLanguage() === 'en' ? window.FEZA_VOICE_EN_DUR : window.VOICE_DUR;
+    const d = bank && bank[key];
     if (d) return d;
-    if (vbufs[key]) return vbufs[key].duration;
-    const s = A.LINES[key] || '';
+    if (vbufs[voiceKey(key)]) return vbufs[voiceKey(key)].duration;
+    const s = voiceText(key);
     return Math.max(0.9, 0.3 + s.length * 0.071);
   }
   function b64buf(s) { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
@@ -1141,20 +1145,20 @@ const AUD = (() => {
     });
   }
   function getBuf(key) {
-    if (vbufs[key]) return Promise.resolve(vbufs[key]);
-    if (vpend[key]) return vpend[key];
-    const s = mp3(key);
+    if (vbufs[voiceKey(key)]) return Promise.resolve(vbufs[voiceKey(key)]);
+    if (vpend[voiceKey(key)]) return vpend[voiceKey(key)];
+    const s = mp3(key), cacheKey = voiceKey(key);
     if (!s || !ctx) return Promise.resolve(null);
-    return (vpend[key] = decodeWith(ctx, s).then(b => { delete vpend[key]; if (b) vbufs[key] = b; return b; }));
+    return (vpend[cacheKey] = decodeWith(ctx, s).then(b => { delete vpend[cacheKey]; if (b) vbufs[cacheKey] = b; return b; }));
   }
-  function sub(text) { try { if (typeof A.onSubtitle === 'function') A.onSubtitle(text); } catch (e) { console.error(e); } }
+  function sub(text, key) { try { if (typeof A.onSubtitle === 'function') A.onSubtitle(text, key); } catch (e) { console.error(e); } }
   function duck(on) {
     if (!M || ducked === on) return;
     ducked = on;
     const g = M.duck.gain, t = ctx.currentTime;
     g.cancelScheduledValues(t); g.setTargetAtTime(on ? DUCK : 1, t, on ? 0.06 : 0.35);
   }
-  function show(it) { A.current = it.key; if (it.sub) { it.shown = true; sub(it.text); } }   // current first: onSubtitle may read it
+  function show(it) { A.current = it.key; if (it.sub) { it.shown = true; sub(it.text, it.key); } }   // current first: onSubtitle may read it
   function startLine(it) {
     vcur = it; clearTimeout(vgap); vgap = null;
     it.end = wallNow() + it.dur;
@@ -1195,9 +1199,10 @@ const AUD = (() => {
     if (it.shown) sub(null);
     vcur = null; A.current = null;
   }
+  window.addEventListener('feza-language-change', () => { stopCur(); VQ.length = 0; clearTimeout(vgap); vgap = null; duck(false); });
   function say(key, o) {
     o = o || {};
-    const text = A.LINES[key];
+    const text = voiceText(key);
     if (!text) { if (!warned['L' + key]) { warned['L' + key] = 1; console.warn('AUD.say: unknown line', key); } return 0; }
     const prio = o.prio ?? 1;
     const it = { key, text, prio, sub: o.sub !== false, dur: lineDur(key), t: wallNow(), wait: o.wait ?? 8 + 6 * prio };

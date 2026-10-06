@@ -1,6 +1,6 @@
 # Feza ve Bilbo Huysuzlara Karşı ⚔️✨
 
-5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
+5 yaşındaki Feza için yapılmış, üç boyutlu, Türkçe ve İngilizce seslendirmeli bir macera oyunu (Diablo tarzı, ama çocuklara göre).
 Gerçek Bilbo'dan esinlenen çikolata renkli Labrador Bilbo, maceranın başından sonuna kadar Feza'nın yanında koşar ve yakındaki huysuzlara havlayarak yardım eder.
 Feza tuvalette kitabını okurken Bilbo’yla neşeli bir hayal kuruyor. Başlangıç ekranındaki gerçek Feza modeli klozette oturup kitabını okur;
 özel masal banyosunda oyuncaklar, kitaplar ve içinde dünyalar olan hayal baloncukları bulunur. Her kapı yeni bir hayale açılır.
@@ -16,6 +16,8 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 - Aynı Wi-Fi'daki iPad'de denemek için Mac'te `python3 serve.py` çalıştırıp yazdığı adresi iPad'de açabilirsiniz.
 
 ## Nasıl oynanır
+
+- **Dil:** Açılışta **Türkçe** veya **English** seçilir. Menüler, eşya/yetenek adları, bölüm yazıları ve konuşmalar seçilen dilde açılır. İngilizce anlatım önceden kaydedilmiş doğal bir kadın sesidir; kayıtlar oyuna gömülüdür ve internet gerektirmez. Başlangıç ekranının sol üstündeki dil düğmesiyle değiştirilebilir. Dil tercihi oyun kaydını, çantayı veya ilerlemeyi değiştirmez.
 
 - **Karakter:** Oyna düğmesinden sonra Savaşçı Feza, Büyücü Feza veya **Büyülü Şövalye Feza** seçilir. Savaşçı ışın kılıcıyla yaklaşır; büyücü ahşap değneğiyle uzaktan vurur. Büyülü şövalye iki silahı birlikte taşır: yakında kılıç, uzakta değnek kullanır.
 - **Yürümek:** Parmağını ekranda gitmek istediğin yere bas. Feza parmağının altındaki yere koşar; parmağını kaydırdıkça peşinden gider.

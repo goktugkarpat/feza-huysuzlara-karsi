@@ -653,6 +653,7 @@ const GAME = (() => {
   // and a still longer one gets a smaller font.
   const TAG_FONT = '"Avenir Next Rounded", "Avenir Next", system-ui, sans-serif';
   function nameTag(text) {
+    text = FEZA_LANG.t(text);
     const c = document.createElement('canvas');
     let g = c.getContext('2d'), fs = 54;
     g.font = '900 ' + fs + 'px ' + TAG_FONT;

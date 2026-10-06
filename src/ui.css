@@ -893,3 +893,24 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
   .u-shop-copy strong { font-size: 16px; }
   .u-shop-copy span { font-size: 12px; }
 }
+
+/* Language picker is shown before the game boots; no layout scans during play. */
+#fezaLanguage { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:24px; background:radial-gradient(ellipse at 50% 25%,#563993,#180d31 75%); color:#fff5d9; font-family:"Avenir Next",system-ui,sans-serif; }
+.feza-language-card { width:min(600px,100%); text-align:center; border:2px solid #bc95ef; border-radius:32px; padding:34px 26px; background:linear-gradient(145deg,#65419d,#35225b); box-shadow:0 18px 70px #08031488,inset 0 0 30px #c191ff20; box-sizing:border-box; }
+.feza-language-stars { color:#ffe084; font-size:32px; letter-spacing:18px; }
+.feza-language-card h1 { font-size:clamp(32px,6vw,52px); line-height:1.2; margin:18px 0; color:#ffe59c; text-shadow:0 3px #47245e; }
+.feza-language-card h1 small { font-size:.55em; color:#e5c8ff; }
+.feza-language-card p { font-size:18px; line-height:1.4; }
+.feza-language-buttons { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:24px; }
+.feza-language-buttons button { border:2px solid #fff3b780; border-radius:20px; background:linear-gradient(#7257c4,#4b338b); padding:20px 12px; color:white; cursor:pointer; font:inherit; }
+.feza-language-buttons button b { display:block; font-size:25px; color:#ffedb1; }
+.feza-language-buttons button span { display:block; font-size:14px; line-height:1.4; margin-top:8px; }
+.feza-language-buttons button:hover,.feza-language-buttons button:focus-visible { outline:3px solid #ffe48c; outline-offset:3px; background:#7653ae; }
+#ui .u-lang-btn { position:absolute; top:max(18px,env(safe-area-inset-top)); left:20px; z-index:3; border:2px solid #d8bcf1; border-radius:18px; color:#fff2d8; background:#3e286be6; padding:10px 16px; font:800 20px "Avenir Next",system-ui,sans-serif; cursor:pointer; }
+html[lang="en"] #ui .u-choicehint { font-size:25px; }
+html[lang="en"] #ui .u-herocard strong { font-size:24px; line-height:1.15; }
+html[lang="en"] #ui .u-herodesc { font-size:19px; }
+html[lang="en"] #ui .u-island-name { max-width:100%; overflow-wrap:normal; }
+@media (max-width:520px) { .feza-language-buttons { grid-template-columns:1fr; } .feza-language-card { padding:24px 18px; } #ui .u-lang-btn { font-size:17px; padding:9px 12px; } }
+
+@media (max-width:700px) { html[lang="en"] #ui .u-choicehint { font-size:18px; } html[lang="en"] #ui .u-herocard strong { font-size:16px; } html[lang="en"] #ui .u-herodesc { font-size:12px; } }

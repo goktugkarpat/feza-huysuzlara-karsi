@@ -1,0 +1,23 @@
+{
+  "name": "Feza and Bilbo vs. the Grumps",
+  "short_name": "Feza and Bilbo",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#120b22",
+  "theme_color": "#1a1030",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

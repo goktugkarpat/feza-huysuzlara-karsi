@@ -2797,7 +2797,7 @@ const FX = (() => {
     if (!ready) init();
     if (!TXT.length) return;
     const st = TXT_STYLE[style] ? style : 'dmg', S = TXT_STYLE[st];
-    let s = String(text);
+    let s = FEZA_LANG.t(text);
     const num = st === 'dmg' && /^\d+$/.test(s) ? +s : null;
     let it = null, nDmg = 0, oldDmg = null;
     for (const t of TXT) {

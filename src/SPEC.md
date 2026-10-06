@@ -1,5 +1,13 @@
 # Feza Huysuzlara Karşı — teknik sözleşme (SPEC)
 
+## Turkish and English localization (latest)
+
+- `src/00_i18n.js` loads before gameplay modules. `window.FEZA_LANG.language()` returns `tr` or `en`; `t(text)` and `html(markup)` translate output only. Item IDs, stored names, classes, map IDs and save keys remain unchanged. Do not translate identifiers or mutate catalog data.
+- Initial startup presents a bilingual language dialog before 3D construction. The title language button can reopen it; changing language rebuilds the UI by reloading the same game, without deleting or overwriting progress. The preference lives in `fezaHuysuz.language.v1`. `?lang=tr` / `?lang=en` selects a locale directly for silent QA.
+- DOM text is translated at explicit UI output boundaries, canvas world signs and enemy tags before measurement/drawing, and FX words before their width estimate. There is no DOM observer, per-frame scanning or growing text cache (512 entries maximum).
+- `sesler-en.js` embeds 114 trimmed English recordings and their exact English texts/durations. AUD caches decoding by language and line key; subtitle callbacks include `(text, key)` so boss icons work in either language. English labels and narration share ability and merchant names.
+- `manifest-en.webmanifest` supplies the English installation name; both manifests and both embedded voice banks are offline precached. The service worker deletes only this game's old caches.
+
 ## Dream adventure update (latest; overrides older story and chapter counts)
 
 - All eight chapters happen inside Feza's happy storybook imagination. New order: tuvalet, ay, orman, kefir, magara, yanardag, sehir, kale. Save layout sv6 maps earlier numbered saves by their earlier order; zid remains authoritative.
