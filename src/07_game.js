@@ -87,7 +87,7 @@ const GAME = (() => {
     swing: 0.34, swingBig: 0.46, hitAt: 0.4, reach: 2.1, arc: 70 * Math.PI / 180, autoR: 2.0, crit: 0.1,
     autoDragR: 1.1, autoDragArc: 45 * Math.PI / 180,   // (was 80°: a sideways dodge past a big boss kept swinging)
     fleeArc: 60 * Math.PI / 180,   // a finger / keys more than this off a sword swing's facing end it (dodging sideways too)
-    activeR: 36, hideR: 46, leash: 26, maxMelee: 4, maxRanged: 3, enemyMaxSpeed: 4.5,
+    activeR: 36, hideR: 46, leash: 26, maxMelee: 2, maxRanged: 1, enemyMaxSpeed: 4.5,
     windMin: 0.5, iframes: 0.3, respawn: 3.2, regenDelay: 5, magnet: 2.5,
   };
   // ── Difficulty: the one place to tune how hard the game is (parent, 2nd round: "the creatures go happy at once,
@@ -929,7 +929,7 @@ const GAME = (() => {
     warmZone(i, title);   // the UI's loading fade still covers the screen
     GAME.state = title ? 'title' : 'play';
     emit('zone', { index: i, name: zdef(i).ad, title });
-    if (!title) enterZoneStory(i);
+    if (!title) enterZoneStory(i, o.introDelay || 0);
     return L;
   }
   // Pre-compile AND draw once everything this zone will show later (enemy types + elites + boss, pickups, name tag,
@@ -1108,12 +1108,12 @@ const GAME = (() => {
     for (let i = 1; i < path.length; i++) pathCum.push(pathCum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z));
     for (const cp of L.cpObjs || []) cp._s = pathProject(cp.x, cp.z, 12);
   }
-  function enterZoneStory(i) {
+  function enterZoneStory(i, introDelay = 0) {
     const Z = zdef(i);
     igniteSaber(0.45);   // vvzzum: the lightsaber lights up as the zone fades in
     if (Z.music) aud('music', Z.music);
-    if (i > 0 && Z.line) later(0.8, () => say(Z.line, 2));
-    skillAt = gt + 1.2;   // a new skill's line held back from the last boss: right after this zone's name
+    if (i > 0 && Z.line) later(introDelay + 0.8, () => { if (say(Z.line, 3)) F.zl[i] = true; });
+    skillAt = gt + introDelay + 1.2;   // a new skill's line held back from the last boss: right after this zone's name
   }
 
   // Scaling is captured by level on entering a chapter, never from live equipment or HP.
@@ -1135,6 +1135,37 @@ const GAME = (() => {
     return Math.max(damage, P.ng && r ? (magic ? r.magic : r.damage) : 0);
   }
   const levelHealth = () => T.baseHp + 12 * (entryLevel() - 1);
+  const learningAid = () => clamp((8 - entryLevel()) / 7, 0, 1);
+  // Chapter order must not decide combat strength. Size a creature by its role and captured player level.
+  const LEVEL_ROLES = {
+    melee:  { hits: 4, hp: 28, damage: 0.060, dmg: 8 },
+    ranged: { hits: 3.2, hp: 32, damage: 0.055, dmg: 7 },
+    swift:  { hits: 3.3, hp: 32, damage: 0.060, dmg: 7 },
+    burrow: { hits: 3.8, hp: 30, damage: 0.060, dmg: 7 },
+    heavy:  { hits: 7, hp: 120, damage: 0.100, dmg: 14 },
+  };
+  function levelRole(type, def) {
+    if (HEAVY[type] || def.kind === 'slam') return LEVEL_ROLES.heavy;
+    if (def.kind === 'ranged') return LEVEL_ROLES.ranged;
+    if (def.kind === 'burrow') return LEVEL_ROLES.burrow;
+    if (HOPPERS[type] || ROLLERS[type] || ['hop', 'roll', 'glide', 'slide'].includes(def.kind)) return LEVEL_ROLES.swift;
+    return LEVEL_ROLES.melee;
+  }
+  function levelMobHp(type, def, elite, tough) {
+    const role = levelRole(type, def), variety = clamp(Math.sqrt((def.hp || role.hp) / role.hp), 0.82, 1);
+    const eliteHp = 1.8;
+    return Math.max(1, Math.round(levelDamage() * role.hits * variety * roundPressure()
+      * (elite ? eliteHp : 1) * (tough ? HC.hp : 1)));
+  }
+  function levelEnemyDamage(type, def, isBoss, elite) {
+    const role = levelRole(type, def), cfg = isBoss ? bossCfg(type) : role;
+    const fraction = isBoss ? 0.105 : role.damage;
+    const variety = clamp((isBoss ? cfg.dmg : def.dmg || role.dmg) / (isBoss ? 20 : role.dmg), 0.85, 1.15);
+    const eliteDmg = 1.25;
+    // Final Normal damage is a readable share of level health. Apply the existing Hard factors separately.
+    return levelHealth() * fraction * variety * roundPressure() / DIFF.damageTaken.normal
+      * (elite ? eliteDmg : 1) * (hard ? (isBoss ? HC.bossDmg : HC.dmg) : 1);
+  }
 
   // ── Enemies ──
   // Boss identity and fight length: DIFF.boss[type], or the dragon's coefficients.
@@ -1148,7 +1179,8 @@ const GAME = (() => {
   const bossHpNow = (type, tough = hard) => {
     const c = bossCfg(type), magic = P.heroClass === 'hybrid' && !DIFF.boss[type];
     const power = levelDamage(magic) * (magic ? DIFF.bossHybridK : 1);
-    return Math.max(1, Math.round(c.per * power * roundPressure() * (tough ? HC.bossHp : DIFF.normal.bossLength)));
+    const per = Math.min(c.per, 80);
+    return Math.max(1, Math.round(per * power * roundPressure() * (tough ? HC.bossHp : DIFF.normal.bossLength)));
   };
   // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
   function variantFor(type, sp) {
@@ -1161,8 +1193,7 @@ const GAME = (() => {
     const type = sp.type, def = sp.whelp ? { ...edef('yarasa'), ad: 'Minik Ejderha', kind: 'melee', fly: true, hover: 0.32, r: 0.42, height: 0.95 } : edef(type), Z = zdef();
     const isBoss = def.kind === 'boss' || sp.pack === 'boss';
     const elite = !!sp.elite && !isBoss;
-    const hpScale = levelDamage() / zpick(DIFF.power.dmg) * roundPressure();
-    const damageScale = levelHealth() / zpick(DIFF.repeat.health) * roundPressure();
+    const pace = 1 + 0.6 * learningAid();
     const variant = variantFor(type, sp);
     let m = null;
     if (sp.whelp && typeof EMODEL !== 'undefined' && EMODEL.babyDragon) {
@@ -1174,19 +1205,19 @@ const GAME = (() => {
     const sc = elite ? 1.4 : 1;
     // Both difficulties use the same entry level, including sleepers and summoned helpers.
     const hpFor = tough => Math.round(isBoss ? bossHpNow(type, tough)
-      : def.hp * (Z.hpMult || 1) * hpScale * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * (tough ? HC.hp : 1));
+      : levelMobHp(type, def, elite, tough));
     const difficultyHp = [hpFor(false), hpFor(true)], hp = difficultyHp[hard ? 1 : 0];
-    const difficultyWind = [Math.max(T.windMin, def.windup || 0.6), Math.max(0.4, (def.windup || 0.6) * HC.wind)];
+    const difficultyWind = [Math.max(T.windMin, def.windup || 0.6, 0.85 * learningAid()), Math.max(0.4, (def.windup || 0.6) * HC.wind, 0.7 * learningAid())];
     const e = {
       type, def, m, variant, difficultyHp, difficultyWind, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * damageScale * (elite ? DIFF.eliteDmg : 1) * (hard ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
+      dmg: levelEnemyDamage(type, def, isBoss, elite),
       speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + Math.min(0.12, 0.03 * P.ng)) * (hard ? HC.speed : 1),
       xp: (isBoss ? 140 * clamp(bossCfg(type).per / 100, 0.8, 1.5) : (def.xp || 10) * DIFF.xp) * rewardRate() * (elite ? 3 : 1),
       gold: (isBoss ? 40 * clamp(bossCfg(type).per / 100, 0.8, 1.5) : (def.gold || 3)) * goldRate() * (elite ? 3 : 1),
       kind: isBoss ? 'boss' : HEAVY[type] ? 'slam' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
-      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * roundCooldown() * (hard ? HC.cd : 1), windup: difficultyWind[hard ? 1 : 0], aggroR: def.aggro || 9,
+      atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * pace * roundCooldown() * (hard ? HC.cd : 1), windup: difficultyWind[hard ? 1 : 0], aggroR: def.aggro || 9,
       homeX: sp.x, homeZ: sp.z, pack: sp.pack, room: sp.room, sp,
       state: 'idle', stT: 0, wind: 0.6, cd: frand(0.4, 1.2), stun: 0, frozen: 0, flash: 0, hurt: 0, kvx: 0, kvz: 0,
       aggro: false, token: false, dist: 99, losOk: false, losT: frand(0, 0.3), lookT: frand(0, 0.25), wT: frand(0.5, 3), walking: false, wx: sp.x, wz: sp.z,
@@ -1213,8 +1244,8 @@ const GAME = (() => {
     }
     if (sp.whelp) {
       const power = levelDamage() * roundPressure();
-      e.whelp = true; setEnemyHp(e, Math.max(12, Math.round(power * 2.1)), Math.max(12, Math.round(power * 2.1 * HC.hp))); e.dmg = 3 * levelHealth() / T.baseHp * roundPressure() * (hard ? HC.dmg : 1);
-      e.speed = 2.1 * (hard ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * roundCooldown() * (hard ? HC.cd : 1); e.difficultyWind = [0.8, 0.8 * HC.wind]; e.windup = e.difficultyWind[hard ? 1 : 0]; e.xp = 0; e.gold = 0;
+      e.whelp = true; setEnemyHp(e, Math.max(12, Math.round(power * 2.1)), Math.max(12, Math.round(power * 2.1 * HC.hp))); e.dmg = levelHealth() * 0.045 * roundPressure() / DIFF.damageTaken.normal * (hard ? HC.dmg : 1);
+      e.speed = 2.1 * (hard ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * pace * roundCooldown() * (hard ? HC.cd : 1); e.difficultyWind = [Math.max(0.8, 0.85 * learningAid()), Math.max(0.8 * HC.wind, 0.7 * learningAid())]; e.windup = e.difficultyWind[hard ? 1 : 0]; e.xp = 0; e.gold = 0;
     }
     place(e);
     enemies.push(e);
@@ -1347,9 +1378,13 @@ const GAME = (() => {
     }
     const byD = (a, b) => a.dist - b.dist;
     mel.sort(byD); rng.sort(byD); big.sort(byD);
-    for (let i = 0; i < mel.length && i < T.maxMelee; i++) mel[i].token = true;
-    for (let i = 0; i < rng.length && i < T.maxRanged; i++) rng[i].token = true;
-    if (big.length) big[0].token = true;   // the big slow Kaya Devi gets its own turn (four moles up close must not lock it out)
+    const meleeLimit = T.maxMelee + (hard ? 1 : 0);
+    const rangedLimit = T.maxRanged + (hard ? 1 : 0);
+    // A heavy creature shares a close-combat turn instead of adding another simultaneous attack.
+    const closeSlots = meleeLimit - (big.length ? 1 : 0);
+    for (let i = 0; i < mel.length && i < closeSlots; i++) mel[i].token = true;
+    for (let i = 0; i < rng.length && i < rangedLimit; i++) rng[i].token = true;
+    if (big.length) big[0].token = true;
     for (const e of mel) if (!e.token && e.state === 'windup') cancelWindup(e);
     for (let i = 1; i < big.length; i++) if (big[i].state === 'windup') cancelWindup(big[i]);
   }
@@ -2499,7 +2534,7 @@ const GAME = (() => {
   function bossIdle(b, dt, d, ux, uz, keep) {
     b.face = dampAngle(b.face, Math.atan2(ux, uz), 3.5, dt);
     if (d > keep) bossWalk(b, ux, uz, b.speed, dt);
-    b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1));
+    b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1) * (1 + learningAid() * 0.3));
     return b.wait <= 0;
   }
   function pickPhase(b, opts) {   // opts [[phase, weight], …]; never the same attack three times in a row
@@ -4230,7 +4265,7 @@ const GAME = (() => {
       case 'idle': {
         b.face = dampAngle(b.face, faceP, 3, dt);
         if (d > 8.5) bossWalk(b, ux, uz, b.speed, dt);
-        b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1));
+        b.wait -= dt / (roundCooldown() * (hard ? HC.cd : 1) * (1 + learningAid() * 0.3));
         if (b.wait <= 0) {
           if (b.summon) { bossPhase(b, 'roar', 1.6); break; }   // (its line comes with the eggs, see 'roar')
           // by distance; never the same move three times in a row — the swap stays in the same distance band (up close
@@ -4502,9 +4537,10 @@ const GAME = (() => {
     if (merchantNear()) return false;
     if (P.shield > 0) { burst('sparkle', P.pos.x, 1, P.pos.z, { color: '#ff8fd8', count: 10 }); sfx('shield', { vol: 0.5 }); return false; }
     // A late-area heavy hit cannot defeat a healthy level-1 child in one blow. Armour still reduces it afterwards.
-    const incoming = Math.min(amount * DIFF.damageTaken[hard ? 'hard' : 'normal'], levelHealth() * (hard ? 0.55 : 0.30));
+    const envelope = hard ? 0.55 - 0.15 * learningAid() : 0.30 - 0.12 * learningAid();
+    const incoming = Math.min(amount * DIFF.damageTaken[hard ? 'hard' : 'normal'], levelHealth() * envelope);
     const a = Math.max(1, Math.round(incoming * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
-    P.hp -= a; C.lastHurt = gt; C.hurtT = 1; C.invuln = T.iframes;
+    P.hp -= a; C.lastHurt = gt; C.hurtT = 1; C.invuln = T.iframes + learningAid() * (hard ? 0.175 : 0.35);
     fx('flash', '#ff2a4a', 0.45, 0.4); shake(0.16);
     sfx('hurt', { pitch: frand(0.95, 1.1) });
     burst('hit', P.pos.x, 0.9, P.pos.z, { color: '#ff8aa0', count: 8 });
@@ -6341,13 +6377,14 @@ const GAME = (() => {
     } else { P.heroClass = heroClassOf(o.heroClass); buildSkills(); resetPlayer(); }
     C.playT = 0; C.lastHurt = gt - 99;
     const zone = plus ? 0 : clamp(Number.isInteger(o.zone) ? o.zone : 0, 0, zones().length - 1);
+    const intro = wizard() ? 'giris_buyu' : P.heroClass === 'hybrid' ? 'giris_hibrit' : 'giris2';
+    const introDelay = plus ? lineLen('tekrar') + 0.3 : lineLen('giris1') + lineLen(intro) + 0.6;
     GAME.paused = false;
-    if (!plus && zone === 0 && useTitleLevel()) startHere(); else loadZone(zone);
+    if (!plus && zone === 0 && useTitleLevel()) startHere(); else loadZone(zone, { introDelay });
     yolWant = false;
     if (plus) say('tekrar', 3);
     else {
       say('giris1', 3);
-      const intro = wizard() ? 'giris_buyu' : P.heroClass === 'hybrid' ? 'giris_hibrit' : 'giris2';
       const w = say(intro, 3) || lineLen('giris1') + 0.3 + lineLen(intro);   // (AUD.say: s until giris2 has ended)
       // (Round 4 QA: the first skill's line could be dropped from AUD's full queue at the start — it waits for the intro)
       skillAt = Math.max(skillAt, gt + w + 0.6);

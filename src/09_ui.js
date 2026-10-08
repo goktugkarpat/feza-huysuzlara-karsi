@@ -522,7 +522,7 @@ const UI = (() => {
     const bt = D.tbtns = el('div', 'u-tbtns', t);
     D.playBtn = el('button', 'u-btn g', bt, SVG.play + '<span>Oyna</span>');   // always: a new game (a saved game is never touched)
     D.contBtn = el('button', 'u-btn b', bt, SVG.cont + '<span>Devam Et</span>');   // only with a save (Mola › Kaydet)
-    D.titleMap = el('button', 'u-btn p u-hide', bt, '<span>🗺️ Hayal Haritası</span>');
+    D.titleMap = el('button', 'u-btn p u-title-map u-hide', bt, '<span>🗺️ Hayal Haritası</span>');
     const langBtn = el('button', 'u-lang-btn', t, '🌐 ' + (FEZA_LANG.language() === 'en' ? 'English' : 'Türkçe'));
     langBtn.setAttribute('aria-label', FEZA_LANG.language() === 'en' ? 'Change language' : 'Dil değiştir');
     onPress(langBtn, () => { aud('stopVoice'); FEZA_LANG.reopen(); }, { menu: true });

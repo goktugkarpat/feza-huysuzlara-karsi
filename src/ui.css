@@ -517,6 +517,9 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 @keyframes u-twinkle { 0%, 100% { transform: scale(0.3) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(90deg); opacity: 1; } }
 .u-tbtns { position: relative; display: flex; gap: calc(var(--k) * 24px); align-items: center; justify-content: center; flex-wrap: wrap; animation: u-inB 0.8s 0.25s cubic-bezier(.2, 1.4, .4, 1) both; }
 .u-tbtns .u-btn { min-width: calc(var(--k) * 260px); }
+/* The atlas label needs real inner space: #ui button otherwise resets the pill padding. */
+#ui .u-title-map { max-width: 100%; min-width: 0; padding: .3em .85em; white-space: normal; line-height: 1.35; }
+.u-title-map > span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .u-tbtns .u-btn.main { min-height: calc(var(--k) * 100px); font-size: calc(var(--k) * 44px); min-width: calc(var(--k) * 300px); animation: u-breathe 1.8s ease-in-out infinite; }
 @keyframes u-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 .u-tbtns .u-btn.main.down { animation: none; }
@@ -777,6 +780,7 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-dream-kicker { color: #c4dedc; letter-spacing: 3px; font-size: 11px; font-weight: 800; }
 .u-dream-title { margin: 2px 0 3px; font: 900 clamp(27px, 4.3vw, 43px)/1.15 var(--f); color: #ffecc3; text-shadow: 0 3px 0 #14132f; }
 .u-dream-hint { margin: 3px 0 0; font-size: clamp(12px, 1.6vw, 17px); color: #d4e7e0; text-align: center; }
+.u-dream-panel > .u-dream-title, .u-dream-panel > .u-dream-hint, .u-dream-panel > .u-dream-kicker { min-width: 0; max-width: 100%; overflow-wrap: anywhere; text-align: center; line-height: 1.35; }
 .u-dream-board { position: relative; width: 100%; aspect-ratio: 1000 / 560; min-height: 270px; margin: 5px 0; flex: 0 0 auto; border-radius: 22px; overflow: hidden; background-image: radial-gradient(circle, #fff1bf99 1px, transparent 2px), radial-gradient(circle, #cbd0ff88 1px, transparent 2px), radial-gradient(ellipse at 50% 50%, #aabbef1a, transparent 55%); background-size: 73px 61px, 113px 101px, 100% 100%; background-position: 15px 21px, 41px 8px, center; }
 .u-dream-route { position: absolute; inset: 0; pointer-events: none; }
 .u-dream-starfield, .u-dream-ornaments { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -796,7 +800,7 @@ html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout
 .u-dream-compass small { letter-spacing: 3px; font-size: 9px; }
 #ui .u-dream-island { position: absolute; left: var(--ix); top: var(--iy); width: 20%; padding: 0; background: none; border: 0; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; color: #fff4d7; cursor: pointer; touch-action: manipulation; transition: filter .18s, scale .18s; }
 .u-island-art { display: block; width: 100%; max-height: 170px; filter: drop-shadow(0 6px 6px #070c2855); }
-.u-island-name { margin-top: -5px; padding: 5px 10px; border-radius: 13px; border: 1px solid #cfb68f88; font-size: clamp(11px, 1.5vw, 17px); font-weight: 900; white-space: nowrap; color: #fff1c8; background: linear-gradient(#444260ee, #252f4aee); box-shadow: 0 3px 10px #0b0c2688; }
+.u-island-name { min-width: 0; max-width: 100%; margin-top: -5px; padding: 5px 10px; border-radius: 13px; border: 1px solid #cfb68f88; font-size: clamp(11px, 1.5vw, 17px); font-weight: 900; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; text-align: center; color: #fff1c8; background: linear-gradient(#444260ee, #252f4aee); box-shadow: 0 3px 10px #0b0c2688; }
 .u-island-number { position: absolute; left: 18%; top: 56%; display: grid; place-items: center; width: 22px; height: 22px; background: #f8dfac; border: 2px solid #d8bb8c; color: #55425d; border-radius: 50%; font-size: 12px; font-weight: 900; box-shadow: 0 2px 5px #221a4944; }
 .u-island-current { display: none; color: #b0ffe0; font-size: 11px; font-weight: 800; margin-top: 4px; }
 .u-dream-island.current .u-island-current { display: block; }

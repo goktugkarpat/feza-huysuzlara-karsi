@@ -65,6 +65,10 @@ ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yu
 - Her bölüm, girildiği andaki Feza seviyesine göre hazırlanır. İster ilk bölüm ister kale seçilsin, karşılaşmalar o seviyeye uygun olur.
   Bölümün içinde seviye atlamak veya daha güçlü eşya takmak huysuzları yeniden büyütmez; bulunan güçlenmeler gerçekten işe yarar.
   Tecrübe, altın ve hazineler de giriş seviyesine göre ayarlanır. Normal daha yumuşak, Zor daha mücadeleli kalır.
+- **İstediğin sırada rahat oyna:** Şehir, mağara veya kale baştan seçildiğinde eski son bölüm gücü uygulanmaz.
+  Sıradan huysuzlar benzer sayıda vuruşta neşelenir; iri ve seçkinler biraz daha dayanıklıdır. Normalde aynı anda en fazla iki yakın ve bir uzaktan saldıran huysuz sırasını alır.
+  İlk seviyelerde saldırı işaretleri daha uzun görünür, vuruşlar arasında toparlanmak için daha çok zaman vardır; boss karşılaşmaları da başlangıç silahıyla oynanabilecek uzunluktadır.
+- Bölüm tanıtımları önce başka bir bölümü bitirmiş olmanı beklemez. Türkçe ve İngilizce anlatıcı, seçtiğin hayali anlatır; haritadan farklı sırayla gezebilirsin.
 - Büyücü Feza'nın normal değnek atışı biraz daha hızlıdır.
 - Bossun kendi küçük oyununu başarıp onu sersemletince, sersemleme boyunca saldırıların **%25 daha fazla hasar** verir.
   Ejderhaya gönderilen dostluk kalbinin sabit hasarı ve şövalyenin sancakları bu artışa dahil değildir.
