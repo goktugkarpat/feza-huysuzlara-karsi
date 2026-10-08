@@ -37,9 +37,10 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
   Eşyanın altındaki **yıldızlar** yalnızca ne kadar güçlü olduğunu gösterir (1–5 ★): daha güçlü eşyanın yıldızı hiçbir zaman daha az olmaz.
   Eşyanın rengi ve parıltısı (beyaz, mavi, sarı, turuncu) ise ne kadar özel ve nadir olduğunu gösterir.
 - **Harita:** Sağ üstteki yuvarlak harita gidilecek yönü altın okla gösterir. Mor **sihirli kapıdan** geçince yeni bölgeye gidilir.
-- **Hayal Haritası:** Macera bir kez bitince sağ üstte **Harita** düğmesi açılır. Başlangıç, mola ve bitiş ekranlarından da açılabilir.
-  Sekiz resimli adadan birine dokununca oraya gidilir; seviye, çanta ve eşyalar korunur. Haritanın açılması cihazda hatırlanır;
-  maceradaki ilerleme yine yalnızca **Kaydet** ile saklanır. Klavyede **M** harita, **K** kemik düğmesidir.
+- **Hayal Haritası:** İlk açılıştan itibaren sekiz resimli bölümün hepsi açıktır; Feza istediği sırayla gezebilir.
+  Harita başlangıç, oyun, mola ve bitiş ekranlarından açılır. Bir adaya dokununca oraya gidilir; seviye, çanta ve eşyalar korunur.
+  Yerde kalan hazineler ve kazanılmış bölüm sonu ödülü yolculuktan önce alınır. Feza yorulmuşsa yeni hayale dinlenmiş olarak başlar.
+  Maceradaki ilerleme ve seçili bölüm yine yalnızca **Kaydet** ile saklanır. Klavyede **M** harita, **K** kemik düğmesidir.
 - ⏸ düğmesini kısa bir an basılı tutunca oyun durur (efektler, müzik, **Kaydet**, **Baştan Başla**). Oyun kendiliğinden kaydedilmez.
   Kalınan yerden sürmek isterseniz ⏸ › **Kaydet**'e basın; oyunu yeniden açınca **Devam Et** ve **Baştan Başla** düğmeleri çıkar.
   **Baştan Başla** oyunu tuvalet hayalinden, 1. seviyeden yeniden başlatır; kayıt silinmez (yeniden **Kaydet**'e basılana kadar durur).
@@ -55,20 +56,23 @@ onlar sevinçten kocaman gülümseyip kalpler saçarak kayboluyorlar. Bütün ya
 Tuvalet ve Ay bölümlerinde sabun, damla, Ay ışığı ve yıldız tozu silahları; köpük ve Ay pelerinleri ile altı özel bölüm sonu silahı bulunur.
 Başka eşyalar da vardır: **Pamuk Şeker**, **Kalpli**, **Uzay Roketi** ve **Kuyruklu Yıldız** ışın kılıçları; **Lolipop**, **Kedi Patisi**
 ve **Gezegen** değnekleri; **Kedi Kulaklı Bere**, **Dondurma Şapkası**, **Yunikorn Tacı** ve **Astronot Kaskı**; **Şeker**, **Panda** ve
-**Galaksi** pelerinleri. Bazıları ancak ilerideki bölgelerde çıkar (Uzay Roketi, Gezegen ve Galaksi gibi).
+**Galaksi** pelerinleri. Feza seviye atladıkça Uzay Roketi, Gezegen ve Galaksi gibi yeni hazineler de bulunabilir.
 
-## Normal modun dengesi
+## Seviyeye göre denge
 
-- Bölüm sonu huysuzlarının canı **Normal** zorlukta önceki ayarın %57’sidir; karşılaşmalar belirgin biçimde kısalır.
-  **Zor** seçeneğinde önceki dayanıklılık korunur. Zorluk değişince kalan canın yüzdesi korunur.
-- Daha güçlü silah bulunca huysuzların canı daha yavaş artar; yükseltmeler dövüşü daha belirgin kısaltır.
+- Bölüm sonu huysuzları **Normal** zorlukta daha kısa karşılaşmalar, **Zor** seçeneğinde daha dayanıklı mücadeleler sunar.
+  İki zorlukta da giriş seviyesi temel alınır; zorluk değişince kalan canın yüzdesi korunur.
+- Her bölüm, girildiği andaki Feza seviyesine göre hazırlanır. İster ilk bölüm ister kale seçilsin, karşılaşmalar o seviyeye uygun olur.
+  Bölümün içinde seviye atlamak veya daha güçlü eşya takmak huysuzları yeniden büyütmez; bulunan güçlenmeler gerçekten işe yarar.
+  Tecrübe, altın ve hazineler de giriş seviyesine göre ayarlanır. Normal daha yumuşak, Zor daha mücadeleli kalır.
 - Büyücü Feza'nın normal değnek atışı biraz daha hızlıdır.
 - Bossun kendi küçük oyununu başarıp onu sersemletince, sersemleme boyunca saldırıların **%25 daha fazla hasar** verir.
   Ejderhaya gönderilen dostluk kalbinin sabit hasarı ve şövalyenin sancakları bu artışa dahil değildir.
-- Bu ayarlar Normal zorluğa özeldir; Zor seçeneği daha sert dövüş dengesini korur.
+- Seviyeye uyum iki zorlukta da geçerlidir. Normal daha kısa ve yumuşak karşılaşmalar, Zor daha sert dövüşler sunar.
 
 ## Bölgeler
 
+Sekiz bölümün tümü Hayal Haritası'ndan baştan seçilebilir; aşağıdaki sıra yalnızca önerilen yolculuktur.
 Bütün bölümler ilk iki bölümün kısa temposundadır: 6 ana alan ve en fazla 2 yan alan. Kale koridorları da daha doğrudan ilerler; her bölümün özel huysuzları, hazineleri ve son bossu korunur.
 
 Her bölgenin sonunda bir **bölüm sonu huysuzu** bekler; o neşelenince sihirli kapı açılır ve Feza ona özgü sabit bir hazine kazanır. İlk iki bölüm Köpük Usta ve Ay Tavşanı'nın özel silahlarını verir. Ardından önceki altı bölümün bütün ödülleri korunur. Her karakterin her huysuzdan alacağı özel ödül farklıdır (toplam 24); Huysuz Şövalye büyücüye Şövalyenin Arma Pelerini'ni, büyülü şövalyeye Şövalyenin Turnuva Kılıcı'nı verir. Normal ganimetler savaşçıda kılıç, büyücüde değnek, büyülü şövalyede her ikisi olabilir. Hibrit karakterde kılıç ve değnek çantadan ayrı ayrı kuşanılır; biri diğerini çıkarmaz.
@@ -95,7 +99,7 @@ Her bölgenin sonunda bir **bölüm sonu huysuzu** bekler; o neşelenince sihirl
    yeniden güler yüzlü şehirliler olur. Sonunda turnuva meydanında **Huysuz Şövalye** ve kocaman atı: yolunu gösterip dörtnala
    koşar, atı şaha kalkıp yere basar, mızrağını savurur, at nalı fırlatır ve nöbetçi çağırır.
 8. **Ejderhanın Kalesi:** şehrin bayrakları gökkuşağına dönüşüp dost ejderhanın kalesine uzanır. Oyuncak askerler, ateşçikler, hayaletler
-   ve en sonda **Huysuz Ejderha**. Ejderha neşelenince neşe kristalini paylaşır; arkadaşların kahkahaları yıldızlara dönüşür ve Hayal Haritası açılır.
+   ve en sonda **Huysuz Ejderha**. Ejderha neşelenince neşe kristalini paylaşır; arkadaşların kahkahaları yıldızlara dönüşür ve macera neşeli bir kutlamayla tamamlanır.
 
 Boss savaşlarında küçük sürprizler de var: Kral Jöle küçük parçalara ayrılır, Kefir Devi köpük dansı yaptırır,
 Usta Köstebek sıralı toprak dalgaları gönderir, Lav Kaplumbağası yeşil geçit bırakan bir lav dalgası çıkarır,
@@ -139,8 +143,9 @@ yapılmazsa hiçbir şey kaybedilmez. Gidilecek yeri altın (ejderhada pembe) pa
 
 Mola menüsünde **Devam Et**, **Zorluk**, **Kaydet** ve **Baştan Başla** bulunur. Müzik düğmesi açılış ekranındadır.
 
-- **Hasar çarpanı:** Normal zorlukta bütün huysuz ve boss saldırıları eski Normal değerlere göre **%160** (2,6 katı), Zor zorlukta eski Zor değerlere göre **%350** (4,5 katı) daha güçlüdür. Yakın vuruşlar, uzaktan atışlar ve bossların alan/özel saldırıları buna dahildir.
-  Artış zırh ve Bulut Örtüsü azaltmasından önce, tek kez uygulanır; küçük hasarlarda tam sayıya yuvarlama vardır. Düşman canı, hız, saldırı sıklığı ve ödüller korunmuştur.
+- **Seviyeye uygun karşılaşmalar:** Huysuzların ve bölüm sonu arkadaşlarının canı, vuruşları ve ödülleri seçilen bölüme girerken ayarlanır.
+  Normal ve Zor kendi farklarını korur; tek bir ağır vuruşun aşırı can götürmesine sınır konur. Şapka canı artırır; pelerinin zırhı ve Bulut Örtüsü darbeyi hafifletir.
+  Huysuzların hareketleri ve önceden görünen saldırı işaretleri korunur. Eşya değiştirmek bölümün zorluğunu yeniden hesaplamaz.
 - **Mola → Zorluk** içinde **Normal** veya **Zor** seçilir. Seçim hemen uygulanır; devam edince yeni ayarla oynarsın.
   Bölüm, karakter, eşyalar ve ilerleme korunur. Mevcut düşmanların kalan can yüzdesi değişmez; dövüş yeniden başlamaz.
 - Seçili zorluk hem Mola düğmesinde hem oyun ekranındaki küçük **Normal / Zor** işaretinde görünür.

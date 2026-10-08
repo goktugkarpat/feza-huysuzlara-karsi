@@ -247,7 +247,7 @@ const UI = (() => {
 
   // ── State ──
   const S = {
-    booted: false, ready: false, mode: 'boot', choiceFrom: 'title', menu: null, paused: false, busy: false, hud: false,
+    booted: false, ready: false, mode: 'boot', choiceFrom: 'title', dreamChoiceIndex: null, menu: null, paused: false, busy: false, hud: false,
     t: 0, frame: 0, primary: null, primaryT: 0, atkHeld: false, atkNext: 0, needRender: true, portraitDirty: true, portraitAt: 0,
     boss: false, bossFrac: 1, bossTrail: 1, dpr: 1, playPitch: 0.96, guardUntil: 0, lastGoldBump: 0,
     prefs: { music: true, sound: true }, portraitUrl: null, lastFrame: 0, hold: false, hintT: -1, hintOn: false, cheered: 0,   // hold: tests keep messages on screen
@@ -561,13 +561,19 @@ const UI = (() => {
       const b = el('button', 'u-herocard ' + id, row, heroArt(id) +
         `<strong>${names[i]}</strong><span class="u-herodesc">${hints[i]}</span><span class="u-herogo">${SVG.play} Seç ve Oyna</span>`);
       b.dataset.heroClass = id;
-      onPress(b, () => startGame(false, id), { menu: true });
+      onPress(b, () => chooseHero(id), { menu: true });
       return b;
     });
     D.choiceBack = el('button', 'u-btn p u-choiceback', p, SVG.close + '<span>Geri</span>');
     onPress(D.choiceBack, () => closeChoice(), { menu: true });
   }
+  function chooseHero(id) {
+    if (S.choiceFrom === 'dream' && Number.isInteger(S.dreamChoiceIndex)) {
+      travelTo(S.dreamChoiceIndex, { heroClass: id, difficulty: 'normal' });
+    } else startGame(false, id);
+  }
   function openChoice(from) {
+    if (from !== 'dream') S.dreamChoiceIndex = null;
     S.choiceFrom = from; S.atkHeld = false;
     if (S.clearKeys) S.clearKeys();
     aud('stopVoice'); setPaused(true); setMode('choose'); showScreen(D.choice, true);
@@ -578,6 +584,14 @@ const UI = (() => {
     if (S.mode !== 'choose' || S.busy) return;
     aud('stopVoice');
     showScreen(D.choice, false);
+    if (S.choiceFrom === 'dream') {
+      const index = S.dreamChoiceIndex, back = S.dreamReturn || {};
+      S.dreamChoiceIndex = null; S.choiceFrom = back.choiceFrom || 'title';
+      setMode(back.mode || 'title'); S.menu = 'dream'; setPaused(true);
+      showScreen(D.dreamScreen, true);
+      (D.dreamPlaces[index] || D.dreamClose).focus({ preventScroll: true });
+      return;
+    }
     if (S.choiceFrom === 'pause') {
       setMode('play'); S.menu = 'pause'; D.pausePanel.classList.remove('asking'); closeDifficulty(); showScreen(D.pause, true);
     } else { setPaused(false); showTitle(); D.playBtn.focus({ preventScroll: true }); }
@@ -726,7 +740,7 @@ const UI = (() => {
     D.winChips = el('div', 'u-chips', p);
     D.again = el('button', 'u-btn g wide', p, SVG.play + '<span>Tekrar Oyna</span>');
     D.winMap = el('button', 'u-btn b wide u-hide', p, '<span>🗺️ İstediğin Yere Git</span>');
-    D.winMapHint = el('div', 'u-dream-unlock u-hide', p, 'Hayal haritan açıldı! Bir adaya dokun, yeniden keşfet.');
+    D.winMapHint = el('div', 'u-dream-unlock u-hide', p, 'Bir adaya dokun. Hayalin seni oraya götürsün!');
   }
 
   // The dream atlas is made from local SVG artwork: it also works offline and from file://.
@@ -801,8 +815,9 @@ const UI = (() => {
   }
   function openDreamMap() {
     if (!mapUnlocked() || S.busy || S.menu === 'dream') return;
+    if (S.mode === 'choose' && S.choiceFrom === 'dream') { closeChoice(); return; }
     if (S.mode === 'play' && !S.menu && !gameAllowsMenu()) return;
-    S.dreamReturn = { menu: S.menu, paused: S.paused, focus: document.activeElement };
+    S.dreamReturn = { menu: S.menu, paused: S.paused, focus: document.activeElement, mode: S.mode, choiceFrom: S.choiceFrom };
     if (S.menu) showScreen(S.menu === 'bag' ? D.bagS : S.menu === 'merchant' ? D.shop : D.pause, false);
     S.menu = 'dream'; setPaused(true);
     const current = M.GAME && M.GAME.P && M.GAME.P.zone;
@@ -812,22 +827,32 @@ const UI = (() => {
   function closeDreamMap() {
     if (S.menu !== 'dream') return;
     showScreen(D.dreamScreen, false);
-    const back = S.dreamReturn || {}; S.menu = back.menu || null; setPaused(!!back.paused);
+    const back = S.dreamReturn || {}; S.dreamChoiceIndex = null;
+    if (back.mode && S.mode !== back.mode) setMode(back.mode);
+    if (back.mode === 'choose') { S.choiceFrom = back.choiceFrom || 'title'; showScreen(D.choice, true); }
+    S.menu = back.menu || null; setPaused(!!back.paused);
     if (S.menu) showScreen(S.menu === 'bag' ? D.bagS : S.menu === 'merchant' ? D.shop : D.pause, true);
     if (back.focus && back.focus.focus) back.focus.focus({ preventScroll: true });
     S.dreamReturn = null;
   }
-  async function travelTo(index) {
+  async function travelTo(index, options) {
     const g = M.GAME;
     if (!g || !g.travelTo || !mapUnlocked() || S.busy) return;
+    // A fresh atlas trip uses the same readable hero cards as Oyna, and keeps the chosen island.
+    if (!options && g.state === 'title' && !(g.hasSave && safe('hasSave', () => g.hasSave()))) {
+      S.dreamChoiceIndex = index; S.menu = null;
+      showScreen(D.dreamScreen, false); openChoice('dream');
+      return;
+    }
     S.busy = true;
     try {
       await fade(1, 0.4, 'load');
       aud('stopVoice'); ensureTex(index);
       clearBanners(); clearCards(); hideBoss(); S.cine = null;
-      const ok = await g.travelTo(index);
+      const ok = await g.travelTo(index, options);
       if (ok === false) { fade(0, 0.4, null); return; }
-      showScreen(D.dreamScreen, false); showScreen(D.win, false); showScreen(D.pause, false); showScreen(D.shop, false); showScreen(D.bagS, false);
+      showScreen(D.dreamScreen, false); showScreen(D.choice, false); showScreen(D.win, false); showScreen(D.pause, false); showScreen(D.shop, false); showScreen(D.bagS, false);
+      S.dreamChoiceIndex = null; S.choiceFrom = 'title';
       S.menu = null; S.dreamReturn = null; setPaused(false); setMode('play');
       D.conf.innerHTML = FEZA_LANG.html('');
       refreshAllSkills(); portraitSoon(0); renderNow(); await frames(2); fade(0, 0.6, null);
@@ -1014,7 +1039,7 @@ const UI = (() => {
           e.preventDefault(); choices[(at + (e.shiftKey ? choices.length - 1 : 1)) % choices.length].focus();
         } else if (!e.repeat && (c === 'Enter' || c === 'Space')) {
           e.preventDefault(); if (document.activeElement === D.choiceBack) closeChoice();
-          else startGame(false, document.activeElement.dataset.heroClass || 'warrior');
+          else chooseHero(document.activeElement.dataset.heroClass || 'warrior');
         }
         return;
       }

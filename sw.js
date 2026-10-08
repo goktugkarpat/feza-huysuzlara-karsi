@@ -1,6 +1,6 @@
 // İnternetsiz çalışma: ilk açılıştan sonra oyun (kod, 3D kütüphanesi, gömülü sesler) cihazda saklanır.
 // Dosya eklenirse CORE listesine ekle; önemli değişiklikte CACHE sürümünü artır.
-const CACHE = 'feza-huysuzlara-karsi-v58-bilingual';
+const CACHE = 'feza-huysuzlara-karsi-v59-open-map-levels';
 const SRC = ['00_i18n', '00_core', '01_textures', '02_audio', '03_fx', '04_feza', '04_bilbo', '04_bilbo_follow', '05_enemies', '06_level', '07_game', '08_skills', '09_ui'];
 const CORE = ['./', './index.html', './vendor/three.js', './sesler.js', './sesler-en.js', './bilbo-ses.js', './assets/audio/bilbo-hav-hav.mp3', './manifest.webmanifest', './manifest-en.webmanifest', './src/ui.css',
   ...SRC.map(n => './src/' + n + '.js')];

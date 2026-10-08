@@ -8,14 +8,28 @@
 - `sesler-en.js` embeds 114 trimmed English recordings and their exact English texts/durations. AUD caches decoding by language and line key; subtitle callbacks include `(text, key)` so boss icons work in either language. English labels and narration share ability and merchant names.
 - `manifest-en.webmanifest` supplies the English installation name; both manifests and both embedded voice banks are offline precached. The service worker deletes only this game's old caches.
 
+## Open Dream Map and entry-level balance (8 October 2026; overrides earlier map locks and gear/zone scaling)
+
+- Hayal Haritası is available on the first launch and from title, play, pause and ending screens. All eight decorated islands are selectable in any order. Completed-adventure/legacy map-unlock storage is not a travel prerequisite. M opens the same map.
+- Opening the map only pauses play. Selecting a validated zone preserves class, level, XP, inventory, worn gear and difficulty. Pending boss gifts and ground loot are collected before departure; a sleeping player can travel and wakes safely with full health. Travel is guarded during an existing transition.
+- Freeze `P.zoneLevel` at entry: integer level 1..99. Level reference damage is `D=14+3*(L-1)`; reference health is `H=100+12*(L-1)`, independent of armour, hats, capes, shields and merchant wards. Use these references for the entire visit, including boss first aggro and summoned enemies. Equipping, gaining levels, sleeping and switching Normal/Zor do not recapture them.
+- Normalize the old chapter HP/damage multipliers against their reference power before applying entry-level D/H. Keep creature/type/elite identity, boss moves, warning duration, animation, healing rules and separate Normal/Zor modifiers. Later chapters must be playable at level 1; earlier chapters must remain meaningful when selected at a higher level. Normal boss-length tuning remains `.57`.
+- Incoming damage still uses `DIFF.damageTaken.normal=2.6` / `hard=4.5` exactly once. Bound the result before armour/merchant ward/rounding to 30% of gear-independent entry H in Normal or 55% in Zor. The bound covers melee, hostile shots, mortars, area/special hits and summoned foes; raw enemy/projectile amounts retain the same difficulty-switch ratios. Gear provides protection instead of raising this envelope.
+- Enemy XP is `def.xp*1.1*(1+.10*(L-1))`, with elite ×3. Boss XP is `140*(1+.10*(L-1))*clamp(boss.per/100,.8,1.5)`. Gold is normalized to entry level with type/elite/boss distinctions. Base item tier is `clamp(1+floor((L-1)/2),1,50)`; the existing 35% +1 loot variation stays. Do not add an NG-only item-level offset. Boss treasure identity and class adaptation remain intact.
+- Manual saves include optional validated `zoneLevel` (integer 1..99 and no greater than saved player level); restore it only for the saved zone. Missing/invalid values fall back to the restored player level. Existing sv6/zid zone migration, selected map destination, class, inventory, XP and difficulty remain compatible. Map browsing/travel does not automatically write progression.
+- NG uses `max(entry D, validated frozen round damage)` once for enemy health, then separate round pressure. Incoming damage uses entry H and round pressure; never multiply by frozen round health a second time. Preserve/validate legacy `roundPower` fields without applying old chapter-growth offsets. Capture current round power when starting a repeat adventure, then keep it frozen through gear changes, travel and level-ups.
+- `sw.js` cache is `feza-huysuzlara-karsi-v59-open-map-levels`. Keep the complete Turkish/English voice banks, both manifests, Bilbo voice and all classic scripts. Network-first navigation and cache-first resources remain; delete only this game's current/legacy prefixes.
+
+Current validation (8 October 2026): targeted silent browser scenarios visited all eight zones at entry levels 1 and 12 (16 visits), including a fresh late-chapter hybrid start. Checks covered frozen enemy/boss scaling after gear/level changes and first aggro, summoned/split enemies, saved entry level and legacy NG, live Zor switching with hostile shots, sleeping-player travel, pending boss gifts and exact ground-coin collection (77 coins). No runtime errors or audio starts were observed. These are functional checks, not physical iPad/FPS measurements.
+
 ## Dream adventure update (latest; overrides older story and chapter counts)
 
 - All eight chapters happen inside Feza's happy storybook imagination. New order: tuvalet, ay, orman, kefir, magara, yanardag, sehir, kale. Save layout sv6 maps earlier numbered saves by their earlier order; zid remains authoritative.
 - Initial title uses the actual animated FEZA model seated on the physical toilet reading an open 3D book. LEVEL receives _title before build, supplies readingSpot; title scene is rebuilt as ordinary gameplay when a new game starts.
 - New boss IDs kopukusta / aytavsan, optional three-soap / three-star collection games, gentle warned hop and bubble fan, class-specific weapon rewards. Moon craters, Earth and harmless moving comets are scenery.
-- Normal boss HP × .57 in first and repeat adventures; Hard uses exactly the prior HP calculation. Current difficulty changes preserve remaining HP percentage.
+- Normal boss HP retains × .57 and Zor retains its separate endurance factor; both use the frozen entry-level reference in first and repeat adventures. Current difficulty changes preserve remaining HP percentage.
 - Bilbo follows, periodically pounces along a collision-safe path and retains the low-health bark. Always unlocked bone action (8 second cooldown) throws a visible bone to Bilbo, then up to five small treats to visible enemies. Impact callbacks reject stale levels, dead/hidden enemies and blocked sight lines.
-- Completed adventure unlocks persistent fezaHuysuz.hayalHaritasi.v1 map access. Progress still saves manually. Eight decorated SVG islands allow travel with current gear/level; title, pause, victory and HUD provide map buttons. M map, K bone, B bag.
+- All eight decorated SVG islands are open from the first launch, in any order; title, play, pause and victory provide map access with current gear/level. Old fezaHuysuz.hayalHaritasi.v1 unlock state is not required. Progress still saves manually. M map, K bone, B bag.
 - First two portal transitions show Feza/Bilbo boarding a bubble rocket / star-leaf shuttle, then a short flight. UI owns the portal cinematic and resumes exactly once.
 - All 112 narrator lines are embedded trimmed tr-TR-EmelNeural recordings. sw.js v50 precaches every runtime file; HTML network-first, other resources cache-first; unrelated game caches preserved.
 
@@ -45,17 +59,15 @@ bloom on glowing things, detailed characters with smooth geometry and expressive
   of grace; these periods do not count toward overload or recovery. The `.` meter includes the measured target.
 
 ## Normal-mode balance (latest; overrides earlier balance figures)
-- `DIFF.normal` in 07 owns this tuning; all four changes are gated by `!hard`.
-- Above the usual zone damage, creature HP scales with damage to the power `0.55` (Zor keeps `DIFF.power.k = 0.8`).
-  At/below the threshold, base HP and the existing per-type/elite multipliers stay the same.
-- Boss HP keeps the existing low/high clamps and hybrid dragon reference. Above the clamped usual zone damage,
-  only 75 % of extra power raises boss HP; weaker gear keeps the same assistance. The NG multiplier is applied once, as before.
+- `DIFF.normal` in 07 retains Normal boss length, wand timing and bonus damage; the frozen entry-level reference applies in both difficulties.
+- Creature and boss HP now use the frozen entry-level reference described above; live weapon/armour changes do not resize them.
+  Per-type/elite identity, Normal boss length and separate Zor modifiers stay intact. NG frozen round power is applied once, without old chapter-growth offsets.
 - Wizard basic wand swing: 0.50 s instead of 0.55 s; hit strength, skills and hybrid wand timing stay the same.
 - A successful boss bonus grants ×1.25 player damage only while its bonus state is `stun` AND its actual phase matches
   `stunPh`. Forced/scripted hits (including the dragon's 5 % heart), ordinary recoveries and the knight's banner stun
   are excluded. The bonus is derived from encounter state, so it ends with the stun or encounter cleanup.
-- Normal healing and damage taken are unchanged. Zor retains the former Hardcore combat tuning; save rules are shared (see below).
-- Validation: `r6_game_kid` with all 3 classes, bonus go/ignore, seed 11 (also seeded combat RNG), potion below 30 %,
+- Healing rules stay intact. Incoming damage uses the entry-level envelope above while keeping the existing Normal/Zor final factors. Save rules are shared (see below).
+- Historical validation before the entry-level update: `r6_game_kid` with all 3 classes, bonus go/ignore, seed 11 (also seeded combat RNG), potion below 30 %,
   no god mode: all 6 before + 6 after adventures reached the ending without runtime errors. Mean boss times in this
   sample: warrior 51.3 → 48.2 s, wizard 63.6 → 54.5 s, hybrid 54.7 → 54.8 s; loot/routes diverge after combat changes.
   446 focused bonus/save/flee/mode checks passed; 180 Hardcore stat cases + 36 spawned-enemy cases matched the old build.
@@ -253,8 +265,8 @@ subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci
   this menu; the title music toggle remains. Zorluk opens a subview with two `aria-pressed` choices and Geri. It stays paused
   after choosing; Escape first returns to Mola. A small HUD badge always names the current difficulty.
 - Switching never reloads a zone or resets the player, bag, loot, boss phases or progression. Each spawned enemy stores
-  `difficultyHp: [normal, hard]` from the same gear/level at spawn (bosses refresh once at first aggro). Preserve remaining
-  HP fraction, and scale damage/speed/cooldowns without re-evaluating current gear. Special adds retain their own factors.
+  `difficultyHp: [normal, hard]` from the same frozen entry-level reference at spawn, including boss first aggro. Preserve remaining
+  HP fraction, and scale damage/speed/cooldowns without re-evaluating current gear or level. Special adds retain their own factors.
   In-flight hostile shots and mortars change damage too. Existing warnings and timed bonus targets keep their duration;
   the next warning uses the new timing. Wizard swings preserve their animation fraction when duration changes.
 - `newGame({difficulty, heroClass, plus:false})` defaults to Normal. A fresh title/restart adventure always starts Normal;
@@ -266,9 +278,9 @@ subtitle icons: sehir 🏰, ilk_nobetci 🛡️, ilk_simitci 🥯, ilk_supurgeci
   deleted/rewritten; reading does not write the common slot. Explicit Kaydet writes the common slot. `clearSave()` marks
   `fezaKotulereKarsi.legacyHardcoreIgnored` so intentionally clearing a save cannot resurrect the old fallback.
 - Incoming damage (5 October 2026): DIFF.damageTaken is normal2.6 / hard4.5 relative to each mode's previous damage.
-  hurtPlayer applies it exactly once, before armour, merchant ward and the final rounding. This covers mob/boss melee,
-  projectiles, mortars, special/area attacks and summoned foes. Keep actor/projectile damage baselines and HC unchanged:
-  live difficulty switches, fatigue, NG scaling and saved games must not accumulate the new factor.
+  hurtPlayer applies it exactly once, bounds it to the entry-level envelope, then applies armour, merchant ward and final rounding.
+  This covers mob/boss melee, projectiles, mortars, special/area attacks and summoned foes. Preserve actor/projectile switch ratios:
+  live difficulty switches, fatigue, NG scaling and saved games must not accumulate the final factor.
 - Hard combat multipliers (HC table): mobHP1.35, bossHP1.25, mobdamage1.5, bossdamage1.45, speed1.12, attack cooldown0.78;
   ordinary mob windups0.85 with0.4s minimum. Boss idle gaps shrink; readable boss windups remain.
   Raid special damage has another1.55 multiplier (2.2475 before the final damageTaken multiplier). TBC warnings remain2s. No combat regen, calm regen halved;
@@ -842,11 +854,9 @@ Bilbo's fetch uses a jaw-attached mouth anchor: .85 s bone flight, .60 s catch h
 
 ## Repeat-adventure difficulty reference
 
-First adventure (`P.ng===0`) retains its existing Normal/Zor formulas. `newGame({plus:true})` captures `P.roundPower={ng,damage,magic,health}` after recalculating player stats and before spawning zone 0. Health is effective HP: maxHp/(1-armor/100), excluding transient shields/merchant ward.
-The reference is saved, validated and restored; old NG saves infer it once from current gear/level minus the current chapter's expected progression. Fresh starts clear it. Gear, level-ups, zone transitions, death and difficulty toggles never recapture it.
-`DIFF.repeat` supplies zone health references 140/185/250/310/370/440. Expected damage grows by half the difference between each zone's usual damage and zone 0; health grows by .35 of its corresponding difference.
-NG mob HP uses max(1,expectedDamage/usualZoneDamage) times pressure; outgoing damage uses max(1,expectedHealth/usualZoneHealth) times pressure. Pressure is 1+.06*min(ng,5). These replace the old NG multipliers, not stack on top.
-NG boss HP is per*max(lo,expectedDamage)*pressure, without the first-run cap or live equipment scaling. The dragon retains its hybrid-wand correction. Summoned enemies/whelps use the same frozen reference.
+All visits use the frozen entry-level D/H reference above, including the first adventure. `newGame({plus:true})` captures `P.roundPower={ng,damage,magic,health}` from current stats before spawning the next round. The saved record remains validated and compatible, but old chapter-progress offsets are not subtracted or grown.
+NG enemy HP uses `max(entry D, frozen round damage)` once, followed by pressure `1+.06*min(ng,5)`. Outgoing enemy damage uses gear-independent entry H and pressure only; frozen round health is not another multiplier. Gear, level-ups, zone transitions, sleeping and difficulty toggles never recapture round power.
+Bosses and summoned enemies share this frozen visit reference; Normal boss-length and separate Zor modifiers stay intact. Missing legacy round references are inferred once from current restored stats. Fresh starts clear them.
 Cooldowns shorten 6% on NG1, then 1.5% per round up to 12%; telegraph duration is unchanged. Movement bonus caps at 12%. Normal/Zor multipliers remain separate and live-switchable.
 
 ## Compact chapters

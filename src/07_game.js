@@ -95,11 +95,11 @@ const GAME = (() => {
   // Arrays "per zone" are in ZONES order: orman, kefir (Round 4), magara, yanardag (Round 3), sehir (Round 5), kale — looked
   // up by zone id (see zslot).
   const DIFF = {
-    // Normal only: better gear keeps more of its advantage; the wizard casts a little faster and a won boss game
-    // rewards the following attacks. Zor keeps the original scaling, wand timing and bonus damage.
-    normal: { bossLength: .57, powerK: 0.55, bossPower: 0.75, wandSwing: 0.5, bonusHit: 1.25 },
+    // Both modes scale from the chapter's entry level. Normal has shorter boss fights,
+    // faster wand swings and a stronger reward for playing a boss's bonus game.
+    normal: { bossLength: .57, wandSwing: 0.5, bonusHit: 1.25 },
     // Repeat adventures use a saved start-of-round reference, never the currently equipped item.
-    repeat: { health: [105, 120, 140, 185, 250, 310, 370, 440], damageGrowth: 0.5, healthGrowth: 0.35, pressure: 0.06, maxPressureRounds: 5 },
+    repeat: { health: [105, 120, 140, 185, 250, 310, 370, 440], pressure: 0.06, maxPressureRounds: 5 },
     hp: 3.4,            // normal enemy hp (was 2.6; zone 0 jelly: ~6 sword hits at the start)
     // × per zone (Round 3: Feza now reaches the castle a zone stronger, so it went from 0.9 back to 1; Round 4: the kefir
     // valley is gentle, and Feza now reaches the cave ~2 levels stronger, so the later zones went up to feel as before)
@@ -112,24 +112,10 @@ const GAME = (() => {
     hpType: { golem: 0.7, salyangoz: 0.8, kaplumbaga: 0.85, peynir: 0.8, tellal: 0.75 },   // the big slow golem, the slow bubble snail, the shell turtle, the cheese wedge and the drummer are tanky enough already
     eliteHp: 3.4,       // elites: hp × this (on top of hp; was 3)
     eliteDmg: 1.5,      // elites: damage × this (their hp went up: their punch stays)
-    // A strong sword must not turn the creatures happy in one or two hits (lots of treasure, or the next adventure round):
-    // above the usual sword damage for the zone (× the round's hp factor), creature hp grows with Feza's damage^k.
-    // (Round 5: the town 50; the castle 54 → 58, Feza now comes through the town first)
-    power: { dmg: [12, 16, 20, 28, 36, 44, 50, 58], k: 0.8 },
-    bossHp: 11.5,       // dragon hp at most (a button-masher with a good sword needs about a minute; Round 4: 8 → 8.8, Feza comes stronger;
-                        //    Round 5: → 10, after the town he meets it at lvl 15 with dmg 73–77: capped at 14 080 hp the kid bots
-                        //    needed 53–70 s, at 16 000 58–86 s; Round 5 QA: the warrior masher, always at the cap, took 57–63 s
-                        //    in 6 runs (2 under 60) → 10.5 (16 800 hp); the hybrid is sized on its wand below the cap, see bossHpNow:
-                        //    21 masher runs: warrior 57–67 s (avg 63), wizard 76–79 (77), hybrid 75–86 (81; below the cap it
-                        //    is unaffected: 72–90 s in 12 runs, was 88–100))
-                        //    Round 6: → 11.5 (18 400 hp; the warrior now meets it with dmg 73–77, below the cap, see below)
-    bossHpPerDmg: 232, bossHpMin: 0.58, bossHybridK: 0.88,  // …sized to Feza's sword when the fight starts: 232 × P.dmg, at least 58 % of the max (2nd round: 175;
-                                         //    Round 3: Feza reaches the castle a zone stronger, the fight stays ~1 minute, 60–90 s)
-                                         //    Round 6 (target 60–85 s; the friendship hearts: 3 waves, each −5 % hp + a 4 s
-                                         //    'charmed'): at 220 the warrior masher took 57–64 s, the hybrid who ignores the
-                                         //    hearts 85–91 s → 232, and the hybrid sized on 0.88 × its wand (bossHybridK). 42
-                                         //    runs (test/r6_game_kid.html, seeds 11–77): ignore 59–83 s avg 74 (warrior 64,
-                                         //    wizard 81, hybrid 76), go 55–75 avg 66 (64 / 72 / 62); 0 naps (Round 5: 74 s, 2 in 12)
+    // Historical expected chapter power: normalize each creature to the selected entry level.
+    // This array is a reference, not a minimum level or a live equipped-weapon multiplier.
+    power: { dmg: [12, 16, 20, 28, 36, 44, 50, 58] },
+    bossHpPerDmg: 232, bossHybridK: 0.88,   // dragon fight length, using levelDamage (hybrid's wand reference)
     bossDmg: 0.9,       // dragon damage (the fight is long now: a careless kid should nap only once or twice)
     // Round 3: the bosses at the end of zones 0–2. hp = per × Feza's damage (clamped to lo..hi) × (1 + 0.5 × round), sized
     // when the fight starts; dmg = the base hit (× 1 + 0.3 × round). Targets for a button-masher: kral jöle ~30–45 s,
@@ -205,14 +191,24 @@ const GAME = (() => {
   // v3: only manual saves (Kaydet) from now on — the automatic v2 saves are ignored, so every device starts fresh once.
   // Older keys (.v1, .v2) stay untouched on the device as leftovers. Keep in sync with 09_ui.js.
   const SAVE_KEY = 'fezaKotulereKarsi.v3';
-  const MAP_KEY = 'fezaHuysuz.hayalHaritasi.v1';
-  let mapOpen = false;
-  try { mapOpen = localStorage.getItem(MAP_KEY) === 'acik'; } catch(e) {}
-  function mapUnlocked() { return mapOpen || P.ng > 0; }
-  function travelTo(index) {
-    const Z=zones(); if(!mapUnlocked() || !Z || !Number.isInteger(index) || index<0 || index>=Z.length || GAME.state==='transition' || P.dead)return false;
-    if(GAME.state==='title') { const saved=readSave(); if(saved)applySave(saved); else resetPlayer(); }
-    GAME.paused=false; aud('stopVoice'); C.keyX=C.keyZ=0; loadZone(index); return true;
+  // The picture map is available from the very first adventure, including a fresh title screen.
+  function mapUnlocked() { return true; }
+  function travelTo(index, o = {}) {
+    const Z = zones();
+    if (!Z || !Number.isInteger(index) || index < 0 || index >= Z.length || GAME.state === 'transition') return false;
+    if (GAME.state === 'title') {
+      const saved = readSave();
+      if (saved) applySave(saved);
+      else { newGame({ plus: false, zone: index, heroClass: o.heroClass, difficulty: o.difficulty }); return true; }
+    } else {
+      // A map jump must keep the reward even during the giant's farewell animation.
+      if (boss && boss.gift && !boss.gift.looted) giftLoot(boss);
+      pocketLoot(Infinity);
+    }
+    if (P.dead) { P.hp = P.maxHp; C.lastHurt = gt - 99; }
+    GAME.paused = false; aud('stopVoice'); C.keyX = C.keyZ = 0;
+    loadZone(index);
+    return true;
   }
   const LEGACY_HARDCORE_KEY = 'fezaKotulereKarsi.hardcore.v1';
   const LEGACY_IGNORED_KEY = 'fezaKotulereKarsi.legacyHardcoreIgnored';
@@ -383,7 +379,7 @@ const GAME = (() => {
   const xpFor = lvl => 40 + 25 * lvl + 5 * lvl * lvl;
   const P = {
     pos: new THREE.Vector3(), face: Math.PI, hp: T.baseHp, maxHp: T.baseHp, lvl: 1, xp: 0, xpNext: xpFor(1), gold: 0,
-    roundPower: null, shopStock: {}, shopWard: null, heroClass: 'warrior', potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, offhand: null, hat: null, cape: null }, bag: [],
+    zoneLevel: null, roundPower: null, shopStock: {}, shopWard: null, heroClass: 'warrior', potions: DIFF.potions, maxPotions: 5, dmg: 8, armor: 0, speed: T.speed, equip: { weapon: null, offhand: null, hat: null, cape: null }, bag: [],
     skills: [], spin: 0, shield: 0, dead: false, checkpoint: { x: 0, z: 0 }, zone: 0, ng: 0,
   };
   // Controller (input intent, swing, timers). Private.
@@ -706,7 +702,14 @@ const GAME = (() => {
     P.xpNext = xpFor(P.lvl);
   }
   const heroDamageNow = magic => Math.max(1, Math.round((magic ? P.magicDmg : P.meleeDmg) * frand(0.9, 1.12)));
-  const ilvlNow = () => zdef().ilvl + P.ng * 3 + (Math.random() < 0.35 ? 1 : 0);
+  const entryLevel = () => P.zoneLevel || clamp(Math.floor(P.lvl), 1, 99);
+  const itemTier = () => Math.min(50, 1 + Math.floor((entryLevel() - 1) / 2));
+  const ilvlNow = () => itemTier() + (Math.random() < 0.35 ? 1 : 0);
+  const rewardRate = () => 1 + 0.1 * (entryLevel() - 1);
+  const goldRate = () => 1 + 0.12 * (entryLevel() - 1);
+  function cleanZoneLevel(value, level = P.lvl) {
+    return Number.isInteger(value) && value >= 1 && value <= Math.min(99, level) ? value : null;
+  }
 
   function buildSkills() {
     const list = typeof SKILLS !== 'undefined' && Array.isArray(SKILLS) ? (SKILLS.forClass ? SKILLS.forClass(P.heroClass) : SKILLS) : [];
@@ -716,7 +719,7 @@ const GAME = (() => {
     P.skills = GAME.skills;
   }
   function resetPlayer() {
-    P.shopStock = {}; P.shopWard = null; P.roundPower = null;
+    P.shopStock = {}; P.shopWard = null; P.roundPower = null; P.zoneLevel = null;
     P.lvl = 1; P.xp = 0; P.gold = 0; P.potions = DIFF.potions; P.ng = 0; P.dead = false; P.spin = 0; P.shield = 0;
     const st = typeof ITEMS !== 'undefined' && ITEMS.starter ? ITEMS.starter(P.heroClass) : { weapon: null, hat: null, cape: null };
     P.equip = { weapon: st.weapon || null, offhand: st.offhand || null, hat: st.hat || null, cape: st.cape || null };
@@ -911,6 +914,7 @@ const GAME = (() => {
       if (!R.warmed) { R.warmed = true; fx('warm'); }   // compile lit FX materials once, with real scene lights
     }
     P.zone = i;
+    if (!title) P.zoneLevel = cleanZoneLevel(o.level) || clamp(Math.floor(P.lvl), 1, 99);
     if (!merchantWard()) P.shopWard = null;
     const st = (L && L.start) || { x: 0, z: 0 };
     P.checkpoint = { x: st.x, z: st.z };
@@ -985,8 +989,8 @@ const GAME = (() => {
       tmp.add(R.warmTag);
       if (typeof ITEMS !== 'undefined' && ITEMS.make && ITEMS.BASES) {
         for (const slot of ['weapon', 'hat', 'cape']) for (const b of ITEMS.BASES[slot] || []) {
-          if (!b.legendary && b.minLvl > Z.ilvl + 4) continue;
-          try { tmp.add(itemModel(ITEMS.make(slot, b.id, b.legendary ? 3 : 2, Z.ilvl || 1))); } catch (err) { warnOnce('warm item', err); }
+          if (!b.legendary && b.minLvl > itemTier() + 4) continue;
+          try { tmp.add(itemModel(ITEMS.make(slot, b.id, b.legendary ? 3 : 2, itemTier()))); } catch (err) { warnOnce('warm item', err); }
         }
       }
       const kinds = new Set(['star']);
@@ -1016,8 +1020,8 @@ const GAME = (() => {
     if (H && H.setEquip && typeof ITEMS !== 'undefined' && ITEMS.make && ITEMS.BASES) {
       const lists = {};
       for (const slot of ['weapon', 'hat', 'cape']) {
-        lists[slot] = (ITEMS.BASES[slot] || []).filter(b => (b.legendary || b.minLvl <= (Z.ilvl || 1) + 4) && !R.warmEq[slot + b.id])
-          .map(b => { R.warmEq[slot + b.id] = true; return ITEMS.make(slot, b.id, b.legendary ? 3 : 2, Z.ilvl || 1); });
+        lists[slot] = (ITEMS.BASES[slot] || []).filter(b => (b.legendary || b.minLvl <= itemTier() + 4) && !R.warmEq[slot + b.id])
+          .map(b => { R.warmEq[slot + b.id] = true; return ITEMS.make(slot, b.id, b.legendary ? 3 : 2, itemTier()); });
       }
       const n = Math.max(lists.weapon.length, lists.hat.length, lists.cape.length);
       for (let k = 0; k < n; k++) combos[k] = { weapon: lists.weapon[k] || P.equip.weapon, hat: lists.hat[k] || P.equip.hat, cape: lists.cape[k] || P.equip.cape };
@@ -1112,61 +1116,40 @@ const GAME = (() => {
     skillAt = gt + 1.2;   // a new skill's line held back from the last boss: right after this zone's name
   }
 
-  // Freeze offence and effective health once per repeat adventure. A later level, drop or polish remains a reward.
-  // Old repeat saves have no reference: infer one from their current chapter, then keep it in manual saves.
-  function captureRoundPower(zone = 0) {
-    const i = Math.max(0, ZORDER.indexOf(zdef(zone).id)), R = DIFF.repeat;
-    const growth = (DIFF.power.dmg[i] - DIFF.power.dmg[0]) * R.damageGrowth;
-    return { ng: P.ng, damage: Math.max(20, P.dmg - growth), magic: Math.max(20, P.magicDmg - growth),
-      health: Math.max(R.health[0], P.maxHp / (1 - P.armor / 100) - (R.health[i] - R.health[0]) * R.healthGrowth) };
+  // Scaling is captured by level on entering a chapter, never from live equipment or HP.
+  // Level-ups, better gear and the merchant's polish stay useful throughout that visit.
+  function captureRoundPower() {
+    return { ng: P.ng, damage: Math.max(20, P.dmg), magic: Math.max(20, P.magicDmg),
+      health: Math.max(T.baseHp, T.baseHp + 12 * (P.lvl - 1)) };
   }
   function cleanRoundPower(raw) {
     if (!P.ng || !raw || raw.ng !== P.ng) return null;
     const valid = k => typeof raw[k] === 'number' && Number.isFinite(raw[k]) && raw[k] > 0 && raw[k] <= 1e6;
     if (!['damage', 'magic', 'health'].every(valid)) return null;
-    return { ng: P.ng, damage: Math.max(20, raw.damage), magic: Math.max(20, raw.magic), health: Math.max(DIFF.repeat.health[0], raw.health) };
-  }
-  function roundDamage(magic = false) {
-    const r = P.roundPower;
-    return (magic ? r.magic : r.damage) + (zpick(DIFF.power.dmg) - DIFF.power.dmg[0]) * DIFF.repeat.damageGrowth;
+    return { ng: P.ng, damage: Math.max(20, raw.damage), magic: Math.max(20, raw.magic), health: Math.max(T.baseHp, raw.health) };
   }
   const roundPressure = () => 1 + DIFF.repeat.pressure * Math.min(P.ng, DIFF.repeat.maxPressureRounds);
   const roundCooldown = () => P.ng ? 1 - Math.min(0.12, 0.06 + 0.015 * (P.ng - 1)) : 1;
-  function roundThreat() {
-    const R = DIFF.repeat, usual = zpick(R.health);
-    const health = P.roundPower.health + (usual - R.health[0]) * R.healthGrowth;
-    return Math.max(1, health / usual) * roundPressure();
+  function levelDamage(magic = false) {
+    const damage = 14 + 3 * (entryLevel() - 1), r = P.roundPower;
+    return Math.max(damage, P.ng && r ? (magic ? r.magic : r.damage) : 0);
   }
+  const levelHealth = () => T.baseHp + 12 * (entryLevel() - 1);
 
   // ── Enemies ──
-  // Creature hp factor for a sword stronger than usual in this zone and round (see DIFF.power); 1 at or below it.
-  function powerHp(ngH, tough = hard) {
-    if (P.ng) return 1;   // repeat HP already uses the frozen round reference
-    const D = DIFF.power, usual = zpick(D.dmg) * ngH;
-    return P.dmg > usual ? Math.pow(P.dmg / usual, tough ? D.k : DIFF.normal.powerK) : 1;
-  }
-  // Boss tuning: DIFF.boss[type], or the dragon's numbers (its hp cap = EDEF hp × DIFF.bossHp, floor = bossHpMin of that).
+  // Boss identity and fight length: DIFF.boss[type], or the dragon's coefficients.
   function bossCfg(type) {
     const c = DIFF.boss[type];
     if (c) return c;
-    const d = edef(type), per = DIFF.bossHpPerDmg, hi = (d.hp || 1600) * DIFF.bossHp / per;
-    return { per, lo: hi * DIFF.bossHpMin, hi, dmg: (d.dmg || 16) * 1.4 * DIFF.bossDmg };
+    const d = edef(type), per = DIFF.bossHpPerDmg;
+    return { per, dmg: (d.dmg || 16) * 1.4 * DIFF.bossDmg };
   }
-  // (Round 5 QA: the hybrid fights the dragon with its wand — the volcano's and the knight's treasures are swords, so sized
-  // on P.dmg = its sword the dragon took it 88–100 s. The final boss — the one without DIFF.boss numbers — is sized on the
-  // hybrid's wand; the other bosses stay on P.dmg)
-  const bossHpNow = (type, tough = hard) => { const c = bossCfg(type), ref = P.heroClass === 'hybrid' && !DIFF.boss[type] ? P.magicDmg * DIFF.bossHybridK : P.dmg;
-    if (P.ng) {
-      const magic = P.heroClass === 'hybrid' && !DIFF.boss[type];
-      const power = Math.max(c.lo, roundDamage(magic) * (magic ? DIFF.bossHybridK : 1));
-      return Math.max(1, Math.round(c.per * power * roundPressure() * (tough ? HC.bossHp : DIFF.normal.bossLength)));
-    }
-    let power = clamp(ref, c.lo, c.hi);
-    if (!tough) {   // weak gear keeps its help; above the usual zone damage, an upgrade buys a shorter fight
-      const usual = clamp(zpick(DIFF.power.dmg), c.lo, c.hi);
-      if (power > usual) power = usual + (power - usual) * DIFF.normal.bossPower;
-    }
-    return Math.max(1, Math.round(c.per * power * (1 + 0.5 * P.ng) * (tough ? HC.bossHp : DIFF.normal.bossLength))); };
+  // Preserve each boss's fight and class identity, without a late-chapter minimum or gear rescaling.
+  const bossHpNow = (type, tough = hard) => {
+    const c = bossCfg(type), magic = P.heroClass === 'hybrid' && !DIFF.boss[type];
+    const power = levelDamage(magic) * (magic ? DIFF.bossHybridK : 1);
+    return Math.max(1, Math.round(c.per * power * roundPressure() * (tough ? HC.bossHp : DIFF.normal.bossLength)));
+  };
   // Variant of a creature: LEVEL's spawn.variant, else one of the zone's (ZONES[i].variants, e.g. lava jellies), else a random colour.
   function variantFor(type, sp) {
     if (sp && sp.variant) return sp.variant;
@@ -1178,8 +1161,8 @@ const GAME = (() => {
     const type = sp.type, def = sp.whelp ? { ...edef('yarasa'), ad: 'Minik Ejderha', kind: 'melee', fly: true, hover: 0.32, r: 0.42, height: 0.95 } : edef(type), Z = zdef();
     const isBoss = def.kind === 'boss' || sp.pack === 'boss';
     const elite = !!sp.elite && !isBoss;
-    const ngH = P.ng ? Math.max(1, roundDamage() / zpick(DIFF.power.dmg)) * roundPressure() : 1;
-    const ngD = P.ng ? roundThreat() : 1;
+    const hpScale = levelDamage() / zpick(DIFF.power.dmg) * roundPressure();
+    const damageScale = levelHealth() / zpick(DIFF.repeat.health) * roundPressure();
     const variant = variantFor(type, sp);
     let m = null;
     if (sp.whelp && typeof EMODEL !== 'undefined' && EMODEL.babyDragon) {
@@ -1189,20 +1172,19 @@ const GAME = (() => {
     if (!m || !m.root) m = fallbackEnemy(type, elite);
     scene.add(m.root);
     const sc = elite ? 1.4 : 1;
-    // Keep both HP values from this spawn's gear/level. Changing difficulty later must not rescale old enemies to
-    // a newly equipped weapon. Bosses refresh this pair once, when their fight first begins.
+    // Both difficulties use the same entry level, including sleepers and summoned helpers.
     const hpFor = tough => Math.round(isBoss ? bossHpNow(type, tough)
-      : def.hp * (Z.hpMult || 1) * ngH * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * powerHp(ngH, tough) * (tough ? HC.hp : 1));
+      : def.hp * (Z.hpMult || 1) * hpScale * DIFF.hp * zpick(DIFF.zoneHp) * (DIFF.hpType[type] || 1) * (elite ? DIFF.eliteHp : 1) * (tough ? HC.hp : 1));
     const difficultyHp = [hpFor(false), hpFor(true)], hp = difficultyHp[hard ? 1 : 0];
     const difficultyWind = [Math.max(T.windMin, def.windup || 0.6), Math.max(0.4, (def.windup || 0.6) * HC.wind)];
     const e = {
       type, def, m, variant, difficultyHp, difficultyWind, x: sp.x, z: sp.z, y: 0, face: sp.face !== undefined ? sp.face : frand(0, TAU), hp, maxHp: hp, elite, boss: isBoss,
       name: isBoss ? (def.ad || 'Huysuz Ejderha') : elite ? (def.eliteAd || ELITE_AD[type] || 'Kocaman ' + String(def.ad || type).replace(/^(Huysuz|Haylaz) /, '')) : (def.ad || type),
       r: m.radius || (def.r || 0.5) * sc, height: m.height || (def.height || 1) * sc,
-      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * ngD * (elite ? DIFF.eliteDmg : 1) * (hard ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
+      dmg: (isBoss ? bossCfg(type).dmg : def.dmg * (Z.dmgMult || 1) * zpick(DIFF.zoneDmg) * DIFF.dmg) * damageScale * (elite ? DIFF.eliteDmg : 1) * (hard ? (isBoss ? HC.bossDmg : HC.dmg) : 1),
       speed: Math.min(def.speed || 2.5, T.enemyMaxSpeed) * (elite ? 0.92 : 1) * (1 + Math.min(0.12, 0.03 * P.ng)) * (hard ? HC.speed : 1),
-      xp: (def.xp || 10) * (isBoss ? 1 : (Z.xpMult || 1) * DIFF.xp) * (1 + 0.5 * P.ng) * (elite ? 3 : 1),
-      gold: (def.gold || 3) * (Z.gold || 1) * (elite ? 3 : 1),
+      xp: (isBoss ? 140 * clamp(bossCfg(type).per / 100, 0.8, 1.5) : (def.xp || 10) * DIFF.xp) * rewardRate() * (elite ? 3 : 1),
+      gold: (isBoss ? 40 * clamp(bossCfg(type).per / 100, 0.8, 1.5) : (def.gold || 3)) * goldRate() * (elite ? 3 : 1),
       kind: isBoss ? 'boss' : HEAVY[type] ? 'slam' : (def.kind || 'melee'), fly: !!def.fly, hover: def.hover !== undefined ? def.hover : 0.8,
       atkRange: def.atkRange || 1, atkCd: (def.atkCd || 1.7) * DIFF.atkCd * roundCooldown() * (hard ? HC.cd : 1), windup: difficultyWind[hard ? 1 : 0], aggroR: def.aggro || 9,
       homeX: sp.x, homeZ: sp.z, pack: sp.pack, room: sp.room, sp,
@@ -1230,8 +1212,8 @@ const GAME = (() => {
       e.st.aggro = false; e.st.crownOff = 0;   // (Round 6: 05's pre-aggro idle loop needs a real false)
     }
     if (sp.whelp) {
-      const power = P.ng ? roundDamage() : P.dmg;
-      e.whelp = true; setEnemyHp(e, Math.max(12, Math.round(power * 2.1)), Math.max(12, Math.round(power * 2.1 * HC.hp))); e.dmg = 3 * ngD * (hard ? HC.dmg : 1);
+      const power = levelDamage() * roundPressure();
+      e.whelp = true; setEnemyHp(e, Math.max(12, Math.round(power * 2.1)), Math.max(12, Math.round(power * 2.1 * HC.hp))); e.dmg = 3 * levelHealth() / T.baseHp * roundPressure() * (hard ? HC.dmg : 1);
       e.speed = 2.1 * (hard ? HC.speed : 1); e.atkRange = 0.9; e.atkCd = 2.4 * roundCooldown() * (hard ? HC.cd : 1); e.difficultyWind = [0.8, 0.8 * HC.wind]; e.windup = e.difficultyWind[hard ? 1 : 0]; e.xp = 0; e.gold = 0;
     }
     place(e);
@@ -1937,7 +1919,7 @@ const GAME = (() => {
     if (b.aggro || b.dead) return;
     b.aggro = true; startEncounter(b); remove(b.tele); b.tele = null;
     bossPhase(b, 'roar', 1.6);
-    if (!b.sized) {   // a weak sword must not mean a 2-minute fight: the boss's hp follows Feza's damage (once, when it starts)
+    if (!b.sized) {   // use the same captured entry level when the fight starts
       b.sized = true;
       setEnemyHp(b, bossHpNow(b.type, false), bossHpNow(b.type, true));
     }
@@ -2349,7 +2331,7 @@ const GAME = (() => {
       if (m.kind === 'split') {
         if (enemies.filter(e => !e.dead && e.pack === 'bossadds').length < 6) {
           const e = makeEnemy({ type: 'jole', x: d.x, z: d.z, pack: 'bossadds' }); e.arenaChild = b;
-          setEnemyHp(e, Math.max(10, Math.round(P.dmg * 1.7)), Math.max(10, Math.round(P.dmg * 1.7 * HC.hp))); e.dmg *= 0.45; e.xp = 0; e.gold = 0; e.m.root.scale.multiplyScalar(0.7); e.r *= 0.7; e.height *= 0.7; setAggro(e, false);
+          setEnemyHp(e, Math.max(10, Math.round(levelDamage() * roundPressure() * 1.7)), Math.max(10, Math.round(levelDamage() * roundPressure() * 1.7 * HC.hp))); e.dmg *= 0.45; e.xp = 0; e.gold = 0; e.m.root.scale.multiplyScalar(0.7); e.r *= 0.7; e.height *= 0.7; setAggro(e, false);
         }
       } else {
         burst(m.kind === 'shatter' ? 'sparkle' : m.kind === 'dance' ? 'milk' : 'dirt', d.x, 0.1, d.z, { count: 14, scale: 1.4 });
@@ -4519,7 +4501,9 @@ const GAME = (() => {
     if (P.dead || GAME.state !== 'play' || C.invuln > 0) return false;
     if (merchantNear()) return false;
     if (P.shield > 0) { burst('sparkle', P.pos.x, 1, P.pos.z, { color: '#ff8fd8', count: 10 }); sfx('shield', { vol: 0.5 }); return false; }
-    const a = Math.max(1, Math.round(amount * DIFF.damageTaken[hard ? 'hard' : 'normal'] * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
+    // A late-area heavy hit cannot defeat a healthy level-1 child in one blow. Armour still reduces it afterwards.
+    const incoming = Math.min(amount * DIFF.damageTaken[hard ? 'hard' : 'normal'], levelHealth() * (hard ? 0.55 : 0.30));
+    const a = Math.max(1, Math.round(incoming * (1 - P.armor / 100) * (merchantWard() ? 0.92 : 1)));
     P.hp -= a; C.lastHurt = gt; C.hurtT = 1; C.invuln = T.iframes;
     fx('flash', '#ff2a4a', 0.45, 0.4); shake(0.16);
     sfx('hurt', { pitch: frand(0.95, 1.1) });
@@ -5168,7 +5152,7 @@ const GAME = (() => {
     C.cheerT = Math.max(C.cheerT, 0.6);
     later(0.45, () => {
       const Z = zdef(), big = !!c.big;
-      spawnCoins(c.x, c.z, Math.round((big ? 34 : 16) * (Z.gold || 1) * frand(0.85, 1.2)), big ? 14 : 8);
+      spawnCoins(c.x, c.z, Math.round((big ? 34 : 16) * goldRate() * frand(0.85, 1.2)), big ? 14 : 8);
       if (big || Math.random() < DROP.chest) dropItem(big ? 1.4 : 0.6, c.x, c.z);
       if (big || Math.random() < 0.5) spawnLoot('potion', c.x, c.z);
       if (Math.random() < 0.4 * DIFF.heartDrop) spawnLoot('heart', c.x, c.z);
@@ -5183,7 +5167,7 @@ const GAME = (() => {
     b.broken = true;
     sfx('break', { x: b.x, z: b.z, pitch: frand(0.9, 1.15) });
     const Z = zdef();
-    if (Math.random() < 0.5) spawnCoins(b.x, b.z, Math.round(frand(2, 6) * (Z.gold || 1)), 3);
+    if (Math.random() < 0.5) spawnCoins(b.x, b.z, Math.round(frand(2, 6) * goldRate()), 3);
     if (Math.random() < 0.1 * DIFF.heartDrop) spawnLoot('heart', b.x, b.z);
     else if (Math.random() < 0.03 && P.potions < P.maxPotions) spawnLoot('potion', b.x, b.z);
   }
@@ -5366,13 +5350,13 @@ const GAME = (() => {
   function dropItem(bias, x, z, tries) {
     const it = rollItem(bias, tries);
     if (it) return spawnItem(it, x, z);
-    spawnCoins(x, z, Math.round(5 * (zdef().gold || 1) * frand(0.8, 1.25)), 3);
+    spawnCoins(x, z, Math.round(5 * goldRate() * frand(0.8, 1.25)), 3);
     return null;
   }
   // Boss treasures have a fixed identity; ordinary monsters and chests still roll random loot.
   function bossItem(e) {   // (an ITEMS without this boss's treasure yet: a shiny random one, as before the class treasures)
     let it = null;
-    if (typeof ITEMS !== 'undefined' && ITEMS.bossReward) { try { it = ITEMS.bossReward(e.type, P.heroClass, zdef().ilvl + P.ng * 3); } catch (err) { warnOnce('ITEMS.bossReward', err); } }
+    if (typeof ITEMS !== 'undefined' && ITEMS.bossReward) { try { it = ITEMS.bossReward(e.type, P.heroClass, itemTier()); } catch (err) { warnOnce('ITEMS.bossReward', err); } }
     return it || rollItem(2, DROP.tries * 3);
   }
   function dropLoot(e) {
@@ -5396,7 +5380,7 @@ const GAME = (() => {
     n = clamp(n || Math.round(gold / 3), 1, Math.min(gold, 40));
     let left = gold;
     for (let i = 0; i < n; i++) {
-      const v = i === n - 1 ? left : Math.max(1, Math.round(gold / n));
+      const v = i === n - 1 ? left : Math.min(left, Math.max(1, Math.round(gold / n)));
       left -= v;
       if (coins.length >= COIN_MAX) { collectCoin(0); }
       const a = frand(0, TAU), s = frand(1.2, 3.0) * spread;
@@ -5979,7 +5963,6 @@ const GAME = (() => {
   }
   function victory() {
     if (GAME.state === 'end') return;
-    mapOpen = true; try {localStorage.setItem(MAP_KEY,'acik');}catch(e){}
     GAME.state = 'end'; C.cheerT = 1e9;
     C.targetE = null; C.targetObj = null; C.hasT = false; C.drag = false; C.swing = null; C.vel = 0;
     if (crystal) faceTo(crystal.x, crystal.z);
@@ -6195,6 +6178,7 @@ const GAME = (() => {
     }
     return {
       v: 1, sv: SAVE_V, t: Date.now(), difficulty: hard ? 'hard' : 'normal', heroClass: P.heroClass, zone, zid: zdef(zone).id, lvl: P.lvl, xp: P.xp, gold, potions: P.potions, ng: P.ng,
+      zoneLevel: zone === P.zone ? cleanZoneLevel(P.zoneLevel) : null,
       bag, roundPower: cleanRoundPower(P.roundPower), shopStock: cleanShop(P), shopWard: P.shopWard && P.shopWard.zone === zdef(zone).id ? Object.assign({}, P.shopWard) : null,
       equip: { weapon: P.bag.indexOf(P.equip.weapon), offhand: P.bag.indexOf(P.equip.offhand), hat: P.bag.indexOf(P.equip.hat), cape: P.bag.indexOf(P.equip.cape) },
       skills: GAME.skills.map(s => !!s.unlocked),
@@ -6326,15 +6310,16 @@ const GAME = (() => {
     for (const t in FIRST_LINE) F[FIRST_LINE[t]] = !!fl[FIRST_LINE[t]];
     P.dead = false; P.spin = 0; P.shield = 0;
     recalcStats(); P.hp = P.maxHp;
-    P.roundPower = P.ng ? cleanRoundPower(s.roundPower) || captureRoundPower(s.zone) : null;
+    P.roundPower = P.ng ? cleanRoundPower(s.roundPower) || captureRoundPower() : null;
+    P.zoneLevel = cleanZoneLevel(s.zoneLevel);
     if (H) H.setEquip(P.equip);
     checkUnlocks(false);
   }
 
   // ── Game flow ──
   function useTitleLevel() { return L && L._title && P.zone === 0 && L.theme !== 'bathroom'; }
-  function startHere() {   // turn the idle title level into the playable zone 0
-    P.zone = 0;
+  function startHere(level) {   // turn the idle title level into the playable zone 0
+    P.zone = 0; P.zoneLevel = cleanZoneLevel(level) || clamp(Math.floor(P.lvl), 1, 99);
     const st = L.start || { x: 0, z: 0 };
     P.checkpoint = { x: st.x, z: st.z };
     placeHero(st.x, st.z, 0);
@@ -6355,7 +6340,9 @@ const GAME = (() => {
       recalcStats(); P.hp = P.maxHp; P.roundPower = captureRoundPower();
     } else { P.heroClass = heroClassOf(o.heroClass); buildSkills(); resetPlayer(); }
     C.playT = 0; C.lastHurt = gt - 99;
-    if (!plus && useTitleLevel()) startHere(); else loadZone(0);
+    const zone = plus ? 0 : clamp(Number.isInteger(o.zone) ? o.zone : 0, 0, zones().length - 1);
+    GAME.paused = false;
+    if (!plus && zone === 0 && useTitleLevel()) startHere(); else loadZone(zone);
     yolWant = false;
     if (plus) say('tekrar', 3);
     else {
@@ -6378,7 +6365,7 @@ const GAME = (() => {
       GAME.clearSave(); newGame({ plus: false }); return;
     }
     C.playT = 0; C.lastHurt = gt - 99; yolWant = false;
-    if (s.zone === 0 && useTitleLevel()) startHere(); else loadZone(s.zone || 0);
+    if (s.zone === 0 && useTitleLevel()) startHere(s.zoneLevel); else loadZone(s.zone || 0, { level: s.zoneLevel });
     say(s.plus ? 'tekrar' : 'hos_geldin', 3);
   }
 
@@ -6631,7 +6618,6 @@ const GAME = (() => {
     buildSkills();
     resetPlayer();
     const s = readSave();   // title screen: wear the saved outfit
-    if(s && s.ng > 0) { mapOpen=true; try{localStorage.setItem(MAP_KEY,'acik');}catch(e){} }
     if (s && s.bag) {
       const eq = s.equip || {}, bag = s.bag;
       const wear = { weapon: bag[eq.weapon] || P.equip.weapon, offhand: s.heroClass === 'hybrid' ? bag[eq.offhand] || null : null, hat: bag[eq.hat] || null, cape: bag[eq.cape] || null };
